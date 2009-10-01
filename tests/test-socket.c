@@ -145,6 +145,8 @@ test_connection (GSourceFunc test_func)
   g_main_loop_run (main_loop);
 
   g_main_loop_unref (main_loop);
+  g_object_unref (socket1);
+  g_object_unref (socket2);
 
   return FALSE;
 }

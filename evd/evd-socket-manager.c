@@ -207,7 +207,8 @@ static void
 evd_socket_manager_start (EvdSocketManager  *self,
 			  GError           **error)
 {
-  g_thread_init (NULL);
+  if (! g_thread_get_initialized ())
+    g_thread_init (NULL);
 
   self->priv->started = TRUE;
 
@@ -228,7 +229,7 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
   GHashTable *contexts;
   GHashTableIter iter;
   GMainContext *context;
-  GList *list;
+  GQueue *queue;
 
   nfds = epoll_wait (self->priv->epoll_fd, events, DEFAULT_MAX_SOCKETS, 0);
   if (nfds == -1)
@@ -236,6 +237,11 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       /* TODO: Handle error */
       g_error ("ERROR: epoll_pwait");
     }
+
+  /*
+  if (nfds > 0)
+    g_debug ("events read: %d", nfds);
+  */
 
   /* group event by context */
   contexts = g_hash_table_new (g_direct_hash, g_direct_equal);
@@ -264,29 +270,29 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
 	context = g_main_context_default ();
 
       /* get the list of events for this context */
-      list = g_hash_table_lookup (contexts, context);
-      if (list == NULL)
+      queue = g_hash_table_lookup (contexts, context);
+      if (queue == NULL)
 	{
-	  list = g_list_prepend (list, (gpointer) msg);
-
+	  queue = g_queue_new ();
 	  g_hash_table_insert (contexts,
 			       (gpointer) context,
-			       (gpointer) list);
+			       (gpointer) queue);
 	}
+      g_queue_push_tail (queue, (gpointer) msg);
     }
 
   /* dispatch the lot of events to each context */
   g_hash_table_iter_init (&iter, contexts);
   while (g_hash_table_iter_next (&iter,
 				 (gpointer *) &context,
-				 (gpointer *) &list))
+				 (gpointer *) &queue))
     {
       GSource *src;
 
       src = g_idle_source_new ();
       g_source_set_callback (src,
 			     self->priv->callback,
-			     (gpointer) list,
+			     (gpointer) queue,
 			     NULL);
       g_source_attach (src, context);
       g_source_unref (src);
@@ -348,6 +354,7 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
   EvdSocketManager *self;
   struct epoll_event ev;
   gint fd;
+  gboolean result = TRUE;
 
   g_assert (EVD_IS_SOCKET (socket));
 
@@ -361,17 +368,18 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
   ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
   ev.data.fd = fd;
   ev.data.ptr = (void *) socket;
+
   if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
     {
       *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
 			    EVD_SOCKET_ERR_EPOLL_ADD,
 			    "Failed to add socket file descriptor to epoll set");
-      return FALSE;
+      result = FALSE;
     }
+  else
+    g_object_ref (self);
 
-  g_object_ref (self);
-
-  return TRUE;
+  return result;
 }
 
 gboolean
@@ -380,6 +388,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
 {
   EvdSocketManager *self;
   gint fd;
+  gboolean result = TRUE;
 
   g_assert (G_IS_SOCKET (socket));
 
@@ -392,22 +401,10 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
       *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
 			    EVD_SOCKET_ERR_EPOLL_ADD,
 			    "Failed to remove socket file descriptor from epoll set");
-      return FALSE;
+      result = FALSE;
     }
+  else
+    g_object_unref (self);
 
-  g_object_unref (self);
-
-  return TRUE;
-}
-
-void
-evd_socket_manager_free_event_list (GList *list)
-{
-  GList *node = list;
-  while (node != NULL)
-    {
-      g_free (node->data);
-      node = node->next;
-    }
-  g_list_free (list);
+  return result;
 }

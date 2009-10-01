@@ -76,8 +76,6 @@ gboolean evd_socket_manager_add_socket (EvdSocket  *socket,
 gboolean evd_socket_manager_del_socket (EvdSocket  *socket,
 					GError    **error);
 
-void evd_socket_manager_free_event_list (GList *list);
-
 
 G_END_DECLS
 
