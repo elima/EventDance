@@ -23,6 +23,8 @@ libevd_la_LDFLAGS = \
 	-no-undefined
 
 libevd_la_SOURCES = \
+	marshal.h \
+	marshal.c \
 	evd-socket-manager.h \
 	evd-socket-manager.c \
 	evd-socket.h \
@@ -30,3 +32,13 @@ libevd_la_SOURCES = \
 	evd.h
 
 CLEANFILES = *~ evd.pc
+
+BUILT_SOURCES = marshal.c marshal.h
+
+marshal.h: marshal.list
+	glib-genmarshal --header \
+		--prefix=evd_marshal marshal.list > marshal.h
+
+marshal.c: marshal.list
+	glib-genmarshal --body \
+		--prefix=evd_marshal marshal.list > marshal.c

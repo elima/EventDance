@@ -45,16 +45,14 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
   g_debug ("Socket connected (%X)", (guint) socket);
 }
 
-static gboolean
-connect_signals (gpointer data)
+static void
+on_socket_new_connection (EvdSocket *socket,
+			  EvdSocket *client,
+			  gpointer   user_data)
 {
-  g_signal_connect (socket1, "close", G_CALLBACK (on_socket_close), NULL);
-  g_signal_connect (socket2, "close", G_CALLBACK (on_socket_close), NULL);
-
-  g_signal_connect (socket1, "connected", G_CALLBACK (on_socket_connected), NULL);
-  g_signal_connect (socket2, "connected", G_CALLBACK (on_socket_connected), NULL);
-
-  return FALSE;
+  g_debug ("New connection on socket (%X) by socket (%X)",
+	   (guint) socket,
+	   (guint) client);
 }
 
 static gboolean
@@ -78,6 +76,14 @@ test_tcp_sockets (gpointer data)
       g_error ("TCP server socket create error: %s", error->message);
       return -1;
     }
+  g_signal_connect (socket1,
+		    "new-connection",
+		    G_CALLBACK (on_socket_new_connection),
+		    NULL);
+  g_signal_connect (socket1,
+		    "close",
+		    G_CALLBACK (on_socket_close),
+		    NULL);
 
   /* bind server socket */
   addr = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4),
@@ -105,6 +111,14 @@ test_tcp_sockets (gpointer data)
       g_error ("TCP client socket create error: %s", error->message);
       return -1;
     }
+  g_signal_connect (socket2,
+		    "close",
+		    G_CALLBACK (on_socket_close),
+		    NULL);
+  g_signal_connect (socket2,
+		    "connected",
+		    G_CALLBACK (on_socket_connected),
+		    NULL);
 
   /* connect client socket */
   addr = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
@@ -127,7 +141,6 @@ test_connection (GSourceFunc test_func)
   main_loop = g_main_loop_new (g_main_context_default (), FALSE);
 
   g_idle_add (test_func, NULL);
-  g_idle_add (connect_signals, NULL);
 
   g_main_loop_run (main_loop);
 

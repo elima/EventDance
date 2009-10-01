@@ -54,6 +54,9 @@ struct _EvdSocketClass
   /* signal prototypes */
   void (* close) (EvdSocket *self, gpointer user_data);
   void (* connected) (EvdSocket *self, gpointer user_data);
+  void (* new_connection) (EvdSocket *self,
+			   EvdSocket *socket,
+			   gpointer   user_data);
 };
 
 /* event message to pass to sockets objects*/

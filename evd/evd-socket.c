@@ -28,6 +28,7 @@
 
 #include "evd-socket-manager.h"
 #include "evd-socket.h"
+#include "marshal.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.glib.socket"
 
@@ -49,6 +50,7 @@ enum
 {
   CLOSE,
   CONNECTED,
+  NEW_CONNECTION,
   LAST_SIGNAL
 };
 
@@ -95,23 +97,34 @@ evd_socket_class_init (EvdSocketClass *class)
   /* install signals */
   evd_socket_signals[CLOSE] =
     g_signal_new ("close",
-          G_TYPE_FROM_CLASS (obj_class),
-          G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-          G_STRUCT_OFFSET (EvdSocketClass, close),
-          NULL, NULL,
-          g_cclosure_marshal_VOID__BOXED,
-          G_TYPE_NONE, 1,
-          G_TYPE_POINTER);
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, close),
+		  NULL, NULL,
+		  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+		  G_TYPE_POINTER);
 
   evd_socket_signals[CONNECTED] =
     g_signal_new ("connected",
-          G_TYPE_FROM_CLASS (obj_class),
-          G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-          G_STRUCT_OFFSET (EvdSocketClass, connected),
-          NULL, NULL,
-          g_cclosure_marshal_VOID__BOXED,
-          G_TYPE_NONE, 1,
-          G_TYPE_POINTER);
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, connected),
+		  NULL, NULL,
+		  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+		  G_TYPE_POINTER);
+
+  evd_socket_signals[NEW_CONNECTION] =
+    g_signal_new ("new-connection",
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, new_connection),
+		  NULL, NULL,
+		  evd_marshal_VOID__BOXED_BOXED,
+		  G_TYPE_NONE, 2,
+		  G_TYPE_POINTER,
+		  G_TYPE_POINTER);
 
   /* install properties */
   g_object_class_install_property (obj_class,
@@ -229,9 +242,11 @@ evd_socket_events_handler (gpointer data)
 		  /* TODO: allow external function to decide whether to
 		           accept/refuse the new connection */
 
-		  /* TODO: fire 'new-connection' signal */
-
-		  g_debug ("Incoming connection accepted");
+		  /* fire 'new-connection' signal */
+		  g_signal_emit (socket,
+				 evd_socket_signals[NEW_CONNECTION],
+				 0,
+				 client);
 		}
 	    }
 	  else
