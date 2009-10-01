@@ -1,0 +1,15 @@
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+datarootdir=@datarootdir@
+localedir=@localedir@
+
+Name: Eventdance
+Description: An event distribution framework.
+Requires: 
+Version: @VERSION@
+Libs: -L${libdir} -levd
+Cflags: -I${includedir}/evd
