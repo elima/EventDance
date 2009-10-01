@@ -48,6 +48,7 @@ struct _EvdSocketPrivate
 enum
 {
   CLOSE,
+  CONNECTED,
   LAST_SIGNAL
 };
 
@@ -97,6 +98,16 @@ evd_socket_class_init (EvdSocketClass *class)
           G_TYPE_FROM_CLASS (obj_class),
           G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
           G_STRUCT_OFFSET (EvdSocketClass, close),
+          NULL, NULL,
+          g_cclosure_marshal_VOID__BOXED,
+          G_TYPE_NONE, 1,
+          G_TYPE_POINTER);
+
+  evd_socket_signals[CONNECTED] =
+    g_signal_new ("connected",
+          G_TYPE_FROM_CLASS (obj_class),
+          G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+          G_STRUCT_OFFSET (EvdSocketClass, connected),
           NULL, NULL,
           g_cclosure_marshal_VOID__BOXED,
           G_TYPE_NONE, 1,
@@ -218,18 +229,30 @@ evd_socket_events_handler (gpointer data)
 		  /* TODO: allow external function to decide whether to
 		           accept/refuse the new connection */
 
-		  /* TODO: fire 'new-connection signal */
+		  /* TODO: fire 'new-connection' signal */
 
 		  g_debug ("Incoming connection accepted");
 		}
 	    }
 	  else
 	    {
-	      g_debug ("event!");
+	      //	      g_debug ("event!");
 
 	      if (condition & G_IO_HUP)
 		{
 		  evd_socket_close (socket, &error);
+		  continue;
+		}
+
+	      if (condition & G_IO_OUT)
+		{
+		  if (socket->priv->status == EVD_SOCKET_CONNECTING)
+		    {
+		      socket->priv->status = EVD_SOCKET_CONNECTED;
+
+		      /* emit 'connected' signal */
+		      g_signal_emit (socket, evd_socket_signals[CONNECTED], 0);
+		    }
 		}
 	    }
 	}
@@ -374,4 +397,24 @@ evd_socket_accept (EvdSocket *self, GError **error)
       }
 
   return NULL;
+}
+
+gboolean
+evd_socket_connect (EvdSocket       *self,
+		    GSocketAddress  *address,
+		    GCancellable    *cancellable,
+		    GError         **error)
+{
+  g_socket_connect (G_SOCKET (self),
+		    address,
+		    cancellable,
+		    error);
+
+  if (evd_socket_watch (self, error))
+    {
+      self->priv->status = EVD_SOCKET_CONNECTING;
+      return TRUE;
+    }
+
+  return FALSE;
 }

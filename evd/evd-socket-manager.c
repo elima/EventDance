@@ -207,6 +207,8 @@ static void
 evd_socket_manager_start (EvdSocketManager  *self,
 			  GError           **error)
 {
+  g_thread_init (NULL);
+
   self->priv->started = TRUE;
 
   self->priv->epoll_fd = epoll_create (DEFAULT_MAX_SOCKETS);

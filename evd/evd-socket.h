@@ -53,6 +53,7 @@ struct _EvdSocketClass
 
   /* signal prototypes */
   void (* close) (EvdSocket *self, gpointer user_data);
+  void (* connected) (EvdSocket *self, gpointer user_data);
 };
 
 /* event message to pass to sockets objects*/
@@ -90,10 +91,14 @@ EvdSocket *evd_socket_new_from_fd (gint     fd,
 
 GMainContext *evd_socket_get_context (EvdSocket *self);
 
+gboolean evd_socket_close (EvdSocket *self, GError **error);
+
 gboolean evd_socket_listen (EvdSocket *self, GError **error);
 EvdSocket *evd_socket_accept (EvdSocket *socket, GError **error);
-
-gboolean evd_socket_close (EvdSocket *self, GError **error);
+gboolean evd_socket_connect (EvdSocket       *self,
+			     GSocketAddress  *address,
+			     GCancellable    *cancellable,
+			     GError         **error);
 
 G_END_DECLS
 
