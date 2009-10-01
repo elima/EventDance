@@ -23,26 +23,86 @@
  * 02110-1301 USA
  */
 
+#include <string.h>
+
 #include <glib.h>
 #include <gio/gio.h>
 
 #include <evd.h>
 
 #define BLOCK_SIZE 1024
-#define INET_PORT 6666
+#define INET_PORT  6666
+#define TIMEOUT    3000
 
 EvdSocket *socket1, *socket2;
+GMainLoop *main_loop;
+
+static const gchar *greeting = "Hello world!";
+guint bytes_read;
+guint bytes_expected;
+
+static gboolean
+terminate (gpointer user_data)
+{
+  evd_socket_close (socket1, NULL);
+  evd_socket_close (socket2, NULL);
+
+  while (g_main_context_pending (NULL))
+    g_main_context_iteration (NULL, FALSE);
+
+  g_main_loop_quit (main_loop);
+
+  return FALSE;
+}
+
+static void
+on_socket_read (EvdSocket *socket, gpointer user_data)
+{
+  GError *error = NULL;
+  static gchar buf[BLOCK_SIZE];
+  static gssize size;
+
+  size = g_socket_receive (G_SOCKET (socket),
+			   buf,
+			   BLOCK_SIZE,
+			   NULL,
+			   &error);
+
+  if (size > 0)
+    {
+      g_debug ("%d bytes read from socket (%X): %s",
+	       size,
+	       (guint) socket,
+	       buf);
+
+      bytes_read += size;
+    }
+
+  if (bytes_read == bytes_expected)
+    g_idle_add ((GSourceFunc) terminate, NULL);
+}
 
 static void
 on_socket_close (EvdSocket *socket, gpointer user_data)
 {
   g_debug ("Socket closed (%X)", (guint) socket);
+
+  g_object_unref (socket);
 }
 
 static void
 on_socket_connected (EvdSocket *socket, gpointer user_data)
 {
   g_debug ("Socket connected (%X)", (guint) socket);
+
+  g_socket_send (G_SOCKET (socket),
+		 greeting,
+		 strlen (greeting), NULL, NULL);
+
+  g_object_set (socket,
+		"read-handler", on_socket_read,
+		"read-handler-data", NULL,
+		NULL);
 }
 
 static void
@@ -50,9 +110,48 @@ on_socket_new_connection (EvdSocket *socket,
 			  EvdSocket *client,
 			  gpointer   user_data)
 {
-  g_debug ("New connection on socket (%X) by socket (%X)",
-	   (guint) socket,
-	   (guint) client);
+  g_debug ("Incoming connection (%X) on socket (%X)",
+	   (guint) client,
+	   (guint) socket);
+
+  g_signal_connect (client,
+		    "close",
+		    G_CALLBACK (on_socket_close),
+		    NULL);
+
+  g_socket_send (G_SOCKET (client),
+		 greeting,
+		 strlen (greeting), NULL, NULL);
+
+  g_object_set (client,
+		"read-handler", on_socket_read,
+		"read-handler-data", NULL,
+		NULL);
+}
+
+static gboolean
+test_connection (GSourceFunc test_func)
+{
+  bytes_read = 0;
+
+  main_loop = g_main_loop_new (g_main_context_default (), FALSE);
+
+  g_idle_add (test_func, NULL);
+
+  g_main_loop_run (main_loop);
+
+  g_timeout_add (TIMEOUT,
+		 (GSourceFunc) terminate,
+		 NULL);
+  g_main_loop_unref (main_loop);
+
+  g_print ("Test result: ");
+  if (bytes_read != bytes_expected)
+    g_print ("FAILED\n");
+  else
+    g_print ("PASSED\n");
+
+  return FALSE;
 }
 
 static gboolean
@@ -63,6 +162,8 @@ test_tcp_sockets (gpointer data)
 
   /* TCP socket test */
   /* =============== */
+
+  bytes_expected = strlen (greeting) * 2;
 
   g_print ("\nTest 1/3: TCP sockets\n");
   g_print ("=======================\n");
@@ -129,24 +230,6 @@ test_tcp_sockets (gpointer data)
       return -1;
     }
   g_object_unref (addr);
-
-  return FALSE;
-}
-
-static gboolean
-test_connection (GSourceFunc test_func)
-{
-  GMainLoop *main_loop;
-
-  main_loop = g_main_loop_new (g_main_context_default (), FALSE);
-
-  g_idle_add (test_func, NULL);
-
-  g_main_loop_run (main_loop);
-
-  g_main_loop_unref (main_loop);
-  g_object_unref (socket1);
-  g_object_unref (socket2);
 
   return FALSE;
 }

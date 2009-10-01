@@ -41,8 +41,11 @@ G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_SOCKET)
 /* private data */
 struct _EvdSocketPrivate
 {
-  EvdSocketState status;
-  GMainContext *context;
+  EvdSocketState  status;
+  GMainContext   *context;
+
+  EvdSocketReadHandler read_handler;
+  gpointer             read_handler_user_data;
 };
 
 /* signals */
@@ -60,7 +63,8 @@ static guint evd_socket_signals [LAST_SIGNAL] = { 0 };
 enum
 {
   PROP_0,
-  PROP_EXAMPLE
+  READ_HANDLER,
+  READ_HANDLER_DATA
 };
 
 static void evd_socket_class_init (EvdSocketClass *class);
@@ -128,13 +132,18 @@ evd_socket_class_init (EvdSocketClass *class)
 
   /* install properties */
   g_object_class_install_property (obj_class,
-                                   PROP_EXAMPLE,
-                                   g_param_spec_int ("example",
-                                   "An example property",
-                                   "An example property to gobject boilerplate",
-                                   0,
-                                   256,
-                                   0,
+                                   READ_HANDLER,
+                                   g_param_spec_pointer ("read-handler",
+                                   "Read callback",
+                                   "The callback that will be called when data is ready to be read",
+                                   G_PARAM_READWRITE));
+
+  /* install properties */
+  g_object_class_install_property (obj_class,
+                                   READ_HANDLER_DATA,
+                                   g_param_spec_pointer ("read-handler-data",
+                                   "Read callback's user data",
+                                   "The user data that will be passed along with callback call when data is ready to be read",
                                    G_PARAM_READWRITE));
 
   /* add private structure */
@@ -180,7 +189,13 @@ evd_socket_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case PROP_EXAMPLE:
+    case READ_HANDLER:
+      self->priv->read_handler =
+	(EvdSocketReadHandler) g_value_get_pointer (value);
+      break;
+
+    case READ_HANDLER_DATA:
+      self->priv->read_handler_user_data = g_value_get_pointer (value);
       break;
 
     default:
@@ -201,7 +216,13 @@ evd_socket_get_property (GObject    *obj,
 
   switch (prop_id)
     {
-    case PROP_EXAMPLE:
+    case READ_HANDLER:
+      g_value_set_pointer (value, (gpointer) self->priv->read_handler);
+      break;
+
+    case READ_HANDLER_DATA:
+      g_value_set_pointer (value,
+			   (gpointer) self->priv->read_handler_user_data);
       break;
 
     default:
@@ -267,6 +288,11 @@ evd_socket_event_handler (gpointer data)
 		  g_signal_emit (socket, evd_socket_signals[CONNECTED], 0);
 		}
 	    }
+
+	  if (condition & G_IO_IN)
+	    if (socket->priv->read_handler != NULL)
+	      socket->priv->read_handler (socket,
+					  socket->priv->read_handler_user_data);
 	}
     }
 
@@ -377,11 +403,13 @@ evd_socket_close (EvdSocket *self, GError **error)
   evd_socket_set_status (self, EVD_SOCKET_CLOSED);
 
   if (! g_socket_is_closed (G_SOCKET (self)))
-    if (! g_socket_close (G_SOCKET (self), error))
-      result = FALSE;
+    {
+      if (! g_socket_close (G_SOCKET (self), error))
+	result = FALSE;
 
-  /* fire 'close' signal */
-  g_signal_emit (self, evd_socket_signals[CLOSE], 0);
+      /* fire 'close' signal */
+      g_signal_emit (self, evd_socket_signals[CLOSE], 0);
+    }
 
   return result;
 }
@@ -442,4 +470,13 @@ evd_socket_connect (EvdSocket       *self,
 
   evd_socket_set_status (self, EVD_SOCKET_CLOSED);
   return FALSE;
+}
+
+void
+evd_socket_set_read_handler (EvdSocket            *self,
+			     EvdSocketReadHandler  handler,
+			     gpointer              user_data)
+{
+  self->priv->read_handler = handler;
+  self->priv->read_handler_user_data = user_data;
 }

@@ -36,6 +36,10 @@ typedef struct _EvdSocketClass EvdSocketClass;
 typedef struct _EvdSocketPrivate EvdSocketPrivate;
 typedef struct _EvdSocketEvent EvdSocketEvent;
 
+/* socket read handler prototype */
+typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
+				       gpointer   user_data);
+
 struct _EvdSocket
 {
   GSocket parent;
@@ -102,6 +106,10 @@ gboolean evd_socket_connect (EvdSocket       *self,
 			     GSocketAddress  *address,
 			     GCancellable    *cancellable,
 			     GError         **error);
+
+void evd_socket_set_read_handler (EvdSocket            *self,
+				  EvdSocketReadHandler  handler,
+				  gpointer              user_data);
 
 G_END_DECLS
 
