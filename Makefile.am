@@ -1,13 +1,17 @@
 SUBDIRS = \
+	build \
 	evd \
 	tests
 
 DIST_SUBDIRS = \
+	build \
 	evd \
 	tests
 
 EXTRA_DIST = \
 	autogen.sh
+
+ACLOCAL_AMFLAGS = -I build/autotools
 
 CLEANFILES = *~
 
