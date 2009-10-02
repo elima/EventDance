@@ -41,15 +41,12 @@ static const gchar *greeting = "Hello world!";
 guint bytes_read;
 guint bytes_expected;
 
+guint sockets_closed;
+guint expected_sockets_closed;
+
 static gboolean
 terminate (gpointer user_data)
 {
-  evd_socket_close (socket1, NULL);
-  evd_socket_close (socket2, NULL);
-
-  while (g_main_context_pending (NULL))
-    g_main_context_iteration (NULL, FALSE);
-
   g_main_loop_quit (main_loop);
 
   return FALSE;
@@ -79,7 +76,10 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
     }
 
   if (bytes_read == bytes_expected)
-    g_idle_add ((GSourceFunc) terminate, NULL);
+    {
+      evd_socket_close (socket1, NULL);
+      evd_socket_close (socket2, NULL);
+    }
 }
 
 static void
@@ -88,6 +88,11 @@ on_socket_close (EvdSocket *socket, gpointer user_data)
   g_debug ("Socket closed (%X)", (guint) socket);
 
   g_object_unref (socket);
+
+  sockets_closed ++;
+
+  if (sockets_closed == expected_sockets_closed)
+    g_idle_add ((GSourceFunc) terminate, NULL);
 }
 
 static void
@@ -139,6 +144,7 @@ static gboolean
 test_connection (GSourceFunc test_func)
 {
   bytes_read = 0;
+  sockets_closed = 0;
 
   main_loop = g_main_loop_new (g_main_context_default (), FALSE);
 
@@ -152,7 +158,7 @@ test_connection (GSourceFunc test_func)
   g_main_loop_unref (main_loop);
 
   g_print ("Test result: ");
-  if (bytes_read != bytes_expected)
+  if (sockets_closed != expected_sockets_closed)
     g_print ("FAILED\n");
   else
     g_print ("PASSED\n");
@@ -170,6 +176,7 @@ test_tcp_sockets (gpointer data)
   /* =============== */
 
   bytes_expected = strlen (greeting) * 2;
+  expected_sockets_closed = 3;
 
   g_print ("\nTest 1/3: TCP sockets\n");
   g_print ("=======================\n");
