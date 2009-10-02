@@ -98,16 +98,21 @@ on_socket_close (EvdSocket *socket, gpointer user_data)
 static void
 on_socket_connected (EvdSocket *socket, gpointer user_data)
 {
-  g_debug ("Socket connected (%X)", (guint) socket);
+  GError *error = NULL;
 
-  g_socket_send (G_SOCKET (socket),
-		 greeting,
-		 strlen (greeting), NULL, NULL);
+  g_debug ("Socket connected (%X)", (guint) socket);
 
   g_object_set (socket,
 		"read-handler", on_socket_read,
 		"read-handler-data", NULL,
 		NULL);
+
+  if (g_socket_send (G_SOCKET (socket),
+		     greeting,
+		     strlen (greeting), NULL, &error) < 0)
+    {
+      g_debug ("ERROR sending greeting: %s", error->message);
+    }
 }
 
 static void
@@ -150,11 +155,13 @@ test_connection (GSourceFunc test_func)
 
   g_idle_add (test_func, NULL);
 
-  g_main_loop_run (main_loop);
-
+  /*
   g_timeout_add (TIMEOUT,
 		 (GSourceFunc) terminate,
 		 NULL);
+  */
+  g_main_loop_run (main_loop);
+
   g_main_loop_unref (main_loop);
 
   g_print ("Test result: ");
@@ -251,12 +258,104 @@ test_tcp_sockets (gpointer data)
   return FALSE;
 }
 
+static gboolean
+test_udp_sockets (gpointer data)
+{
+  GSocketAddress *addr1, *addr2;
+  GError *error = NULL;
+
+  /* UDP socket test */
+  /* =============== */
+
+  bytes_expected = strlen (greeting) * 2;
+  expected_sockets_closed = 2;
+
+  g_print ("\nTest 2/3: UDP sockets\n");
+  g_print ("=======================\n");
+
+  addr1 = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
+				     6666);
+  addr2 = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
+				     6667);
+
+  /* create socket1 */
+  if (! (socket1 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
+				   G_SOCKET_TYPE_DATAGRAM,
+				   G_SOCKET_PROTOCOL_UDP,
+				   &error)))
+    {
+      g_error ("UDP socket1 create error: %s", error->message);
+      return FALSE;
+    }
+  g_signal_connect (socket1,
+		    "close",
+		    G_CALLBACK (on_socket_close),
+		    NULL);
+  g_signal_connect (socket1,
+		    "connect",
+		    G_CALLBACK (on_socket_connected),
+		    NULL);
+
+  /* bind socket1 */
+  if (! g_socket_bind (G_SOCKET (socket1), addr2, TRUE, &error))
+    {
+      g_debug ("UDP socket1 bind error: %s", error->message);
+      return FALSE;
+    }
+
+  /* connect socket1 */
+  if (! evd_socket_connect (socket1, addr1, NULL, &error))
+    {
+      g_error ("UDP socket1 connect error: %s", error->message);
+      return FALSE;
+    }
+
+  /* create socket2 */
+  if (! (socket2 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
+				   G_SOCKET_TYPE_DATAGRAM,
+				   G_SOCKET_PROTOCOL_UDP,
+				   &error)))
+    {
+      g_error ("UDP socket2 create error: %s", error->message);
+      return FALSE;
+    }
+  g_signal_connect (socket2,
+		    "close",
+		    G_CALLBACK (on_socket_close),
+		    NULL);
+  g_signal_connect (socket2,
+		    "connect",
+		    G_CALLBACK (on_socket_connected),
+		    NULL);
+
+  if (! g_socket_bind (G_SOCKET (socket2), addr1, TRUE, &error))
+    {
+      g_debug ("UDP socket2 bind error: %s", error->message);
+      return FALSE;
+    }
+  g_object_set_data (G_OBJECT (socket2), "dest-addr", addr2);
+  g_object_set_data (G_OBJECT (socket2), "peer", socket1);
+
+  /* connect socket2 */
+  if (! evd_socket_connect (socket2, addr2, NULL, &error))
+    {
+      g_error ("UDP socket2 connect error: %s", error->message);
+      return FALSE;
+    }
+
+  g_object_unref (addr1);
+  g_object_unref (addr2);
+
+  return FALSE;
+}
+
 gint
 main (gint argc, gchar **argv)
 {
   g_type_init ();
 
   test_connection (test_tcp_sockets);
+  test_connection (test_udp_sockets);
 
   return 0;
 }
