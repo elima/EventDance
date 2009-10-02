@@ -52,7 +52,8 @@ struct _EvdSocketPrivate
 enum
 {
   CLOSE,
-  CONNECTED,
+  CONNECT,
+  LISTEN,
   NEW_CONNECTION,
   LAST_SIGNAL
 };
@@ -109,11 +110,21 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_TYPE_NONE, 1,
 		  G_TYPE_POINTER);
 
-  evd_socket_signals[CONNECTED] =
-    g_signal_new ("connected",
+  evd_socket_signals[CONNECT] =
+    g_signal_new ("connect",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, connected),
+		  G_STRUCT_OFFSET (EvdSocketClass, connect),
+		  NULL, NULL,
+		  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+		  G_TYPE_POINTER);
+
+  evd_socket_signals[LISTEN] =
+    g_signal_new ("listen",
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, listen),
 		  NULL, NULL,
 		  g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
@@ -285,7 +296,7 @@ evd_socket_event_handler (gpointer data)
 		  evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
 
 		  /* emit 'connected' signal */
-		  g_signal_emit (socket, evd_socket_signals[CONNECTED], 0);
+		  g_signal_emit (socket, evd_socket_signals[CONNECT], 0);
 		}
 	    }
 
@@ -423,6 +434,8 @@ evd_socket_listen (EvdSocket *self, GError **error)
     if (evd_socket_watch (self, error))
       {
 	self->priv->status = EVD_SOCKET_LISTENING;
+
+	g_signal_emit (self, evd_socket_signals[LISTEN], 0);
 	return TRUE;
       }
 

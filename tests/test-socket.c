@@ -129,6 +129,12 @@ on_socket_new_connection (EvdSocket *socket,
 		NULL);
 }
 
+static void
+on_socket_listen (EvdSocket *socket, gpointer user_data)
+{
+  g_debug ("Socket (%X) listening", (guint) socket);
+}
+
 static gboolean
 test_connection (GSourceFunc test_func)
 {
@@ -185,6 +191,10 @@ test_tcp_sockets (gpointer data)
 		    "close",
 		    G_CALLBACK (on_socket_close),
 		    NULL);
+  g_signal_connect (socket1,
+		    "listen",
+		    G_CALLBACK (on_socket_listen),
+		    NULL);
 
   /* bind server socket */
   addr = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4),
@@ -217,7 +227,7 @@ test_tcp_sockets (gpointer data)
 		    G_CALLBACK (on_socket_close),
 		    NULL);
   g_signal_connect (socket2,
-		    "connected",
+		    "connect",
 		    G_CALLBACK (on_socket_connected),
 		    NULL);
 
