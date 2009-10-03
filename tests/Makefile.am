@@ -15,8 +15,7 @@ test_socket_CFLAGS = \
 
 test_socket_LDADD = \
 	$(GLIB_LIBS) \
-	$(top_srcdir)/evd/libevd.la
+	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
 
 test_socket_SOURCES = \
 	test-socket.c
-

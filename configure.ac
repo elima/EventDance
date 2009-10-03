@@ -20,6 +20,10 @@ AC_CONFIG_HEADERS(config.h)
 
 AM_INIT_AUTOMAKE([1.9])
 
+EVD_API_VERSION=evd_api_version
+
+AC_SUBST(EVD_API_VERSION)
+
 # Check for programs
 AC_PROG_LIBTOOL
 AC_PROG_CC

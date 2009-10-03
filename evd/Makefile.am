@@ -27,7 +27,7 @@ INCLUDES = \
 	-I$(top_srcdir)/evd
 
 # libraries
-lib_LTLIBRARIES = libevd.la
+lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
 
 # libevd
 source_c = \
@@ -43,17 +43,17 @@ source_h = \
 source_h_priv = \
 	evd-socket-manager.h
 
-libevd_la_LIBADD = \
+libevd_@EVD_API_VERSION@_la_LIBADD = \
 	$(GLIB_LIBS)
 
-libevd_la_CFLAGS  = \
+libevd_@EVD_API_VERSION@_la_CFLAGS  = \
 	$(AM_CFLAGS)
 
-libevd_la_LDFLAGS = \
+libevd_@EVD_API_VERSION@_la_LDFLAGS = \
 	-version-info 0:1:0 \
 	-no-undefined
 
-libevd_la_SOURCES = \
+libevd_@EVD_API_VERSION@_la_SOURCES = \
 	$(source_c) \
 	$(source_h) \
 	$(source_h_priv)
@@ -66,21 +66,21 @@ evd_HEADERS = \
 if HAVE_INTROSPECTION
 BUILT_GIRSOURCES =
 
-Evd.gir: $(INTROSPECTION_SCANNER) libevd.la
+Evd-@EVD_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libevd-@EVD_API_VERSION@.la
 	$(INTROSPECTION_SCANNER) -v \
 		--namespace Evd --nsversion=0.1.0 \
 		$(INCLUDES) \
 		--c-include='evd/evd.h' \
 		--include=GObject-2.0 \
 		--include=Gio-2.0 \
-		--library=libevd.la \
+		--library=libevd-@EVD_API_VERSION@.la \
 		--libtool="$(top_builddir)/libtool" \
 	        --pkg gobject-2.0 \
 	        --output $@ \
 		$(evd_HEADERS) \
 		$(source_c)
 
-BUILT_GIRSOURCES += Evd.gir
+BUILT_GIRSOURCES += Evd-@EVD_API_VERSION@.gir
 
 # INTROSPECTION_GIRDIR/INTROSPECTION_TYPELIBDIR aren't the right place to
 # install anything - we need to install inside our prefix.
