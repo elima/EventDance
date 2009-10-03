@@ -90,10 +90,19 @@ typedef enum
 
 GType evd_socket_get_type (void) G_GNUC_CONST;
 
-EvdSocket * evd_socket_new (GSocketFamily     family,
-			    GSocketType       type,
-			    GSocketProtocol   protocol,
-			    GError          **error);
+/**
+ * evd_socket_new: Creates a new instance of EvdSocket.
+ *
+ * @family: A #GSocketFamily
+ * @type: A #GSocketType
+ * @protocol: A #GSocketProtocol
+ * @error: (out) A #GError
+ *
+ */
+EvdSocket *evd_socket_new (GSocketFamily     family,
+			   GSocketType       type,
+			   GSocketProtocol   protocol,
+			   GError          **error);
 EvdSocket *evd_socket_new_from_fd (gint     fd,
 				   GError **error);
 
