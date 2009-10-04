@@ -68,8 +68,8 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
   if (size > 0)
     {
       g_debug ("%d bytes read from socket (%X): %s",
-	       size,
-	       (guint) socket,
+	       (guint) size,
+	       (guint) (guintptr) socket,
 	       buf);
 
       bytes_read += size;
@@ -85,7 +85,7 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
 static void
 on_socket_close (EvdSocket *socket, gpointer user_data)
 {
-  g_debug ("Socket closed (%X)", (guint) socket);
+  g_debug ("Socket closed (%X)", (guint) (guintptr) socket);
 
   g_object_unref (socket);
 
@@ -100,7 +100,7 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 {
   GError *error = NULL;
 
-  g_debug ("Socket connected (%X)", (guint) socket);
+  g_debug ("Socket connected (%X)", (guint) (guintptr) socket);
 
   evd_socket_set_read_handler (socket,
 			       on_socket_read,
@@ -120,8 +120,8 @@ on_socket_new_connection (EvdSocket *socket,
 			  gpointer   user_data)
 {
   g_debug ("Incoming connection (%X) on socket (%X)",
-	   (guint) client,
-	   (guint) socket);
+	   (guint) (guintptr) client,
+	   (guint) (guintptr) socket);
 
   g_signal_connect (client,
 		    "close",
@@ -140,7 +140,7 @@ on_socket_new_connection (EvdSocket *socket,
 static void
 on_socket_listen (EvdSocket *socket, gpointer user_data)
 {
-  g_debug ("Socket (%X) listening", (guint) socket);
+  g_debug ("Socket (%X) listening", (guint) (guintptr) socket);
 }
 
 static gboolean
