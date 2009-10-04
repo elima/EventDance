@@ -98,32 +98,32 @@ GType evd_socket_get_type (void) G_GNUC_CONST;
  * @error: (out) A #GError
  *
  */
-EvdSocket *evd_socket_new (GSocketFamily     family,
-			   GSocketType       type,
-			   GSocketProtocol   protocol,
-			   GError          **error);
-EvdSocket *evd_socket_new_from_fd (gint     fd,
-				   GError **error);
+EvdSocket    *evd_socket_new              (GSocketFamily     family,
+					   GSocketType       type,
+					   GSocketProtocol   protocol,
+					   GError          **error);
+EvdSocket    *evd_socket_new_from_fd      (gint     fd,
+					   GError **error);
 
-GMainContext *evd_socket_get_context (EvdSocket *self);
+GMainContext *evd_socket_get_context      (EvdSocket *self);
 
-gboolean evd_socket_close (EvdSocket *self, GError **error);
+gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 
-gboolean evd_socket_listen (EvdSocket *self, GError **error);
-EvdSocket *evd_socket_accept (EvdSocket *socket, GError **error);
-gboolean evd_socket_connect (EvdSocket       *self,
-			     GSocketAddress  *address,
-			     GCancellable    *cancellable,
-			     GError         **error);
+gboolean      evd_socket_listen           (EvdSocket *self, GError **error);
+EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
+gboolean      evd_socket_connect          (EvdSocket       *self,
+					   GSocketAddress  *address,
+					   GCancellable    *cancellable,
+					   GError         **error);
 
-void evd_socket_set_read_handler (EvdSocket            *self,
-				  EvdSocketReadHandler  handler,
-				  gpointer              user_data);
+void          evd_socket_set_read_handler (EvdSocket            *self,
+					   EvdSocketReadHandler  handler,
+					   gpointer              user_data);
 
-gboolean evd_socket_bind (EvdSocket       *self,
-			  GSocketAddress  *address,
-			  gboolean         allow_reuse,
-			  GError         **error);
+gboolean      evd_socket_bind             (EvdSocket       *self,
+					   GSocketAddress  *address,
+					   gboolean         allow_reuse,
+					   GError         **error);
 
 G_END_DECLS
 

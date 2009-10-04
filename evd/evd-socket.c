@@ -70,22 +70,27 @@ enum
   READ_HANDLER_DATA
 };
 
-static void evd_socket_class_init (EvdSocketClass *class);
-static void evd_socket_init (EvdSocket *self);
-static void evd_socket_finalize (GObject *obj);
-static void evd_socket_dispose (GObject *obj);
-static void evd_socket_set_property (GObject      *obj,
-				     guint         prop_id,
-				     const GValue *value,
-				     GParamSpec   *pspec);
-static void evd_socket_get_property (GObject    *obj,
-				     guint       prop_id,
-				     GValue     *value,
-				     GParamSpec *pspec);
+static void     evd_socket_class_init         (EvdSocketClass *class);
+static void     evd_socket_init               (EvdSocket *self);
+
+static void     evd_socket_finalize           (GObject *obj);
+static void     evd_socket_dispose            (GObject *obj);
+
+static void     evd_socket_set_property       (GObject      *obj,
+					       guint         prop_id,
+					       const GValue *value,
+					       GParamSpec   *pspec);
+static void     evd_socket_get_property       (GObject    *obj,
+					       guint       prop_id,
+					       GValue     *value,
+					       GParamSpec *pspec);
+
 static gboolean evd_socket_event_list_handler (gpointer data);
 
-static gboolean evd_socket_watch (EvdSocket *self, GError **error);
-static gboolean evd_socket_unwatch (EvdSocket *self, GError **error);
+static gboolean evd_socket_watch              (EvdSocket  *self,
+					       GError    **error);
+static gboolean evd_socket_unwatch            (EvdSocket  *self,
+					       GError    **error);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
