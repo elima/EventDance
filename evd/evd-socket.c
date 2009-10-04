@@ -44,8 +44,7 @@ struct _EvdSocketPrivate
   EvdSocketState  status;
   GMainContext   *context;
 
-  EvdSocketReadHandler read_handler;
-  gpointer             read_handler_user_data;
+  GClosure *on_read_closure;
 
   gboolean initable_init;
 };
@@ -66,8 +65,7 @@ static guint evd_socket_signals [LAST_SIGNAL] = { 0 };
 enum
 {
   PROP_0,
-  READ_HANDLER,
-  READ_HANDLER_DATA
+  READ_CLOSURE,
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -91,6 +89,11 @@ static gboolean evd_socket_watch              (EvdSocket  *self,
 					       GError    **error);
 static gboolean evd_socket_unwatch            (EvdSocket  *self,
 					       GError    **error);
+
+static void     evd_socket_set_read_closure_internal (EvdSocket *self,
+						      GClosure  *closure);
+static void     evd_socket_invoke_on_read     (EvdSocket *self);
+
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
@@ -150,18 +153,11 @@ evd_socket_class_init (EvdSocketClass *class)
 
   /* install properties */
   g_object_class_install_property (obj_class,
-                                   READ_HANDLER,
-                                   g_param_spec_pointer ("read-handler",
-                                   "Read callback",
-                                   "The callback that will be called when data is ready to be read",
-                                   G_PARAM_READWRITE));
-
-  /* install properties */
-  g_object_class_install_property (obj_class,
-                                   READ_HANDLER_DATA,
-                                   g_param_spec_pointer ("read-handler-data",
-                                   "Read callback's user data",
-                                   "The user data that will be passed along with callback call when data is ready to be read",
+                                   READ_CLOSURE,
+                                   g_param_spec_boxed ("read-handler",
+                                   "Read closure",
+                                   "The callback closure that will be invoked when data is ready to be read",
+			           G_TYPE_CLOSURE,
                                    G_PARAM_READWRITE));
 
   /* add private structure */
@@ -182,6 +178,7 @@ evd_socket_init (EvdSocket *self)
   priv->initable_init = FALSE;
   priv->status = EVD_SOCKET_CLOSED;
   priv->context = g_main_context_get_thread_default ();
+  priv->on_read_closure = NULL;
 }
 
 static void
@@ -208,14 +205,15 @@ evd_socket_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case READ_HANDLER:
-      self->priv->read_handler =
-	(EvdSocketReadHandler) g_value_get_pointer (value);
-      break;
+    case READ_CLOSURE:
+      {
+	GClosure *closure;
 
-    case READ_HANDLER_DATA:
-      self->priv->read_handler_user_data = g_value_get_pointer (value);
-      break;
+	closure = (GClosure *) g_value_get_boxed (value);
+	if (closure != NULL)
+	  evd_socket_set_read_closure_internal (self, closure);
+	break;
+      }
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -235,13 +233,8 @@ evd_socket_get_property (GObject    *obj,
 
   switch (prop_id)
     {
-    case READ_HANDLER:
-      g_value_set_pointer (value, (gpointer) self->priv->read_handler);
-      break;
-
-    case READ_HANDLER_DATA:
-      g_value_set_pointer (value,
-			   (gpointer) self->priv->read_handler_user_data);
+    case READ_CLOSURE:
+      g_value_set_boxed (value, self->priv->on_read_closure);
       break;
 
     default:
@@ -314,9 +307,7 @@ evd_socket_event_handler (gpointer data)
 
 	  if (condition & G_IO_IN)
 	    {
-	      if (socket->priv->read_handler != NULL)
-		socket->priv->read_handler (socket,
-					    socket->priv->read_handler_user_data);
+	      evd_socket_invoke_on_read (socket);
 	    }
 	}
     }
@@ -367,6 +358,35 @@ evd_socket_initable_init (EvdSocket *self, GError **error)
     }
 
   return FALSE;
+}
+
+static void
+evd_socket_set_read_closure_internal (EvdSocket  *self,
+				      GClosure  *closure)
+{
+  if (self->priv->on_read_closure != NULL)
+    g_closure_unref (self->priv->on_read_closure);
+
+  self->priv->on_read_closure = g_closure_ref (closure);
+  g_closure_sink (closure);
+}
+
+static void
+evd_socket_invoke_on_read (EvdSocket *self)
+{
+  if (self->priv->on_read_closure != NULL)
+    {
+      GValue params = { 0, };
+
+      g_value_init (&params, EVD_TYPE_SOCKET);
+      g_value_set_object (&params, self);
+
+      g_object_ref (self);
+      g_closure_invoke (self->priv->on_read_closure, NULL, 1, &params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params);
+    }
 }
 
 /* public methods */
@@ -535,6 +555,25 @@ evd_socket_set_read_handler (EvdSocket            *self,
 			     EvdSocketReadHandler  handler,
 			     gpointer              user_data)
 {
-  self->priv->read_handler = handler;
-  self->priv->read_handler_user_data = user_data;
+  GClosure *closure;
+
+  closure = g_cclosure_new (G_CALLBACK (handler),
+			    user_data,
+			    NULL);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    {
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__VOID;
+
+      g_closure_set_marshal (closure, marshal);
+    }
+
+  evd_socket_set_read_closure_internal (self, closure);
+}
+
+void
+evd_socket_set_read_closure (EvdSocket *self,
+			     GClosure  *closure)
+{
+  evd_socket_set_read_closure_internal (self, closure);
 }

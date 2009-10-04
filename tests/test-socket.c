@@ -102,10 +102,9 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 
   g_debug ("Socket connected (%X)", (guint) socket);
 
-  g_object_set (socket,
-		"read-handler", on_socket_read,
-		"read-handler-data", NULL,
-		NULL);
+  evd_socket_set_read_handler (socket,
+			       on_socket_read,
+			       NULL);
 
   if (g_socket_send (G_SOCKET (socket),
 		     greeting,
@@ -133,10 +132,9 @@ on_socket_new_connection (EvdSocket *socket,
 		 greeting,
 		 strlen (greeting), NULL, NULL);
 
-  g_object_set (client,
-		"read-handler", on_socket_read,
-		"read-handler-data", NULL,
-		NULL);
+  evd_socket_set_read_handler (client,
+			       on_socket_read,
+			       NULL);
 }
 
 static void
@@ -155,11 +153,10 @@ test_connection (GSourceFunc test_func)
 
   g_idle_add (test_func, NULL);
 
-  /*
   g_timeout_add (TIMEOUT,
 		 (GSourceFunc) terminate,
 		 NULL);
-  */
+
   g_main_loop_run (main_loop);
 
   g_main_loop_unref (main_loop);

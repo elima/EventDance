@@ -36,7 +36,13 @@ typedef struct _EvdSocketClass EvdSocketClass;
 typedef struct _EvdSocketPrivate EvdSocketPrivate;
 typedef struct _EvdSocketEvent EvdSocketEvent;
 
-/* socket read handler prototype */
+/**
+ * EvdSocketReadHandler:
+ * @socket: (in): The #EvdSocket
+ * @user_data: (in) (allow-null): A #gpointer to user defined data to pass in callback.
+ *
+ * Prototype for callback to be executed when 'read' event is received on the socket.
+ */
 typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 				       gpointer   user_data);
 
@@ -109,6 +115,10 @@ GMainContext *evd_socket_get_context      (EvdSocket *self);
 
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 
+gboolean      evd_socket_bind             (EvdSocket       *self,
+					   GSocketAddress  *address,
+					   gboolean         allow_reuse,
+					   GError         **error);
 gboolean      evd_socket_listen           (EvdSocket *self, GError **error);
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 gboolean      evd_socket_connect          (EvdSocket       *self,
@@ -116,14 +126,19 @@ gboolean      evd_socket_connect          (EvdSocket       *self,
 					   GCancellable    *cancellable,
 					   GError         **error);
 
+/**
+ * evd_socket_set_read_handler:
+ * @self: (in): The #EvdSocket.
+ * @handler: (in) (allow-none): An #EvdSocketReadHandler callback to be executed when read condition.
+ * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
+ *
+ * This method defines the callback to be executed when 'read' event is received on the socket.
+ */
 void          evd_socket_set_read_handler (EvdSocket            *self,
 					   EvdSocketReadHandler  handler,
 					   gpointer              user_data);
-
-gboolean      evd_socket_bind             (EvdSocket       *self,
-					   GSocketAddress  *address,
-					   gboolean         allow_reuse,
-					   GError         **error);
+void          evd_socket_set_read_closure (EvdSocket *self,
+					   GClosure  *closure);
 
 G_END_DECLS
 
