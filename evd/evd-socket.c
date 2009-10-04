@@ -46,6 +46,8 @@ struct _EvdSocketPrivate
 
   EvdSocketReadHandler read_handler;
   gpointer             read_handler_user_data;
+
+  gboolean initable_init;
 };
 
 /* signals */
@@ -108,7 +110,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  NULL, NULL,
 		  g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
-		  G_TYPE_POINTER);
+		  EVD_TYPE_SOCKET);
 
   evd_socket_signals[CONNECT] =
     g_signal_new ("connect",
@@ -118,7 +120,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  NULL, NULL,
 		  g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
-		  G_TYPE_POINTER);
+		  EVD_TYPE_SOCKET);
 
   evd_socket_signals[LISTEN] =
     g_signal_new ("listen",
@@ -128,7 +130,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  NULL, NULL,
 		  g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
-		  G_TYPE_POINTER);
+		  EVD_TYPE_SOCKET);
 
   evd_socket_signals[NEW_CONNECTION] =
     g_signal_new ("new-connection",
@@ -138,8 +140,8 @@ evd_socket_class_init (EvdSocketClass *class)
 		  NULL, NULL,
 		  evd_marshal_VOID__BOXED_BOXED,
 		  G_TYPE_NONE, 2,
-		  G_TYPE_POINTER,
-		  G_TYPE_POINTER);
+		  EVD_TYPE_SOCKET,
+		  EVD_TYPE_SOCKET);
 
   /* install properties */
   g_object_class_install_property (obj_class,
@@ -172,6 +174,7 @@ evd_socket_init (EvdSocket *self)
   self->priv = priv;
 
   /* initialize private members */
+  priv->initable_init = FALSE;
   priv->status = EVD_SOCKET_CLOSED;
   priv->context = g_main_context_get_thread_default ();
 }
@@ -278,7 +281,11 @@ evd_socket_event_handler (gpointer data)
 	      g_signal_emit (socket,
 			     evd_socket_signals[NEW_CONNECTION],
 			     0,
-			     client);
+			     client, NULL);
+	    }
+	  else
+	    {
+	      /* TODO: Handle error */
 	    }
 	}
       else
@@ -296,14 +303,16 @@ evd_socket_event_handler (gpointer data)
 		  evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
 
 		  /* emit 'connected' signal */
-		  g_signal_emit (socket, evd_socket_signals[CONNECT], 0);
+		  g_signal_emit (socket, evd_socket_signals[CONNECT], 0, NULL);
 		}
 	    }
 
 	  if (condition & G_IO_IN)
-	    if (socket->priv->read_handler != NULL)
-	      socket->priv->read_handler (socket,
-					  socket->priv->read_handler_user_data);
+	    {
+	      if (socket->priv->read_handler != NULL)
+		socket->priv->read_handler (socket,
+					    socket->priv->read_handler_user_data);
+	    }
 	}
     }
 
@@ -346,6 +355,8 @@ evd_socket_initable_init (EvdSocket *self, GError **error)
     {
       g_socket_set_blocking (G_SOCKET (self), FALSE);
       g_socket_set_keepalive (G_SOCKET (self), TRUE);
+
+      self->priv->initable_init = TRUE;
 
       return TRUE;
     }
@@ -419,10 +430,28 @@ evd_socket_close (EvdSocket *self, GError **error)
 	result = FALSE;
 
       /* fire 'close' signal */
-      g_signal_emit (self, evd_socket_signals[CLOSE], 0);
+      g_signal_emit (self, evd_socket_signals[CLOSE], 0, NULL);
     }
 
   return result;
+}
+
+gboolean
+evd_socket_bind (EvdSocket       *self,
+		 GSocketAddress  *address,
+		 gboolean         allow_reuse,
+		 GError         **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
+
+  if (! self->priv->initable_init)
+    evd_socket_initable_init (self, error);
+
+  return g_socket_bind (G_SOCKET (self),
+			address,
+			allow_reuse,
+			error);
 }
 
 gboolean
@@ -430,12 +459,15 @@ evd_socket_listen (EvdSocket *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
+  if (! self->priv->initable_init)
+    evd_socket_initable_init (self, error);
+
   if (g_socket_listen (G_SOCKET (self), error))
     if (evd_socket_watch (self, error))
       {
 	self->priv->status = EVD_SOCKET_LISTENING;
 
-	g_signal_emit (self, evd_socket_signals[LISTEN], 0);
+	g_signal_emit (self, evd_socket_signals[LISTEN], 0, NULL);
 	return TRUE;
       }
 
@@ -456,11 +488,13 @@ evd_socket_accept (EvdSocket *self, GError **error)
   client_fd = accept (fd, NULL, 0);
 
   if ( (client = evd_socket_new_from_fd (client_fd, error)) != NULL)
-    if (evd_socket_watch (client, error))
-      {
-	evd_socket_set_status (self, EVD_SOCKET_CONNECTED);
-	return client;
-      }
+    {
+      if (evd_socket_watch (client, error))
+	{
+	  evd_socket_set_status (client, EVD_SOCKET_CONNECTED);
+	  return client;
+	}
+    }
 
   return NULL;
 }
@@ -471,6 +505,12 @@ evd_socket_connect (EvdSocket       *self,
 		    GCancellable    *cancellable,
 		    GError         **error)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
+
+  if (! self->priv->initable_init)
+    evd_socket_initable_init (self, error);
+
   g_socket_connect (G_SOCKET (self),
 		    address,
 		    cancellable,

@@ -56,19 +56,18 @@ struct _EvdSocketClass
   gboolean (* event_handler) (EvdSocket *self, GIOCondition condition);
 
   /* signal prototypes */
-  void (* close) (EvdSocket *self, gpointer user_data);
-  void (* connect) (EvdSocket *self, gpointer user_data);
-  void (* listen) (EvdSocket *self, gpointer user_data);
+  void (* close)          (EvdSocket *self);
+  void (* connect)        (EvdSocket *self);
+  void (* listen)         (EvdSocket *self);
   void (* new_connection) (EvdSocket *self,
-			   EvdSocket *socket,
-			   gpointer   user_data);
+			   EvdSocket *socket);
 };
 
 /* event message to pass to sockets objects*/
 struct _EvdSocketEvent
 {
-  GIOCondition condition;
-  EvdSocket *socket;
+  GIOCondition  condition;
+  EvdSocket    *socket;
 };
 
 /* socket states */
@@ -120,6 +119,11 @@ gboolean evd_socket_connect (EvdSocket       *self,
 void evd_socket_set_read_handler (EvdSocket            *self,
 				  EvdSocketReadHandler  handler,
 				  gpointer              user_data);
+
+gboolean evd_socket_bind (EvdSocket       *self,
+			  GSocketAddress  *address,
+			  gboolean         allow_reuse,
+			  GError         **error);
 
 G_END_DECLS
 
