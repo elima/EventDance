@@ -39,4 +39,27 @@ let addr = new Gio.InetSocketAddress ({
 socket.bind (addr, true);
 socket.listen ();
 
+let client1 = new Evd.Socket ({
+    family: Gio.SocketFamily.IPV4,
+    type: Gio.SocketType.STREAM,
+    protocol: Gio.SocketProtocol.TCP
+});
+
+client1.connect_timeout = 2;
+
+client1.connect ('connect-timeout', function (socket) {
+    log ("connection timeout");
+  });
+
+client1.connect ('connect', function (socket) {
+    log ("client socket connected");
+  });
+
+let addr = new Gio.InetSocketAddress ({
+    "address": Gio.InetAddress.new_from_string ("172.16.1.1"),
+    "port": 6666,
+});
+
+client1.connect_to (addr);
+
 MainLoop.run ("main");

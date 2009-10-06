@@ -30,7 +30,8 @@
 #include "evd-socket.h"
 #include "marshal.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.glib.socket"
+#define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
+#define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_SOCKET)
 
@@ -47,6 +48,10 @@ struct _EvdSocketPrivate
   GClosure *on_read_closure;
 
   gboolean initable_init;
+
+  guint    connect_timeout;
+  guint    connect_timeout_src_id;
+  gboolean connect_cancelled;
 };
 
 /* signals */
@@ -56,6 +61,7 @@ enum
   CONNECT,
   LISTEN,
   NEW_CONNECTION,
+  CONNECT_TIMEOUT,
   LAST_SIGNAL
 };
 
@@ -65,7 +71,8 @@ static guint evd_socket_signals [LAST_SIGNAL] = { 0 };
 enum
 {
   PROP_0,
-  READ_CLOSURE,
+  PROP_READ_CLOSURE,
+  PROP_CONNECT_TIMEOUT
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -151,13 +158,33 @@ evd_socket_class_init (EvdSocketClass *class)
 		  EVD_TYPE_SOCKET,
 		  EVD_TYPE_SOCKET);
 
+  evd_socket_signals[CONNECT_TIMEOUT] =
+    g_signal_new ("connect-timeout",
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, connect_timeout),
+		  NULL, NULL,
+		  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
+		  EVD_TYPE_SOCKET);
+
   /* install properties */
   g_object_class_install_property (obj_class,
-                                   READ_CLOSURE,
+                                   PROP_READ_CLOSURE,
                                    g_param_spec_boxed ("read-handler",
                                    "Read closure",
                                    "The callback closure that will be invoked when data is ready to be read",
 			           G_TYPE_CLOSURE,
+                                   G_PARAM_READWRITE));
+
+  g_object_class_install_property (obj_class,
+                                   PROP_CONNECT_TIMEOUT,
+                                   g_param_spec_uint ("connect-timeout",
+                                   "Connect timeout",
+                                   "The timeout in seconds to wait for a connect operation",
+			           0,
+			           G_MAXUINT,
+			           DEFAULT_CONNECT_TIMEOUT,
                                    G_PARAM_READWRITE));
 
   /* add private structure */
@@ -175,6 +202,7 @@ evd_socket_init (EvdSocket *self)
   self->priv = priv;
 
   /* initialize private members */
+  priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
   priv->initable_init = FALSE;
   priv->status = EVD_SOCKET_CLOSED;
   priv->context = g_main_context_get_thread_default ();
@@ -205,7 +233,7 @@ evd_socket_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case READ_CLOSURE:
+    case PROP_READ_CLOSURE:
       {
 	GClosure *closure;
 
@@ -214,6 +242,10 @@ evd_socket_set_property (GObject      *obj,
 	  evd_socket_set_read_closure_internal (self, closure);
 	break;
       }
+
+    case PROP_CONNECT_TIMEOUT:
+      self->priv->connect_timeout = g_value_get_uint (value);
+      break;
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
@@ -233,8 +265,12 @@ evd_socket_get_property (GObject    *obj,
 
   switch (prop_id)
     {
-    case READ_CLOSURE:
+    case PROP_READ_CLOSURE:
       g_value_set_boxed (value, self->priv->on_read_closure);
+      break;
+
+    case PROP_CONNECT_TIMEOUT:
+      g_value_set_uint (value, self->priv->connect_timeout);
       break;
 
     default:
@@ -299,6 +335,10 @@ evd_socket_event_handler (gpointer data)
 	      if (socket->priv->status == EVD_SOCKET_CONNECTING)
 		{
 		  evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
+
+		  /* remove any connect_timeout src */
+		  if (socket->priv->connect_timeout_src_id > 0)
+		    g_source_remove (socket->priv->connect_timeout_src_id);
 
 		  /* emit 'connected' signal */
 		  g_signal_emit (socket, evd_socket_signals[CONNECT], 0, NULL);
@@ -394,6 +434,25 @@ evd_socket_invoke_on_read (EvdSocket *self)
     }
 }
 
+static gboolean
+evd_socket_connect_timeout (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+  GError *error = NULL;
+
+  self->priv->connect_timeout_src_id = 0;
+  if (! evd_socket_close (self, &error))
+    {
+      /* TODO: emit 'error' signal */
+      return FALSE;
+    }
+
+  /* emit 'connect-timeout' signal*/
+  g_signal_emit (self, evd_socket_signals[CONNECT_TIMEOUT], 0, NULL);
+
+  return FALSE;
+}
+
 /* public methods */
 
 EvdSocket *
@@ -453,6 +512,7 @@ evd_socket_close (EvdSocket *self, GError **error)
     result = FALSE;
 
   evd_socket_set_status (self, EVD_SOCKET_CLOSED);
+  self->priv->connect_cancelled = FALSE;
 
   if (! g_socket_is_closed (G_SOCKET (self)))
     {
@@ -543,13 +603,38 @@ evd_socket_connect_to (EvdSocket        *self,
   if (*error != NULL)
     return FALSE;
 
-  g_socket_connect (G_SOCKET (self),
-		    address,
-		    cancellable,
-		    error);
+  /* if socket not closed, close it first */
+  if (self->priv->status != EVD_SOCKET_CLOSED)
+    if (! evd_socket_close (self, error))
+      return FALSE;
+
+  /* launch connect timeout */
+  if (self->priv->connect_timeout > 0)
+    self->priv->connect_timeout_src_id =
+      g_timeout_add (self->priv->connect_timeout * 1000,
+		     (GSourceFunc) evd_socket_connect_timeout,
+		     (gpointer) self);
+
+  if (! g_socket_connect (G_SOCKET (self),
+			  address,
+			  NULL,
+			  error))
+    {
+      /* an error ocurred, but error-pending
+	 is normal as on async ops */
+      if ((*error)->code != G_IO_ERROR_PENDING)
+	return FALSE;
+    }
+
+  /* g_socket_connect returns TRUE on a non-blocking socket, however
+     fills error with "connection in progress" hint */
+  if (*error != NULL)
+    {
+      g_error_free (*error);
+      *error = NULL;
+    }
 
   evd_socket_set_status (self, EVD_SOCKET_CONNECTING);
-
   if (evd_socket_watch (self, error))
     return TRUE;
 

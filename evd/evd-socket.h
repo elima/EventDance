@@ -62,11 +62,12 @@ struct _EvdSocketClass
   gboolean (* event_handler) (EvdSocket *self, GIOCondition condition);
 
   /* signal prototypes */
-  void (* close)          (EvdSocket *self);
-  void (* connect)        (EvdSocket *self);
-  void (* listen)         (EvdSocket *self);
-  void (* new_connection) (EvdSocket *self,
-			   EvdSocket *socket);
+  void (* close)           (EvdSocket *self);
+  void (* connect)         (EvdSocket *self);
+  void (* listen)          (EvdSocket *self);
+  void (* new_connection)  (EvdSocket *self,
+			    EvdSocket *socket);
+  void (* connect_timeout) (EvdSocket *self);
 };
 
 /* event message to pass to sockets objects*/
