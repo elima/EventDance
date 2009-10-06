@@ -121,9 +121,8 @@ gboolean      evd_socket_bind             (EvdSocket       *self,
 					   GError         **error);
 gboolean      evd_socket_listen           (EvdSocket *self, GError **error);
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
-gboolean      evd_socket_connect          (EvdSocket       *self,
+gboolean      evd_socket_connect_to       (EvdSocket       *self,
 					   GSocketAddress  *address,
-					   GCancellable    *cancellable,
 					   GError         **error);
 
 /**

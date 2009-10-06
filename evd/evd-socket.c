@@ -532,10 +532,9 @@ evd_socket_accept (EvdSocket *self, GError **error)
 }
 
 gboolean
-evd_socket_connect (EvdSocket       *self,
-		    GSocketAddress  *address,
-		    GCancellable    *cancellable,
-		    GError         **error)
+evd_socket_connect_to (EvdSocket        *self,
+		       GSocketAddress   *address,
+		       GError          **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);

@@ -245,7 +245,7 @@ test_tcp_sockets (gpointer data)
   /* connect client socket */
   addr = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
 				    INET_PORT);
-  if (! evd_socket_connect (socket2, addr, NULL, &error))
+  if (! evd_socket_connect_to (socket2, addr, &error))
     {
       g_error ("TCP client socket connect error: %s", error->message);
       return -1;
@@ -301,7 +301,7 @@ test_udp_sockets (gpointer data)
     }
 
   /* connect socket1 */
-  if (! evd_socket_connect (socket1, addr1, NULL, &error))
+  if (! evd_socket_connect_to (socket1, addr1, &error))
     {
       g_error ("UDP socket1 connect error: %s", error->message);
       return FALSE;
@@ -334,7 +334,7 @@ test_udp_sockets (gpointer data)
   g_object_set_data (G_OBJECT (socket2), "peer", socket1);
 
   /* connect socket2 */
-  if (! evd_socket_connect (socket2, addr2, NULL, &error))
+  if (! evd_socket_connect_to (socket2, addr2, &error))
     {
       g_error ("UDP socket2 connect error: %s", error->message);
       return FALSE;
