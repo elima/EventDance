@@ -45,7 +45,7 @@ let client1 = new Evd.Socket ({
     protocol: Gio.SocketProtocol.TCP
 });
 
-client1.connect_timeout = 2;
+client1.connect_timeout = 3;
 
 client1.connect ('connect-timeout', function (socket) {
     log ("connection timeout");
@@ -55,11 +55,19 @@ client1.connect ('connect', function (socket) {
     log ("client socket connected");
   });
 
+client1.connect ('close', function (socket) {
+    log ("client socket closed");
+  });
+
 let addr = new Gio.InetSocketAddress ({
     "address": Gio.InetAddress.new_from_string ("172.16.1.1"),
     "port": 6666,
 });
 
 client1.connect_to (addr);
+
+MainLoop.timeout_add (1000, Lang.bind (client1, function () {
+      this.cancel_connect ();
+    }));
 
 MainLoop.run ("main");

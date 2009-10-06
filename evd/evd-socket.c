@@ -49,9 +49,9 @@ struct _EvdSocketPrivate
 
   gboolean initable_init;
 
-  guint    connect_timeout;
-  guint    connect_timeout_src_id;
-  gboolean connect_cancelled;
+  guint         connect_timeout;
+  guint         connect_timeout_src_id;
+  GCancellable *connect_cancellable;
 };
 
 /* signals */
@@ -203,6 +203,8 @@ evd_socket_init (EvdSocket *self)
 
   /* initialize private members */
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+  priv->connect_cancellable = NULL;
+
   priv->initable_init = FALSE;
   priv->status = EVD_SOCKET_CLOSED;
   priv->context = g_main_context_get_thread_default ();
@@ -212,6 +214,14 @@ evd_socket_init (EvdSocket *self)
 static void
 evd_socket_dispose (GObject *obj)
 {
+  EvdSocket *self = EVD_SOCKET (obj);
+
+  if (self->priv->connect_cancellable != NULL)
+    {
+      g_object_unref (self->priv->connect_cancellable);
+      self->priv->connect_cancellable = NULL;
+    }
+
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
 }
 
@@ -324,6 +334,15 @@ evd_socket_event_handler (gpointer data)
 	}
       else
 	{
+	  if (condition & G_IO_ERR)
+	    {
+	      evd_socket_close (socket, &error);
+
+	      /* TODO: emit 'error' signal */
+
+	      return FALSE;
+	    }
+
 	  if (condition & G_IO_HUP)
 	    {
 	      evd_socket_close (socket, &error);
@@ -440,15 +459,15 @@ evd_socket_connect_timeout (gpointer user_data)
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
 
+  /* emit 'connect-timeout' signal*/
+  g_signal_emit (self, evd_socket_signals[CONNECT_TIMEOUT], 0, NULL);
+
   self->priv->connect_timeout_src_id = 0;
   if (! evd_socket_close (self, &error))
     {
       /* TODO: emit 'error' signal */
       return FALSE;
     }
-
-  /* emit 'connect-timeout' signal*/
-  g_signal_emit (self, evd_socket_signals[CONNECT_TIMEOUT], 0, NULL);
 
   return FALSE;
 }
@@ -512,7 +531,6 @@ evd_socket_close (EvdSocket *self, GError **error)
     result = FALSE;
 
   evd_socket_set_status (self, EVD_SOCKET_CLOSED);
-  self->priv->connect_cancelled = FALSE;
 
   if (! g_socket_is_closed (G_SOCKET (self)))
     {
@@ -615,9 +633,12 @@ evd_socket_connect_to (EvdSocket        *self,
 		     (GSourceFunc) evd_socket_connect_timeout,
 		     (gpointer) self);
 
+  if (self->priv->connect_cancellable == NULL)
+    self->priv->connect_cancellable = g_cancellable_new ();
+
   if (! g_socket_connect (G_SOCKET (self),
 			  address,
-			  NULL,
+			  self->priv->connect_cancellable,
 			  error))
     {
       /* an error ocurred, but error-pending
@@ -640,6 +661,28 @@ evd_socket_connect_to (EvdSocket        *self,
 
   evd_socket_set_status (self, EVD_SOCKET_CLOSED);
   return FALSE;
+}
+
+gboolean
+evd_socket_cancel_connect (EvdSocket *self, GError **error)
+{
+  if (self->priv->status == EVD_SOCKET_CONNECTING)
+    {
+      if (self->priv->connect_timeout_src_id > 0)
+	g_source_remove (self->priv->connect_timeout_src_id);
+
+      g_cancellable_cancel (self->priv->connect_cancellable);
+
+      return evd_socket_close (self, error);
+    }
+  else
+    {
+      *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+			    EVD_SOCKET_ERROR_NOT_CONNECTING,
+			    "Socket is not connecting");
+
+      return FALSE;
+    }
 }
 
 void

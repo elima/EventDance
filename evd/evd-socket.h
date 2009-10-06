@@ -86,6 +86,12 @@ typedef enum
   EVD_SOCKET_LISTENING
 } EvdSocketState;
 
+/* error codes */
+typedef enum
+{
+  EVD_SOCKET_ERROR_NOT_CONNECTING
+} EvdSocketError;
+
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())
 #define EVD_SOCKET(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_SOCKET, EvdSocket))
 #define EVD_SOCKET_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_SOCKET, EvdSocketClass))
@@ -125,6 +131,7 @@ EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 gboolean      evd_socket_connect_to       (EvdSocket       *self,
 					   GSocketAddress  *address,
 					   GError         **error);
+gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
 
 /**
  * evd_socket_set_read_handler:
