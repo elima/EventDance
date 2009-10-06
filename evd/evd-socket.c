@@ -347,14 +347,19 @@ evd_socket_unwatch (EvdSocket *self, GError **error)
 static gboolean
 evd_socket_initable_init (EvdSocket *self, GError **error)
 {
-  if (g_initable_init (G_INITABLE (self), NULL, error))
+  if (! self->priv->initable_init)
     {
-      g_socket_set_blocking (G_SOCKET (self), FALSE);
-      g_socket_set_keepalive (G_SOCKET (self), TRUE);
+      *error = NULL;
 
-      self->priv->initable_init = TRUE;
+      if (g_initable_init (G_INITABLE (self), NULL, error))
+	{
+	  g_socket_set_blocking (G_SOCKET (self), FALSE);
+	  g_socket_set_keepalive (G_SOCKET (self), TRUE);
 
-      return TRUE;
+	  self->priv->initable_init = TRUE;
+
+	  return TRUE;
+	}
     }
 
   return FALSE;
@@ -470,8 +475,9 @@ evd_socket_bind (EvdSocket       *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
-  if (! self->priv->initable_init)
-    evd_socket_initable_init (self, error);
+  evd_socket_initable_init (self, error);
+  if (*error != NULL)
+    return FALSE;
 
   return g_socket_bind (G_SOCKET (self),
 			address,
@@ -484,8 +490,9 @@ evd_socket_listen (EvdSocket *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (! self->priv->initable_init)
-    evd_socket_initable_init (self, error);
+  evd_socket_initable_init (self, error);
+  if (*error != NULL)
+    return FALSE;
 
   if (g_socket_listen (G_SOCKET (self), error))
     if (evd_socket_watch (self, error))
@@ -533,8 +540,9 @@ evd_socket_connect (EvdSocket       *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
-  if (! self->priv->initable_init)
-    evd_socket_initable_init (self, error);
+  evd_socket_initable_init (self, error);
+  if (*error != NULL)
+    return FALSE;
 
   g_socket_connect (G_SOCKET (self),
 		    address,
