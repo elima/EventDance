@@ -54,6 +54,10 @@ let client = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 
 client.connect_timeout = 3;
 
+client.connect ('error', function (socket, code, message) {
+    log ("ERROR on socket: " + code + "('" + message + "')");
+  });
+
 client.connect ('connect-timeout', Lang.bind (client, function (socket) {
       log ("connection timeout");
     }));
@@ -70,7 +74,7 @@ client.connect ('connect', function (socket) {
 
 client.connect ('close', on_socket_closed);
 
-client.connect_to ("localhost", 6666);
+client.connect_to ("kaka", 6666);
 
 MainLoop.timeout_add (3500, Lang.bind (socket, function () {
       this.close ();

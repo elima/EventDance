@@ -28,6 +28,7 @@
 
 #include "evd-socket-manager.h"
 #include "evd-socket.h"
+#include "evd-socket-protected.h"
 #include "marshal.h"
 
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
@@ -62,6 +63,7 @@ struct _EvdSocketPrivate
 /* signals */
 enum
 {
+  SIGNAL_ERROR,
   CLOSE,
   CONNECT,
   BIND,
@@ -127,6 +129,17 @@ evd_socket_class_init (EvdSocketClass *class)
   class->event_handler = NULL;
 
   /* install signals */
+  evd_socket_signals[SIGNAL_ERROR] =
+    g_signal_new ("error",
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, error),
+		  NULL, NULL,
+		  evd_marshal_VOID__INT_STRING,
+		  G_TYPE_NONE, 2,
+		  G_TYPE_INT,
+		  G_TYPE_STRING);
+
   evd_socket_signals[CLOSE] =
     g_signal_new ("close",
 		  G_TYPE_FROM_CLASS (obj_class),
@@ -421,12 +434,6 @@ evd_socket_check (EvdSocket *self,
     return FALSE;
 }
 
-void
-evd_socket_set_status (EvdSocket *self, EvdSocketState status)
-{
-  self->priv->status = status;
-}
-
 static gboolean
 evd_socket_event_handler (gpointer data)
 {
@@ -461,7 +468,9 @@ evd_socket_event_handler (gpointer data)
 	    }
 	  else
 	    {
-	      /* TODO: Handle error */
+	      /* error accepting connection, emit 'error' signal */
+	      error->code = EVD_SOCKET_ERROR_ACCEPT;
+	      evd_socket_throw_error (socket, error);
 	    }
 	}
       else
@@ -594,7 +603,10 @@ evd_socket_connect_timeout (gpointer user_data)
   self->priv->connect_timeout_src_id = 0;
   if (! evd_socket_close (self, &error))
     {
-      /* TODO: emit 'error' signal */
+      /* emit 'error' signal */
+      error->code = EVD_SOCKET_ERROR_CLOSE;
+      evd_socket_throw_error (self, error);
+
       return FALSE;
     }
 
@@ -614,6 +626,25 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
     }
 
   return TRUE;
+}
+
+/* protected methods */
+
+void
+evd_socket_set_status (EvdSocket *self, EvdSocketState status)
+{
+  self->priv->status = status;
+}
+
+void
+evd_socket_throw_error (EvdSocket *self, GError *error)
+{
+  g_signal_emit (self,
+		 evd_socket_signals[SIGNAL_ERROR],
+		 0,
+		 error->code,
+		 error->message,
+		 NULL);
 }
 
 /* public methods */

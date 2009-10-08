@@ -174,8 +174,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 					       sock_addr,
 					       &error))
 		    {
-		      /* TODO: emit 'error' signal */
-		      g_debug ("ERROR: failed to connect to address");
+		      evd_socket_throw_error (EVD_SOCKET (self), error);
 		    }
 		}
 	      else
@@ -187,8 +186,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 					 data->allow_reuse,
 					 &error))
 		    {
-		      /* TODO: emit 'error' signal */
-		      g_debug ("ERROR: failed to connect to address");
+		      evd_socket_throw_error (EVD_SOCKET (self), error);
 		    }
 		}
 
@@ -203,7 +201,9 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
     }
   else
     {
-      /* TODO: emit 'error' signal */
+      /* address resolution failed, emit 'error' signal */
+      error->code = EVD_INET_SOCKET_ERROR_RESOLVE;
+      evd_socket_throw_error (EVD_SOCKET (self), error);
     }
 }
 
@@ -290,10 +290,7 @@ evd_inet_socket_on_bind (EvdInetSocket *self, gpointer user_data)
 					user_data);
 
   if (! evd_socket_listen (EVD_SOCKET (self), &error))
-    {
-      /* TODO: emit 'error' signal */
-      g_debug ("ERROR: failed to listen: %s", error->message);
-    }
+    evd_socket_throw_error (EVD_SOCKET (self), error);
 }
 
 /* public methods */

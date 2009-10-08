@@ -62,6 +62,8 @@ struct _EvdSocketClass
   gboolean (* event_handler) (EvdSocket *self, GIOCondition condition);
 
   /* signal prototypes */
+  void (* error)           (EvdSocket *self,
+			    GError    *error);
   void (* close)           (EvdSocket *self);
   void (* connect)         (EvdSocket *self);
   void (* bind)            (EvdSocket      *self,
@@ -95,7 +97,10 @@ typedef enum
 {
   EVD_SOCKET_ERROR_NOT_CONNECTING,
   EVD_SOCKET_ERROR_NOT_CONNECTED,
-  EVD_SOCKET_ERROR_NOT_BOUND
+  EVD_SOCKET_ERROR_NOT_BOUND,
+  EVD_SOCKET_ERROR_CLOSE,
+  EVD_SOCKET_ERROR_ACCEPT,
+  EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
 
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())
