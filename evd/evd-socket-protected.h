@@ -30,8 +30,9 @@
 
 G_BEGIN_DECLS
 
-void evd_socket_set_status  (EvdSocket *self, EvdSocketState status);
-void evd_socket_throw_error (EvdSocket *self, GError *error);
+void     evd_socket_set_status         (EvdSocket *self, EvdSocketState status);
+void     evd_socket_throw_error        (EvdSocket *self, GError *error);
+gboolean evd_socket_event_list_handler (gpointer data);
 
 G_END_DECLS
 

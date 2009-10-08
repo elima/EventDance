@@ -53,8 +53,6 @@ struct _EvdSocketPrivate
 
   GClosure *on_read_closure;
 
-  gboolean initable_init;
-
   guint         connect_timeout;
   guint         connect_timeout_src_id;
   GCancellable *connect_cancellable;
@@ -101,8 +99,6 @@ static void     evd_socket_get_property       (GObject    *obj,
 					       guint       prop_id,
 					       GValue     *value,
 					       GParamSpec *pspec);
-
-static gboolean evd_socket_event_list_handler (gpointer data);
 
 static gboolean evd_socket_watch              (EvdSocket  *self,
 					       GError    **error);
@@ -252,8 +248,6 @@ evd_socket_class_init (EvdSocketClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
-
-  evd_socket_manager_set_callback (evd_socket_event_list_handler);
 }
 
 static void
@@ -273,10 +267,14 @@ evd_socket_init (EvdSocket *self)
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
   priv->connect_cancellable = NULL;
 
-  priv->initable_init = FALSE;
   priv->status = EVD_SOCKET_CLOSED;
+
   priv->context = g_main_context_get_thread_default ();
+  /* TODO: check if we should 'ref' the context */
+
   priv->on_read_closure = NULL;
+
+  evd_socket_manager_ref ();
 }
 
 static void
@@ -290,12 +288,20 @@ evd_socket_dispose (GObject *obj)
       self->priv->connect_cancellable = NULL;
     }
 
+  if (self->priv->socket != NULL)
+    {
+      evd_socket_close (self, NULL);
+      self->priv->socket = NULL;
+    }
+
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
 }
 
 static void
 evd_socket_finalize (GObject *obj)
 {
+  evd_socket_manager_unref ();
+
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 }
 
@@ -412,8 +418,8 @@ evd_socket_set_socket (EvdSocket *self, GSocket *socket)
 }
 
 static gboolean
-evd_socket_check (EvdSocket *self,
-		  GError **error)
+evd_socket_check (EvdSocket  *self,
+		  GError    **error)
 {
   GSocket *socket;
 
@@ -479,8 +485,12 @@ evd_socket_event_handler (gpointer data)
 	    {
 	      evd_socket_close (socket, &error);
 
-	      /* TODO: emit 'error' signal */
+	      /* socket error, emit 'error' signal */
+	      error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+				   EVD_SOCKET_ERROR_UNKNOWN,
+				   "Socket error");
 
+	      evd_socket_throw_error (socket, error);
 	      return FALSE;
 	    }
 
@@ -511,23 +521,6 @@ evd_socket_event_handler (gpointer data)
 	    }
 	}
     }
-
-  return FALSE;
-}
-
-static gboolean
-evd_socket_event_list_handler (gpointer data)
-{
-  GQueue *queue = data;
-  gpointer msg;
-
-  while ( (msg = g_queue_pop_head (queue)) != NULL)
-    {
-      evd_socket_event_handler (msg);
-      g_free (msg);
-    }
-
-  g_queue_free (queue);
 
   return FALSE;
 }
@@ -647,6 +640,23 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
 		 NULL);
 }
 
+gboolean
+evd_socket_event_list_handler (gpointer data)
+{
+  GQueue *queue = data;
+  gpointer msg;
+
+  while ( (msg = g_queue_pop_head (queue)) != NULL)
+    {
+      evd_socket_event_handler (msg);
+      g_free (msg);
+    }
+
+  g_queue_free (queue);
+
+  return FALSE;
+}
+
 /* public methods */
 
 EvdSocket *
@@ -729,13 +739,13 @@ evd_socket_close (EvdSocket *self, GError **error)
     {
       if (! g_socket_close (self->priv->socket, error))
 	result = FALSE;
-
-      /* fire 'close' signal */
-      g_signal_emit (self, evd_socket_signals[CLOSE], 0, NULL);
     }
 
   g_object_unref (self->priv->socket);
   self->priv->socket = NULL;
+
+  /* fire 'close' signal */
+  g_signal_emit (self, evd_socket_signals[CLOSE], 0, NULL);
 
   return result;
 }

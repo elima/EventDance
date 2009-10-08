@@ -27,6 +27,7 @@
 #include <time.h>
 
 #include "evd-socket-manager.h"
+#include "evd-socket-protected.h"
 
 #define DEFAULT_MAX_SOCKETS 50000 /* maximum number of sockets to handle */
 #define DEFAULT_MIN_LATENCY   100 /* nanoseconds between dispatch calls */
@@ -47,43 +48,17 @@ struct _EvdSocketManagerPrivate
   gint epoll_fd;
   GThread *thread;
 
-  GSourceFunc callback;
   gboolean started;
-};
-
-/* signals */
-enum
-{
-  SIGNAL_EXAMPLE,
-  LAST_SIGNAL
-};
-
-static guint evd_socket_manager_signals [LAST_SIGNAL] = { 0 };
-
-/* properties */
-enum
-{
-  PROP_0,
-  PROP_EXAMPLE
 };
 
 /* we are a singleton object */
 static EvdSocketManager *evd_socket_manager_singleton = NULL;
 
-static void evd_socket_manager_class_init (EvdSocketManagerClass *class);
-static void evd_socket_manager_init (EvdSocketManager *self);
-static void evd_socket_manager_finalize (GObject *obj);
-static void evd_socket_manager_dispose (GObject *obj);
-static void evd_socket_manager_set_property (GObject      *obj,
-					     guint         prop_id,
-					     const GValue *value,
-					     GParamSpec   *pspec);
-static void evd_socket_manager_get_property (GObject     *obj,
-					      guint       prop_id,
-					      GValue     *value,
-					      GParamSpec *pspec);
-
-static gpointer evd_socket_manager_idle (gpointer data);
+static void     evd_socket_manager_class_init   (EvdSocketManagerClass *class);
+static void     evd_socket_manager_init         (EvdSocketManager *self);
+static void     evd_socket_manager_finalize     (GObject *obj);
+static void     evd_socket_manager_dispose      (GObject *obj);
+static gpointer evd_socket_manager_idle         (gpointer data);
 
 
 static void
@@ -95,30 +70,6 @@ evd_socket_manager_class_init (EvdSocketManagerClass *class)
 
   obj_class->dispose = evd_socket_manager_dispose;
   obj_class->finalize = evd_socket_manager_finalize;
-  obj_class->get_property = evd_socket_manager_get_property;
-  obj_class->set_property = evd_socket_manager_set_property;
-
-  /* install signals */
-  evd_socket_manager_signals[SIGNAL_EXAMPLE] =
-    g_signal_new ("signal-example",
-          G_TYPE_FROM_CLASS (obj_class),
-          G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-          G_STRUCT_OFFSET (EvdSocketManagerClass, signal_example),
-          NULL, NULL,
-          g_cclosure_marshal_VOID__BOXED,
-          G_TYPE_NONE, 1,
-          G_TYPE_POINTER);
-
-  /* install properties */
-  g_object_class_install_property (obj_class,
-                                   PROP_EXAMPLE,
-                                   g_param_spec_int ("example",
-                                   "An example property",
-                                   "An example property to gobject boilerplate",
-                                   0,
-                                   256,
-                                   0,
-                                   G_PARAM_READWRITE));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketManagerPrivate));
@@ -140,57 +91,25 @@ evd_socket_manager_init (EvdSocketManager *self)
 static void
 evd_socket_manager_dispose (GObject *obj)
 {
+  EvdSocketManager *self = EVD_SOCKET_MANAGER (obj);
+
+  if (self->priv->started)
+    if (self->priv->thread != NULL)
+      {
+	self->priv->started = FALSE;
+	g_thread_join (self->priv->thread);
+	self->priv->thread = NULL;
+      }
+
   G_OBJECT_CLASS (evd_socket_manager_parent_class)->dispose (obj);
 }
 
 static void
 evd_socket_manager_finalize (GObject *obj)
 {
-  g_debug ("Socket-manager destroyed!");
+  evd_socket_manager_singleton = NULL;
 
   G_OBJECT_CLASS (evd_socket_manager_parent_class)->finalize (obj);
-}
-
-static void
-evd_socket_manager_set_property (GObject      *obj,
-				 guint         prop_id,
-				 const GValue *value,
-				 GParamSpec   *pspec)
-{
-  EvdSocketManager *self;
-
-  self = EVD_SOCKET_MANAGER (obj);
-
-  switch (prop_id)
-    {
-    case PROP_EXAMPLE:
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-evd_socket_manager_get_property (GObject    *obj,
-				 guint       prop_id,
-				 GValue     *value,
-				 GParamSpec *pspec)
-{
-  EvdSocketManager *self;
-
-  self = EVD_SOCKET_MANAGER (obj);
-
-  switch (prop_id)
-    {
-    case PROP_EXAMPLE:
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static EvdSocketManager *
@@ -291,7 +210,7 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
 
       src = g_idle_source_new ();
       g_source_set_callback (src,
-			     self->priv->callback,
+			     evd_socket_event_list_handler,
 			     (gpointer) queue,
 			     NULL);
       g_source_attach (src, context);
@@ -327,9 +246,7 @@ evd_socket_manager_idle (gpointer data)
   return NULL;
 }
 
-/* public methods */
-
-EvdSocketManager *
+static EvdSocketManager *
 evd_socket_manager_get (void)
 {
   if (evd_socket_manager_singleton == NULL)
@@ -338,13 +255,22 @@ evd_socket_manager_get (void)
   return evd_socket_manager_singleton;
 }
 
-void
-evd_socket_manager_set_callback (GSourceFunc callback)
-{
-  EvdSocketManager *self;
+/* public methods */
 
-  self = evd_socket_manager_get ();
-  self->priv->callback = callback;
+void
+evd_socket_manager_ref (void)
+{
+  if (evd_socket_manager_singleton == NULL)
+    evd_socket_manager_singleton = evd_socket_manager_new ();
+  else
+    g_object_ref (evd_socket_manager_singleton);
+}
+
+void
+evd_socket_manager_unref (void)
+{
+  if (evd_socket_manager_singleton != NULL)
+    g_object_unref (evd_socket_manager_singleton);
 }
 
 gboolean
@@ -374,8 +300,6 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
 			    "Failed to add socket file descriptor to epoll set");
       result = FALSE;
     }
-  else
-    g_object_ref (self);
 
   return result;
 }
@@ -399,8 +323,6 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
 			    "Failed to remove socket file descriptor from epoll set");
       result = FALSE;
     }
-  else
-    g_object_unref (self);
 
   return result;
 }

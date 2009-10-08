@@ -46,10 +46,6 @@ struct _EvdSocketManager
 struct _EvdSocketManagerClass
 {
   GObjectClass parent_class;
-
-  /* signal prototypes */
-  void (* signal_example) (EvdSocketManager *self,
-			   gpointer          some_data);
 };
 
 /* error codes */
@@ -66,16 +62,15 @@ enum
 #define EVD_SOCKET_MANAGER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_SOCKET_MANAGER, EvdSocketManagerClass))
 
 
-GType evd_socket_manager_get_type (void) G_GNUC_CONST;
+GType             evd_socket_manager_get_type     (void) G_GNUC_CONST;
 
-EvdSocketManager *evd_socket_manager_get (void);
+void              evd_socket_manager_ref          (void);
+void              evd_socket_manager_unref        (void);
 
-void evd_socket_manager_set_callback (GSourceFunc callback);
-gboolean evd_socket_manager_add_socket (EvdSocket  *socket,
-					GError    **error);
-gboolean evd_socket_manager_del_socket (EvdSocket  *socket,
-					GError    **error);
-
+gboolean          evd_socket_manager_add_socket   (EvdSocket  *socket,
+						   GError    **error);
+gboolean          evd_socket_manager_del_socket   (EvdSocket  *socket,
+						   GError    **error);
 
 G_END_DECLS
 

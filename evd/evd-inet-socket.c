@@ -202,6 +202,8 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
   else
     {
       /* address resolution failed, emit 'error' signal */
+      evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_CLOSED);
+
       error->code = EVD_INET_SOCKET_ERROR_RESOLVE;
       evd_socket_throw_error (EVD_SOCKET (self), error);
     }

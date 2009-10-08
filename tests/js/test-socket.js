@@ -76,8 +76,8 @@ client.connect ('close', on_socket_closed);
 
 client.connect_to ("kaka", 6666);
 
-MainLoop.timeout_add (3500, Lang.bind (socket, function () {
-      this.close ();
+MainLoop.timeout_add (1000, Lang.bind (socket, function () {
+      MainLoop.quit ("main");
     }));
 
 MainLoop.run ("main");
