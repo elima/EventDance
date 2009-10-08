@@ -72,7 +72,10 @@ gboolean          evd_inet_socket_bind             (EvdInetSocket  *self,
 						    guint           port,
 						    gboolean        allow_reuse,
 						    GError        **error);
-
+gboolean          evd_inet_socket_listen           (EvdInetSocket  *self,
+						    const gchar    *address,
+						    guint           port,
+						    GError        **error);
 
 G_END_DECLS
 

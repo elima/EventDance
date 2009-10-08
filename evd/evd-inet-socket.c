@@ -370,3 +370,30 @@ evd_inet_socket_bind (EvdInetSocket  *self,
 					 ACTION_BIND,
 					 error);
 }
+
+static void
+evd_inet_socket_on_bind (EvdInetSocket *self, gpointer user_data)
+{
+  GError *error;
+
+  g_signal_handlers_disconnect_by_func (self,
+					G_CALLBACK (evd_inet_socket_on_bind),
+					user_data);
+
+  if (! evd_socket_listen (EVD_SOCKET (self), &error))
+    {
+      /* TODO: emit 'error' signal */
+      g_debug ("ERROR: failed to listen: %s", error->message);
+    }
+}
+
+gboolean
+evd_inet_socket_listen (EvdInetSocket  *self,
+			const gchar    *address,
+			guint           port,
+			GError        **error)
+{
+  g_signal_connect (self, "bind", G_CALLBACK (evd_inet_socket_on_bind), self);
+
+  return evd_inet_socket_bind (self, address, port, TRUE, error);
+}

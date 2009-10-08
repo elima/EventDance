@@ -151,7 +151,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, bind),
 		  NULL, NULL,
-		  evd_marshal_VOID__BOXED_BOXED,
+		  g_cclosure_marshal_VOID__BOXED,
 		  G_TYPE_NONE, 1,
 		  G_TYPE_SOCKET_ADDRESS);
 
@@ -161,9 +161,8 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, listen),
 		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-		  EVD_TYPE_SOCKET);
+		  g_cclosure_marshal_VOID__VOID,
+		  G_TYPE_NONE, 0);
 
   evd_socket_signals[NEW_CONNECTION] =
     g_signal_new ("new-connection",
@@ -171,9 +170,8 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, new_connection),
 		  NULL, NULL,
-		  evd_marshal_VOID__BOXED_BOXED,
-		  G_TYPE_NONE, 2,
-		  EVD_TYPE_SOCKET,
+		  g_cclosure_marshal_VOID__BOXED,
+		  G_TYPE_NONE, 1,
 		  EVD_TYPE_SOCKET);
 
   evd_socket_signals[CONNECT_TIMEOUT] =
@@ -182,9 +180,8 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, connect_timeout),
 		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-		  EVD_TYPE_SOCKET);
+		  g_cclosure_marshal_VOID__VOID,
+		  G_TYPE_NONE, 0);
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_SOCKET,

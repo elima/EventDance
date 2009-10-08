@@ -3,7 +3,6 @@ const Gio = imports.gi.Gio;
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
 const Lang = imports.lang;
-const GObject = imports.gi.GObject;
 
 
 function read_handler () {
@@ -17,18 +16,10 @@ function on_socket_closed (socket) {
   log ("socket closed!");
 }
 
-let socket = new Evd.InetSocket ();
 
-socket.connect ('listen', function (socket) {
-    log ("socket listening");
-});
+/* ============ server socket =================== */
 
-function read_handler () {
-  let [data, len] = this.read (1024);
-  let real_data = unescape (data);
-
-  log (len + " bytes read from socket: " + data);
-}
+let socket = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
 
 socket.connect ('close', on_socket_closed);
 
@@ -48,23 +39,26 @@ socket.connect ('new-connection', function (socket, client) {
 socket.connect ('bind', function (socket, address) {
     log ("socket bound to " + address.address.to_string () + ":" +
 	 address.get_port ());
-    socket.listen ();
   });
 
-socket.bind ("*", 6666, true);
+socket.connect ('listen', function (socket) {
+    log ("socket listening");
+});
+
+socket.listen ("*", 6666);
 
 
 /* ============ client socket =================== */
 
-let client1 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
+let client = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 
-client1.connect_timeout = 3;
+client.connect_timeout = 3;
 
-client1.connect ('connect-timeout', Lang.bind (client1, function (socket) {
+client.connect ('connect-timeout', Lang.bind (client, function (socket) {
       log ("connection timeout");
     }));
 
-client1.connect ('connect', function (socket) {
+client.connect ('connect', function (socket) {
     log ("client socket connected");
 
     socket.set_read_closure (Lang.bind (socket, read_handler));
@@ -74,14 +68,12 @@ client1.connect ('connect', function (socket) {
     socket.send (data, data.length);
     });
 
-client1.connect ('close', function (socket) {
-    log ("client socket closed");
-  });
+client.connect ('close', on_socket_closed);
 
-client1.connect_to ("localhost", 6666);
+client.connect_to ("localhost", 6666);
 
-MainLoop.timeout_add (3500, Lang.bind (client1, function () {
-      //      this.cancel_connect ();
+MainLoop.timeout_add (3500, Lang.bind (socket, function () {
+      this.close ();
     }));
 
 MainLoop.run ("main");
