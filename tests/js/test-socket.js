@@ -5,7 +5,19 @@ const Evd = imports.gi.Evd;
 const Lang = imports.lang;
 const GObject = imports.gi.GObject;
 
-let socket = new Evd.Socket ();
+
+function read_handler () {
+  let [data, len] = this.read (1024);
+  let real_data = unescape (data);
+
+  log (len + " bytes read from socket: " + data);
+}
+
+function on_socket_closed (socket) {
+  log ("socket closed!");
+}
+
+let socket = new Evd.InetSocket ();
 
 socket.connect ('listen', function (socket) {
     log ("socket listening");
@@ -18,10 +30,7 @@ function read_handler () {
   log (len + " bytes read from socket: " + data);
 }
 
-socket.connect ('close', function (socket) {
-    log ("socket closed!");
-    MainLoop.quit ("main");
-});
+socket.connect ('close', on_socket_closed);
 
 socket.connect ('new-connection', function (socket, client) {
     log ("new client connected from address " +
@@ -36,15 +45,18 @@ socket.connect ('new-connection', function (socket, client) {
     client.send (data, data.length);
 });
 
-let addr = new Gio.InetSocketAddress ({
-    "address": Gio.InetAddress.new_any (Gio.SocketFamily.IPV4),
-    "port": 6666,
-});
+socket.connect ('bind', function (socket, address) {
+    log ("socket bound to " + address.address.to_string () + ":" +
+	 address.get_port ());
+    socket.listen ();
+  });
 
-socket.bind (addr, true);
-socket.listen ();
+socket.bind ("*", 6666, true);
 
-let client1 = new Evd.Socket ();
+
+/* ============ client socket =================== */
+
+let client1 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 
 client1.connect_timeout = 3;
 
@@ -66,12 +78,7 @@ client1.connect ('close', function (socket) {
     log ("client socket closed");
   });
 
-let addr = new Gio.InetSocketAddress ({
-    "address": Gio.InetAddress.new_from_string ("172.16.1.103"),
-    "port": 6666,
-});
-
-client1.connect_to (addr);
+client1.connect_to ("localhost", 6666);
 
 MainLoop.timeout_add (3500, Lang.bind (client1, function () {
       //      this.cancel_connect ();

@@ -64,6 +64,7 @@ enum
 {
   CLOSE,
   CONNECT,
+  BIND,
   LISTEN,
   NEW_CONNECTION,
   CONNECT_TIMEOUT,
@@ -132,9 +133,8 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, close),
 		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-		  EVD_TYPE_SOCKET);
+		  g_cclosure_marshal_VOID__VOID,
+		  G_TYPE_NONE, 0);
 
   evd_socket_signals[CONNECT] =
     g_signal_new ("connect",
@@ -142,9 +142,18 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		  G_STRUCT_OFFSET (EvdSocketClass, connect),
 		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
+		  g_cclosure_marshal_VOID__VOID,
+		  G_TYPE_NONE, 0);
+
+  evd_socket_signals[BIND] =
+    g_signal_new ("bind",
+		  G_TYPE_FROM_CLASS (obj_class),
+		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+		  G_STRUCT_OFFSET (EvdSocketClass, bind),
+		  NULL, NULL,
+		  evd_marshal_VOID__BOXED_BOXED,
 		  G_TYPE_NONE, 1,
-		  EVD_TYPE_SOCKET);
+		  G_TYPE_SOCKET_ADDRESS);
 
   evd_socket_signals[LISTEN] =
     g_signal_new ("listen",
@@ -415,7 +424,7 @@ evd_socket_check (EvdSocket *self,
     return FALSE;
 }
 
-static void
+void
 evd_socket_set_status (EvdSocket *self, EvdSocketState status)
 {
   self->priv->status = status;
@@ -654,6 +663,22 @@ evd_socket_get_context (EvdSocket *self)
   return self->priv->context;
 }
 
+GSocketFamily
+evd_socket_get_family (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
+  return self->priv->family;
+}
+
+EvdSocketState
+evd_socket_get_status (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
+  return self->priv->status;
+}
+
 gboolean
 evd_socket_close (EvdSocket *self, GError **error)
 {
@@ -701,10 +726,19 @@ evd_socket_bind (EvdSocket       *self,
   if (! evd_socket_check (self, error))
     return FALSE;
 
-  return g_socket_bind (self->priv->socket,
-			address,
-			allow_reuse,
-			error);
+  if (g_socket_bind (self->priv->socket,
+		     address,
+		     allow_reuse,
+		     error))
+    {
+      evd_socket_set_status (self, EVD_SOCKET_BOUND);
+
+      g_signal_emit (self, evd_socket_signals[BIND], 0, address, NULL);
+
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 gboolean
@@ -714,6 +748,15 @@ evd_socket_listen (EvdSocket *self, GError **error)
 
   if (! evd_socket_check (self, error))
     return FALSE;
+
+  if (self->priv->status != EVD_SOCKET_BOUND)
+    {
+      *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+			    EVD_SOCKET_ERROR_NOT_BOUND,
+			    "Socket is not bound to an address");
+
+      return FALSE;
+    }
 
   if (g_socket_listen (self->priv->socket, error))
     if (evd_socket_watch (self, error))
@@ -766,7 +809,8 @@ evd_socket_connect_to (EvdSocket        *self,
     return FALSE;
 
   /* if socket not closed, close it first */
-  if (self->priv->status != EVD_SOCKET_CLOSED)
+  if ( (self->priv->status == EVD_SOCKET_CONNECTED) ||
+       (self->priv->status == EVD_SOCKET_LISTENING) )
     if (! evd_socket_close (self, error))
       return FALSE;
 

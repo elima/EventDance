@@ -33,15 +33,18 @@ lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
 source_c = \
 	marshal.c \
 	evd-socket-manager.c \
-	evd-socket.c
+	evd-socket.c \
+	evd-inet-socket.c
 
 source_h = \
 	marshal.h \
 	evd-socket.h \
+	evd-inet-socket.h \
 	evd.h
 
 source_h_priv = \
-	evd-socket-manager.h
+	evd-socket-manager.h \
+	evd-socket-protected.h
 
 libevd_@EVD_API_VERSION@_la_LIBADD = \
 	$(GLIB_LIBS)

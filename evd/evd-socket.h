@@ -64,6 +64,8 @@ struct _EvdSocketClass
   /* signal prototypes */
   void (* close)           (EvdSocket *self);
   void (* connect)         (EvdSocket *self);
+  void (* bind)            (EvdSocket      *self,
+			    GSocketAddress *address);
   void (* listen)          (EvdSocket *self);
   void (* new_connection)  (EvdSocket *self,
 			    EvdSocket *socket);
@@ -83,6 +85,8 @@ typedef enum
   EVD_SOCKET_CLOSED,
   EVD_SOCKET_CONNECTING,
   EVD_SOCKET_CONNECTED,
+  EVD_SOCKET_BINDING,
+  EVD_SOCKET_BOUND,
   EVD_SOCKET_LISTENING
 } EvdSocketState;
 
@@ -90,7 +94,8 @@ typedef enum
 typedef enum
 {
   EVD_SOCKET_ERROR_NOT_CONNECTING,
-  EVD_SOCKET_ERROR_NOT_CONNECTED
+  EVD_SOCKET_ERROR_NOT_CONNECTED,
+  EVD_SOCKET_ERROR_NOT_BOUND
 } EvdSocketError;
 
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())
@@ -109,6 +114,9 @@ EvdSocket    *evd_socket_new_from_fd      (gint     fd,
 
 GSocket      *evd_socket_get_socket       (EvdSocket *self);
 GMainContext *evd_socket_get_context      (EvdSocket *self);
+GSocketFamily evd_socket_get_family       (EvdSocket *self);
+EvdSocketState evd_socket_get_status      (EvdSocket *self);
+
 
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 

@@ -64,7 +64,7 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
 					 BLOCK_SIZE,
 					 &error)) == -1)
     {
-      g_debug ("ERROR: Failed to read data from socket");
+      g_debug ("ERROR: Failed to read data from socket: %s", error->message);
       return;
     }
 
