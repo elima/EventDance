@@ -30,38 +30,6 @@
 
 G_DEFINE_TYPE (EvdInetSocket, evd_inet_socket, EVD_TYPE_SOCKET)
 
-#define EVD_INET_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-   	                                  EVD_TYPE_INET_SOCKET, \
-                                          EvdInetSocketPrivate))
-
-/* private data */
-struct _EvdInetSocketPrivate
-{
-  GSocketFamily family;
-};
-
-/* signals */
-/*
-enum
-{
-  NONE,
-  LAST_SIGNAL
-};
-*/
-
-/*
-static guint evd_inet_socket_signals [LAST_SIGNAL] = { 0 };
-*/
-
-/* properties */
- /*
-enum
-{
-  PROP_0,
-  PROP_FAMILY
-};
- */
-
 typedef enum
 {
   ACTION_BIND,
@@ -102,25 +70,11 @@ evd_inet_socket_class_init (EvdInetSocketClass *class)
   obj_class->finalize = evd_inet_socket_finalize;
   obj_class->get_property = evd_inet_socket_get_property;
   obj_class->set_property = evd_inet_socket_set_property;
-
-  /* install signals */
-
-  /* install properties */
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdInetSocketPrivate));
 }
 
 static void
 evd_inet_socket_init (EvdInetSocket *self)
 {
-  EvdInetSocketPrivate *priv;
-
-  priv = EVD_INET_SOCKET_GET_PRIVATE (self);
-  self->priv = priv;
-
-  /* initialize private members */
-  priv->family = G_SOCKET_FAMILY_INVALID;
 }
 
 static void
@@ -326,6 +280,22 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
     }
 }
 
+static void
+evd_inet_socket_on_bind (EvdInetSocket *self, gpointer user_data)
+{
+  GError *error;
+
+  g_signal_handlers_disconnect_by_func (self,
+					G_CALLBACK (evd_inet_socket_on_bind),
+					user_data);
+
+  if (! evd_socket_listen (EVD_SOCKET (self), &error))
+    {
+      /* TODO: emit 'error' signal */
+      g_debug ("ERROR: failed to listen: %s", error->message);
+    }
+}
+
 /* public methods */
 
 EvdInetSocket *
@@ -369,22 +339,6 @@ evd_inet_socket_bind (EvdInetSocket  *self,
 					 allow_reuse,
 					 ACTION_BIND,
 					 error);
-}
-
-static void
-evd_inet_socket_on_bind (EvdInetSocket *self, gpointer user_data)
-{
-  GError *error;
-
-  g_signal_handlers_disconnect_by_func (self,
-					G_CALLBACK (evd_inet_socket_on_bind),
-					user_data);
-
-  if (! evd_socket_listen (EVD_SOCKET (self), &error))
-    {
-      /* TODO: emit 'error' signal */
-      g_debug ("ERROR: failed to listen: %s", error->message);
-    }
 }
 
 gboolean

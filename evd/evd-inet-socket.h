@@ -32,23 +32,15 @@ G_BEGIN_DECLS
 
 typedef struct _EvdInetSocket EvdInetSocket;
 typedef struct _EvdInetSocketClass EvdInetSocketClass;
-typedef struct _EvdInetSocketPrivate EvdInetSocketPrivate;
 
 struct _EvdInetSocket
 {
   EvdSocket parent;
-
-  /* private structure */
-  EvdInetSocketPrivate *priv;
 };
 
 struct _EvdInetSocketClass
 {
   EvdSocketClass parent_class;
-
-  /* virtual methods */
-
-  /* signal prototypes */
 };
 
 #define EVD_TYPE_INET_SOCKET           (evd_inet_socket_get_type ())
