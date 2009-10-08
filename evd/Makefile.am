@@ -12,15 +12,15 @@ CLEANFILES = *~ evd.pc
 #see gcc man page for description: http://www.google.com/search?q=man+gcc
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb -DPKGDATADIR="\"$(pkgdatadir)\""
 
-marshal.h: marshal.list
+evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \
-		--prefix=evd_marshal marshal.list > marshal.h
+		--prefix=evd_marshal evd-marshal.list > evd-marshal.h
 
-marshal.c: marshal.list
+evd-marshal.c: evd-marshal.list
 	glib-genmarshal --body \
-		--prefix=evd_marshal marshal.list > marshal.c
+		--prefix=evd_marshal evd-marshal.list > evd-marshal.c
 
-BUILT_SOURCES = marshal.c marshal.h
+BUILT_SOURCES = evd-marshal.c evd-marshal.h
 
 INCLUDES = \
 	-I$(top_srcdir) \
@@ -31,18 +31,18 @@ lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
 
 # libevd
 source_c = \
-	marshal.c \
+	evd-marshal.c \
 	evd-socket-manager.c \
 	evd-socket.c \
 	evd-inet-socket.c
 
 source_h = \
-	marshal.h \
 	evd-socket.h \
 	evd-inet-socket.h \
 	evd.h
 
 source_h_priv = \
+	evd-marshal.h \
 	evd-socket-manager.h \
 	evd-socket-protected.h
 

@@ -29,7 +29,7 @@
 #include "evd-socket-manager.h"
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
-#include "marshal.h"
+#include "evd-marshal.h"
 
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"

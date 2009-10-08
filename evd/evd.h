@@ -27,5 +27,6 @@
 #define __EVD_H__
 
 #include <evd-socket.h>
+#include <evd-inet-socket.h>
 
 #endif /* __EVD_H__ */
