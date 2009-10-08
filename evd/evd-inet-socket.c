@@ -26,8 +26,6 @@
 #include "evd-inet-socket.h"
 #include "evd-socket-protected.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.glib.inet-socket"
-
 G_DEFINE_TYPE (EvdInetSocket, evd_inet_socket, EVD_TYPE_SOCKET)
 
 typedef enum
@@ -50,15 +48,6 @@ static void     evd_inet_socket_init               (EvdInetSocket *self);
 static void     evd_inet_socket_finalize           (GObject *obj);
 static void     evd_inet_socket_dispose            (GObject *obj);
 
-static void     evd_inet_socket_set_property       (GObject      *obj,
-						    guint         prop_id,
-						    const GValue *value,
-						    GParamSpec   *pspec);
-static void     evd_inet_socket_get_property       (GObject    *obj,
-						    guint       prop_id,
-						    GValue     *value,
-						    GParamSpec *pspec);
-
 static void
 evd_inet_socket_class_init (EvdInetSocketClass *class)
 {
@@ -68,8 +57,6 @@ evd_inet_socket_class_init (EvdInetSocketClass *class)
 
   obj_class->dispose = evd_inet_socket_dispose;
   obj_class->finalize = evd_inet_socket_finalize;
-  obj_class->get_property = evd_inet_socket_get_property;
-  obj_class->set_property = evd_inet_socket_set_property;
 }
 
 static void
@@ -87,42 +74,6 @@ static void
 evd_inet_socket_finalize (GObject *obj)
 {
   G_OBJECT_CLASS (evd_inet_socket_parent_class)->finalize (obj);
-}
-
-static void
-evd_inet_socket_set_property (GObject      *obj,
-			     guint         prop_id,
-			     const GValue *value,
-			     GParamSpec   *pspec)
-{
-  EvdInetSocket *self;
-
-  self = EVD_INET_SOCKET (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-evd_inet_socket_get_property (GObject    *obj,
-			     guint       prop_id,
-			     GValue     *value,
-			     GParamSpec *pspec)
-{
-  EvdInetSocket *self;
-
-  self = EVD_INET_SOCKET (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static void
