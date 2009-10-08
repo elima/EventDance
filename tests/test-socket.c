@@ -59,11 +59,14 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
   static gchar buf[BLOCK_SIZE];
   static gssize size;
 
-  size = g_socket_receive (G_SOCKET (socket),
-			   buf,
-			   BLOCK_SIZE,
-			   NULL,
-			   &error);
+  if ((size = evd_socket_read_to_buffer (socket,
+					 buf,
+					 BLOCK_SIZE,
+					 &error)) == -1)
+    {
+      g_debug ("ERROR: Failed to read data from socket");
+      return;
+    }
 
   if (size > 0)
     {
@@ -106,7 +109,7 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 			       on_socket_read,
 			       NULL);
 
-  if (g_socket_send (G_SOCKET (socket),
+  if (g_socket_send (evd_socket_get_socket (socket),
 		     greeting,
 		     strlen (greeting), NULL, &error) < 0)
     {
@@ -128,7 +131,7 @@ on_socket_new_connection (EvdSocket *socket,
 		    G_CALLBACK (on_socket_close),
 		    NULL);
 
-  g_socket_send (G_SOCKET (client),
+  g_socket_send (evd_socket_get_socket (client),
 		 greeting,
 		 strlen (greeting), NULL, NULL);
 
@@ -186,14 +189,8 @@ test_tcp_sockets (gpointer data)
   g_print ("=======================\n");
 
   /* create server socket */
-  if (! (socket1 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
-				   G_SOCKET_TYPE_STREAM,
-				   G_SOCKET_PROTOCOL_TCP,
-				   &error)))
-    {
-      g_error ("TCP server socket create error: %s", error->message);
-      return -1;
-    }
+  socket1 = evd_socket_new ();
+
   g_signal_connect (socket1,
 		    "new-connection",
 		    G_CALLBACK (on_socket_new_connection),
@@ -210,7 +207,7 @@ test_tcp_sockets (gpointer data)
   /* bind server socket */
   addr = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4),
 				    INET_PORT);
-  if (! g_socket_bind (G_SOCKET (socket1), addr, TRUE, &error))
+  if (! evd_socket_bind (socket1, addr, TRUE, &error))
     {
       g_error ("TCP server socket bind error: %s", error->message);
       return -1;
@@ -225,14 +222,8 @@ test_tcp_sockets (gpointer data)
     }
 
   /* create client socket */
-  if (! (socket2 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
-				   G_SOCKET_TYPE_STREAM,
-				   G_SOCKET_PROTOCOL_TCP,
-				   &error)))
-    {
-      g_error ("TCP client socket create error: %s", error->message);
-      return -1;
-    }
+  socket2 = evd_socket_new ();
+
   g_signal_connect (socket2,
 		    "close",
 		    G_CALLBACK (on_socket_close),
@@ -276,14 +267,12 @@ test_udp_sockets (gpointer data)
 				     6667);
 
   /* create socket1 */
-  if (! (socket1 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
-				   G_SOCKET_TYPE_DATAGRAM,
-				   G_SOCKET_PROTOCOL_UDP,
-				   &error)))
-    {
-      g_error ("UDP socket1 create error: %s", error->message);
-      return FALSE;
-    }
+  socket1 = evd_socket_new ();
+  g_object_set (socket1,
+		"type", G_SOCKET_TYPE_DATAGRAM,
+		"protocol", G_SOCKET_PROTOCOL_UDP,
+		NULL);
+
   g_signal_connect (socket1,
 		    "close",
 		    G_CALLBACK (on_socket_close),
@@ -294,7 +283,7 @@ test_udp_sockets (gpointer data)
 		    NULL);
 
   /* bind socket1 */
-  if (! g_socket_bind (G_SOCKET (socket1), addr2, TRUE, &error))
+  if (! evd_socket_bind (socket1, addr2, TRUE, &error))
     {
       g_debug ("UDP socket1 bind error: %s", error->message);
       return FALSE;
@@ -308,14 +297,12 @@ test_udp_sockets (gpointer data)
     }
 
   /* create socket2 */
-  if (! (socket2 = evd_socket_new (G_SOCKET_FAMILY_IPV4,
-				   G_SOCKET_TYPE_DATAGRAM,
-				   G_SOCKET_PROTOCOL_UDP,
-				   &error)))
-    {
-      g_error ("UDP socket2 create error: %s", error->message);
-      return FALSE;
-    }
+  socket2 = evd_socket_new ();
+  g_object_set (socket2,
+		"type", G_SOCKET_TYPE_DATAGRAM,
+		"protocol", G_SOCKET_PROTOCOL_UDP,
+		NULL);
+
   g_signal_connect (socket2,
 		    "close",
 		    G_CALLBACK (on_socket_close),
@@ -325,7 +312,7 @@ test_udp_sockets (gpointer data)
 		    G_CALLBACK (on_socket_connected),
 		    NULL);
 
-  if (! g_socket_bind (G_SOCKET (socket2), addr1, TRUE, &error))
+  if (! evd_socket_bind (socket2, addr1, TRUE, &error))
     {
       g_debug ("UDP socket2 bind error: %s", error->message);
       return FALSE;

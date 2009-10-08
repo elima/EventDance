@@ -48,7 +48,7 @@ typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 
 struct _EvdSocket
 {
-  GSocket parent;
+  GObject parent;
 
   /* private structure */
   EvdSocketPrivate *priv;
@@ -56,7 +56,7 @@ struct _EvdSocket
 
 struct _EvdSocketClass
 {
-  GSocketClass parent_class;
+  GObjectClass parent_class;
 
   /* virtual methods */
   gboolean (* event_handler) (EvdSocket *self, GIOCondition condition);
@@ -89,7 +89,8 @@ typedef enum
 /* error codes */
 typedef enum
 {
-  EVD_SOCKET_ERROR_NOT_CONNECTING
+  EVD_SOCKET_ERROR_NOT_CONNECTING,
+  EVD_SOCKET_ERROR_NOT_CONNECTED
 } EvdSocketError;
 
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())
@@ -102,22 +103,11 @@ typedef enum
 
 GType evd_socket_get_type (void) G_GNUC_CONST;
 
-/**
- * evd_socket_new: Creates a new instance of EvdSocket.
- *
- * @family: A #GSocketFamily
- * @type: A #GSocketType
- * @protocol: A #GSocketProtocol
- * @error: (out) A #GError
- *
- */
-EvdSocket    *evd_socket_new              (GSocketFamily     family,
-					   GSocketType       type,
-					   GSocketProtocol   protocol,
-					   GError          **error);
+EvdSocket    *evd_socket_new              (void);
 EvdSocket    *evd_socket_new_from_fd      (gint     fd,
 					   GError **error);
 
+GSocket      *evd_socket_get_socket       (EvdSocket *self);
 GMainContext *evd_socket_get_context      (EvdSocket *self);
 
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
@@ -133,19 +123,42 @@ gboolean      evd_socket_connect_to       (EvdSocket       *self,
 					   GError         **error);
 gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
 
-/**
- * evd_socket_set_read_handler:
- * @self: (in): The #EvdSocket.
- * @handler: (in) (allow-none): An #EvdSocketReadHandler callback to be executed when read condition.
- * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
- *
- * This method defines the callback to be executed when 'read' event is received on the socket.
- */
 void          evd_socket_set_read_handler (EvdSocket            *self,
 					   EvdSocketReadHandler  handler,
 					   gpointer              user_data);
 void          evd_socket_set_read_closure (EvdSocket *self,
 					   GClosure  *closure);
+
+/**
+ * evd_socket_read_to_buffer:
+ * @self: The #EvdSocket
+ * @buffer: (utf8) (out) (transfer full): The buffer to store the data.
+ * @size: Maximum number of bytes to read.
+ * @error: (out): The error to catch.
+ *
+ * Return value: The actual size of bytes read.
+ */
+gssize        evd_socket_read_to_buffer   (EvdSocket *self,
+					   gchar     *buffer,
+					   gsize      size,
+					   GError   **error);
+
+/**
+ * evd_socket_read:
+ * @self: The #EvdSocket
+ * @size: (inout): Maximum number of bytes to read.
+ * @error: (out) (transfer full): The error to catch.
+ *
+ * Return value: (transfer full): The #GString representing the read package.
+ */
+gchar         *evd_socket_read            (EvdSocket *self,
+					   gsize     *size,
+					   GError   **error);
+
+gssize        evd_socket_send             (EvdSocket    *socket,
+					   const gchar  *buf,
+					   gsize         size,
+					   GError      **error);
 
 G_END_DECLS
 

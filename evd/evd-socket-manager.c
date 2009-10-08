@@ -356,14 +356,12 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
   gint fd;
   gboolean result = TRUE;
 
-  g_assert (EVD_IS_SOCKET (socket));
-
   self = evd_socket_manager_get ();
 
   if (! self->priv->started)
     evd_socket_manager_start (self, error);
 
-  fd = g_socket_get_fd (G_SOCKET (socket));
+  fd = g_socket_get_fd (evd_socket_get_socket (socket));
 
   ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
   ev.data.fd = fd;
@@ -390,11 +388,9 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
   gint fd;
   gboolean result = TRUE;
 
-  g_assert (G_IS_SOCKET (socket));
-
   self = evd_socket_manager_get ();
 
-  fd = g_socket_get_fd (G_SOCKET (socket));
+  fd = g_socket_get_fd (evd_socket_get_socket (socket));
 
   if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
     {
