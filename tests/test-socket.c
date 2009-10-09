@@ -47,6 +47,9 @@ guint expected_sockets_closed;
 static gboolean
 terminate (gpointer user_data)
 {
+  if (g_main_context_pending (NULL))
+    g_main_context_dispatch (g_main_context_default ());
+
   g_main_loop_quit (main_loop);
 
   return FALSE;
@@ -90,9 +93,9 @@ on_socket_close (EvdSocket *socket, gpointer user_data)
 {
   g_debug ("Socket closed (%X)", (guint) (guintptr) socket);
 
-  g_object_unref (socket);
-
   sockets_closed ++;
+
+  g_object_unref (socket);
 
   if (sockets_closed == expected_sockets_closed)
     g_idle_add ((GSourceFunc) terminate, NULL);
@@ -125,6 +128,8 @@ on_socket_new_connection (EvdSocket *socket,
   g_debug ("Incoming connection (%X) on socket (%X)",
 	   (guint) (guintptr) client,
 	   (guint) (guintptr) socket);
+
+  g_object_ref (client);
 
   g_signal_connect (client,
 		    "close",
