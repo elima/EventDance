@@ -28,5 +28,6 @@
 
 #include <evd-socket.h>
 #include <evd-inet-socket.h>
+#include <evd-socket-group.h>
 
 #endif /* __EVD_H__ */

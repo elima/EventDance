@@ -76,6 +76,10 @@ client.connect ('close', on_socket_closed);
 
 client.connect_to ("kaka", 6666);
 
+/* Socket group =================================== */
+
+let group = new Evd.SocketGroup ();
+
 MainLoop.timeout_add (1000, Lang.bind (socket, function () {
       MainLoop.quit ("main");
     }));

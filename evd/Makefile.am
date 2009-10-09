@@ -34,11 +34,13 @@ source_c = \
 	evd-marshal.c \
 	evd-socket-manager.c \
 	evd-socket.c \
-	evd-inet-socket.c
+	evd-inet-socket.c \
+	evd-socket-group.c
 
 source_h = \
 	evd-socket.h \
 	evd-inet-socket.h \
+	evd-socket-group.h \
 	evd.h
 
 source_h_priv = \
@@ -80,8 +82,7 @@ Evd-@EVD_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libevd-@EVD_API_VERSION@.la
 		--libtool="$(top_builddir)/libtool" \
 	        --pkg gobject-2.0 \
 	        --output $@ \
-		$(evd_HEADERS) \
-		$(source_c)
+		$(evd_HEADERS)
 
 BUILT_GIRSOURCES += Evd-@EVD_API_VERSION@.gir
 
