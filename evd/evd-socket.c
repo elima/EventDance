@@ -945,16 +945,20 @@ evd_socket_read_to_buffer (EvdSocket *self,
 			   gsize      size,
 			   GError   **error)
 {
+  gssize actual_size;
+
   if (! evd_socket_is_connected (self, error))
-    return FALSE;
+    return -1;
 
   /* TODO: handle latency and bandwidth */
 
-  return g_socket_receive (self->priv->socket,
-			   buffer,
-			   size,
-			   NULL,
-			   error);
+  actual_size = g_socket_receive (self->priv->socket,
+				  buffer,
+				  size,
+				  NULL,
+				  error);
+
+  return actual_size;
 }
 
 gchar *
@@ -965,18 +969,12 @@ evd_socket_read (EvdSocket *self,
   gchar *buf;
   gssize actual_size;
 
-  if (! evd_socket_is_connected (self, error))
-    return FALSE;
-
   buf = g_new0 (gchar, *size);
 
-  /* TODO: handle latency and bandwidth */
-
-  if ( (actual_size = g_socket_receive (self->priv->socket,
-					buf,
-					*size,
-					NULL,
-					error)) > 0)
+  if ( (actual_size = evd_socket_read_to_buffer (self,
+						 buf,
+						 *size,
+						 error)) > 0)
     {
       *size = actual_size;
       return buf;
@@ -991,14 +989,18 @@ evd_socket_send (EvdSocket    *self,
 		 gsize         size,
 		 GError      **error)
 {
+  gssize actual_size;
+
   if (! evd_socket_is_connected (self, error))
     return FALSE;
 
   /* TODO: handle latency and bandwidth */
 
-  return g_socket_send (self->priv->socket,
-			buf,
-			size,
-			NULL,
-			error);
+  actual_size = g_socket_send (self->priv->socket,
+			       buf,
+			       size,
+			       NULL,
+			       error);
+
+  return actual_size;
 }
