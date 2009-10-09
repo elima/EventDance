@@ -62,16 +62,16 @@ struct _EvdSocketPrivate
 enum
 {
   SIGNAL_ERROR,
-  CLOSE,
-  CONNECT,
-  BIND,
-  LISTEN,
-  NEW_CONNECTION,
-  CONNECT_TIMEOUT,
-  LAST_SIGNAL
+  SIGNAL_CLOSE,
+  SIGNAL_CONNECT,
+  SIGNAL_BIND,
+  SIGNAL_LISTEN,
+  SIGNAL_NEW_CONNECTION,
+  SIGNAL_CONNECT_TIMEOUT,
+  SIGNAL_LAST
 };
 
-static guint evd_socket_signals [LAST_SIGNAL] = { 0 };
+static guint evd_socket_signals[SIGNAL_LAST] = { 0 };
 
 /* properties */
 enum
@@ -136,7 +136,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_TYPE_INT,
 		  G_TYPE_STRING);
 
-  evd_socket_signals[CLOSE] =
+  evd_socket_signals[SIGNAL_CLOSE] =
     g_signal_new ("close",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -145,7 +145,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  g_cclosure_marshal_VOID__VOID,
 		  G_TYPE_NONE, 0);
 
-  evd_socket_signals[CONNECT] =
+  evd_socket_signals[SIGNAL_CONNECT] =
     g_signal_new ("connect",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -154,7 +154,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  g_cclosure_marshal_VOID__VOID,
 		  G_TYPE_NONE, 0);
 
-  evd_socket_signals[BIND] =
+  evd_socket_signals[SIGNAL_BIND] =
     g_signal_new ("bind",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -164,7 +164,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_TYPE_NONE, 1,
 		  G_TYPE_SOCKET_ADDRESS);
 
-  evd_socket_signals[LISTEN] =
+  evd_socket_signals[SIGNAL_LISTEN] =
     g_signal_new ("listen",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -173,7 +173,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  g_cclosure_marshal_VOID__VOID,
 		  G_TYPE_NONE, 0);
 
-  evd_socket_signals[NEW_CONNECTION] =
+  evd_socket_signals[SIGNAL_NEW_CONNECTION] =
     g_signal_new ("new-connection",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -183,7 +183,7 @@ evd_socket_class_init (EvdSocketClass *class)
 		  G_TYPE_NONE, 1,
 		  EVD_TYPE_SOCKET);
 
-  evd_socket_signals[CONNECT_TIMEOUT] =
+  evd_socket_signals[SIGNAL_CONNECT_TIMEOUT] =
     g_signal_new ("connect-timeout",
 		  G_TYPE_FROM_CLASS (obj_class),
 		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
@@ -468,7 +468,7 @@ evd_socket_event_handler (gpointer data)
 
 	      /* fire 'new-connection' signal */
 	      g_signal_emit (socket,
-			     evd_socket_signals[NEW_CONNECTION],
+			     evd_socket_signals[SIGNAL_NEW_CONNECTION],
 			     0,
 			     client, NULL);
 	    }
@@ -511,7 +511,7 @@ evd_socket_event_handler (gpointer data)
 		    g_source_remove (socket->priv->connect_timeout_src_id);
 
 		  /* emit 'connected' signal */
-		  g_signal_emit (socket, evd_socket_signals[CONNECT], 0, NULL);
+		  g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
 		}
 	    }
 
@@ -591,7 +591,7 @@ evd_socket_connect_timeout (gpointer user_data)
   GError *error = NULL;
 
   /* emit 'connect-timeout' signal*/
-  g_signal_emit (self, evd_socket_signals[CONNECT_TIMEOUT], 0, NULL);
+  g_signal_emit (self, evd_socket_signals[SIGNAL_CONNECT_TIMEOUT], 0, NULL);
 
   self->priv->connect_timeout_src_id = 0;
   if (! evd_socket_close (self, &error))
@@ -745,7 +745,7 @@ evd_socket_close (EvdSocket *self, GError **error)
   self->priv->socket = NULL;
 
   /* fire 'close' signal */
-  g_signal_emit (self, evd_socket_signals[CLOSE], 0, NULL);
+  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
 
   return result;
 }
@@ -771,7 +771,7 @@ evd_socket_bind (EvdSocket       *self,
     {
       evd_socket_set_status (self, EVD_SOCKET_BOUND);
 
-      g_signal_emit (self, evd_socket_signals[BIND], 0, address, NULL);
+      g_signal_emit (self, evd_socket_signals[SIGNAL_BIND], 0, address, NULL);
 
       return TRUE;
     }
@@ -801,7 +801,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
       {
 	self->priv->status = EVD_SOCKET_LISTENING;
 
-	g_signal_emit (self, evd_socket_signals[LISTEN], 0, NULL);
+	g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
 	return TRUE;
       }
 
