@@ -26,8 +26,9 @@
 #ifndef __EVD_SOCKET_H__
 #define __EVD_SOCKET_H__
 
-#include <glib-object.h>
 #include <gio/gio.h>
+
+#include "evd-stream.h"
 
 G_BEGIN_DECLS
 
@@ -48,7 +49,7 @@ typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 
 struct _EvdSocket
 {
-  GObject parent;
+  EvdStream parent;
 
   /* private structure */
   EvdSocketPrivate *priv;
@@ -56,7 +57,7 @@ struct _EvdSocket
 
 struct _EvdSocketClass
 {
-  GObjectClass parent_class;
+  EvdStreamClass parent_class;
 
   /* virtual methods */
   gboolean (* event_handler) (EvdSocket *self, GIOCondition condition);
@@ -140,8 +141,6 @@ gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
 void          evd_socket_set_read_handler (EvdSocket            *self,
 					   EvdSocketReadHandler  handler,
 					   gpointer              user_data);
-void          evd_socket_set_read_closure (EvdSocket *self,
-					   GClosure  *closure);
 
 /**
  * evd_socket_read_to_buffer:

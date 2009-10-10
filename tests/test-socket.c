@@ -112,9 +112,9 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 			       on_socket_read,
 			       NULL);
 
-  if (g_socket_send (evd_socket_get_socket (socket),
-		     greeting,
-		     strlen (greeting), NULL, &error) < 0)
+  if (evd_socket_send (socket,
+		       greeting,
+		       strlen (greeting), &error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
     }
@@ -125,6 +125,8 @@ on_socket_new_connection (EvdSocket *socket,
 			  EvdSocket *client,
 			  gpointer   user_data)
 {
+  GError *error = NULL;
+
   g_debug ("Incoming connection (%X) on socket (%X)",
 	   (guint) (guintptr) client,
 	   (guint) (guintptr) socket);
@@ -136,13 +138,16 @@ on_socket_new_connection (EvdSocket *socket,
 		    G_CALLBACK (on_socket_close),
 		    NULL);
 
-  g_socket_send (evd_socket_get_socket (client),
-		 greeting,
-		 strlen (greeting), NULL, NULL);
-
   evd_socket_set_read_handler (client,
 			       on_socket_read,
 			       NULL);
+
+  if (evd_socket_send (client,
+		       greeting,
+		       strlen (greeting), &error) < 0)
+    {
+      g_debug ("ERROR sending greeting: %s", error->message);
+    }
 }
 
 static void
@@ -322,8 +327,6 @@ test_udp_sockets (gpointer data)
       g_debug ("UDP socket2 bind error: %s", error->message);
       return FALSE;
     }
-  g_object_set_data (G_OBJECT (socket2), "dest-addr", addr2);
-  g_object_set_data (G_OBJECT (socket2), "peer", socket1);
 
   /* connect socket2 */
   if (! evd_socket_connect_to (socket2, addr2, &error))

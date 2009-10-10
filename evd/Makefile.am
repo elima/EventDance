@@ -32,12 +32,14 @@ lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
 # libevd
 source_c = \
 	evd-marshal.c \
+	evd-stream.c \
 	evd-socket-manager.c \
 	evd-socket.c \
 	evd-inet-socket.c \
 	evd-socket-group.c
 
 source_h = \
+	evd-stream.h \
 	evd-socket.h \
 	evd-inet-socket.h \
 	evd-socket-group.h \

@@ -34,10 +34,10 @@
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_OBJECT)
+G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-	                             G_TYPE_OBJECT, \
+	                             EVD_TYPE_SOCKET, \
                                      EvdSocketPrivate))
 
 /* private data */
@@ -50,8 +50,6 @@ struct _EvdSocketPrivate
 
   EvdSocketState   status;
   GMainContext    *context;
-
-  GClosure *on_read_closure;
 
   guint         connect_timeout;
   guint         connect_timeout_src_id;
@@ -110,8 +108,6 @@ static gboolean evd_socket_watch              (EvdSocket  *self,
 static gboolean evd_socket_unwatch            (EvdSocket  *self,
 					       GError    **error);
 
-static void     evd_socket_set_read_closure_internal (EvdSocket *self,
-						      GClosure  *closure);
 static void     evd_socket_invoke_on_read     (EvdSocket *self);
 
 static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
@@ -286,8 +282,6 @@ evd_socket_init (EvdSocket *self)
   priv->context = g_main_context_get_thread_default ();
   /* TODO: check if we should 'ref' the context */
 
-  priv->on_read_closure = NULL;
-
   evd_socket_manager_ref ();
 }
 
@@ -296,9 +290,7 @@ evd_socket_dispose (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
-  evd_socket_remove_from_event_cache (EVD_SOCKET (obj));
-
-  evd_socket_set_read_closure_internal (EVD_SOCKET (obj), NULL);
+  evd_socket_remove_from_event_cache (self);
 
   if (self->priv->socket != NULL)
     {
@@ -356,10 +348,6 @@ evd_socket_set_property (GObject      *obj,
       self->priv->protocol = g_value_get_enum (value);
       break;
 
-    case PROP_READ_CLOSURE:
-      evd_socket_set_read_closure_internal (self, g_value_get_boxed (value));
-      break;
-
     case PROP_CONNECT_TIMEOUT:
       self->priv->connect_timeout = g_value_get_uint (value);
       break;
@@ -414,10 +402,6 @@ evd_socket_get_property (GObject    *obj,
 	g_value_set_enum (value, g_socket_get_protocol (self->priv->socket));
       else
 	g_value_set_enum (value, self->priv->protocol);
-      break;
-
-    case PROP_READ_CLOSURE:
-      g_value_set_boxed (value, self->priv->on_read_closure);
       break;
 
     case PROP_CONNECT_TIMEOUT:
@@ -567,19 +551,12 @@ evd_socket_unwatch (EvdSocket *self, GError **error)
 }
 
 static void
-evd_socket_set_read_closure_internal (EvdSocket  *self,
-				      GClosure   *closure)
-{
-  if (self->priv->on_read_closure != NULL)
-    g_closure_unref (self->priv->on_read_closure);
-
-  self->priv->on_read_closure = closure;
-}
-
-static void
 evd_socket_invoke_on_read (EvdSocket *self)
 {
-  if (self->priv->on_read_closure != NULL)
+  GClosure *closure = NULL;
+
+  closure = evd_stream_get_on_receive (EVD_STREAM (self));
+  if (closure != NULL)
     {
       GValue params = { 0, };
 
@@ -587,7 +564,7 @@ evd_socket_invoke_on_read (EvdSocket *self)
       g_value_set_object (&params, self);
 
       g_object_ref (self);
-      g_closure_invoke (self->priv->on_read_closure, NULL, 1, &params, NULL);
+      g_closure_invoke (closure, NULL, 1, &params, NULL);
       g_object_unref (self);
 
       g_value_unset (&params);
@@ -1003,19 +980,7 @@ evd_socket_set_read_handler (EvdSocket            *self,
   g_closure_ref (closure);
   g_closure_sink (closure);
 
-  evd_socket_set_read_closure_internal (self, closure);
-}
-
-void
-evd_socket_set_read_closure (EvdSocket *self,
-			     GClosure  *closure)
-{
-  g_return_if_fail (EVD_IS_SOCKET (self));
-
-  if (closure != NULL)
-    g_closure_ref (closure);
-
-  evd_socket_set_read_closure_internal (self, closure);
+  evd_stream_set_on_receive (EVD_STREAM (self), closure);
 }
 
 gssize
@@ -1024,7 +989,7 @@ evd_socket_read_to_buffer (EvdSocket *self,
 			   gsize      size,
 			   GError   **error)
 {
-  gssize actual_size;
+  gssize actual_size = -1;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);

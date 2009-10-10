@@ -1,5 +1,5 @@
 /*
- * evd.h
+ * evd-socket-group-protected.h
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -23,12 +23,20 @@
  * 02110-1301 USA
  */
 
-#ifndef __EVD_H__
-#define __EVD_H__
+#ifndef __EVD_SOCKET_GROUP_PROTECTED_H__
+#define __EVD_SOCKET_GROUP_PROTECTED_H__
 
-#include <evd-stream.h>
-#include <evd-socket.h>
-#include <evd-inet-socket.h>
-#include <evd-socket-group.h>
+#include "evd-socket.h"
+#include "evd-socket-group.h"
 
-#endif /* __EVD_H__ */
+G_BEGIN_DECLS
+
+void evd_socket_group_add_internal    (EvdSocketGroup *self,
+				       EvdSocket      *socket);
+void evd_socket_group_remove_internal (EvdSocketGroup *self,
+				       EvdSocket      *socket);
+
+
+G_END_DECLS
+
+#endif /* __EVD_SOCKET_GROUP_PROTECTED_H__ */
