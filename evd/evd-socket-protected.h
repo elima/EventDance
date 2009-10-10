@@ -27,12 +27,15 @@
 #define __EVD_SOCKET_PROTECTED_H__
 
 #include "evd-socket.h"
+#include "evd-socket-group.h"
 
 G_BEGIN_DECLS
 
 void     evd_socket_set_status         (EvdSocket *self, EvdSocketState status);
 void     evd_socket_throw_error        (EvdSocket *self, GError *error);
 gboolean evd_socket_event_list_handler (gpointer data);
+void     evd_socket_set_group          (EvdSocket      *self,
+					EvdSocketGroup *group);
 
 G_END_DECLS
 

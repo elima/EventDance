@@ -29,6 +29,19 @@ function read_handler (socket) {
     }
 }
 
+function read_handler_group (group, socket) {
+  let [data, len] = socket.read (1024);
+
+  log (len + " bytes read from socket: " + data);
+
+  bytes_read += len;
+
+  if (bytes_read == greeting.length * 2)
+    {
+      MainLoop.idle_add (terminate);
+    }
+}
+
 function on_socket_closed (socket) {
   log ("socket closed!");
 
@@ -42,6 +55,12 @@ function on_socket_closed (socket) {
   */
 }
 
+/* Socket group =================================== */
+
+let group = new Evd.SocketGroup ();
+
+group.set_read_closure (read_handler_group);
+
 /* ============ socket1 =================== */
 
 socket1 = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
@@ -50,7 +69,7 @@ socket1.connect ('close', on_socket_closed);
 
 socket1.connect ('new-connection', function (socket, client) {
     client.connect ('close', on_socket_closed);
-    client.set_read_closure (read_handler);
+    client.group = group;
 
     log ("new client connected from address " +
 	 client.socket.remote_address.address.to_string () +
@@ -80,7 +99,7 @@ socket2 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 socket2.connect_timeout = 3;
 
 socket2.connect ('close', on_socket_closed);
-socket2.set_read_closure (read_handler);
+socket2.group = group;
 
 socket2.connect ('error', function (socket, code, message) {
     log ("ERROR on socket: " + code + "('" + message + "')");
@@ -97,12 +116,6 @@ socket2.connect ('connect', function (socket) {
   });
 
 socket2.connect_to ("localhost", 6666);
-
-/* Socket group =================================== */
-
-let group = new Evd.SocketGroup ();
-
-socket2.group = group;
 
 /*
 MainLoop.timeout_add (1000, function () {

@@ -32,15 +32,23 @@ G_BEGIN_DECLS
 
 typedef struct _EvdSocketGroup EvdSocketGroup;
 typedef struct _EvdSocketGroupClass EvdSocketGroupClass;
+typedef struct _EvdSocketGroupPrivate EvdSocketGroupPrivate;
 
 struct _EvdSocketGroup
 {
   GObject parent;
+
+  /* private structure */
+  EvdSocketGroupPrivate *priv;
 };
 
 struct _EvdSocketGroupClass
 {
   GObjectClass parent_class;
+
+  /* virtual methods */
+  void (* add)    (EvdSocketGroup *self, EvdSocket *socket);
+  void (* remove) (EvdSocketGroup *self, EvdSocket *socket);
 };
 
 #define EVD_TYPE_SOCKET_GROUP           (evd_socket_group_get_type ())
@@ -51,9 +59,17 @@ struct _EvdSocketGroupClass
 #define EVD_SOCKET_GROUP_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_SOCKET_GROUP, EvdSocketGroupClass))
 
 
-GType              evd_socket_group_get_type         (void) G_GNUC_CONST;
+GType           evd_socket_group_get_type         (void) G_GNUC_CONST;
 
-EvdSocketGroup    *evd_socket_group_new              (void);
+EvdSocketGroup *evd_socket_group_new              (void);
+
+void            evd_socket_group_add              (EvdSocketGroup *self,
+						   EvdSocket      *socket);
+void            evd_socket_group_remove           (EvdSocketGroup *self,
+						   EvdSocket      *socket);
+
+void            evd_socket_group_set_read_closure (EvdSocketGroup *self,
+						   GClosure       *closure);
 
 G_END_DECLS
 

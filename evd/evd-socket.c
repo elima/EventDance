@@ -30,7 +30,6 @@
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
 #include "evd-marshal.h"
-#include "evd-socket-group.h"
 
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"
@@ -114,9 +113,6 @@ static gboolean evd_socket_unwatch            (EvdSocket  *self,
 static void     evd_socket_set_read_closure_internal (EvdSocket *self,
 						      GClosure  *closure);
 static void     evd_socket_invoke_on_read     (EvdSocket *self);
-
-static void     evd_socket_set_group           (EvdSocket      *self,
-						EvdSocketGroup *group);
 
 static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
 
@@ -369,7 +365,7 @@ evd_socket_set_property (GObject      *obj,
       break;
 
     case PROP_GROUP:
-      evd_socket_set_group (self, g_value_get_object (value));
+      evd_socket_group_add (g_value_get_object (value), self);
       break;
 
     default:
@@ -654,25 +650,6 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
 }
 
 static void
-evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
-{
-  g_return_if_fail (EVD_IS_SOCKET (self));
-
-  if (self->priv->group != NULL)
-    {
-      g_object_unref (self->priv->group);
-      /* TODO: call group_leave */
-    }
-
-  self->priv->group = group;
-  if (group != NULL)
-    {
-      g_object_ref (group);
-      /* TODO: call group_join */
-    }
-}
-
-static void
 evd_socket_remove_from_event_cache (EvdSocket *socket)
 {
   GQueue *queue;
@@ -734,6 +711,17 @@ evd_socket_event_list_handler (gpointer data)
   g_queue_free (queue);
 
   return FALSE;
+}
+
+void
+evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
+{
+  if (self->priv->group != NULL)
+    g_object_unref (self->priv->group);
+
+  self->priv->group = group;
+  if (group != NULL)
+    g_object_ref (group);
 }
 
 /* public methods */

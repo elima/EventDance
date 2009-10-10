@@ -23,20 +23,31 @@
  * 02110-1301 USA
  */
 
+#include "evd-socket.h"
+#include "evd-socket-protected.h"
 #include "evd-socket-group.h"
+#include "evd-socket-group-protected.h"
 
 G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, G_TYPE_OBJECT)
 
-typedef struct
+#define EVD_SOCKET_GROUP_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+	                                   G_TYPE_OBJECT, \
+                                           EvdSocketGroupPrivate))
+
+/* private data */
+struct _EvdSocketGroupPrivate
 {
-  gpointer data;
-} AsyncActionData;
+  GClosure *on_read_closure;
+};
 
 static void     evd_socket_group_class_init         (EvdSocketGroupClass *class);
 static void     evd_socket_group_init               (EvdSocketGroup *self);
 
 static void     evd_socket_group_finalize           (GObject *obj);
 static void     evd_socket_group_dispose            (GObject *obj);
+
+static void     evd_socket_group_set_read_closure_internal (EvdSocketGroup  *self,
+							    GClosure        *closure);
 
 static void
 evd_socket_group_class_init (EvdSocketGroupClass *class)
@@ -47,16 +58,32 @@ evd_socket_group_class_init (EvdSocketGroupClass *class)
 
   obj_class->dispose = evd_socket_group_dispose;
   obj_class->finalize = evd_socket_group_finalize;
+
+  class->add = evd_socket_group_add_internal;
+  class->remove = evd_socket_group_remove_internal;
+
+  /* add private structure */
+  g_type_class_add_private (obj_class, sizeof (EvdSocketGroupPrivate));
+
 }
 
 static void
 evd_socket_group_init (EvdSocketGroup *self)
 {
+  EvdSocketGroupPrivate *priv;
+
+  priv = EVD_SOCKET_GROUP_GET_PRIVATE (self);
+  self->priv = priv;
+
+  /* initialize private members */
+  priv->on_read_closure = NULL;
 }
 
 static void
 evd_socket_group_dispose (GObject *obj)
 {
+  evd_socket_group_set_read_closure_internal (EVD_SOCKET_GROUP (obj), NULL);
+
   G_OBJECT_CLASS (evd_socket_group_parent_class)->dispose (obj);
 }
 
@@ -64,6 +91,60 @@ static void
 evd_socket_group_finalize (GObject *obj)
 {
   G_OBJECT_CLASS (evd_socket_group_parent_class)->finalize (obj);
+}
+
+static void
+evd_socket_group_socket_on_read (EvdSocket *socket, gpointer user_data)
+{
+  EvdSocketGroup *self = user_data;
+
+  if (self->priv->on_read_closure != NULL)
+    {
+      GValue params[2] = { {0, } };
+
+      g_value_init (&params[0], EVD_TYPE_SOCKET_GROUP);
+      g_value_set_object (&params[0], self);
+
+      g_value_init (&params[1], EVD_TYPE_SOCKET);
+      g_value_set_object (&params[1], socket);
+
+      g_object_ref (self);
+      g_closure_invoke (self->priv->on_read_closure, NULL, 2, params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params[0]);
+      g_value_unset (&params[1]);
+    }
+}
+
+static void
+evd_socket_group_set_read_closure_internal (EvdSocketGroup  *self,
+					    GClosure        *closure)
+{
+  if (self->priv->on_read_closure != NULL)
+    g_closure_unref (self->priv->on_read_closure);
+
+  self->priv->on_read_closure = closure;
+}
+
+/* protected methods */
+
+void
+evd_socket_group_add_internal (EvdSocketGroup *self,
+			       EvdSocket      *socket)
+{
+  evd_socket_set_read_handler (socket,
+			       evd_socket_group_socket_on_read,
+			       self);
+  evd_socket_set_group (socket, self);
+}
+
+void
+evd_socket_group_remove_internal (EvdSocketGroup *self,
+				  EvdSocket      *socket)
+{
+  evd_socket_set_read_handler (socket, NULL, NULL);
+  evd_socket_set_group (socket, NULL);
 }
 
 /* public methods */
@@ -78,3 +159,44 @@ evd_socket_group_new (void)
   return self;
 }
 
+void
+evd_socket_group_add (EvdSocketGroup *self, EvdSocket *socket)
+{
+  EvdSocketGroupClass *class;
+
+  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
+
+  class = EVD_SOCKET_GROUP_GET_CLASS (self);
+  if (class->add != NULL)
+    class->add (self, socket);
+  else
+    evd_socket_group_add_internal (self, socket);
+}
+
+void
+evd_socket_group_remove (EvdSocketGroup *self, EvdSocket *socket)
+{
+  EvdSocketGroupClass *class;
+
+  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
+
+  class = EVD_SOCKET_GROUP_GET_CLASS (self);
+  if (class->remove != NULL)
+    class->remove (self, socket);
+  else
+    evd_socket_group_remove_internal (self, socket);
+}
+
+void
+evd_socket_group_set_read_closure (EvdSocketGroup *self,
+				   GClosure       *closure)
+{
+  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+
+  if (closure != NULL)
+    g_closure_ref (closure);
+
+  evd_socket_group_set_read_closure_internal (self, closure);
+}
