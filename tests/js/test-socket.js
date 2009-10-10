@@ -59,7 +59,7 @@ function on_socket_closed (socket) {
 
 let group = new Evd.SocketGroup ();
 
-group.set_read_closure (read_handler_group);
+group.set_on_receive (read_handler_group);
 
 /* ============ socket1 =================== */
 

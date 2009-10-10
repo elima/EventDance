@@ -23,15 +23,14 @@
  * 02110-1301 USA
  */
 
-#include "evd-socket.h"
 #include "evd-socket-protected.h"
 #include "evd-socket-group.h"
 #include "evd-socket-group-protected.h"
 
-G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, G_TYPE_OBJECT)
+G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_STREAM)
 
 #define EVD_SOCKET_GROUP_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-	                                   G_TYPE_OBJECT, \
+	                                   EVD_TYPE_SOCKET_GROUP, \
                                            EvdSocketGroupPrivate))
 
 /* private data */
@@ -45,9 +44,6 @@ static void     evd_socket_group_init               (EvdSocketGroup *self);
 
 static void     evd_socket_group_finalize           (GObject *obj);
 static void     evd_socket_group_dispose            (GObject *obj);
-
-static void     evd_socket_group_set_read_closure_internal (EvdSocketGroup  *self,
-							    GClosure        *closure);
 
 static void
 evd_socket_group_class_init (EvdSocketGroupClass *class)
@@ -82,8 +78,6 @@ evd_socket_group_init (EvdSocketGroup *self)
 static void
 evd_socket_group_dispose (GObject *obj)
 {
-  evd_socket_group_set_read_closure_internal (EVD_SOCKET_GROUP (obj), NULL);
-
   G_OBJECT_CLASS (evd_socket_group_parent_class)->dispose (obj);
 }
 
@@ -97,8 +91,10 @@ static void
 evd_socket_group_socket_on_read (EvdSocket *socket, gpointer user_data)
 {
   EvdSocketGroup *self = user_data;
+  GClosure *closure = NULL;
 
-  if (self->priv->on_read_closure != NULL)
+  closure = evd_stream_get_on_receive (EVD_STREAM (self));
+  if (closure != NULL)
     {
       GValue params[2] = { {0, } };
 
@@ -109,22 +105,12 @@ evd_socket_group_socket_on_read (EvdSocket *socket, gpointer user_data)
       g_value_set_object (&params[1], socket);
 
       g_object_ref (self);
-      g_closure_invoke (self->priv->on_read_closure, NULL, 2, params, NULL);
+      g_closure_invoke (closure, NULL, 2, params, NULL);
       g_object_unref (self);
 
       g_value_unset (&params[0]);
       g_value_unset (&params[1]);
     }
-}
-
-static void
-evd_socket_group_set_read_closure_internal (EvdSocketGroup  *self,
-					    GClosure        *closure)
-{
-  if (self->priv->on_read_closure != NULL)
-    g_closure_unref (self->priv->on_read_closure);
-
-  self->priv->on_read_closure = closure;
 }
 
 /* protected methods */
@@ -189,14 +175,6 @@ evd_socket_group_remove (EvdSocketGroup *self, EvdSocket *socket)
     evd_socket_group_remove_internal (self, socket);
 }
 
-void
-evd_socket_group_set_read_closure (EvdSocketGroup *self,
-				   GClosure       *closure)
-{
-  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+/* TODO: implement 'evd_socket_group_set_receive_handler' */
 
-  if (closure != NULL)
-    g_closure_ref (closure);
 
-  evd_socket_group_set_read_closure_internal (self, closure);
-}
