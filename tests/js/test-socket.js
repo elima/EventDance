@@ -15,7 +15,7 @@ function terminate () {
 }
 
 function read_handler (socket) {
-  let [data, len] = socket.read (1024);
+  let [data, len] = socket.receive (1024);
 
   log (len + " bytes read from socket: " + data);
 
@@ -75,7 +75,7 @@ socket1.connect ('new-connection', function (socket, client) {
 	 client.socket.remote_address.address.to_string () +
 	 " and port " + client.socket.remote_address.port);
 
-    client.send (greeting, greeting.length);
+    client.write (greeting, greeting.length);
 
     socket3 = client;
 });
@@ -112,7 +112,7 @@ socket2.connect ('connect-timeout', function (socket) {
 socket2.connect ('connect', function (socket) {
     log ("client socket connected");
 
-    socket.send (greeting, greeting.length);
+    socket.write (greeting, greeting.length);
   });
 
 socket2.connect_to ("localhost", 6666);

@@ -143,7 +143,7 @@ void          evd_socket_set_read_handler (EvdSocket            *self,
 					   gpointer              user_data);
 
 /**
- * evd_socket_read_to_buffer:
+ * evd_socket_read_buffer:
  * @self: The #EvdSocket
  * @buffer: (utf8) (out) (transfer full): The buffer to store the data.
  * @size: Maximum number of bytes to read.
@@ -151,7 +151,7 @@ void          evd_socket_set_read_handler (EvdSocket            *self,
  *
  * Return value: The actual size of bytes read.
  */
-gssize        evd_socket_read_to_buffer   (EvdSocket *self,
+gssize        evd_socket_read_buffer      (EvdSocket *self,
 					   gchar     *buffer,
 					   gsize      size,
 					   GError   **error);
@@ -168,7 +168,7 @@ gchar         *evd_socket_read            (EvdSocket *self,
 					   gsize     *size,
 					   GError   **error);
 
-gssize        evd_socket_send             (EvdSocket    *socket,
+gssize        evd_socket_write            (EvdSocket    *socket,
 					   const gchar  *buf,
 					   gsize         size,
 					   GError      **error);

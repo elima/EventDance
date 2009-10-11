@@ -984,10 +984,10 @@ evd_socket_set_read_handler (EvdSocket            *self,
 }
 
 gssize
-evd_socket_read_to_buffer (EvdSocket *self,
-			   gchar     *buffer,
-			   gsize      size,
-			   GError   **error)
+evd_socket_read_buffer (EvdSocket *self,
+			gchar     *buffer,
+			gsize      size,
+			GError   **error)
 {
   gssize actual_size = -1;
 
@@ -1022,10 +1022,10 @@ evd_socket_read (EvdSocket *self,
 
   buf = g_new0 (gchar, *size);
 
-  if ( (actual_size = evd_socket_read_to_buffer (self,
-						 buf,
-						 *size,
-						 error)) > 0)
+  if ( (actual_size = evd_socket_read_buffer (self,
+					      buf,
+					      *size,
+					      error)) > 0)
     {
       *size = actual_size;
       return buf;
@@ -1035,10 +1035,10 @@ evd_socket_read (EvdSocket *self,
 }
 
 gssize
-evd_socket_send (EvdSocket    *self,
-		 const gchar  *buf,
-		 gsize         size,
-		 GError      **error)
+evd_socket_write (EvdSocket    *self,
+		  const gchar  *buf,
+		  gsize         size,
+		  GError      **error)
 {
   gssize actual_size;
 
