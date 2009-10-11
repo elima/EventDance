@@ -4,6 +4,8 @@ const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
 const Lang = imports.lang;
 
+const READ_BLOCK_SIZE = 1024;
+
 let socket1, socket2, socket3;
 
 let greeting = "Hello world!";
@@ -15,7 +17,7 @@ function terminate () {
 }
 
 function read_handler (socket) {
-  let [data, len] = socket.receive (1024);
+  let [data, len] = socket.receive (READ_BLOCK_SIZE);
 
   log (len + " bytes read from socket: " + data);
 
@@ -29,17 +31,25 @@ function read_handler (socket) {
     }
 }
 
-function read_handler_group (group, socket) {
-  let [data, len] = socket.read (1024);
+function read_data () {
+  let [data, len, wait] = this.read (READ_BLOCK_SIZE);
 
-  log (len + " bytes read from socket: " + data);
+  log (len + " bytes read from socket: " + data + " (wait: " + wait + ")");
 
   bytes_read += len;
 
   if (bytes_read == greeting.length * 2)
     {
       MainLoop.idle_add (terminate);
+      return;
     }
+
+  if (wait > 0)
+    MainLoop.timeout_add (wait, Lang.bind (this, read_data));
+}
+
+function read_handler_group (group, socket) {
+      Lang.bind (socket, read_data) ();
 }
 
 function on_socket_closed (socket) {
@@ -70,14 +80,13 @@ socket1.connect ('close', on_socket_closed);
 socket1.connect ('new-connection', function (socket, client) {
     client.connect ('close', on_socket_closed);
     client.group = group;
+    client.bandwidth_in = 6;
 
     log ("new client connected from address " +
 	 client.socket.remote_address.address.to_string () +
 	 " and port " + client.socket.remote_address.port);
 
     client.write (greeting, greeting.length);
-
-    socket3 = client;
 });
 
 socket1.connect ('bind', function (socket, address) {
@@ -97,6 +106,7 @@ socket1.listen ("*", 6666);
 socket2 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 
 socket2.connect_timeout = 3;
+socket2.bandwidth_in = 3;
 
 socket2.connect ('close', on_socket_closed);
 socket2.group = group;

@@ -34,7 +34,7 @@
 #define INET_PORT  6666
 #define TIMEOUT    3000
 
-EvdSocket *socket1, *socket2;
+EvdSocket *socket1, *socket2, *socket3;
 GMainLoop *main_loop;
 
 static const gchar *greeting = "Hello world!";
@@ -65,6 +65,7 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
   if ((size = evd_socket_read_buffer (socket,
 				      buf,
 				      BLOCK_SIZE,
+				      NULL,
 				      &error)) == -1)
     {
       g_debug ("ERROR: Failed to read data from socket: %s", error->message);
@@ -98,7 +99,9 @@ on_socket_close (EvdSocket *socket, gpointer user_data)
   g_object_unref (socket);
 
   if (sockets_closed == expected_sockets_closed)
-    g_idle_add ((GSourceFunc) terminate, NULL);
+    {
+      g_idle_add ((GSourceFunc) terminate, NULL);
+    }
 }
 
 static void
@@ -114,7 +117,9 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 
   if (evd_socket_write (socket,
 		        greeting,
-		        strlen (greeting), &error) < 0)
+		        strlen (greeting),
+			NULL,
+			&error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
     }
@@ -144,10 +149,14 @@ on_socket_new_connection (EvdSocket *socket,
 
   if (evd_socket_write (client,
 			greeting,
-			strlen (greeting), &error) < 0)
+			strlen (greeting),
+			NULL,
+			&error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
     }
+
+  socket3 = client;
 }
 
 static void

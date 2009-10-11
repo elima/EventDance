@@ -147,6 +147,7 @@ void          evd_socket_set_read_handler (EvdSocket            *self,
  * @self: The #EvdSocket
  * @buffer: (utf8) (out) (transfer full): The buffer to store the data.
  * @size: Maximum number of bytes to read.
+ * @retry_wait: (out): Miliseconds to wait until next read.
  * @error: (out): The error to catch.
  *
  * Return value: The actual size of bytes read.
@@ -154,23 +155,27 @@ void          evd_socket_set_read_handler (EvdSocket            *self,
 gssize        evd_socket_read_buffer      (EvdSocket *self,
 					   gchar     *buffer,
 					   gsize      size,
+					   guint     *retry_wait,
 					   GError   **error);
 
 /**
  * evd_socket_read:
  * @self: The #EvdSocket
  * @size: (inout): Maximum number of bytes to read.
+ * @retry_wait: (out): Miliseconds to wait until next read.
  * @error: (out) (transfer full): The error to catch.
  *
  * Return value: (transfer full): The #GString representing the read package.
  */
 gchar         *evd_socket_read            (EvdSocket *self,
-					   gsize     *size,
+					   gssize    *size,
+					   guint     *retry_wait,
 					   GError   **error);
 
 gssize        evd_socket_write            (EvdSocket    *socket,
 					   const gchar  *buf,
 					   gsize         size,
+					   guint        *retry_wait,
 					   GError      **error);
 
 G_END_DECLS

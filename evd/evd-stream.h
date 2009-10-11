@@ -67,6 +67,13 @@ void          evd_stream_set_on_receive (EvdStream *self,
 					 GClosure  *closure);
 GClosure     *evd_stream_get_on_receive (EvdStream *self);
 
+gsize         evd_stream_request_write  (EvdStream *self,
+					 gsize      size,
+					 guint     *wait);
+gsize         evd_stream_request_read   (EvdStream *self,
+					 gsize      size,
+					 guint     *wait);
+
 G_END_DECLS
 
 #endif /* __EVD_STREAM_H__ */

@@ -26,10 +26,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "evd-marshal.h"
 #include "evd-socket-manager.h"
+#include "evd-stream-protected.h"
+
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
-#include "evd-marshal.h"
 
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"
@@ -987,6 +989,7 @@ gssize
 evd_socket_read_buffer (EvdSocket *self,
 			gchar     *buffer,
 			gsize      size,
+			guint     *retry_wait,
 			GError   **error)
 {
   gssize actual_size = -1;
@@ -1000,36 +1003,53 @@ evd_socket_read_buffer (EvdSocket *self,
 
   /* TODO: handle latency and bandwidth */
 
-  actual_size = g_socket_receive (self->priv->socket,
-				  buffer,
+  size = evd_stream_request_read (EVD_STREAM (self),
 				  size,
-				  NULL,
-				  error);
+				  retry_wait);
+
+  if ( (actual_size = g_socket_receive (self->priv->socket,
+					buffer,
+					size,
+					NULL,
+					error)) <= 0)
+    {
+      if ( (*error)->code == G_IO_ERROR_WOULD_BLOCK)
+	{
+	  g_error_free (*error);
+	  *error = NULL;
+
+	  *retry_wait = 0;
+	  actual_size = 0;
+	}
+    }
+  else if (actual_size > 0)
+    evd_stream_report_read (EVD_STREAM (self),
+			    actual_size);
 
   return actual_size;
 }
 
 gchar *
 evd_socket_read (EvdSocket *self,
-		 gsize     *size,
+		 gssize    *size,
+		 guint     *retry_wait,
 		 GError   **error)
 {
   gchar *buf;
-  gssize actual_size;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
   g_return_val_if_fail (*size > 0, NULL);
 
   buf = g_new0 (gchar, *size);
 
-  if ( (actual_size = evd_socket_read_buffer (self,
-					      buf,
-					      *size,
-					      error)) > 0)
-    {
-      *size = actual_size;
-      return buf;
-    }
+  if ( (*size = evd_socket_read_buffer (self,
+					buf,
+					*size,
+					retry_wait,
+					error)) > 0)
+    return buf;
+  else
+    g_free (buf);
 
   return NULL;
 }
@@ -1038,6 +1058,7 @@ gssize
 evd_socket_write (EvdSocket    *self,
 		  const gchar  *buf,
 		  gsize         size,
+		  guint        *retry_wait,
 		  GError      **error)
 {
   gssize actual_size;
@@ -1050,6 +1071,10 @@ evd_socket_write (EvdSocket    *self,
     return FALSE;
 
   /* TODO: handle latency and bandwidth */
+
+  size = evd_stream_request_write (EVD_STREAM (self),
+				   size,
+				   retry_wait);
 
   actual_size = g_socket_send (self->priv->socket,
 			       buf,
