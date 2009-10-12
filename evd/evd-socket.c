@@ -1109,5 +1109,9 @@ evd_socket_write (EvdSocket    *self,
 			       NULL,
 			       error);
 
+  if (actual_size > 0)
+    evd_stream_report_write (EVD_STREAM (self),
+			     actual_size);
+
   return actual_size;
 }
