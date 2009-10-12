@@ -116,8 +116,6 @@ typedef enum
 GType evd_socket_get_type (void) G_GNUC_CONST;
 
 EvdSocket    *evd_socket_new              (void);
-EvdSocket    *evd_socket_new_from_fd      (gint     fd,
-					   GError **error);
 
 GSocket      *evd_socket_get_socket       (EvdSocket *self);
 GMainContext *evd_socket_get_context      (EvdSocket *self);

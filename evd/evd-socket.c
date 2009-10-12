@@ -110,8 +110,6 @@ static gboolean evd_socket_watch              (EvdSocket  *self,
 static gboolean evd_socket_unwatch            (EvdSocket  *self,
 					       GError    **error);
 
-static void     evd_socket_invoke_on_read     (EvdSocket *self);
-
 static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
 
 
@@ -319,8 +317,6 @@ evd_socket_dispose (GObject *obj)
 static void
 evd_socket_finalize (GObject *obj)
 {
-  //  g_debug ("EvdSocket finalized (%X)", (guint) (guintptr) obj);
-
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
   evd_socket_manager_unref ();
@@ -689,10 +685,7 @@ evd_socket_event_handler (gpointer data)
     }
 
   if (! dont_free)
-    {
-      //      g_object_unref (event->socket);
-      g_free (event);
-    }
+    g_free (event);
 
   return FALSE;
 }
@@ -738,24 +731,6 @@ evd_socket_new (void)
   self = g_object_new (EVD_TYPE_SOCKET, NULL);
 
   return self;
-}
-
-EvdSocket *
-evd_socket_new_from_fd (gint     fd,
-			GError **error)
-{
-  EvdSocket *self;
-  GSocket *socket;
-
-  if ((socket = g_socket_new_from_fd (fd, error)) != NULL)
-    {
-      self = g_object_new (EVD_TYPE_SOCKET, NULL);
-      evd_socket_set_socket (self, socket);
-
-      return self;
-    }
-
-  return NULL;
 }
 
 GSocket *
