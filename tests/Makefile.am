@@ -1,7 +1,7 @@
 MAINTAINERCLEANFILES = \
 	Makefile.in
 
-AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb -DPKGDATADIR="\"$(pkgdatadir)\""
+AM_CFLAGS = $(GLIB_CFLAGS) -Wall -g3 -O0 -ggdb -DPKGDATADIR="\"$(pkgdatadir)\""
 
 bin_PROGRAMS = \
 	test-socket

@@ -319,11 +319,11 @@ evd_socket_dispose (GObject *obj)
 static void
 evd_socket_finalize (GObject *obj)
 {
-  evd_socket_manager_unref ();
-
-  /* g_debug ("EvdSocket finalized (%X)", (guint) (guintptr) obj);*/
+  //  g_debug ("EvdSocket finalized (%X)", (guint) (guintptr) obj);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
+
+  evd_socket_manager_unref ();
 }
 
 static void
@@ -456,91 +456,6 @@ evd_socket_check (EvdSocket  *self,
 }
 
 static gboolean
-evd_socket_event_handler (gpointer data)
-{
-  EvdSocketEvent *event = (EvdSocketEvent *) data;
-  EvdSocket *socket;
-  GIOCondition condition;
-  EvdSocketClass *class;
-  GError *error = NULL;
-
-  socket = event->socket;
-  condition = event->condition;
-
-  class = EVD_SOCKET_GET_CLASS (socket);
-  if (class->event_handler != NULL)
-    class->event_handler (socket, condition);
-  else
-    {
-      if (socket->priv->status == EVD_SOCKET_LISTENING)
-	{
-	  EvdSocket *client;
-
-	  if ((client = evd_socket_accept (socket, &error)) != NULL)
-	    {
-	      /* TODO: allow external function to decide whether to
-		 accept/refuse the new connection */
-
-	      /* fire 'new-connection' signal */
-	      g_signal_emit (socket,
-			     evd_socket_signals[SIGNAL_NEW_CONNECTION],
-			     0,
-			     client, NULL);
-	      g_object_unref (client);
-	    }
-	  else
-	    {
-	      /* error accepting connection, emit 'error' signal */
-	      error->code = EVD_SOCKET_ERROR_ACCEPT;
-	      evd_socket_throw_error (socket, error);
-	    }
-	}
-      else
-	{
-	  if (condition & G_IO_ERR)
-	    {
-	      evd_socket_close (socket, &error);
-
-	      /* socket error, emit 'error' signal */
-	      error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-				   EVD_SOCKET_ERROR_UNKNOWN,
-				   "Socket error");
-
-	      evd_socket_throw_error (socket, error);
-	    }
-	  else if (condition & G_IO_HUP)
-	    {
-	      evd_socket_close (socket, &error);
-	    }
-	  else if (socket->priv->status != EVD_SOCKET_CLOSED)
-	    {
-	      if (condition & G_IO_OUT)
-		{
-		  if (socket->priv->status == EVD_SOCKET_CONNECTING)
-		    {
-		      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
-
-		      /* remove any connect_timeout src */
-		      if (socket->priv->connect_timeout_src_id > 0)
-			g_source_remove (socket->priv->connect_timeout_src_id);
-
-		      /* emit 'connected' signal */
-		      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
-		    }
-		}
-
-	      if (condition & G_IO_IN)
-		{
-		  evd_socket_invoke_on_read (socket);
-		}
-	    }
-	}
-    }
-
-  return FALSE;
-}
-
-static gboolean
 evd_socket_watch (EvdSocket *self, GError **error)
 {
   return evd_socket_manager_add_socket (self, error);
@@ -646,7 +561,13 @@ evd_socket_remove_from_event_cache (EvdSocket *socket)
       msg = g_queue_peek_nth (queue, i);
 
       if (msg->socket == socket)
-	g_queue_remove (queue, (gconstpointer) msg);
+	{
+	  EvdSocketEvent *event = (EvdSocketEvent *) msg;
+
+	  g_queue_remove (queue, (gconstpointer) msg);
+	  g_object_unref (event->socket);
+	  g_free (event);
+	}
       else
 	i++;
     }
@@ -672,6 +593,111 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
 }
 
 gboolean
+evd_socket_event_handler (gpointer data)
+{
+  EvdSocketEvent *event = (EvdSocketEvent *) data;
+  EvdSocket *socket;
+  GIOCondition condition;
+  EvdSocketClass *class;
+  GError *error = NULL;
+  gboolean dont_free = FALSE;
+
+  socket = event->socket;
+  condition = event->condition;
+
+  if (! EVD_IS_SOCKET (socket))
+    {
+      g_free (event);
+      return FALSE;
+    }
+
+  class = EVD_SOCKET_GET_CLASS (socket);
+  if (class->event_handler != NULL)
+    class->event_handler (socket, condition);
+  else
+    {
+      if (socket->priv->status == EVD_SOCKET_LISTENING)
+	{
+	  EvdSocket *client;
+
+	  while ( (client = evd_socket_accept (socket, &error)) != NULL)
+	    {
+	      /* TODO: allow external function to decide whether to
+		 accept/refuse the new connection */
+
+	      /* fire 'new-connection' signal */
+	      g_signal_emit (socket,
+			     evd_socket_signals[SIGNAL_NEW_CONNECTION],
+			     0,
+			     client, NULL);
+	      g_object_unref (client);
+	    }
+
+	  if (error->code != G_IO_ERROR_WOULD_BLOCK)
+	    {
+	      /* error accepting connection, emit 'error' signal */
+	      error->code = EVD_SOCKET_ERROR_ACCEPT;
+	      evd_socket_throw_error (socket, error);
+
+	      g_debug ("error accepting: %s", error->message);
+	      g_idle_add (evd_socket_event_handler, event);
+	      dont_free = TRUE;
+	    }
+
+	  g_error_free (error);
+	}
+      else
+	{
+	  if (condition & G_IO_ERR)
+	    {
+	      evd_socket_close (socket, &error);
+
+	      /* socket error, emit 'error' signal */
+	      error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+				   EVD_SOCKET_ERROR_UNKNOWN,
+				   "Socket error");
+
+	      evd_socket_throw_error (socket, error);
+	    }
+	  else if (condition & G_IO_HUP)
+	    {
+	      evd_socket_close (socket, &error);
+	    }
+	  else if (socket->priv->status != EVD_SOCKET_CLOSED)
+	    {
+	      if (condition & G_IO_OUT)
+		{
+		  if (socket->priv->status == EVD_SOCKET_CONNECTING)
+		    {
+		      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
+
+		      /* remove any connect_timeout src */
+		      if (socket->priv->connect_timeout_src_id > 0)
+			g_source_remove (socket->priv->connect_timeout_src_id);
+
+		      /* emit 'connected' signal */
+		      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
+		    }
+		}
+
+	      if (condition & G_IO_IN)
+		{
+		  evd_socket_invoke_on_read (socket);
+		}
+	    }
+	}
+    }
+
+  if (! dont_free)
+    {
+      //      g_object_unref (event->socket);
+      g_free (event);
+    }
+
+  return FALSE;
+}
+
+gboolean
 evd_socket_event_list_handler (gpointer data)
 {
   GQueue *queue = data;
@@ -682,7 +708,6 @@ evd_socket_event_list_handler (gpointer data)
   while ( (msg = g_queue_pop_head (queue)) != NULL)
     {
       evd_socket_event_handler (msg);
-      g_free (msg);
     }
 
   evd_socket_event_cache = NULL;
@@ -842,6 +867,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
       return FALSE;
     }
 
+  g_socket_set_listen_backlog (self->priv->socket, 10000);
   if (g_socket_listen (self->priv->socket, error))
     if (evd_socket_watch (self, error))
       {
@@ -857,18 +883,16 @@ evd_socket_listen (EvdSocket *self, GError **error)
 EvdSocket *
 evd_socket_accept (EvdSocket *self, GError **error)
 {
-  gint fd;
-  gint client_fd;
   EvdSocket *client = NULL;
+  GSocket *client_socket;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  fd = g_socket_get_fd (self->priv->socket);
-
-  client_fd = accept (fd, NULL, 0);
-
-  if ( (client = evd_socket_new_from_fd (client_fd, error)) != NULL)
+  if ( (client_socket = g_socket_accept (self->priv->socket, NULL, error)) != NULL)
     {
+      client = evd_socket_new ();
+      evd_socket_set_socket (client, client_socket);
+
       if (evd_socket_watch (client, error))
 	{
 	  evd_socket_set_status (client, EVD_SOCKET_CONNECTED);
@@ -1018,7 +1042,9 @@ evd_socket_read_buffer (EvdSocket *self,
 	  g_error_free (*error);
 	  *error = NULL;
 
-	  *retry_wait = 0;
+	  if (retry_wait != NULL)
+	    *retry_wait = 0;
+
 	  actual_size = 0;
 	}
     }
@@ -1041,6 +1067,7 @@ evd_socket_read (EvdSocket *self,
   g_return_val_if_fail (*size > 0, NULL);
 
   buf = g_new0 (gchar, *size);
+  buf[0] = 0;
 
   if ( (*size = evd_socket_read_buffer (self,
 					buf,

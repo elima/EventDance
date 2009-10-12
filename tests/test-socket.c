@@ -175,9 +175,11 @@ test_connection (GSourceFunc test_func)
 
   g_idle_add (test_func, NULL);
 
+  /*
   g_timeout_add (TIMEOUT,
 		 (GSourceFunc) terminate,
 		 NULL);
+  */
 
   g_main_loop_run (main_loop);
 
@@ -287,6 +289,7 @@ test_udp_sockets (gpointer data)
 
   /* create socket1 */
   socket1 = evd_socket_new ();
+
   g_object_set (socket1,
 		"type", G_SOCKET_TYPE_DATAGRAM,
 		"protocol", G_SOCKET_PROTOCOL_UDP,
@@ -353,10 +356,16 @@ test_udp_sockets (gpointer data)
 gint
 main (gint argc, gchar **argv)
 {
+  gint i;
+
   g_type_init ();
 
-  test_connection (test_tcp_sockets);
-  test_connection (test_udp_sockets);
+  for (i=0; i<100; i++)
+    {
+      g_debug ("RUN: %d", i);
+      test_connection (test_tcp_sockets);
+      test_connection (test_udp_sockets);
+    }
 
   return 0;
 }
