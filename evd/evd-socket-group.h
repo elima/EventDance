@@ -35,6 +35,19 @@ typedef struct _EvdSocketGroup EvdSocketGroup;
 typedef struct _EvdSocketGroupClass EvdSocketGroupClass;
 typedef struct _EvdSocketGroupPrivate EvdSocketGroupPrivate;
 
+/**
+ * EvdSocketGroupReadHandler:
+ * @group: (in): The #EvdSocketGroup
+ * @socket: (in): The #EvdSocket
+ * @user_data: (in) (allow-null): A #gpointer to user defined data to pass in callback.
+ *
+ * Prototype for callback to be executed when 'read' event is received
+ * on any socket within the group.
+ */
+typedef void (* EvdSocketGroupReadHandler) (EvdSocket *group,
+				            EvdSocket *socket,
+					    gpointer   user_data);
+
 struct _EvdSocketGroup
 {
   EvdStream parent;
@@ -69,8 +82,9 @@ void            evd_socket_group_add              (EvdSocketGroup *self,
 void            evd_socket_group_remove           (EvdSocketGroup *self,
 						   EvdSocket      *socket);
 
-void            evd_socket_group_set_read_closure (EvdSocketGroup *self,
-						   GClosure       *closure);
+void            evd_socket_group_set_read_handler (EvdSocketGroup            *self,
+						   EvdSocketGroupReadHandler  handler,
+						   gpointer                   user_data);
 
 G_END_DECLS
 

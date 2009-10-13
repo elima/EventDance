@@ -175,6 +175,31 @@ evd_socket_group_remove (EvdSocketGroup *self, EvdSocket *socket)
     evd_socket_group_remove_internal (self, socket);
 }
 
-/* TODO: implement 'evd_socket_group_set_receive_handler' */
+void
+evd_socket_group_set_read_handler (EvdSocketGroup            *self,
+				   EvdSocketGroupReadHandler  handler,
+				   gpointer                   user_data)
+{
+  GClosure *closure;
+
+  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+
+  closure = g_cclosure_new (G_CALLBACK (handler),
+			    user_data,
+			    NULL);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    {
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__BOXED;
+
+      g_closure_set_marshal (closure, marshal);
+    }
+
+  g_closure_ref (closure);
+  g_closure_sink (closure);
+
+  evd_stream_set_on_receive (EVD_STREAM (self), closure);
+}
+
 
 
