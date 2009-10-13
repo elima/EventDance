@@ -74,6 +74,9 @@ gsize         evd_stream_request_read   (EvdStream *self,
 					 gsize      size,
 					 guint     *wait);
 
+gulong        evd_stream_get_total_read (EvdStream *self);
+gulong        evd_stream_get_total_written (EvdStream *self);
+
 G_END_DECLS
 
 #endif /* __EVD_STREAM_H__ */

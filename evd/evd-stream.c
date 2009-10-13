@@ -50,6 +50,9 @@ struct _EvdStreamPrivate
   gulong   bytes_out;
   gulong   last_in;
   gulong   last_out;
+
+  gulong total_in;
+  gulong total_out;
 };
 
 /* properties */
@@ -281,6 +284,7 @@ evd_stream_report_read (EvdStream *self,
   evd_stream_update_current_time (self);
 
   self->priv->bytes_in += size;
+  self->priv->total_in += size;
 }
 
 void
@@ -290,6 +294,7 @@ evd_stream_report_write (EvdStream *self,
   evd_stream_update_current_time (self);
 
   self->priv->bytes_out += size;
+  self->priv->total_out += size;
 }
 
 /* public methods */
@@ -357,4 +362,16 @@ evd_stream_request_write (EvdStream *self,
 			     self->priv->last_out,
 			     size,
 			     wait);
+}
+
+gulong
+evd_stream_get_total_read (EvdStream *self)
+{
+  return self->priv->total_in;
+}
+
+gulong
+evd_stream_get_total_written (EvdStream *self)
+{
+  return self->priv->total_out;
 }
