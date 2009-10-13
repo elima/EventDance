@@ -57,6 +57,8 @@ struct _EvdSocketPrivate
   guint         connect_timeout_src_id;
   GCancellable *connect_cancellable;
 
+  GQueue *event_queue_cache;
+
   EvdSocketGroup *group;
 };
 
@@ -87,8 +89,6 @@ enum
   PROP_CONNECT_TIMEOUT,
   PROP_GROUP
 };
-
-static GQueue *evd_socket_event_cache;
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
 static void     evd_socket_init               (EvdSocket *self);
@@ -546,10 +546,10 @@ evd_socket_remove_from_event_cache (EvdSocket *socket)
   EvdSocketEvent *msg;
   guint i;
 
-  if (evd_socket_event_cache == NULL)
-    return;
+  queue = socket->priv->event_queue_cache;
 
-  queue = evd_socket_event_cache;
+  if (queue == NULL)
+    return;
 
   i = 0;
   while (i<g_queue_get_length (queue))
@@ -696,14 +696,15 @@ evd_socket_event_list_handler (gpointer data)
   GQueue *queue = data;
   gpointer msg;
 
-  evd_socket_event_cache = queue;
-
   while ( (msg = g_queue_pop_head (queue)) != NULL)
     {
-      evd_socket_event_handler (msg);
-    }
+      EvdSocket *socket;
 
-  evd_socket_event_cache = NULL;
+      socket = ((EvdSocketEvent *) msg)->socket;
+      socket->priv->event_queue_cache = queue;
+      evd_socket_event_handler (msg);
+      socket->priv->event_queue_cache = NULL;
+    }
 
   g_queue_free (queue);
 
@@ -883,6 +884,8 @@ evd_socket_connect_to (EvdSocket        *self,
 		       GSocketAddress   *address,
 		       GError          **error)
 {
+  GError *_error = NULL;
+
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
@@ -910,27 +913,36 @@ evd_socket_connect_to (EvdSocket        *self,
   if (! g_socket_connect (self->priv->socket,
 			  address,
 			  self->priv->connect_cancellable,
-			  error))
+			  &_error))
     {
       /* an error ocurred, but error-pending
 	 is normal as on async ops */
-      if ((*error)->code != G_IO_ERROR_PENDING)
-	return FALSE;
+      if ((_error)->code != G_IO_ERROR_PENDING)
+	{
+	  if (error != NULL)
+	    *error = _error;
+
+	  return FALSE;
+	}
+      else
+	{
+	  g_error_free (_error);
+	  _error = NULL;
+	}
     }
 
   /* g_socket_connect returns TRUE on a non-blocking socket, however
      fills error with "connection in progress" hint */
-  if (*error != NULL)
+  if (_error != NULL)
     {
-      g_error_free (*error);
-      *error = NULL;
+      g_error_free (_error);
+      _error = NULL;
     }
 
   evd_socket_set_status (self, EVD_SOCKET_CONNECTING);
   if (evd_socket_watch (self, error))
     return TRUE;
 
-  evd_socket_set_status (self, EVD_SOCKET_CLOSED);
   return FALSE;
 }
 
