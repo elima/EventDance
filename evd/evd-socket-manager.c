@@ -30,9 +30,9 @@
 #include "evd-socket-manager.h"
 #include "evd-socket-protected.h"
 
-#define USE_THREAD
-#define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to handle */
-#define DEFAULT_MIN_LATENCY   1000000 /* nanoseconds between dispatch calls */
+/*#define USE_THREAD*/
+#define DEFAULT_MAX_SOCKETS       100 /* maximum number of sockets to handle */
+#define DEFAULT_MIN_LATENCY        10 /* nanoseconds between dispatch calls */
 #define DEFAULT_DISPATCH_LOT     TRUE /* whether events whall be dispatched by lot or not */
 
 #define DOMAIN_QUARK_STRING "org.eventdance.socket.manager"
