@@ -779,12 +779,10 @@ evd_socket_close (EvdSocket *self, GError **error)
   if (self->priv->socket == NULL)
     return TRUE;
 
-  if (! evd_socket_unwatch (self, error))
-    result = FALSE;
-
   if (! g_socket_is_closed (self->priv->socket))
     {
-      if (! g_socket_close (self->priv->socket, error))
+      if ( (! evd_socket_unwatch (self, error)) ||
+	   (! g_socket_close (self->priv->socket, error)) )
 	result = FALSE;
     }
 
