@@ -170,6 +170,8 @@ evd_stream_init (EvdStream *self)
   priv->bytes_in = 0;
   priv->bytes_out = 0;
 
+  if (! g_thread_get_initialized ())
+    g_thread_init (NULL);
   priv->mutex = g_mutex_new ();
 }
 
