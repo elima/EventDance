@@ -60,6 +60,9 @@ struct _EvdSocketPrivate
   GQueue *event_queue_cache;
 
   EvdSocketGroup *group;
+
+  GString *read_buffer;
+  GString *write_buffer;
 };
 
 /* signals */
@@ -1002,6 +1005,7 @@ evd_socket_read_buffer (EvdSocket *self,
 			GError   **error)
 {
   gssize actual_size = -1;
+  GError *_error = NULL;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);
@@ -1010,39 +1014,53 @@ evd_socket_read_buffer (EvdSocket *self,
   if (! evd_socket_is_connected (self, error))
     return -1;
 
-  /* TODO: handle latency and bandwidth */
+  /* handle latency and bandwidth */
+  if ( (size = evd_stream_request_read (EVD_STREAM (self),
+					size,
+					retry_wait)) == 0)
+    return 0;
 
-  size = evd_stream_request_read (EVD_STREAM (self),
-				  size,
-				  retry_wait);
+  if (self->priv->group != NULL)
+    if ( (size = evd_stream_request_read (EVD_STREAM (self->priv->group),
+					  size,
+					  retry_wait)) == 0)
+      return 0;
 
   if ( (actual_size = g_socket_receive (self->priv->socket,
 					buffer,
-					size,
+					(gsize) size,
 					NULL,
-					error)) <= 0)
+					&_error)) < 0)
     {
-      if ( (*error)->code == G_IO_ERROR_WOULD_BLOCK)
+      if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
 	{
-	  g_error_free (*error);
-	  *error = NULL;
+	  g_error_free (_error);
 
 	  if (retry_wait != NULL)
 	    *retry_wait = 0;
 
 	  actual_size = 0;
 	}
+      else
+	if (error != NULL)
+	  *error = _error;
     }
-  else if (actual_size > 0)
-    evd_stream_report_read (EVD_STREAM (self),
-			    actual_size);
+  else
+    {
+      if (self->priv->group != NULL)
+	evd_stream_report_read (EVD_STREAM (self->priv->group),
+				(gsize) actual_size);
+
+      evd_stream_report_read (EVD_STREAM (self),
+			      (gsize) actual_size);
+    }
 
   return actual_size;
 }
 
 gchar *
 evd_socket_read (EvdSocket *self,
-		 gssize    *size,
+		 gsize     *size,
 		 guint     *retry_wait,
 		 GError   **error)
 {
@@ -1082,11 +1100,17 @@ evd_socket_write (EvdSocket    *self,
   if (! evd_socket_is_connected (self, error))
     return FALSE;
 
-  /* TODO: handle latency and bandwidth */
+  /* handle latency and bandwidth */
+  if ( (size = evd_stream_request_write (EVD_STREAM (self),
+					 size,
+					 retry_wait)) == 0)
+    return 0;
 
-  size = evd_stream_request_write (EVD_STREAM (self),
-				   size,
-				   retry_wait);
+  if (self->priv->group != NULL)
+    if ( (size = evd_stream_request_write (EVD_STREAM (self->priv->group),
+					   size,
+					   retry_wait)) == 0)
+      return 0;
 
   actual_size = g_socket_send (self->priv->socket,
 			       buf,
@@ -1095,8 +1119,14 @@ evd_socket_write (EvdSocket    *self,
 			       error);
 
   if (actual_size > 0)
-    evd_stream_report_write (EVD_STREAM (self),
-			     actual_size);
+    {
+      if (self->priv->group != NULL)
+	evd_stream_report_write (EVD_STREAM (self->priv->group),
+				 actual_size);
+
+      evd_stream_report_write (EVD_STREAM (self),
+			       actual_size);
+    }
 
   return actual_size;
 }

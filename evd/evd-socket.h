@@ -166,7 +166,7 @@ gssize        evd_socket_read_buffer      (EvdSocket *self,
  * Return value: (transfer full): The #GString representing the read package.
  */
 gchar         *evd_socket_read            (EvdSocket *self,
-					   gssize    *size,
+					   gsize     *size,
 					   guint     *retry_wait,
 					   GError   **error);
 

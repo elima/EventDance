@@ -77,6 +77,9 @@ gsize         evd_stream_request_read   (EvdStream *self,
 gulong        evd_stream_get_total_read (EvdStream *self);
 gulong        evd_stream_get_total_written (EvdStream *self);
 
+gfloat        evd_stream_get_actual_bandwidth_in  (EvdStream *self);
+gfloat        evd_stream_get_actual_bandwidth_out (EvdStream *self);
+
 G_END_DECLS
 
 #endif /* __EVD_STREAM_H__ */

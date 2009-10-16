@@ -26,19 +26,22 @@
 #include <glib.h>
 #include <evd.h>
 
-#define RUNS                  3
+#define RUNS                  1
 
-#define THREADS             150
-#define SOCKETS_PER_THREAD   50
+#define THREADS             350
+#define SOCKETS_PER_THREAD    5
 
 #define DATA_SIZE         65535
 #define BLOCK_SIZE        32756
 #define TOTAL_DATA_SIZE    DATA_SIZE * THREADS * SOCKETS_PER_THREAD
 
-#define SOCKET_BANDWIDTH      0
-#define GROUP_BANDWIDTH       0
+#define SOCKET_BANDWIDTH_IN    64.0
+#define SOCKET_BANDWIDTH_OUT   32.0
 
-#define INET_PORT          6666
+#define GROUP_BANDWIDTH_IN   4096.0
+#define GROUP_BANDWIDTH_OUT  4096.0
+
+#define INET_PORT 6666
 
 
 GMainLoop      *main_loop_server;
@@ -47,7 +50,7 @@ EvdSocketGroup *group;
 
 static guint conns = 0;
 static gchar data[DATA_SIZE];
-static gulong total_read = 0;
+static gsize total_read = 0;
 static gulong total_sent = 0;
 static guint clients_done = 0;
 static guint sockets_closed = 0;
@@ -55,6 +58,7 @@ static guint sockets_closed = 0;
 static GMainLoop *main_loops[THREADS];
 
 G_LOCK_DEFINE_STATIC (sockets_closed);
+G_LOCK_DEFINE_STATIC (total_read);
 
 static guint
 timeout_add (guint timeout,
@@ -83,7 +87,7 @@ timeout_add (guint timeout,
 static gboolean
 client_send_data (gpointer user_data)
 {
-  gulong size;
+  gsize size;
   EvdSocket *client = EVD_SOCKET (user_data);
   GError *error = NULL;
   guint retry_wait;
@@ -101,7 +105,7 @@ client_send_data (gpointer user_data)
 
       if (evd_stream_get_total_written (EVD_STREAM (client)) < DATA_SIZE)
 	{
-	  timeout_add (1, g_main_context_get_thread_default (),
+	  timeout_add (retry_wait, g_main_context_get_thread_default (),
 		       (GSourceFunc) client_send_data,
 		       (gpointer) client);
 	}
@@ -117,6 +121,9 @@ client_on_connect (EvdSocket *socket,
 {
   conns++;
   //  g_debug ("client connected (%d)", conns);
+  g_object_set (socket,
+		"bandwidth-in", SOCKET_BANDWIDTH_IN,
+		NULL);
 }
 
 static void
@@ -128,8 +135,6 @@ client_on_connect_timeout (EvdSocket *socket, gpointer user_data)
 static void
 client_on_close (EvdSocket *socket, gpointer user_data)
 {
-  GMainLoop *main_loop;
-
   G_LOCK (sockets_closed);
   sockets_closed ++;
   if (sockets_closed == THREADS * SOCKETS_PER_THREAD * 2)
@@ -162,6 +167,11 @@ server_on_new_connection (EvdSocket *self, EvdSocket *client, gpointer user_data
 		    G_CALLBACK (client_on_close),
 		    NULL);
 
+  g_object_set (client,
+		"bandwidth-out", SOCKET_BANDWIDTH_OUT,
+		"group", group,
+		NULL);
+
   g_object_ref_sink (client);
 
   /* send data to client */
@@ -173,7 +183,7 @@ static gboolean
 client_read_data (gpointer user_data)
 {
   EvdSocket *client = EVD_SOCKET (user_data);
-  gulong size;
+  gssize size;
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
   guint retry_wait;
@@ -191,17 +201,23 @@ client_read_data (gpointer user_data)
     }
   else
     {
+      G_LOCK (total_read);
       total_read += size;
 
-      g_print ("read %s/%s       \r",
+      g_print ("read %s/%s at %.2f KB/s       \r",
 	       g_format_size_for_display (total_read),
-	       g_format_size_for_display (TOTAL_DATA_SIZE));
+	       g_format_size_for_display (TOTAL_DATA_SIZE),
+	       evd_stream_get_actual_bandwidth_in (EVD_STREAM (group)));
 
-      //      g_debug ("%d bytes read in socket 0x%X", size, (guintptr) client);
+      G_UNLOCK (total_read);
+
+      if (size > 1024 * 1024)
+	g_debug ("%d bytes read in socket 0x%X", size, (guintptr) client);
+
       if (evd_stream_get_total_read (EVD_STREAM (client)) < DATA_SIZE)
 	{
 	  g_object_ref (client);
-	  timeout_add (0,
+	  timeout_add (retry_wait,
 		       g_main_context_get_thread_default (),
 		       (GSourceFunc) client_read_data,
 		       (gpointer) client);
@@ -320,6 +336,10 @@ main (gint argc, gchar **argv)
   evd_socket_group_set_read_handler (group,
 		     (EvdSocketGroupReadHandler) group_socket_on_read,
 		     NULL);
+  g_object_set (group,
+		"bandwidth-in", GROUP_BANDWIDTH_IN,
+		"bandwidth-out", GROUP_BANDWIDTH_OUT,
+		NULL);
 
   /* fill data with random bytes */
   for (i=0; i<DATA_SIZE; i++)
