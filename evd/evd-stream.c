@@ -42,14 +42,14 @@ struct _EvdStreamPrivate
 
   gsize  bandwidth_in;
   gsize  bandwidth_out;
-  guint  latency_in;
-  guint  latency_out;
+  gulong latency_in;
+  gulong latency_out;
 
   GTimeVal current_time;
   gsize    bytes_in;
   gsize    bytes_out;
-  gsize    last_in;
-  gsize    last_out;
+  GTimeVal last_in;
+  GTimeVal last_out;
 
   gsize total_in;
   gsize total_out;
@@ -64,7 +64,9 @@ enum
   PROP_0,
   PROP_RECEIVE_CLOSURE,
   PROP_BANDWIDTH_IN,
-  PROP_BANDWIDTH_OUT
+  PROP_BANDWIDTH_OUT,
+  PROP_LATENCY_IN,
+  PROP_LATENCY_OUT
 };
 
 static void     evd_stream_class_init         (EvdStreamClass *class);
@@ -122,6 +124,26 @@ evd_stream_class_init (EvdStreamClass *class)
 						       G_PARAM_READWRITE |
 						       G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_LATENCY_IN,
+                                   g_param_spec_float ("latency-in",
+						       "Inbound minimum latency",
+						       "The minimum time between two reads, in miliseconds",
+						       0.0,
+						       G_MAXFLOAT,
+						       0.0,
+						       G_PARAM_READWRITE |
+						       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_LATENCY_OUT,
+                                   g_param_spec_float ("latency-out",
+						       "Outbound minimum latency",
+						       "The minimum time between two writes, in miliseconds",
+						       0.0,
+						       G_MAXFLOAT,
+						       0.0,
+						       G_PARAM_READWRITE |
+						       G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdStreamPrivate));
 }
@@ -147,8 +169,6 @@ evd_stream_init (EvdStream *self)
 
   priv->bytes_in = 0;
   priv->bytes_out = 0;
-  priv->last_in = 0;
-  priv->last_out = 0;
 
   priv->mutex = g_mutex_new ();
 }
@@ -197,6 +217,17 @@ evd_stream_set_property (GObject      *obj,
       self->priv->bandwidth_out = (gsize) (g_value_get_float (value) * 1024.0);
       break;
 
+      /* Latency properties are in miliseconds, but we store the value
+	 internally  in microseconds, to allow up to 1/1000 fraction of a
+	 milisecond */
+    case PROP_LATENCY_IN:
+      self->priv->latency_in = (gulong) (g_value_get_float (value) * 1000.0);
+      break;
+
+    case PROP_LATENCY_OUT:
+      self->priv->latency_out = (gulong) (g_value_get_float (value) * 1000.0);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -227,6 +258,15 @@ evd_stream_get_property (GObject    *obj,
       g_value_set_float (value, self->priv->bandwidth_out / 1024.0);
       break;
 
+      /* Latency values are stored in microseconds internally */
+    case PROP_LATENCY_IN:
+      g_value_set_float (value, self->priv->latency_in / 1000.0);
+      break;
+
+    case PROP_LATENCY_OUT:
+      g_value_set_float (value, self->priv->latency_out / 1000.0);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -253,12 +293,23 @@ evd_stream_update_current_time (EvdStream *self)
   g_memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
 }
 
+static gulong
+g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
+{
+  gulong result;
+
+  result = ABS (time2->tv_sec - time1->tv_sec) * G_USEC_PER_SEC;
+  result += ABS (time2->tv_usec - time1->tv_usec) / 1000;
+
+  return result;
+}
+
 static gsize
 evd_stream_request (EvdStream *self,
 		    gsize      bandwidth,
-		    guint      latency,
+		    gulong     latency,
 		    gsize      bytes,
-		    gsize      last,
+		    GTimeVal  *last,
 		    gsize      size,
 		    guint     *wait)
 {
@@ -267,22 +318,36 @@ evd_stream_request (EvdStream *self,
   if (wait != NULL)
     *wait = 0;
 
-  if (bandwidth > 0)
-    {
-      /* bandwidth check */
-      g_mutex_lock (self->priv->mutex);
+  g_mutex_lock (self->priv->mutex);
 
+  /*  latency check */
+  if (latency > 0)
+    {
+      gulong elapsed;
+
+      elapsed = g_timeval_get_diff_micro (&self->priv->current_time,
+					  last);
+      if (elapsed < latency)
+	{
+	  actual_size = 0;
+
+	  if (wait != NULL)
+	    *wait = (guint) ((latency - elapsed) / 1000);
+	}
+    }
+
+  /* bandwidth check */
+  if ( (bandwidth > 0) && (actual_size > 0) )
+    {
       actual_size = MAX ((gssize) (bandwidth - bytes), 0);
       actual_size = MIN (actual_size, size);
 
       if (wait != NULL)
 	if (actual_size < size)
 	  *wait = (guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1;
-
-      g_mutex_unlock (self->priv->mutex);
     }
 
-  /* TODO: check latency */
+  g_mutex_unlock (self->priv->mutex);
 
   return actual_size;
 }
@@ -300,6 +365,10 @@ evd_stream_report_read (EvdStream *self,
   self->priv->bytes_in += size;
   self->priv->total_in += size;
 
+  g_memmove (&self->priv->last_in,
+	     &self->priv->current_time,
+	     sizeof (GTimeVal));
+
   g_mutex_unlock (self->priv->mutex);
 }
 
@@ -313,6 +382,10 @@ evd_stream_report_write (EvdStream *self,
 
   self->priv->bytes_out += size;
   self->priv->total_out += size;
+
+  g_memmove (&self->priv->last_out,
+	     &self->priv->current_time,
+	     sizeof (GTimeVal));
 
   g_mutex_unlock (self->priv->mutex);
 }
@@ -363,7 +436,7 @@ evd_stream_request_read  (EvdStream *self,
 			     self->priv->bandwidth_in,
 			     self->priv->latency_in,
 			     self->priv->bytes_in,
-			     self->priv->last_in,
+			     &self->priv->last_in,
 			     size,
 			     wait);
 }
@@ -379,7 +452,7 @@ evd_stream_request_write (EvdStream *self,
 			     self->priv->bandwidth_out,
 			     self->priv->latency_out,
 			     self->priv->bytes_out,
-			     self->priv->last_out,
+			     &self->priv->last_out,
 			     size,
 			     wait);
 }

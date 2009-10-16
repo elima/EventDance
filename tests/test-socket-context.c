@@ -28,15 +28,18 @@
 
 #define RUNS                  1
 
-#define THREADS             350
-#define SOCKETS_PER_THREAD    5
+#define THREADS              50
+#define SOCKETS_PER_THREAD   50
 
 #define DATA_SIZE         65535
 #define BLOCK_SIZE        32756
 #define TOTAL_DATA_SIZE    DATA_SIZE * THREADS * SOCKETS_PER_THREAD
 
-#define SOCKET_BANDWIDTH_IN    64.0
-#define SOCKET_BANDWIDTH_OUT   32.0
+#define SOCKET_BANDWIDTH_IN     4.0
+#define SOCKET_BANDWIDTH_OUT    3.0
+
+#define SOCKET_LATENCY_IN    2000.0
+#define SOCKET_LATENCY_OUT   1000.0
 
 #define GROUP_BANDWIDTH_IN   4096.0
 #define GROUP_BANDWIDTH_OUT  4096.0
@@ -123,6 +126,7 @@ client_on_connect (EvdSocket *socket,
   //  g_debug ("client connected (%d)", conns);
   g_object_set (socket,
 		"bandwidth-in", SOCKET_BANDWIDTH_IN,
+		"latency-in", SOCKET_LATENCY_IN,
 		NULL);
 }
 
@@ -169,6 +173,7 @@ server_on_new_connection (EvdSocket *self, EvdSocket *client, gpointer user_data
 
   g_object_set (client,
 		"bandwidth-out", SOCKET_BANDWIDTH_OUT,
+		"latency-out", SOCKET_LATENCY_OUT,
 		"group", group,
 		NULL);
 
