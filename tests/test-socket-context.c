@@ -32,19 +32,19 @@
 #define SOCKETS_PER_THREAD   50
 
 #define DATA_SIZE         65535
-#define BLOCK_SIZE        32756
+#define BLOCK_SIZE        32752
 #define TOTAL_DATA_SIZE    DATA_SIZE * THREADS * SOCKETS_PER_THREAD
 
-#define SOCKET_BANDWIDTH_IN     4.0
-#define SOCKET_BANDWIDTH_OUT    3.0
+#define SOCKET_BANDWIDTH_IN     0.0
+#define SOCKET_BANDWIDTH_OUT    0.0
 
-#define SOCKET_LATENCY_IN    2000.0
-#define SOCKET_LATENCY_OUT   1000.0
+#define SOCKET_LATENCY_IN     000.0
+#define SOCKET_LATENCY_OUT    000.0
 
-#define GROUP_BANDWIDTH_IN   4096.0
-#define GROUP_BANDWIDTH_OUT  4096.0
+#define GROUP_BANDWIDTH_IN      0.0
+#define GROUP_BANDWIDTH_OUT     0.0
 
-#define INET_PORT 6666
+#define INET_PORT 5555
 
 
 GMainLoop      *main_loop_server;
@@ -99,19 +99,21 @@ client_send_data (gpointer user_data)
   if (size > BLOCK_SIZE)
     size = BLOCK_SIZE;
 
-  if ( (size = evd_socket_write (client, data, size, &retry_wait, &error)) < 0)
+  if ( (size = evd_socket_write (client, data, DATA_SIZE /*size*/, &retry_wait, &error)) < 0)
     g_debug ("ERROR sending data: %s", error->message);
   else
     {
       //      g_debug ("%d bytes sent from client socket 0x%X", size, (guintptr) client);
       total_sent += size;
 
+      /*
       if (evd_stream_get_total_written (EVD_STREAM (client)) < DATA_SIZE)
 	{
 	  timeout_add (retry_wait, g_main_context_get_thread_default (),
 		       (GSourceFunc) client_send_data,
 		       (gpointer) client);
 	}
+      */
     }
 
   return FALSE;

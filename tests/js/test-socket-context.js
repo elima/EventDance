@@ -90,8 +90,9 @@ function client_write () {
   if (len > 0) {
     this.data_written += len;
 
-    if (this.data_written < DATA_SIZE)
-      MainLoop.idle_add (Lang.bind (this, client_write));
+    if (! this.auto_write)
+      if (this.data_written < DATA_SIZE)
+	MainLoop.idle_add (Lang.bind (this, client_write));
   }
 
   return false;

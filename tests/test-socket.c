@@ -59,8 +59,8 @@ static void
 on_socket_read (EvdSocket *socket, gpointer user_data)
 {
   GError *error = NULL;
-  static gchar buf[BLOCK_SIZE];
-  static gssize size;
+  gchar buf[BLOCK_SIZE] = { 0, };
+  gssize size;
 
   if ((size = evd_socket_read_buffer (socket,
 				      buf,
@@ -114,6 +114,10 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
   evd_socket_set_read_handler (socket,
 			       on_socket_read,
 			       NULL);
+
+  g_object_set (socket,
+		"bandwidth-out", 0.002,
+		NULL);
 
   if (evd_socket_write (socket,
 		        greeting,
@@ -360,7 +364,7 @@ main (gint argc, gchar **argv)
 
   g_type_init ();
 
-  for (i=0; i<100; i++)
+  for (i=0; i<1; i++)
     {
       g_debug ("RUN: %d", i);
       test_connection (test_tcp_sockets);
