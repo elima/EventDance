@@ -38,6 +38,7 @@ EvdSocket *socket1, *socket2, *socket3;
 GMainLoop *main_loop;
 
 static const gchar *greeting = "Hello world!";
+static const gchar *unread_text = "This is a text to unread - ";
 guint bytes_read;
 guint bytes_expected;
 
@@ -116,7 +117,7 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 			       NULL);
 
   g_object_set (socket,
-		"bandwidth-out", 0.002,
+		//		"bandwidth-out", 0.002,
 		NULL);
 
   if (evd_socket_write (socket,
@@ -207,7 +208,7 @@ test_tcp_sockets (gpointer data)
   /* TCP socket test */
   /* =============== */
 
-  bytes_expected = strlen (greeting) * 2;
+  bytes_expected = strlen (greeting) * 2 + strlen (unread_text);
   expected_sockets_closed = 3;
 
   g_print ("\nTest 1/3: TCP sockets\n");
@@ -249,6 +250,8 @@ test_tcp_sockets (gpointer data)
   /* create client socket */
   socket2 = evd_socket_new ();
 
+  evd_socket_unread (socket2, unread_text, strlen (unread_text));
+
   g_signal_connect (socket2,
 		    "close",
 		    G_CALLBACK (on_socket_close),
@@ -280,7 +283,7 @@ test_udp_sockets (gpointer data)
   /* UDP socket test */
   /* =============== */
 
-  bytes_expected = strlen (greeting) * 2;
+  bytes_expected = strlen (greeting) * 2 + strlen (unread_text) * 2;
   expected_sockets_closed = 2;
 
   g_print ("\nTest 2/3: UDP sockets\n");
@@ -293,6 +296,8 @@ test_udp_sockets (gpointer data)
 
   /* create socket1 */
   socket1 = evd_socket_new ();
+
+  evd_socket_unread (socket1, unread_text, strlen (unread_text));
 
   g_object_set (socket1,
 		"type", G_SOCKET_TYPE_DATAGRAM,
@@ -324,6 +329,8 @@ test_udp_sockets (gpointer data)
 
   /* create socket2 */
   socket2 = evd_socket_new ();
+
+  evd_socket_unread (socket2, unread_text, strlen (unread_text));
   g_object_set (socket2,
 		"type", G_SOCKET_TYPE_DATAGRAM,
 		"protocol", G_SOCKET_PROTOCOL_UDP,
@@ -364,7 +371,7 @@ main (gint argc, gchar **argv)
 
   g_type_init ();
 
-  for (i=0; i<1; i++)
+  for (i=0; i<100; i++)
     {
       g_debug ("RUN: %d", i);
       test_connection (test_tcp_sockets);

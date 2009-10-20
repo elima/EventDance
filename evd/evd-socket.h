@@ -176,6 +176,10 @@ gssize        evd_socket_write            (EvdSocket    *socket,
 					   guint        *retry_wait,
 					   GError      **error);
 
+gssize        evd_socket_unread           (EvdSocket   *self,
+					   const gchar *buffer,
+					   gsize        size);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */
