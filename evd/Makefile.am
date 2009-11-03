@@ -4,7 +4,7 @@ MAINTAINERCLEANFILES = \
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = evd.pc
 
-library_includedir=$(includedir)/evd
+library_includedir=$(includedir)/evd-@EVD_API_VERSION@
 library_include_HEADERS = evd.h
 
 CLEANFILES = *~ evd.pc
@@ -24,7 +24,7 @@ BUILT_SOURCES = evd-marshal.c evd-marshal.h
 
 INCLUDES = \
 	-I$(top_srcdir) \
-	-I$(top_srcdir)/evd
+	-I$(top_srcdir)/evd-@EVD_API_VERSION@
 
 # libraries
 lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
@@ -66,9 +66,10 @@ libevd_@EVD_API_VERSION@_la_SOURCES = \
 	$(source_h) \
 	$(source_h_priv)
 
-evddir = $(includedir)/evd
+evddir = $(includedir)/evd-@EVD_API_VERSION@
 evd_HEADERS = \
-	$(source_h)
+	$(source_h) \
+	$(source_h_priv)
 
 # introspection support
 if HAVE_INTROSPECTION
@@ -78,7 +79,7 @@ Evd-@EVD_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libevd-@EVD_API_VERSION@.la
 	$(INTROSPECTION_SCANNER) -v \
 		--namespace Evd --nsversion=0.1.0 \
 		$(INCLUDES) \
-		--c-include='evd/evd.h' \
+		--c-include='evd-@EVD_API_VERSION@/evd.h' \
 		--include=GObject-2.0 \
 		--include=Gio-2.0 \
 		--library=libevd-@EVD_API_VERSION@.la \
