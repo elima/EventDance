@@ -30,5 +30,6 @@
 #include <evd-socket.h>
 #include <evd-inet-socket.h>
 #include <evd-socket-group.h>
+#include <evd-service.h>
 
 #endif /* __EVD_H__ */

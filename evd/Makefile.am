@@ -36,13 +36,15 @@ source_c = \
 	evd-socket-manager.c \
 	evd-socket.c \
 	evd-inet-socket.c \
-	evd-socket-group.c
+	evd-socket-group.c \
+	evd-service.c
 
 source_h = \
 	evd-stream.h \
 	evd-socket.h \
 	evd-inet-socket.h \
 	evd-socket-group.h \
+	evd-service.h \
 	evd.h
 
 source_h_priv = \
