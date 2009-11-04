@@ -1275,11 +1275,11 @@ evd_socket_read (EvdSocket *self,
 }
 
 gssize
-evd_socket_write (EvdSocket    *self,
-		  const gchar  *buf,
-		  gsize         size,
-		  guint        *retry_wait,
-		  GError      **error)
+evd_socket_write_buffer (EvdSocket    *self,
+			 const gchar  *buf,
+			 gsize         size,
+			 guint        *retry_wait,
+			 GError      **error)
 {
   gsize orig_size = size;
   gsize actual_size;
@@ -1327,6 +1327,19 @@ evd_socket_write (EvdSocket    *self,
     *retry_wait = _retry_wait;
 
   return actual_size;
+}
+
+gssize
+evd_socket_write (EvdSocket    *self,
+		  const gchar  *buf,
+		  guint        *retry_wait,
+		  GError      **error)
+{
+  gsize size;
+
+  size = strlen (buf);
+
+  return evd_socket_write_buffer (self, buf, size, retry_wait, error);
 }
 
 gssize

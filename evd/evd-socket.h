@@ -170,9 +170,14 @@ gchar         *evd_socket_read            (EvdSocket *self,
 					   guint     *retry_wait,
 					   GError   **error);
 
-gssize        evd_socket_write            (EvdSocket    *socket,
+gssize        evd_socket_write_buffer     (EvdSocket    *socket,
 					   const gchar  *buf,
 					   gsize         size,
+					   guint        *retry_wait,
+					   GError      **error);
+
+gssize        evd_socket_write            (EvdSocket    *self,
+					   const gchar  *buf,
 					   guint        *retry_wait,
 					   GError      **error);
 

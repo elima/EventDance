@@ -116,15 +116,17 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
 			       on_socket_read,
 			       NULL);
 
+  /*
   g_object_set (socket,
-		//		"bandwidth-out", 0.002,
+		"bandwidth-out", 0.002,
 		NULL);
+  */
 
-  if (evd_socket_write (socket,
-		        greeting,
-		        strlen (greeting),
-			NULL,
-			&error) < 0)
+  if (evd_socket_write_buffer (socket,
+			       greeting,
+			       strlen (greeting),
+			       NULL,
+			       &error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
     }
@@ -152,11 +154,11 @@ on_socket_new_connection (EvdSocket *socket,
 			       on_socket_read,
 			       NULL);
 
-  if (evd_socket_write (client,
-			greeting,
-			strlen (greeting),
-			NULL,
-			&error) < 0)
+  if (evd_socket_write_buffer (client,
+			       greeting,
+			       strlen (greeting),
+			       NULL,
+			       &error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
     }

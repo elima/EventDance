@@ -99,7 +99,8 @@ client_send_data (gpointer user_data)
   if (size > BLOCK_SIZE)
     size = BLOCK_SIZE;
 
-  if ( (size = evd_socket_write (client, data, DATA_SIZE /*size*/, &retry_wait, &error)) < 0)
+  if ( (size = evd_socket_write_buffer (client, data, DATA_SIZE /*size*/,
+					&retry_wait, &error)) < 0)
     g_debug ("ERROR sending data: %s", error->message);
   else
     {
