@@ -125,12 +125,19 @@ evd_socket_group_add_internal (EvdSocketGroup *self,
   evd_socket_set_group (socket, self);
 }
 
-void
+gboolean
 evd_socket_group_remove_internal (EvdSocketGroup *self,
 				  EvdSocket      *socket)
 {
-  evd_socket_set_read_handler (socket, NULL, NULL);
-  evd_socket_set_group (socket, NULL);
+  if (evd_socket_get_group (socket) == self)
+    {
+      evd_socket_set_read_handler (socket, NULL, NULL);
+      evd_socket_set_group (socket, NULL);
+
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 /* public methods */
@@ -160,19 +167,19 @@ evd_socket_group_add (EvdSocketGroup *self, EvdSocket *socket)
     evd_socket_group_add_internal (self, socket);
 }
 
-void
+gboolean
 evd_socket_group_remove (EvdSocketGroup *self, EvdSocket *socket)
 {
   EvdSocketGroupClass *class;
 
-  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
-  g_return_if_fail (EVD_IS_SOCKET (socket));
+  g_return_val_if_fail (EVD_IS_SOCKET_GROUP (self), FALSE);
+  g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
 
   class = EVD_SOCKET_GROUP_GET_CLASS (self);
   if (class->remove != NULL)
-    class->remove (self, socket);
+    return class->remove (self, socket);
   else
-    evd_socket_group_remove_internal (self, socket);
+    return evd_socket_group_remove_internal (self, socket);
 }
 
 void
@@ -200,6 +207,3 @@ evd_socket_group_set_read_handler (EvdSocketGroup            *self,
 
   evd_stream_set_on_receive (EVD_STREAM (self), closure);
 }
-
-
-

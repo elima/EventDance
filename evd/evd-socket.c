@@ -839,7 +839,8 @@ evd_socket_event_handler (gpointer data)
 	{
 	  EvdSocket *client;
 
-	  while ( (client = evd_socket_accept (socket, &error)) != NULL)
+	  while ( (socket->priv->status == EVD_SOCKET_LISTENING) &&
+                  ((client = evd_socket_accept (socket, &error)) != NULL) )
 	    {
 	      /* TODO: allow external function to decide whether to
 		 accept/refuse the new connection */
@@ -852,18 +853,24 @@ evd_socket_event_handler (gpointer data)
 	      g_object_unref (client);
 	    }
 
-	  if (error->code != G_IO_ERROR_WOULD_BLOCK)
-	    {
-	      /* error accepting connection, emit 'error' signal */
-	      error->code = EVD_SOCKET_ERROR_ACCEPT;
-	      evd_socket_throw_error (socket, error);
+          if (error != NULL)
+            {
+              if (error->code != G_IO_ERROR_WOULD_BLOCK)
+                {
+                  /* error accepting connection, emit 'error' signal */
+                  error->code = EVD_SOCKET_ERROR_ACCEPT;
+                  evd_socket_throw_error (socket, error);
 
-	      g_debug ("error accepting: %s", error->message);
-	      g_idle_add (evd_socket_event_handler, event);
-	      dont_free = TRUE;
-	    }
+                  evd_socket_timeout_add (socket,
+                                          0,
+                                          evd_socket_event_handler,
+                                          event);
+                  dont_free = TRUE;
+                }
 
-	  g_error_free (error);
+              if (error != NULL)
+                g_error_free (error);
+            }
 	}
       else
 	{
@@ -985,6 +992,12 @@ evd_socket_get_status (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
   return self->priv->status;
+}
+
+EvdSocketGroup *
+evd_socket_get_group (EvdSocket *self)
+{
+  return self->priv->group;
 }
 
 gboolean

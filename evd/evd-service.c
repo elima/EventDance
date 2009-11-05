@@ -99,6 +99,24 @@ evd_service_dispose (GObject *obj)
 static void
 evd_service_finalize (GObject *obj)
 {
+  EvdService *self = EVD_SERVICE (obj);
+
+  while (g_hash_table_size (self->priv->listeners) > 0)
+    {
+      GHashTableIter iter;
+      gpointer key, value;
+      EvdSocket *socket;
+
+      g_hash_table_iter_init (&iter, self->priv->listeners);
+      g_hash_table_iter_next (&iter, &key, &value);
+
+      socket = EVD_SOCKET (value);
+
+      evd_service_remove_listener (self, socket);
+    }
+
+  g_hash_table_unref (self->priv->listeners);
+
   G_OBJECT_CLASS (evd_service_parent_class)->finalize (obj);
 }
 
@@ -109,10 +127,21 @@ evd_service_on_new_connection (EvdSocket *listener,
 {
   EvdService *self = EVD_SERVICE (user_data);
 
+  evd_socket_group_add (EVD_SOCKET_GROUP (self), client);
+
   g_signal_emit (self,
                  evd_service_signals[SIGNAL_NEW_CONNECTION],
                  0,
                  client, NULL);
+}
+
+static void
+evd_service_on_listener_close (EvdSocket *listener,
+                               gpointer   user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+
+  evd_service_remove_listener (self, listener);
 }
 
 /* protected methods */
@@ -129,11 +158,38 @@ evd_service_new (void)
   return self;
 }
 
+void
+evd_service_add_listener (EvdService  *self,
+                          EvdSocket   *socket)
+{
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
+
+  g_object_ref (socket);
+
+  g_hash_table_insert (self->priv->listeners,
+                       (gpointer) socket,
+                       (gpointer) socket);
+
+  if (evd_socket_get_status (socket) == EVD_SOCKET_LISTENING)
+    g_signal_connect (socket,
+                      "new-connection",
+                      G_CALLBACK (evd_service_on_new_connection),
+                      self);
+  else
+    evd_socket_group_add (EVD_SOCKET_GROUP (self), socket);
+
+  g_signal_connect (socket,
+                    "close",
+                    G_CALLBACK (evd_service_on_listener_close),
+                    self);
+}
+
 EvdSocket *
-evd_service_add_listener_inet (EvdService   *self,
-                               const gchar  *address,
-                               guint         port,
-                               GError      **error)
+evd_service_listen_inet (EvdService   *self,
+                         const gchar  *address,
+                         guint         port,
+                         GError      **error)
 {
   EvdInetSocket *socket = NULL;
 
@@ -148,15 +204,32 @@ evd_service_add_listener_inet (EvdService   *self,
     }
   else
     {
-      g_hash_table_insert (self->priv->listeners,
-                           (gpointer) socket,
-                           (gpointer) socket);
-
-      g_signal_connect (socket,
-                        "new-connection",
-                        G_CALLBACK (evd_service_on_new_connection),
-                        self);
+      evd_service_add_listener (self, EVD_SOCKET (socket));
 
       return EVD_SOCKET (socket);
     }
+}
+
+gboolean
+evd_service_remove_listener (EvdService *self,
+                             EvdSocket  *socket)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
+
+  if (g_hash_table_remove (self->priv->listeners,
+                           (gconstpointer) socket))
+    {
+      EvdSocketGroup *group = NULL;
+
+      g_object_get (socket, "group", &group, NULL);
+      if (group == EVD_SOCKET_GROUP (self))
+        evd_socket_group_remove (EVD_SOCKET_GROUP (self), socket);
+
+      g_object_unref (socket);
+
+      return TRUE;
+    }
+
+  return FALSE;
 }

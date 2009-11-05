@@ -31,12 +31,14 @@
 
 G_BEGIN_DECLS
 
-void     evd_socket_set_status         (EvdSocket *self, EvdSocketState status);
-void     evd_socket_throw_error        (EvdSocket *self, GError *error);
-gboolean evd_socket_event_list_handler (gpointer data);
-gboolean evd_socket_event_handler      (gpointer data);
-void     evd_socket_set_group          (EvdSocket      *self,
-					EvdSocketGroup *group);
+void            evd_socket_set_status         (EvdSocket *self,
+                                               EvdSocketState status);
+void            evd_socket_throw_error        (EvdSocket *self, GError *error);
+gboolean        evd_socket_event_list_handler (gpointer data);
+gboolean        evd_socket_event_handler      (gpointer data);
+void            evd_socket_set_group          (EvdSocket      *self,
+                                               EvdSocketGroup *group);
+EvdSocketGroup *evd_socket_get_group          (EvdSocket      *self);
 
 G_END_DECLS
 

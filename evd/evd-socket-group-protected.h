@@ -31,11 +31,10 @@
 
 G_BEGIN_DECLS
 
-void evd_socket_group_add_internal    (EvdSocketGroup *self,
-				       EvdSocket      *socket);
-void evd_socket_group_remove_internal (EvdSocketGroup *self,
-				       EvdSocket      *socket);
-
+void     evd_socket_group_add_internal    (EvdSocketGroup *self,
+                                           EvdSocket      *socket);
+gboolean evd_socket_group_remove_internal (EvdSocketGroup *self,
+                                           EvdSocket      *socket);
 
 G_END_DECLS
 
