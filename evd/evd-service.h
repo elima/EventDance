@@ -50,7 +50,7 @@ struct _EvdServiceClass
 
   /* signal prototypes */
   void (* new_connection)  (EvdService *self,
-			    EvdSocket  *socket);
+                            EvdSocket  *socket);
 };
 
 #define EVD_TYPE_SERVICE           (evd_service_get_type ())
@@ -66,9 +66,9 @@ GType           evd_service_get_type          (void) G_GNUC_CONST;
 EvdService     *evd_service_new               (void);
 
 EvdSocket      *evd_service_add_listener_inet (EvdService   *self,
-					       const gchar  *address,
-					       guint         port,
-					       GError      **error);
+                                               const gchar  *address,
+                                               guint         port,
+                                               GError      **error);
 
 G_END_DECLS
 
