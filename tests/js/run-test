@@ -2,23 +2,9 @@
 
 test=$1
 
-builddir=`dirname $0`
-builddir=`cd $builddir && pwd`
-srcdir=$builddir/.
-srcdir=`cd $srcdir && pwd`
-
-GI_TYPELIB_PATH="/opt/jhbuild/build/lib/girepository:$builddir/../src"
 GJS_DEBUG_OUTPUT=stderr
 $verbose || GJS_DEBUG_TOPICS="JS ERROR;JS LOG"
-GNOME_SHELL_TESTSDIR="$srcdir/"
-LD_PRELOAD="$builddir/../../evd/.libs/libevd.so"
 
-export GI_TYPELIB_PATH GJS_DEBUG_OUTPUT GJS_DEBUG_TOPICS GNOME_SHELL_JS GNOME_SHELL_TESTSDIR LD_PRELOAD
+export GJS_DEBUG_OUTPUT GJS_DEBUG_TOPICS
 
-gjs_args=
-for i in $srcdir $srcdir/../js /opt/jhbuild/build/share/gjs-1.0 /opt/jhbuild/build/lib/gjs-1.0 ; do
-    gjs_args="$gjs_args -I $i"
-done
-
-gjs-console $gjs_args $test
-
+gjs-console -I ./ $gjs_args $test
