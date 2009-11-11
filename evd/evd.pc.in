@@ -9,7 +9,7 @@ localedir=@localedir@
 
 Name: Eventdance
 Description: An event distribution framework.
-Requires: 
+Requires: GLib
 Version: @VERSION@
-Libs: -L${libdir} -levd
-Cflags: -I${includedir}/evd
+Libs: -L${libdir} -levd-@VERSION@
+Cflags: -I${includedir}/evd-@VERSION@
