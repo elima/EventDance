@@ -40,7 +40,7 @@ typedef struct _EvdSocketEvent EvdSocketEvent;
 /**
  * EvdSocketReadHandler:
  * @socket: (in): The #EvdSocket
- * @user_data: (in) (allow-null): A #gpointer to user defined data to pass in callback.
+ * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
  *
  * Prototype for callback to be executed when 'read' event is received on the socket.
  */
