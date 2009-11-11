@@ -1,0 +1,22 @@
+<part id="evd-overview">
+  <partinfo>
+    <author>
+      <firstname>Eduardo</firstname>
+      <surname>Lima Mitev</surname>
+      <affiliation>
+        <address>
+          <email>elima@igalia.com</email>
+        </address>
+      </affiliation>
+    </author>
+  </partinfo>
+
+  <title>Overview</title>
+
+  <partintro>
+
+    <para>@TODO</para>
+
+  </partintro>
+
+</part>

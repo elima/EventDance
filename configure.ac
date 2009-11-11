@@ -42,6 +42,20 @@ PKG_CHECK_MODULES(GLIB, gio-2.0 >= 2.22.0
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.4])
 
+# GTK Doc check
+
+GTK_DOC_CHECK([1.11])
+
+# we don't want to build the documentation from a Git clone unless we
+# explicitly tell configure to do so; this allows avoiding to recurse into
+# the documentation directory when building Clutter inside Poky for a
+# target device that doesn't have gtk-doc installed. for reference
+# see: http://bugzilla.openedhand.com/show_bug.cgi?id=1047
+#
+# we use autogen.sh as it exists only inside the Git clones, and it
+# is not packaged into tarballs.
+AM_CONDITIONAL([BUILD_GTK_DOC], [test "x$enable_gtk_doc" = "xyes" || test ! -f "autogen.sh"])
+
 # Output files
 AC_OUTPUT([
 	Makefile
@@ -50,6 +64,8 @@ AC_OUTPUT([
 	evd/Makefile
 	evd/evd.pc
 	tests/Makefile
+        doc/Makefile
+        doc/reference/Makefile
 ])
 
 echo ""
@@ -57,5 +73,6 @@ echo "   EventDance $VERSION"
 echo "   ====================="
 echo ""
 echo "    Build introspection data:   ${enable_introspection}"
+echo "     Build API documentation:   ${enable_gtk_doc}"
 echo ""
 
