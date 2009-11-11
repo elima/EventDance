@@ -10,11 +10,8 @@ endif
 DIST_SUBDIRS = \
 	build \
 	evd \
-	tests
-
-if BUILD_GTK_DOC
-DIST_SUBDIRS += doc
-endif
+	tests \
+	doc
 
 EXTRA_DIST = \
 	autogen.sh
