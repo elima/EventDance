@@ -111,3 +111,6 @@ typelibs_DATA = $(BUILT_GIRSOURCES:.gir=.typelib)
 
 CLEANFILES += $(BUILT_GIRSOURCES) $(typelibs_DATA)
 endif
+
+maintainer-clean-local:
+	rm -rf tmp-introspect*
