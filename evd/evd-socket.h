@@ -39,10 +39,10 @@ typedef struct _EvdSocketEvent EvdSocketEvent;
 
 /**
  * EvdSocketReadHandler:
- * @socket: (in): The #EvdSocket
- * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
+ * @socket: The #EvdSocket
+ * @user_data: (allow-none): A #gpointer to user defined data to pass in callback.
  *
- * Prototype for callback to be executed when 'read' event is received on the socket.
+ * Prototype for a callback to be executed when 'read' event is received on a socket.
  */
 typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 				       gpointer   user_data);
@@ -141,13 +141,19 @@ void          evd_socket_set_read_handler (EvdSocket            *self,
 
 /**
  * evd_socket_read_buffer:
- * @self: The #EvdSocket
- * @buffer: (utf8) (out) (transfer full): The buffer to store the data.
- * @size: Maximum number of bytes to read.
- * @retry_wait: (out): Miliseconds to wait until next read.
- * @error: (out): The error to catch.
+ * @self: The #EvdSocket to read from.
+ * @buffer: (out) (transfer full): The buffer to store the data.
+ * @size: (inout): Maximum number of bytes to read.
+ * @retry_wait: (out): Miliseconds to wait until next read attempt, or NULL.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
  *
- * Return value: The actual size of bytes read.
+ * Reads up to @size bytes of data from the socket. The data read will be copied
+ * into @buffer. If @retry_wait is provided, it will return the minimum time (in
+ * miliseconds) to wait before another call to read would return any data. This is
+ * useful when limits of bandwith or latency are set, either in the socket or its
+ * container, to avoid performing subsequent read calls that will return no data.
+ *
+ * Return value: The actual number of bytes read.
  */
 gssize        evd_socket_read_buffer      (EvdSocket *self,
 					   gchar     *buffer,
@@ -157,26 +163,65 @@ gssize        evd_socket_read_buffer      (EvdSocket *self,
 
 /**
  * evd_socket_read:
- * @self: The #EvdSocket
+ * @self: The #EvdSocket to read from.
  * @size: (inout): Maximum number of bytes to read.
- * @retry_wait: (out): Miliseconds to wait until next read.
- * @error: (out) (transfer full): The error to catch.
+ * @retry_wait: (out): Miliseconds to wait until next read attempt, or NULL.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
  *
- * Return value: (transfer full): The #GString representing the read package.
+ * Reads up to @size bytes of data from the socket. This method assumes data will
+ * not contain null characters. To read binary data, #evd_socket_read_buffer should be
+ * used instead.
+ *
+ * Return value: (transfer full): A null-terminated string containing the data read, or NULL on error.
  */
 gchar         *evd_socket_read            (EvdSocket *self,
 					   gsize     *size,
 					   guint     *retry_wait,
 					   GError   **error);
 
-gssize        evd_socket_write_buffer     (EvdSocket    *socket,
-					   const gchar  *buf,
+/**
+ * evd_socket_write_buffer:
+ * @self: The #EvdSocket to write to.
+ * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
+ * @size: (inout): Maximum number of bytes to write. @buffer should be at least @size long.
+ * @retry_wait: (out): Miliseconds to wait until next write attempt, or NULL.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Writes up to @size bytes of data to the socket. If @retry_wait is provided,
+ * it will return the minimum time (in miliseconds) to wait before another call to
+ * write would actually send any data. This is useful when limits of bandwith or latency are
+ * set, either in the socket or its container, to avoid performing subsequent write calls that
+ * will not put any data on the wire.
+ *
+ * If #auto-write property is TRUE, this method will always respond as it was able to send
+ * all data requested, and will buffer and handle the actual writting internally. So when #auto_write
+ * is on, @retry_wait should be ignored as it will be used internally.
+ *
+ * Return value: The actual number of bytes written.
+ */
+gssize        evd_socket_write_buffer     (EvdSocket    *self,
+					   const gchar  *buffer,
 					   gsize         size,
 					   guint        *retry_wait,
 					   GError      **error);
 
+/**
+ * evd_socket_write:
+ * @self: The #EvdSocket to write to.
+ * @buffer: (transfer none): Buffer holding the data to be written. Should not contain nulls.
+ * @retry_wait: (out): Miliseconds to wait until next write attempt, or NULL.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Writes up to @size bytes of data to the socket. @buffer should be a null-terminated string.
+ * To send binary data, #evd_socket_write_buffer should be used instead. As @buffer cannot
+ * contain null characters, the number of bytes to write is obtained from its length.
+ *
+ * The #auto-write property affects this method exactly as in #evd_socket_write_buffer.
+ *
+ * Return value: The actual number of bytes written.
+ */
 gssize        evd_socket_write            (EvdSocket    *self,
-					   const gchar  *buf,
+					   const gchar  *buffer,
 					   guint        *retry_wait,
 					   GError      **error);
 
