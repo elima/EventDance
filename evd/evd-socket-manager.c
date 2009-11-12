@@ -30,9 +30,8 @@
 #include "evd-socket-manager.h"
 #include "evd-socket-protected.h"
 
-/*#define USE_THREAD*/
-#define DEFAULT_MAX_SOCKETS       100 /* maximum number of sockets to handle */
-#define DEFAULT_MIN_LATENCY        10 /* nanoseconds between dispatch calls */
+#define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to handle */
+#define DEFAULT_MIN_LATENCY    100000 /* nanoseconds between dispatch calls */
 #define DEFAULT_DISPATCH_LOT     TRUE /* whether events whall be dispatched by lot or not */
 
 #define DOMAIN_QUARK_STRING "org.eventdance.socket.manager"
@@ -46,26 +45,17 @@ G_DEFINE_TYPE (EvdSocketManager, evd_socket_manager, G_TYPE_OBJECT)
 /* private data */
 struct _EvdSocketManagerPrivate
 {
-  gint   ref_count;
-
+  gint ref_count;
   gulong min_latency;
-
   gint epoll_fd;
-
-#ifdef USE_THREAD
-  GThread      *thread;
-#else
-  guint idle_src_id;
-#endif
-
+  GThread *thread;
   gboolean started;
-
   gboolean dispatch_lot;
+  guint max_sockets;
+  gint epoll_timeout;
 };
 
-#ifdef USE_THREAD
 G_LOCK_DEFINE_STATIC (ref_count);
-#endif
 
 /* we are a singleton object */
 static EvdSocketManager *evd_socket_manager_singleton = NULL;
@@ -74,6 +64,7 @@ static void     evd_socket_manager_class_init   (EvdSocketManagerClass *class);
 static void     evd_socket_manager_init         (EvdSocketManager *self);
 static void     evd_socket_manager_finalize     (GObject *obj);
 static void     evd_socket_manager_dispose      (GObject *obj);
+static EvdSocketManager *evd_socket_manager_get (void);
 
 static void
 evd_socket_manager_class_init (EvdSocketManagerClass *class)
@@ -101,6 +92,9 @@ evd_socket_manager_init (EvdSocketManager *self)
   priv->min_latency = DEFAULT_MIN_LATENCY;
   priv->started = FALSE;
   priv->ref_count = 1;
+
+  priv->max_sockets = 1;
+  priv->epoll_timeout = -1;
 
   priv->dispatch_lot = DEFAULT_DISPATCH_LOT;
 }
@@ -151,11 +145,25 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
   GQueue *queue;
   GHashTableIter iter;
 
-  nfds = epoll_wait (self->priv->epoll_fd, events, DEFAULT_MAX_SOCKETS, 0);
+  nfds = epoll_wait (self->priv->epoll_fd,
+                     events,
+                     self->priv->max_sockets,
+                     self->priv->epoll_timeout);
   if (nfds == -1)
     {
       /* TODO: Handle error */
       g_error ("ERROR: epoll_pwait");
+    }
+
+  if (nfds > 0)
+    {
+      self->priv->max_sockets = DEFAULT_MAX_SOCKETS;
+      self->priv->epoll_timeout = 0;
+    }
+  else
+    {
+      self->priv->max_sockets = 1;
+      self->priv->epoll_timeout = -1;
     }
 
   /*
@@ -250,7 +258,6 @@ g_nanosleep (gulong nanoseconds)
   nanosleep (&delay, NULL);
 }
 
-#ifdef USE_THREAD
 static gpointer
 evd_socket_manager_thread_loop (gpointer data)
 {
@@ -258,25 +265,12 @@ evd_socket_manager_thread_loop (gpointer data)
 
   while (self->priv->started)
     {
-      evd_socket_manager_dispatch (self);
       g_nanosleep (self->priv->min_latency);
+      evd_socket_manager_dispatch (self);
     }
 
   return NULL;
 }
-#else
-static gboolean
-evd_socket_manager_idle (gpointer data)
-{
-  EvdSocketManager *self = data;
-
-  evd_socket_manager_dispatch (self);
-
-  g_nanosleep (self->priv->min_latency);
-
-  return self->priv->started;
-}
-#endif
 
 static void
 evd_socket_manager_start (EvdSocketManager  *self,
@@ -287,7 +281,6 @@ evd_socket_manager_start (EvdSocketManager  *self,
 
   self->priv->epoll_fd = epoll_create (DEFAULT_MAX_SOCKETS);
 
-#ifdef USE_THREAD
   if (! g_thread_get_initialized ())
     g_thread_init (NULL);
 
@@ -295,16 +288,51 @@ evd_socket_manager_start (EvdSocketManager  *self,
 					(gpointer) self,
 					TRUE,
 					error);
-#else
-  self->priv->idle_src_id = g_idle_add (evd_socket_manager_idle,
-					(gpointer) self);
-#endif
 }
 
 static EvdSocketManager *
 evd_socket_manager_get (void)
 {
   return evd_socket_manager_singleton;
+}
+
+static gboolean
+evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
+                                      gint              fd,
+                                      gpointer          data)
+{
+  struct epoll_event ev = { 0 };
+
+  ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+  ev.data.fd = fd;
+  ev.data.ptr = (void *) data;
+
+  return (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_ADD, fd, &ev) != -1);
+}
+
+static void
+evd_socket_manager_stop (EvdSocketManager *self)
+{
+  GSocket *socket;
+  GError *error = NULL;
+
+  if ( (socket = g_socket_new (G_SOCKET_FAMILY_IPV4,
+                               G_SOCKET_TYPE_DATAGRAM,
+                               G_SOCKET_PROTOCOL_UDP,
+                               &error)) == NULL)
+    {
+      g_warning ("error interrupting epoll_wait: %s", error->message);
+      g_error_free (error);
+    }
+  else
+    evd_socket_manager_add_fd_into_epoll (self,
+                                          g_socket_get_fd (socket),
+                                          NULL);
+
+  g_thread_join (self->priv->thread);
+  self->priv->thread = NULL;
+
+  g_object_unref (socket);
 }
 
 /* public methods */
@@ -314,17 +342,14 @@ evd_socket_manager_ref (void)
 {
   EvdSocketManager *self = evd_socket_manager_singleton;
 
-#ifdef USE_THREAD
   G_LOCK (ref_count);
-#endif
+
   if (self == NULL)
     evd_socket_manager_singleton = evd_socket_manager_new ();
   else
     self->priv->ref_count++;
 
-#ifdef USE_THREAD
   G_UNLOCK (ref_count);
-#endif
 }
 
 void
@@ -332,9 +357,7 @@ evd_socket_manager_unref (void)
 {
   EvdSocketManager *self = evd_socket_manager_singleton;
 
-#ifdef USE_THREAD
   G_LOCK (ref_count);
-#endif
 
   if (self != NULL)
     {
@@ -344,20 +367,13 @@ evd_socket_manager_unref (void)
 	{
 	  self->priv->started = FALSE;
 
-#ifdef USE_THREAD
-	  g_thread_join (self->priv->thread);
-	  self->priv->thread = NULL;
-#else
-	  g_source_remove (self->priv->idle_src_id);
-#endif
+          evd_socket_manager_stop (self);
 
 	  g_object_unref (self);
 	}
     }
 
-#ifdef USE_THREAD
   G_UNLOCK (ref_count);
-#endif
 }
 
 gboolean
@@ -365,13 +381,10 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
 			       GError    **error)
 {
   EvdSocketManager *self;
-  struct epoll_event ev = { 0 };
   gint fd;
   gboolean result = TRUE;
 
-#ifdef USE_THREAD
   G_LOCK (ref_count);
-#endif
 
   self = evd_socket_manager_get ();
 
@@ -380,21 +393,16 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
 
   fd = g_socket_get_fd (evd_socket_get_socket (socket));
 
-  ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
-  ev.data.fd = fd;
-  ev.data.ptr = (void *) socket;
-
-  if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
+  if (! evd_socket_manager_add_fd_into_epoll (self, fd, socket))
     {
-      *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-			    EVD_SOCKET_ERR_EPOLL_ADD,
-			    "Failed to add socket file descriptor to epoll set");
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERR_EPOLL_ADD,
+                              "Failed to add socket file descriptor to epoll set");
       result = FALSE;
     }
 
-#ifdef USE_THREAD
   G_UNLOCK (ref_count);
-#endif
 
   return result;
 }
@@ -407,9 +415,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
   gint fd;
   gboolean result = TRUE;
 
-#ifdef USE_THREAD
   G_LOCK (ref_count);
-#endif
 
   self = evd_socket_manager_get ();
 
@@ -423,9 +429,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
       result = FALSE;
     }
 
-#ifdef USE_THREAD
   G_UNLOCK (ref_count);
-#endif
 
   return result;
 }
