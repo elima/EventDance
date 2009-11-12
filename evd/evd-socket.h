@@ -32,6 +32,20 @@
 
 G_BEGIN_DECLS
 
+/**
+ * SECTION:evd-socket
+ * @short_description: Base socket class that extends GIO GSocket to provide
+ * better network control and scalability under high-concurrency scenarios.
+ *
+ * #EvdSocket is the class that ultimately handles all network access in the
+ * EventDance framework. It's based on GSocket, and extends it by providing more
+ * interesting features together with an efficient mechanism to watch socket
+ * condition changes, based on the epoll system call available on
+ * Linux, in edge-triggered mode.
+ *
+ * #EvdSocket is designed to work always in non-blocking mode. As everything in
+ * the EventDance framework, all network logic should be strictly asynchronous.
+ */
 typedef struct _EvdSocket EvdSocket;
 typedef struct _EvdSocketClass EvdSocketClass;
 typedef struct _EvdSocketPrivate EvdSocketPrivate;
@@ -224,6 +238,26 @@ gssize        evd_socket_write            (EvdSocket    *self,
 					   const gchar  *buffer,
 					   guint        *retry_wait,
 					   GError      **error);
+
+/**
+ * evd_socket_unread:
+ * @self: The #EvdSocket to unread data to.
+ * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
+ * @size: (inout): Number of bytes to unread.
+ *
+ * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
+ * to read will first get data from the local buffer, before performing the actual read
+ * operation. This is useful when one needs to do some action with a data just read, but doesn't
+ * want to remove the data from the socket, and avoid interferance with other reading operation
+ * that is in course.
+ * Normally, it would be used to write back data that was previously read, to made it available
+ * in further calls to read. But in practice any data can be unread.
+ *
+ * This feature was implemented basically to provide type-of-stream detection on a socket
+ * (e.g. a service selector).
+ *
+ * Return value: The actual number of bytes unread.
+ */
 
 gssize        evd_socket_unread           (EvdSocket   *self,
 					   const gchar *buffer,
