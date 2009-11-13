@@ -42,6 +42,7 @@ struct _EvdServicePrivate
 enum
 {
   SIGNAL_NEW_CONNECTION,
+  SIGNAL_CLOSE,
   SIGNAL_LAST
 };
 
@@ -68,6 +69,16 @@ evd_service_class_init (EvdServiceClass *class)
                   G_TYPE_FROM_CLASS (obj_class),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdServiceClass, new_connection),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+                  G_TYPE_NONE, 1,
+                  EVD_TYPE_SOCKET);
+
+  evd_service_signals[SIGNAL_CLOSE] =
+    g_signal_new ("close",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdServiceClass, close),
                   NULL, NULL,
                   g_cclosure_marshal_VOID__BOXED,
                   G_TYPE_NONE, 1,
@@ -121,6 +132,18 @@ evd_service_finalize (GObject *obj)
 }
 
 static void
+evd_service_on_client_close (EvdSocket *socket,
+                             gpointer   user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_CLOSE],
+                 0,
+                 socket, NULL);
+}
+
+static void
 evd_service_on_new_connection (EvdSocket *listener,
                                EvdSocket *client,
                                gpointer   user_data)
@@ -133,6 +156,11 @@ evd_service_on_new_connection (EvdSocket *listener,
                  evd_service_signals[SIGNAL_NEW_CONNECTION],
                  0,
                  client, NULL);
+
+  g_signal_connect (client,
+                    "close",
+                    G_CALLBACK (evd_service_on_client_close),
+                    (gpointer) self);
 }
 
 static void

@@ -49,8 +49,26 @@ struct _EvdServiceClass
   /* virtual methods */
 
   /* signal prototypes */
+
+ /**
+  * EvdService::new-connection:
+  * @self: The #EvdService emmitting the signal.
+  * @socket: A new #EvdSocket representing the local end-point of the connection.
+  *
+  * This signal is invoked when a remote socket connects to any of the
+  * listening sockets added to the service.
+  */
   void (* new_connection)  (EvdService *self,
                             EvdSocket  *socket);
+
+ /**
+  * EvdService::close:
+  * @self: The #EvdService emmitting the signal.
+  * @socket: The #EvdSocket that closed the connection.
+  *
+  * This signal is invoked when any of the sockets added to the service closes its connection.
+  */
+  void (* close)           (EvdService *self);
 };
 
 #define EVD_TYPE_SERVICE           (evd_service_get_type ())
@@ -68,13 +86,13 @@ EvdService     *evd_service_new               (void);
 void            evd_service_add_listener      (EvdService  *self,
                                                EvdSocket   *socket);
 
+gboolean        evd_service_remove_listener   (EvdService *self,
+                                               EvdSocket  *socket);
+
 EvdSocket      *evd_service_listen_inet       (EvdService   *self,
                                                const gchar  *address,
                                                guint         port,
                                                GError      **error);
-
-gboolean        evd_service_remove_listener   (EvdService *self,
-                                               EvdSocket  *socket);
 
 G_END_DECLS
 
