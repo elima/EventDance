@@ -1356,9 +1356,9 @@ evd_socket_write (EvdSocket    *self,
 }
 
 gssize
-evd_socket_unread (EvdSocket   *self,
-		   const gchar *buffer,
-		   gsize        size)
+evd_socket_unread_buffer (EvdSocket   *self,
+                          const gchar *buffer,
+                          gsize        size)
 {
   gssize actual_size;
 
@@ -1374,4 +1374,13 @@ evd_socket_unread (EvdSocket   *self,
 		       size);
 
   return actual_size;
+}
+
+gssize
+evd_socket_unread (EvdSocket   *self,
+                   const gchar *buffer)
+{
+  g_return_val_if_fail (buffer != NULL, -1);
+
+  return evd_socket_unread_buffer (self, buffer, strlen (buffer));
 }

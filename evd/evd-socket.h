@@ -240,7 +240,7 @@ gssize        evd_socket_write            (EvdSocket    *self,
 					   GError      **error);
 
 /**
- * evd_socket_unread:
+ * evd_socket_unread_buffer:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
  * @size: (inout): Number of bytes to unread.
@@ -259,9 +259,22 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * Return value: The actual number of bytes unread.
  */
 
-gssize        evd_socket_unread           (EvdSocket   *self,
+gssize        evd_socket_unread_buffer    (EvdSocket   *self,
 					   const gchar *buffer,
 					   gsize        size);
+
+/**
+ * evd_socket_unread:
+ * @self: The #EvdSocket to unread data to.
+ * @buffer: (transfer none): Buffer holding the data to be unread. Cannot contain nulls.
+ *
+ * Works exactly like #evd_socket_unread_buffer but buffer is a null-terminated string,
+ * thus @size is calculated internally.
+ *
+ * Return value: The actual number of bytes unread.
+ */
+gssize        evd_socket_unread           (EvdSocket   *self,
+					   const gchar *buffer);
 
 G_END_DECLS
 

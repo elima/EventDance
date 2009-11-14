@@ -252,7 +252,7 @@ test_tcp_sockets (gpointer data)
   /* create client socket */
   socket2 = evd_socket_new ();
 
-  evd_socket_unread (socket2, unread_text, strlen (unread_text));
+  evd_socket_unread_buffer (socket2, unread_text, strlen (unread_text));
 
   g_signal_connect (socket2,
 		    "close",
@@ -299,7 +299,7 @@ test_udp_sockets (gpointer data)
   /* create socket1 */
   socket1 = evd_socket_new ();
 
-  evd_socket_unread (socket1, unread_text, strlen (unread_text));
+  evd_socket_unread_buffer (socket1, unread_text, strlen (unread_text));
 
   g_object_set (socket1,
 		"type", G_SOCKET_TYPE_DATAGRAM,
@@ -332,7 +332,7 @@ test_udp_sockets (gpointer data)
   /* create socket2 */
   socket2 = evd_socket_new ();
 
-  evd_socket_unread (socket2, unread_text, strlen (unread_text));
+  evd_socket_unread_buffer (socket2, unread_text, strlen (unread_text));
   g_object_set (socket2,
 		"type", G_SOCKET_TYPE_DATAGRAM,
 		"protocol", G_SOCKET_PROTOCOL_UDP,
