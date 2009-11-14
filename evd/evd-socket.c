@@ -416,8 +416,15 @@ evd_socket_set_property (GObject      *obj,
       break;
 
     case PROP_GROUP:
-      evd_socket_group_add (g_value_get_object (value), self);
-      break;
+      {
+        EvdSocketGroup *group;
+        group = g_value_get_object (value);
+        if (group != NULL)
+          evd_socket_group_add (group, self);
+        else
+          evd_socket_set_group (self, NULL);
+        break;
+      }
 
     case PROP_AUTO_WRITE:
       self->priv->auto_write = g_value_get_boolean (value);
