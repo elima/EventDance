@@ -949,7 +949,12 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 
   self->priv->group = group;
   if (group != NULL)
-    g_object_ref (group);
+    {
+      g_object_ref (group);
+
+      if (self->priv->read_buffer->len > 0)
+        evd_socket_invoke_on_read (self);
+    }
 }
 
 /* public methods */
