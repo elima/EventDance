@@ -548,7 +548,7 @@ evd_socket_invoke_on_read (EvdSocket *self)
 {
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_receive (EVD_STREAM (self));
+  closure = evd_stream_get_on_read (EVD_STREAM (self));
   if (closure != NULL)
     {
       GValue params = { 0, };
@@ -1226,7 +1226,7 @@ evd_socket_set_read_handler (EvdSocket            *self,
   g_closure_ref (closure);
   g_closure_sink (closure);
 
-  evd_stream_set_on_receive (EVD_STREAM (self), closure);
+  evd_stream_set_on_read (EVD_STREAM (self), closure);
 }
 
 gssize

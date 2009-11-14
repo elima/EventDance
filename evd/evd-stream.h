@@ -64,16 +64,16 @@ GType evd_stream_get_type (void) G_GNUC_CONST;
 EvdStream    *evd_stream_new            (void);
 
 /**
- * evd_stream_set_on_receive:
+ * evd_stream_set_on_read:
  * @self: The #EvdStream.
  * @closure: (in) (allow-none): The #GClosure to be invoked.
  *
  * Specifies the closure to be invoked when data is waiting to be read from the
  * stream.
  */
-void          evd_stream_set_on_receive (EvdStream *self,
+void          evd_stream_set_on_read    (EvdStream *self,
 					 GClosure  *closure);
-GClosure     *evd_stream_get_on_receive (EvdStream *self);
+GClosure     *evd_stream_get_on_read    (EvdStream *self);
 
 gsize         evd_stream_request_write  (EvdStream *self,
 					 gsize      size,

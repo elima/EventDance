@@ -1,4 +1,3 @@
-const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
@@ -106,7 +105,7 @@ function client_on_read (socket) {
 window.server = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
 
 let sig_id = server.connect ('new-connection', function (socket, client) {
-    client.set_on_receive (client_on_read);
+    client.set_on_read (client_on_read);
     client.bandwidth_in = Math.random () * BANDWIDTH_RANGE + BANDWIDTH_MIN;
     client.data = data;
     client.data_read = 0;
@@ -137,10 +136,9 @@ for (let i=0; i<CLIENT_SOCKETS; i++) {
     socket.data_read = 0;
     socket.data_written = 0;
     socket.data = data;
-    socket.set_on_receive (client_on_read);
+    socket.set_on_read (client_on_read);
     socket.bandwidth_in = Math.random () * BANDWIDTH_RANGE + BANDWIDTH_MIN;
     socket.connect_to ("127.0.0.1", 6666);
 }
 
 MainLoop.run ("main");
-

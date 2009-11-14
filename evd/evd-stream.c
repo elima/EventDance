@@ -38,7 +38,7 @@ G_DEFINE_ABSTRACT_TYPE (EvdStream, evd_stream, G_TYPE_OBJECT)
 /* private data */
 struct _EvdStreamPrivate
 {
-  GClosure *receive_closure;
+  GClosure *read_closure;
 
   gsize  bandwidth_in;
   gsize  bandwidth_out;
@@ -62,7 +62,7 @@ struct _EvdStreamPrivate
 enum
 {
   PROP_0,
-  PROP_RECEIVE_CLOSURE,
+  PROP_READ_CLOSURE,
   PROP_BANDWIDTH_IN,
   PROP_BANDWIDTH_OUT,
   PROP_LATENCY_IN,
@@ -97,9 +97,9 @@ evd_stream_class_init (EvdStreamClass *class)
   obj_class->set_property = evd_stream_set_property;
 
   /* install properties */
-  g_object_class_install_property (obj_class, PROP_RECEIVE_CLOSURE,
-                                   g_param_spec_boxed ("receive",
-						       "Receive closure",
+  g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
+                                   g_param_spec_boxed ("read-closure",
+						       "Read closure",
 						       "The callback closure that will be invoked when data is ready to be read",
 						       G_TYPE_CLOSURE,
 						       G_PARAM_READWRITE));
@@ -157,7 +157,7 @@ evd_stream_init (EvdStream *self)
   self->priv = priv;
 
   /* initialize private members */
-  priv->receive_closure = NULL;
+  priv->read_closure = NULL;
 
   priv->bandwidth_in = 0;
   priv->bandwidth_out = 0;
@@ -180,7 +180,7 @@ evd_stream_dispose (GObject *obj)
 {
   EvdStream *self = EVD_STREAM (obj);
 
-  evd_stream_set_on_receive (self, NULL);
+  evd_stream_set_on_read (self, NULL);
 
   G_OBJECT_CLASS (evd_stream_parent_class)->dispose (obj);
 }
@@ -207,8 +207,8 @@ evd_stream_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case PROP_RECEIVE_CLOSURE:
-      evd_stream_set_on_receive (self, g_value_get_boxed (value));
+    case PROP_READ_CLOSURE:
+      evd_stream_set_on_read (self, g_value_get_boxed (value));
       break;
 
     case PROP_BANDWIDTH_IN:
@@ -248,8 +248,8 @@ evd_stream_get_property (GObject    *obj,
 
   switch (prop_id)
     {
-    case PROP_RECEIVE_CLOSURE:
-      g_value_set_boxed (value, self->priv->receive_closure);
+    case PROP_READ_CLOSURE:
+      g_value_set_boxed (value, self->priv->read_closure);
       break;
 
     case PROP_BANDWIDTH_IN:
@@ -405,26 +405,26 @@ evd_stream_new (void)
 }
 
 void
-evd_stream_set_on_receive (EvdStream *self,
-			   GClosure  *closure)
+evd_stream_set_on_read (EvdStream *self,
+                        GClosure  *closure)
 {
   g_return_if_fail (EVD_IS_STREAM (self));
 
-  if (self->priv->receive_closure != NULL)
-    g_closure_unref (self->priv->receive_closure);
+  if (self->priv->read_closure != NULL)
+    g_closure_unref (self->priv->read_closure);
 
   if (closure != NULL)
     g_closure_ref (closure);
 
-  self->priv->receive_closure = closure;
+  self->priv->read_closure = closure;
 }
 
 GClosure *
-evd_stream_get_on_receive (EvdStream *self)
+evd_stream_get_on_read (EvdStream *self)
 {
   g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
 
-  return self->priv->receive_closure;
+  return self->priv->read_closure;
 }
 
 gsize

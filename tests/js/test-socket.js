@@ -1,4 +1,3 @@
-const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
@@ -14,21 +13,6 @@ let bytes_read = 0;
 
 function terminate () {
   MainLoop.quit ("main");
-}
-
-function read_handler (socket) {
-  let [data, len] = socket.receive (READ_BLOCK_SIZE);
-
-  log (len + " bytes read from socket: " + data);
-
-  bytes_read += len;
-
-  if (bytes_read == greeting.length * 2)
-    {
-      MainLoop.idle_add (terminate);
-      //      socket1.close ();
-      //      socket2.close ();
-    }
 }
 
 function read_data () {
@@ -58,18 +42,13 @@ function on_socket_closed (socket) {
   sockets_closed ++;
 
   socket.set_read_closure (NULL);
-
-  /*
-  if (sockets_closed == 2)
-    MainLoop.idle_add (terminate);
-  */
 }
 
 /* Socket group =================================== */
 
 let group = new Evd.SocketGroup ();
 
-group.set_on_receive (read_handler_group);
+group.set_on_read (read_handler_group);
 
 /* ============ socket1 =================== */
 
@@ -127,12 +106,10 @@ socket2.connect ('connect', function (socket) {
 
 socket2.connect_to ("localhost", 6666);
 
-/*
 MainLoop.timeout_add (1000, function () {
     MainLoop.quit ("main");
     return false;
   });
-*/
 
 MainLoop.run ("main");
 

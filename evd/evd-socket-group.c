@@ -93,7 +93,7 @@ evd_socket_group_socket_on_read (EvdSocket *socket, gpointer user_data)
   EvdSocketGroup *self = user_data;
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_receive (EVD_STREAM (self));
+  closure = evd_stream_get_on_read (EVD_STREAM (self));
   if (closure != NULL)
     {
       GValue params[2] = { {0, } };
@@ -205,5 +205,5 @@ evd_socket_group_set_read_handler (EvdSocketGroup            *self,
   g_closure_ref (closure);
   g_closure_sink (closure);
 
-  evd_stream_set_on_receive (EVD_STREAM (self), closure);
+  evd_stream_set_on_read (EVD_STREAM (self), closure);
 }

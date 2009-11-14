@@ -1,5 +1,3 @@
-const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio;
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
 const Lang = imports.lang;
@@ -15,7 +13,7 @@ service.connect ("new-connection", function (self, socket) {
     listener.close ();
     service.remove_listener (listener);
 });
-service.set_on_receive (function (group, socket) {
+service.set_on_read (function (group, socket) {
     log ("receive!");
 
     let [data, size, wait] = socket.read (1000);
