@@ -24,6 +24,7 @@
  */
 
 #include "evd-service.h"
+#include "evd-service-protected.h"
 #include "evd-inet-socket.h"
 #include "evd-socket-group-protected.h"
 
@@ -55,11 +56,6 @@ static void     evd_service_init               (EvdService *self);
 static void     evd_service_finalize           (GObject *obj);
 static void     evd_service_dispose            (GObject *obj);
 
-void            evd_service_add                (EvdSocketGroup *self,
-                                                EvdSocket      *socket);
-gboolean        evd_service_remove             (EvdSocketGroup *self,
-                                                EvdSocket      *socket);
-
 static void
 evd_service_class_init (EvdServiceClass *class)
 {
@@ -72,8 +68,8 @@ evd_service_class_init (EvdServiceClass *class)
   obj_class->finalize = evd_service_finalize;
 
   socket_group_class = EVD_SOCKET_GROUP_CLASS (class);
-  socket_group_class->add = evd_service_add;
-  socket_group_class->remove = evd_service_remove;
+  socket_group_class->add = evd_service_add_internal;
+  socket_group_class->remove = evd_service_remove_internal;
 
   evd_service_signals[SIGNAL_NEW_CONNECTION] =
     g_signal_new ("new-connection",
@@ -181,7 +177,7 @@ evd_service_on_listener_close (EvdSocket *listener,
 /* protected methods */
 
 void
-evd_service_add (EvdSocketGroup *self, EvdSocket *socket)
+evd_service_add_internal (EvdSocketGroup *self, EvdSocket *socket)
 {
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
@@ -196,7 +192,7 @@ evd_service_add (EvdSocketGroup *self, EvdSocket *socket)
 }
 
 gboolean
-evd_service_remove (EvdSocketGroup *self, EvdSocket *socket)
+evd_service_remove_internal (EvdSocketGroup *self, EvdSocket *socket)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);

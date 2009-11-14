@@ -51,7 +51,8 @@ source_h_priv = \
 	evd-marshal.h \
 	evd-socket-manager.h \
 	evd-socket-protected.h \
-	evd-socket-group-protected.h
+	evd-socket-group-protected.h \
+	evd-service-protected.h
 
 libevd_@EVD_API_VERSION@_la_LIBADD = \
 	$(GLIB_LIBS)

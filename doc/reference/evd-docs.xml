@@ -60,6 +60,7 @@
       <xi:include href="xml/evd-stream-protected.xml"/>
       <xi:include href="xml/evd-socket-protected.xml"/>
       <xi:include href="xml/evd-socket-group-protected.xml"/>
+      <xi:include href="xml/evd-service-protected.xml"/>
     </chapter>
 
   </part>
