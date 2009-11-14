@@ -418,11 +418,14 @@ evd_socket_set_property (GObject      *obj,
     case PROP_GROUP:
       {
         EvdSocketGroup *group;
+
+        if (self->priv->group != NULL)
+          evd_socket_group_remove (self->priv->group, self);
+
         group = g_value_get_object (value);
         if (group != NULL)
           evd_socket_group_add (group, self);
-        else
-          evd_socket_set_group (self, NULL);
+
         break;
       }
 
@@ -1211,6 +1214,12 @@ evd_socket_set_read_handler (EvdSocket            *self,
   GClosure *closure;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (handler == NULL)
+    {
+      evd_stream_set_on_read (EVD_STREAM (self), NULL);
+      return;
+    }
 
   closure = g_cclosure_new (G_CALLBACK (handler),
 			    user_data,
