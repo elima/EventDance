@@ -25,6 +25,7 @@
 
 #include "evd-service.h"
 #include "evd-inet-socket.h"
+#include "evd-socket-group-protected.h"
 
 G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_SOCKET_GROUP)
 
@@ -54,15 +55,25 @@ static void     evd_service_init               (EvdService *self);
 static void     evd_service_finalize           (GObject *obj);
 static void     evd_service_dispose            (GObject *obj);
 
+void            evd_service_add                (EvdSocketGroup *self,
+                                                EvdSocket      *socket);
+gboolean        evd_service_remove             (EvdSocketGroup *self,
+                                                EvdSocket      *socket);
+
 static void
 evd_service_class_init (EvdServiceClass *class)
 {
   GObjectClass *obj_class;
+  EvdSocketGroupClass *socket_group_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
+
+  socket_group_class = EVD_SOCKET_GROUP_CLASS (class);
+  socket_group_class->add = evd_service_add;
+  socket_group_class->remove = evd_service_remove;
 
   evd_service_signals[SIGNAL_NEW_CONNECTION] =
     g_signal_new ("new-connection",
@@ -156,11 +167,6 @@ evd_service_on_new_connection (EvdSocket *listener,
                  evd_service_signals[SIGNAL_NEW_CONNECTION],
                  0,
                  client, NULL);
-
-  g_signal_connect (client,
-                    "close",
-                    G_CALLBACK (evd_service_on_client_close),
-                    (gpointer) self);
 }
 
 static void
@@ -173,6 +179,35 @@ evd_service_on_listener_close (EvdSocket *listener,
 }
 
 /* protected methods */
+
+void
+evd_service_add (EvdSocketGroup *self, EvdSocket *socket)
+{
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
+
+  evd_socket_group_add_internal (self, socket);
+
+  /* connect to the 'close' signal of the socket */
+  g_signal_connect (socket,
+                    "close",
+                    G_CALLBACK (evd_service_on_client_close),
+                    (gpointer) self);
+}
+
+gboolean
+evd_service_remove (EvdSocketGroup *self, EvdSocket *socket)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
+
+  /* disconnect from the 'close' signal of the socket */
+  g_signal_handlers_disconnect_by_func (self,
+                                        G_CALLBACK (evd_service_on_client_close),
+                                        (gpointer) self);
+
+  return evd_socket_group_remove_internal (self, socket);
+}
 
 /* public methods */
 
