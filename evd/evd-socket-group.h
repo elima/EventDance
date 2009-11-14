@@ -37,9 +37,9 @@ typedef struct _EvdSocketGroupPrivate EvdSocketGroupPrivate;
 
 /**
  * EvdSocketGroupReadHandler:
- * @group: (in): The #EvdSocketGroup
- * @socket: (in): The #EvdSocket
- * @user_data: (in) (allow-null): A #gpointer to user defined data to pass in callback.
+ * @group: (in): The #EvdSocketGroup.
+ * @socket: (in): The #EvdSocket.
+ * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
  *
  * Prototype for callback to be executed when 'read' event is received
  * on any socket within the group.
