@@ -46,6 +46,7 @@ G_DEFINE_TYPE (EvdSocketManager, evd_socket_manager, G_TYPE_OBJECT)
 struct _EvdSocketManagerPrivate
 {
   gint ref_count;
+  gint num_fds;
   gulong min_latency;
   gint epoll_fd;
   GThread *thread;
@@ -91,7 +92,8 @@ evd_socket_manager_init (EvdSocketManager *self)
   /* initialize private members */
   priv->min_latency = DEFAULT_MIN_LATENCY;
   priv->started = FALSE;
-  priv->ref_count = 1;
+  priv->ref_count = 0;
+  priv->num_fds = 0;
 
   priv->max_sockets = 1;
   priv->epoll_timeout = -1;
@@ -152,7 +154,8 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
   if (nfds == -1)
     {
       /* TODO: Handle error */
-      g_error ("ERROR: epoll_pwait");
+      g_debug ("ERROR: epoll_pwait");
+      return;
     }
 
   if (nfds > 0)
@@ -316,6 +319,8 @@ evd_socket_manager_stop (EvdSocketManager *self)
   GSocket *socket;
   GError *error = NULL;
 
+  self->priv->started = FALSE;
+
   if ( (socket = g_socket_new (G_SOCKET_FAMILY_IPV4,
                                G_SOCKET_TYPE_DATAGRAM,
                                G_SOCKET_PROTOCOL_UDP,
@@ -332,6 +337,7 @@ evd_socket_manager_stop (EvdSocketManager *self)
   g_thread_join (self->priv->thread);
   self->priv->thread = NULL;
 
+  g_socket_close (socket, NULL);
   g_object_unref (socket);
 }
 
@@ -365,11 +371,12 @@ evd_socket_manager_unref (void)
 
       if (self->priv->ref_count < 0)
 	{
-	  self->priv->started = FALSE;
-
-          evd_socket_manager_stop (self);
+          if (self->priv->started)
+            evd_socket_manager_stop (self);
 
 	  g_object_unref (self);
+
+          evd_socket_manager_singleton = NULL;
 	}
     }
 
@@ -399,8 +406,11 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
         *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
                               EVD_SOCKET_ERR_EPOLL_ADD,
                               "Failed to add socket file descriptor to epoll set");
+
       result = FALSE;
     }
+  else
+    self->priv->num_fds++;
 
   G_UNLOCK (ref_count);
 
@@ -412,21 +422,29 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
 			       GError    **error)
 {
   EvdSocketManager *self;
-  gint fd;
   gboolean result = TRUE;
 
   G_LOCK (ref_count);
 
   self = evd_socket_manager_get ();
-
-  fd = g_socket_get_fd (evd_socket_get_socket (socket));
-
-  if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
+  if ( (self != NULL) && (self->priv->num_fds > 0) )
     {
-      *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-			    EVD_SOCKET_ERR_EPOLL_ADD,
-			    "Failed to remove socket file descriptor from epoll set");
-      result = FALSE;
+      gint fd;
+
+      fd = g_socket_get_fd (evd_socket_get_socket (socket));
+
+      if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
+        {
+          if (error != NULL)
+            *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+                                  EVD_SOCKET_ERR_EPOLL_ADD,
+                                  "Failed to remove socket file descriptor from epoll set");
+          result = FALSE;
+        }
+
+      self->priv->num_fds--;
+      if ( (self->priv->started) && (self->priv->num_fds <= 0) )
+        evd_socket_manager_stop (self);
     }
 
   G_UNLOCK (ref_count);

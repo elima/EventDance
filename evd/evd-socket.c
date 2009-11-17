@@ -1079,7 +1079,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
       return FALSE;
     }
 
-  g_socket_set_listen_backlog (self->priv->socket, 10000);
+  g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
     if (evd_socket_watch (self, error))
       {
