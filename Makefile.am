@@ -33,3 +33,7 @@ cscope.files:
 
 cscope.out: cscope.files
 	cscope -b
+
+# test targets
+test: tests/Makefile
+	make -C tests/ test
