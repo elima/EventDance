@@ -127,8 +127,6 @@ evd_inet_socket_test_ports (EvdInetSocketFixture *fixture)
 static void
 evd_inet_socket_on_listen (EvdSocket *self, gpointer user_data)
 {
-  EvdInetSocketFixture *fixture = (EvdInetSocketFixture *) user_data;
-
   g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_LISTENING);
   g_assert_cmpint ((guintptr) evd_socket_get_socket (self), !=, (guintptr) NULL);
 }
