@@ -62,6 +62,21 @@ GType             evd_inet_socket_get_type         (void) G_GNUC_CONST;
 
 EvdInetSocket    *evd_inet_socket_new              (void);
 
+/**
+ * evd_inet_socket_connect_to:
+ * @self: The #EvdSocket to connect.
+ * @address: A string representing the #GSocketAddress to connect to.
+ * @port: The port to connect to.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Attempts to connect the socket to the specified address and port. If
+ * <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
+ * opertation will abort after that time in miliseconds and a
+ * <emphasis>connect-timeout</emphasis> signal will be triggered.
+ *
+ * Return value: TRUE on success or FALSE on error.
+ *
+ */
 gboolean          evd_inet_socket_connect_to       (EvdInetSocket  *self,
 						    const gchar    *address,
 						    guint           port,

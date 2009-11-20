@@ -1,22 +1,106 @@
 <part id="evd-overview">
-  <partinfo>
-    <author>
-      <firstname>Eduardo</firstname>
-      <surname>Lima Mitev</surname>
-      <affiliation>
-        <address>
-          <email>elima@igalia.com</email>
-        </address>
-      </affiliation>
-    </author>
-  </partinfo>
 
   <title>Overview</title>
 
   <partintro>
 
-    <para>@TODO</para>
+    <para>
+      EventDance is a framework to build fast, scalable network applications that
+      require interconnecting heterogeneous contexts in an asynchronous, bi-directional
+      and low-latency fashion. EventDance uses a publish/subscribe model to route and
+      deliver events from publishers to subscribers, in a reliable and secure manner.
+    </para>
 
   </partintro>
+
+  <chapter>
+    <title>Key design features</title>
+
+    <para>
+      This chapter discuss the basic design concepts behind the EventDance framework.
+      Not all features are implemented at the moment, but they surely will be at some point.
+      Thus, by now some of the items in the following list should be considered a declaration
+      of intentions, or goals.
+    </para>
+
+    <para>
+      The EventDance framework should be:
+    </para>
+
+    <itemizedlist>
+      <listitem>
+        <emphasis>Asynchronous</emphasis>
+        <para>
+          All EventDance activity is driven by a main thread-safe event loop, which no routine
+          should block under any circumstance. If some blocking operation is to be
+          performed, a separate thread shall be spawned for it. All network and disk IO is
+          expected to be non-blocking, both in the core of EventDance and in programs that use
+          it.
+        </para>
+      </listitem>
+
+      <listitem>
+        <emphasis>Scalable</emphasis>
+        <para>
+          All components in the framework should scale well under high-concurrency situations,
+          and support graceful service degradation in case of excessive load. Any mechanism
+          available in the platform to optimize responsiveness should be used to guarantee
+          scalability. It's expected that clients in the range of 1 to 2 tens of thousands
+          can be simultaneously handled reasonably fast, in a single computer with average
+          resources.
+        </para>
+      </listitem>
+
+      <listitem>
+        <emphasis>Hot-plug configurable</emphasis>
+        <para>
+          Framework components should provide means to change any configuration option on-the-fly,
+          without restarting any service. For that, a management service is provided, together
+          with a management interface class that all configuration-sensitive objects should
+          implement. Examples of this are adding/removing listening interfaces on network services,
+          changing URLs to resources, adjusting limits like number of connections, bandwidth
+          usage, etc.
+        </para>
+      </listitem>
+
+      <listitem>
+        <emphasis>Extensible</emphasis>
+        <para>
+          EventDance libraries should be designed so that developers can efficiently modify or
+          extend its behavior, reusing as much code as possible. For that, relevant parts of
+          libraries' internal logic is published as well. See chapter
+          <link linkend="extending">Extending EventDance</link> for more information.
+        </para>
+      </listitem>
+
+      <listitem>
+        <emphasis>Energy efficient</emphasis>
+        <para>
+          This is relative to how synchronous operations and idle states are managed.
+          Routines in the framework or in programs using it should avoid polling continuously
+          for a condition change, feeding the event loop at intervals. Instead, these operations
+          should be moved to a thread and blocked permanently when possible, until the kernel
+          notifies of the condition change waking up the thread.
+          EventDance services also target mobile environments where resources,
+          specially energy, are limited.
+        </para>
+      </listitem>
+
+    </itemizedlist>
+  </chapter>
+
+  <chapter>
+    <title>Basic concepts</title>
+    <para>
+      @TODO
+    </para>
+  </chapter>
+
+  <chapter>
+    <title>Architecture</title>
+    <para>
+      @TODO
+    </para>
+  </chapter>
 
 </part>

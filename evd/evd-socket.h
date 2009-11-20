@@ -34,17 +34,18 @@ G_BEGIN_DECLS
 
 /**
  * SECTION:evd-socket
- * @short_description: Base socket class that extends GIO GSocket to provide
- * better network control and scalability under high-concurrency scenarios.
+ * @short_description: EventDance's base socket class.
  *
- * #EvdSocket is the class that ultimately handles all network access in the
- * EventDance framework. It's based on GSocket, and extends it by providing more
- * interesting features together with an efficient mechanism to watch socket
- * condition changes, based on the epoll system call available on
- * Linux, in edge-triggered mode.
+ * #EvdSocket sockets are Berkeley sockets with finer network control and scalability
+ * under high-concurrency scenarios. It's the class that ultimately handles all network
+ * access in EventDance framework. #EvdSocket is based on GSocket, and extends it by
+ * providing more features together with an efficient mechanism to watch socket
+ * condition changes, based on the <ulink type="http"
+ * url="http://www.kernel.org/doc/man-pages/online/pages/man4/epoll.4.html">
+ * epoll event notification facility</ulink> available on Linux, in edge-triggered mode.
  *
  * #EvdSocket is designed to work always in non-blocking mode. As everything in
- * the EventDance framework, all network logic should be strictly asynchronous.
+ * EventDance framework, all network IO logic should be strictly asynchronous.
  */
 typedef struct _EvdSocket EvdSocket;
 typedef struct _EvdSocketClass EvdSocketClass;
@@ -144,6 +145,22 @@ gboolean      evd_socket_bind             (EvdSocket       *self,
 					   GError         **error);
 gboolean      evd_socket_listen           (EvdSocket *self, GError **error);
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
+
+/**
+ * evd_socket_connect_to:
+ * @self: The #EvdSocket to connect.
+ * @address: The #GSocketAddress to connect to.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Attempts to connect the socket to the specified address. If
+ * <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
+ * opertation will abort after that time in miliseconds and a
+ * <emphasis>connect-timeout</emphasis> signal will be triggered.
+ *
+ * Return value: TRUE on success or FALSE on error.
+ *
+ * Rename to: connect_toto
+ */
 gboolean      evd_socket_connect_to       (EvdSocket       *self,
 					   GSocketAddress  *address,
 					   GError         **error);

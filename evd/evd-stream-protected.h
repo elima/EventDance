@@ -30,6 +30,12 @@
 
 G_BEGIN_DECLS
 
+/**
+ * SECTION:evd-stream-protected
+ * @short_description: Protected methods of #EvdStream.
+ *
+ */
+
 void          evd_stream_report_read    (EvdStream *self,
 					 gsize      size);
 void          evd_stream_report_write   (EvdStream *self,

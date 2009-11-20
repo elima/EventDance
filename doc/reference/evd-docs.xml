@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
-<!ENTITY version "0.1.0">
+<!ENTITY version "0.1.0 (unreleased)">
 ]>
 
 <book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
@@ -54,25 +54,41 @@
       <xi:include href="xml/evd-socket-group.xml"/>
       <xi:include href="xml/evd-service.xml"/>
     </chapter>
+  </part>
+
+  <part id="using">
+    <title>Using EventDance in Javascript</title>
+
+    <partintro>
+      <para>This section contains useful documentation for
+      developing with EventDance in the Javascript language.</para>
+    </partintro>
+
+  </part>
+
+  <part id="extending">
+    <title>Extending EventDance</title>
+
+    <partintro>
+      <para>This section contains additional useful documentation for developers
+        interested in extending the libraries.</para>
+    </partintro>
+
+    <chapter>
+      <title>The Internals</title>
+      <para>@TODO</para>
+    </chapter>
 
     <chapter>
       <title>Protected symbols</title>
+      <para></para>
+
+      <xi:include href="xml/evd-socket-manager.xml"/>
       <xi:include href="xml/evd-stream-protected.xml"/>
       <xi:include href="xml/evd-socket-protected.xml"/>
       <xi:include href="xml/evd-socket-group-protected.xml"/>
       <xi:include href="xml/evd-service-protected.xml"/>
     </chapter>
-
-  </part>
-
-  <part id="additionaldocs">
-    <title>Additional Documentation</title>
-
-    <partintro>
-      <para>This section contains additional useful documentation for
-      developing with EventDance.</para>
-    </partintro>
-
   </part>
 
   <part id="evdobjects">
