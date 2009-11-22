@@ -62,6 +62,8 @@ evd_service_class_init (EvdServiceClass *class)
   GObjectClass *obj_class;
   EvdSocketGroupClass *socket_group_class;
 
+  class->socket_on_close = evd_service_socket_on_close;
+
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->dispose = evd_service_dispose;
@@ -143,11 +145,10 @@ evd_service_on_client_close (EvdSocket *socket,
                              gpointer   user_data)
 {
   EvdService *self = EVD_SERVICE (user_data);
+  EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
 
-  g_signal_emit (self,
-                 evd_service_signals[SIGNAL_CLOSE],
-                 0,
-                 socket, NULL);
+  if (class->socket_on_close != NULL)
+    class->socket_on_close (self, socket);
 }
 
 static void
@@ -159,10 +160,12 @@ evd_service_on_new_connection (EvdSocket *listener,
 
   evd_socket_group_add (EVD_SOCKET_GROUP (self), client);
 
+  g_object_ref (client);
   g_signal_emit (self,
                  evd_service_signals[SIGNAL_NEW_CONNECTION],
                  0,
                  client, NULL);
+  g_object_unref (client);
 }
 
 static void
@@ -189,6 +192,8 @@ evd_service_add_internal (EvdSocketGroup *self, EvdSocket *socket)
                     "close",
                     G_CALLBACK (evd_service_on_client_close),
                     (gpointer) self);
+
+  evd_socket_group_socket_on_read_internal (self, socket);
 }
 
 gboolean
@@ -203,6 +208,16 @@ evd_service_remove_internal (EvdSocketGroup *self, EvdSocket *socket)
                                         (gpointer) self);
 
   return evd_socket_group_remove_internal (self, socket);
+}
+
+void
+evd_service_socket_on_close (EvdService *self,
+                             EvdSocket  *socket)
+{
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_CLOSE],
+                 0,
+                 socket, NULL);
 }
 
 /* public methods */

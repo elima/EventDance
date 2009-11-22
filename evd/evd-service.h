@@ -47,6 +47,8 @@ struct _EvdServiceClass
   EvdSocketGroupClass parent_class;
 
   /* virtual methods */
+  void (* socket_on_close) (EvdService *self,
+                            EvdSocket  *socket);
 
   /* signal prototypes */
 

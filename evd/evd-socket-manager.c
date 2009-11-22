@@ -195,6 +195,8 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
 	msg->condition |= G_IO_OUT;
       if (events[i].events & EPOLLRDHUP)
 	msg->condition |= G_IO_HUP;
+      if (events[i].events & EPOLLHUP)
+	msg->condition |= G_IO_HUP;
       if (events[i].events & EPOLLERR)
 	msg->condition |= G_IO_ERR;
 
@@ -306,7 +308,7 @@ evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
 {
   struct epoll_event ev = { 0 };
 
-  ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+  ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLHUP;
   ev.data.fd = fd;
   ev.data.ptr = (void *) data;
 

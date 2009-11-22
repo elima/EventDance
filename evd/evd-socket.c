@@ -374,6 +374,7 @@ evd_socket_dispose (GObject *obj)
   EvdSocket *self = EVD_SOCKET (obj);
 
   evd_socket_cleanup (self, NULL);
+
   evd_socket_set_group (self, NULL);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
@@ -383,6 +384,8 @@ static void
 evd_socket_finalize (GObject *obj)
 {
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
+
+  //  g_debug ("socket finalized!");
 
   evd_socket_manager_unref ();
 }
@@ -832,13 +835,16 @@ evd_socket_event_handler (gpointer data)
   gboolean dont_free = FALSE;
 
   socket = event->socket;
-  condition = event->condition;
 
   if (! EVD_IS_SOCKET (socket))
     {
       g_free (event);
       return FALSE;
     }
+
+  g_object_ref (socket);
+
+  condition = event->condition;
 
   class = EVD_SOCKET_GET_CLASS (socket);
   if (class->event_handler != NULL)
@@ -886,14 +892,13 @@ evd_socket_event_handler (gpointer data)
 	{
 	  if (condition & G_IO_ERR)
 	    {
-	      evd_socket_close (socket, &error);
-
 	      /* socket error, emit 'error' signal */
 	      error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
 				   EVD_SOCKET_ERROR_UNKNOWN,
 				   "Socket error");
 
 	      evd_socket_throw_error (socket, error);
+              evd_socket_close (socket, &error);
 	    }
 	  else if (condition & G_IO_HUP)
 	    {
@@ -926,6 +931,8 @@ evd_socket_event_handler (gpointer data)
 
   if (! dont_free)
     g_free (event);
+
+  g_object_unref (socket);
 
   return FALSE;
 }
@@ -1019,16 +1026,23 @@ gboolean
 evd_socket_close (EvdSocket *self, GError **error)
 {
   gboolean result;
+  gboolean fire_on_close = FALSE;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
+  fire_on_close = (self->priv->status != EVD_SOCKET_CLOSED);
   result = evd_socket_cleanup (self, error);
 
   self->priv->read_buffer = g_string_new ("");
   self->priv->write_buffer = g_string_new ("");
 
   /* fire 'close' signal */
-  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+  if (fire_on_close)
+    {
+      g_object_ref (self);
+      g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+      g_object_unref (self);
+    }
 
   return result;
 }

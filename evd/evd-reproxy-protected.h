@@ -1,5 +1,5 @@
 /*
- * evd-socket-group-protected.h
+ * evd-reproxy-protected.h
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -23,22 +23,19 @@
  * 02110-1301 USA
  */
 
-#ifndef __EVD_SOCKET_GROUP_PROTECTED_H__
-#define __EVD_SOCKET_GROUP_PROTECTED_H__
-
-#include "evd-socket.h"
-#include "evd-socket-group.h"
+#ifndef __EVD_REPROXY_PROTECTED_H__
+#define __EVD_REPROXY_PROTECTED_H__
 
 G_BEGIN_DECLS
 
-void     evd_socket_group_socket_on_read_internal (EvdSocketGroup *self,
-                                                   EvdSocket *socket);
+gboolean evd_reproxy_client_awaiting       (EvdReproxy *self);
 
-void     evd_socket_group_add_internal            (EvdSocketGroup *self,
-                                                   EvdSocket      *socket);
-gboolean evd_socket_group_remove_internal         (EvdSocketGroup *self,
-                                                   EvdSocket      *socket);
+GList *  evd_reproxy_get_next_backend_node (EvdReproxy *self,
+                                            GList      *backend_node);
+
+gboolean evd_reproxy_new_bridge_available  (EvdReproxy *self,
+                                            EvdSocket  *bridge);
 
 G_END_DECLS
 
-#endif /* __EVD_SOCKET_GROUP_PROTECTED_H__ */
+#endif /* __EVD_REPROXY_PROTECTED_H__ */

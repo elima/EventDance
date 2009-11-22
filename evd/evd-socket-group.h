@@ -61,8 +61,10 @@ struct _EvdSocketGroupClass
   EvdStreamClass parent_class;
 
   /* virtual methods */
-  void     (* add)    (EvdSocketGroup *self, EvdSocket *socket);
-  gboolean (* remove) (EvdSocketGroup *self, EvdSocket *socket);
+  void     (* socket_on_read) (EvdSocketGroup *self, EvdSocket *socket);
+
+  void     (* add)            (EvdSocketGroup *self, EvdSocket *socket);
+  gboolean (* remove)         (EvdSocketGroup *self, EvdSocket *socket);
 };
 
 #define EVD_TYPE_SOCKET_GROUP           (evd_socket_group_get_type ())

@@ -37,7 +37,9 @@ source_c = \
 	evd-socket.c \
 	evd-inet-socket.c \
 	evd-socket-group.c \
-	evd-service.c
+	evd-service.c \
+	evd-reproxy-backend.c \
+	evd-reproxy.c
 
 source_h = \
 	evd-stream.h \
@@ -45,6 +47,7 @@ source_h = \
 	evd-inet-socket.h \
 	evd-socket-group.h \
 	evd-service.h \
+	evd-reproxy.h \
 	evd.h
 
 source_h_priv = \
@@ -52,6 +55,7 @@ source_h_priv = \
 	evd-socket-manager.h \
 	evd-socket-protected.h \
 	evd-socket-group-protected.h \
+	evd-reproxy-backend.h \
 	evd-service-protected.h
 
 libevd_@EVD_API_VERSION@_la_LIBADD = \
