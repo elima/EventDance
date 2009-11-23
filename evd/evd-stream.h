@@ -75,6 +75,10 @@ void          evd_stream_set_on_read    (EvdStream *self,
 					 GClosure  *closure);
 GClosure     *evd_stream_get_on_read    (EvdStream *self);
 
+void          evd_stream_set_on_write   (EvdStream *self,
+					 GClosure  *closure);
+GClosure     *evd_stream_get_on_write   (EvdStream *self);
+
 gsize         evd_stream_request_write  (EvdStream *self,
 					 gsize      size,
 					 guint     *wait);

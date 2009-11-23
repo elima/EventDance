@@ -39,6 +39,7 @@ G_DEFINE_ABSTRACT_TYPE (EvdStream, evd_stream, G_TYPE_OBJECT)
 struct _EvdStreamPrivate
 {
   GClosure *read_closure;
+  GClosure *write_closure;
 
   gsize  bandwidth_in;
   gsize  bandwidth_out;
@@ -63,6 +64,7 @@ enum
 {
   PROP_0,
   PROP_READ_CLOSURE,
+  PROP_WRITE_CLOSURE,
   PROP_BANDWIDTH_IN,
   PROP_BANDWIDTH_OUT,
   PROP_LATENCY_IN,
@@ -101,6 +103,13 @@ evd_stream_class_init (EvdStreamClass *class)
                                    g_param_spec_boxed ("read-closure",
 						       "Read closure",
 						       "The callback closure that will be invoked when data is ready to be read",
+						       G_TYPE_CLOSURE,
+						       G_PARAM_READWRITE));
+
+  g_object_class_install_property (obj_class, PROP_WRITE_CLOSURE,
+                                   g_param_spec_boxed ("write-closure",
+						       "Write closure",
+						       "The callback closure that will be invoked when data is ready to be written",
 						       G_TYPE_CLOSURE,
 						       G_PARAM_READWRITE));
 
@@ -211,6 +220,10 @@ evd_stream_set_property (GObject      *obj,
       evd_stream_set_on_read (self, g_value_get_boxed (value));
       break;
 
+    case PROP_WRITE_CLOSURE:
+      evd_stream_set_on_write (self, g_value_get_boxed (value));
+      break;
+
     case PROP_BANDWIDTH_IN:
       self->priv->bandwidth_in = (gsize) (g_value_get_float (value) * 1024.0);
       break;
@@ -250,6 +263,10 @@ evd_stream_get_property (GObject    *obj,
     {
     case PROP_READ_CLOSURE:
       g_value_set_boxed (value, self->priv->read_closure);
+      break;
+
+    case PROP_WRITE_CLOSURE:
+      g_value_set_boxed (value, self->priv->write_closure);
       break;
 
     case PROP_BANDWIDTH_IN:
@@ -425,6 +442,29 @@ evd_stream_get_on_read (EvdStream *self)
   g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
 
   return self->priv->read_closure;
+}
+
+void
+evd_stream_set_on_write (EvdStream *self,
+                         GClosure  *closure)
+{
+  g_return_if_fail (EVD_IS_STREAM (self));
+
+  if (self->priv->write_closure != NULL)
+    g_closure_unref (self->priv->write_closure);
+
+  if (closure != NULL)
+    g_closure_ref (closure);
+
+  self->priv->write_closure = closure;
+}
+
+GClosure *
+evd_stream_get_on_write (EvdStream *self)
+{
+  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+
+  return self->priv->write_closure;
 }
 
 gsize
