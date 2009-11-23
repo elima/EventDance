@@ -130,7 +130,6 @@ evd_reproxy_socket_set_bridge (EvdSocket *socket,
   g_object_set_data (G_OBJECT (socket), "bridge", bridge);
 }
 
-/*
 static void
 evd_reproxy_client_cache_data (EvdSocket   *socket,
                                const gchar *buf,
@@ -151,9 +150,7 @@ evd_reproxy_client_cache_data (EvdSocket   *socket,
 
   g_debug ("cached data from client");
 }
-*/
 
- /*
 static void
 evd_reproxy_client_remove_cached_data (EvdSocket *socket)
 {
@@ -168,7 +165,6 @@ evd_reproxy_client_remove_cached_data (EvdSocket *socket)
       g_debug ("removed cached data of client");
     }
 }
-*/
 
 static EvdReproxyBackend *
 evd_reproxy_get_backend_from_node (GList *backend_node)
@@ -200,26 +196,37 @@ evd_reproxy_redirect_data (EvdSocket *from,
   gchar buf[BLOCK_SIZE + 1];
   gssize size;
   GError *error = NULL;
+  guint retry_wait;
 
-  if ( (size = evd_socket_read_buffer (from, buf, BLOCK_SIZE, NULL, &error)) > 0)
+  if ( (size = evd_socket_read_buffer (from, buf, BLOCK_SIZE, &retry_wait, &error)) > 0)
     {
       if (evd_socket_write_buffer (to, buf, size, NULL, &error) >= 0)
         {
-          /*
-          if (! evd_reproxy_socket_is_bridge (from))
+          if (! evd_reproxy_backend_is_bridge (from))
             {
-              evd_reproxy_client_cache_data (from, buf, size);
+              if (evd_reproxy_backend_bridge_is_doubtful (to))
+                {
+                  g_debug ("bridge is doubtful!");
+                  evd_reproxy_client_cache_data (from, buf, size);
+                }
             }
           else
             {
               evd_reproxy_client_remove_cached_data (to);
+              evd_reproxy_backend_notify_bridge_activity (from);
             }
-          */
         }
       else
         {
-          g_warning ("Failed to redirect data: %s", error->message);
-          g_error_free (error);
+          if (retry_wait == 0)
+            {
+              g_warning ("Failed to redirect data: %s", error->message);
+              g_error_free (error);
+            }
+          else
+            {
+              /* TODO: retry reading after 'retry_wait' miliseconds */
+            }
         }
     }
 }
@@ -347,7 +354,7 @@ evd_reproxy_socket_on_close (EvdService *service,
     {
       g_debug ("client closed (%X)", (guintptr) socket);
 
-      //      evd_reproxy_client_remove_cached_data (socket);
+      evd_reproxy_client_remove_cached_data (socket);
 
       g_queue_remove (self->priv->awaiting_clients, (gconstpointer) socket);
     }
@@ -391,6 +398,32 @@ evd_reproxy_new_bridge_available (EvdReproxy *self,
   else
     {
       return FALSE;
+    }
+}
+
+void
+evd_reproxy_notify_bridge_error (EvdReproxy *self,
+                                 EvdSocket  *bridge)
+{
+  EvdSocket *client;
+
+  client = evd_reproxy_socket_get_bridge (bridge);
+  if (client)
+    {
+      GString *cache;
+
+      evd_reproxy_socket_set_bridge (bridge, NULL);
+      evd_reproxy_socket_set_bridge (client, NULL);
+
+      cache = g_object_get_data (G_OBJECT (client), "data-cache");
+      if (cache != NULL)
+        {
+          evd_socket_unread_buffer (client, cache->str, cache->len);
+          evd_reproxy_client_remove_cached_data (client);
+        }
+
+      evd_reproxy_socket_on_read (EVD_SOCKET_GROUP (self),
+                                  client);
     }
 }
 

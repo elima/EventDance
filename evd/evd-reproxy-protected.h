@@ -36,6 +36,9 @@ GList *  evd_reproxy_get_next_backend_node (EvdReproxy *self,
 gboolean evd_reproxy_new_bridge_available  (EvdReproxy *self,
                                             EvdSocket  *bridge);
 
+void      evd_reproxy_notify_bridge_error (EvdReproxy *self,
+                                           EvdSocket  *bridge);
+
 G_END_DECLS
 
 #endif /* __EVD_REPROXY_PROTECTED_H__ */

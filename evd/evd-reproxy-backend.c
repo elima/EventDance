@@ -33,8 +33,9 @@ G_DEFINE_TYPE (EvdReproxyBackend, evd_reproxy_backend, G_TYPE_OBJECT)
                                               EVD_TYPE_REPROXY_BACKEND, \
                                               EvdReproxyBackendPrivate))
 
-#define DEFAULT_MIN_POOL_SIZE 1
-#define DEFAULT_MAX_POOL_SIZE 2
+#define DEFAULT_MIN_POOL_SIZE                    1
+#define DEFAULT_MAX_POOL_SIZE                    5
+#define DEFAULT_BRIDGE_IDLE_TIMEOUT  1000 * 60 * 1 /* in miliseconds, 5 minutes */
 
 #define BRIDGE_DATA_KEY "bridge-data"
 
@@ -53,12 +54,15 @@ struct _EvdReproxyBackendPrivate
   GSocketAddress *address;
 
   EvdReproxy *reproxy;
+
+  gulong bridge_idle_timeout;
 };
 
 /* backend bridge data */
 struct _EvdReproxyBridgeData
 {
   EvdReproxyBackend *backend;
+  GTimeVal last_activity_timeval;
 };
 
 static void     evd_reproxy_backend_class_init            (EvdReproxyBackendClass *class);
@@ -99,6 +103,8 @@ evd_reproxy_backend_init (EvdReproxyBackend *self)
   priv->free_bridges = g_queue_new ();
   priv->busy_bridges = g_queue_new ();
   priv->nr_bridges_connecting = 0;
+
+  priv->bridge_idle_timeout = DEFAULT_BRIDGE_IDLE_TIMEOUT;
 }
 
 static void
@@ -126,6 +132,42 @@ evd_reproxy_backend_bridge_set_data (EvdSocket            *socket,
   g_object_set_data (G_OBJECT (socket), BRIDGE_DATA_KEY, data);
 }
 
+static void
+evd_reproxy_backend_bridge_set_last_activity_time (EvdSocket *socket)
+{
+  EvdReproxyBridgeData *data;
+
+  data = evd_reproxy_backend_bridge_get_data (socket);
+  if (data != NULL)
+    g_get_current_time (&data->last_activity_timeval);
+}
+
+static gulong
+evd_reproxy_backend_bridge_get_inactive_time (EvdSocket *bridge)
+{
+  EvdReproxyBridgeData *data;
+
+  data = evd_reproxy_backend_bridge_get_data (bridge);
+  if (data != NULL)
+    {
+      GTimeVal current_time;
+      gulong elapsed;
+
+      g_get_current_time (&current_time);
+
+      elapsed = (current_time.tv_sec - data->last_activity_timeval.tv_sec) * 1000;
+      elapsed += (current_time.tv_usec - data->last_activity_timeval.tv_usec) / 1000;
+
+      return elapsed;
+    }
+  else
+    {
+      /* TODO: handle error, should never happen */
+    }
+
+  return 0;
+}
+
 static guint
 evd_reproxy_backend_count_free_bridges (EvdReproxyBackend *self)
 {
@@ -147,6 +189,7 @@ evd_reproxy_backend_bridge_on_connect (EvdSocket *socket,
   EvdReproxyBackend *self = (EvdReproxyBackend *) user_data;
 
   self->priv->nr_bridges_connecting--;
+  evd_reproxy_backend_bridge_set_last_activity_time (socket);
 
   g_debug ("bridge connected! (%X)", (guintptr) socket);
 
@@ -182,36 +225,38 @@ evd_reproxy_backend_bridge_on_connect (EvdSocket *socket,
 }
 
 static void
+evd_reproxy_backend_check_inactive_bridge (gpointer data,
+                                           gpointer user_data)
+{
+  EvdReproxyBackend *self = EVD_REPROXY_BACKEND (user_data);
+  EvdSocket *bridge = EVD_SOCKET (data);
+  gulong elapsed;
+
+  elapsed = evd_reproxy_backend_bridge_get_inactive_time (bridge);
+  if (elapsed >= self->priv->bridge_idle_timeout)
+    evd_socket_close (bridge, NULL);
+}
+
+static void
 evd_reproxy_backend_bridge_on_error (EvdSocket   *bridge,
                                      guint        code,
                                      const gchar *msg,
                                      gpointer     user_data)
 {
-  /*
   EvdReproxyBackend *self = EVD_REPROXY_BACKEND (user_data);
-  EvdSocket *client;
+  gulong elapsed;
 
-  g_debug ("socket error: %s", msg);
+  elapsed = evd_reproxy_backend_bridge_get_inactive_time (bridge);
+  self->priv->bridge_idle_timeout = MIN (self->priv->bridge_idle_timeout,
+                                         elapsed);
 
-  client = evd_reproxy_socket_get_bridge (bridge);
-  if (client != NULL)
-    {
-      GString *cache;
+  g_queue_foreach (self->priv->free_bridges,
+                   evd_reproxy_backend_check_inactive_bridge,
+                   (gpointer) self);
 
-      evd_reproxy_socket_set_bridge (bridge, NULL);
-      evd_reproxy_socket_set_bridge (client, NULL);
+  g_debug ("socket error after %d miliseconds of inactivity: %s", (guint) elapsed, msg);
 
-      cache = g_object_get_data (G_OBJECT (client), "data-cache");
-      if (cache != NULL)
-        {
-          evd_socket_unread_buffer (client, cache->str, cache->len);
-          evd_reproxy_client_remove_cached_data (client);
-        }
-
-      evd_reproxy_socket_on_read (EVD_SOCKET_GROUP (self),
-                                  client);
-    }
-  */
+  evd_reproxy_notify_bridge_error (self->priv->reproxy, bridge);
 }
 
 static void
@@ -333,6 +378,12 @@ evd_reproxy_backend_has_free_bridges (EvdReproxyBackend *self)
     }
 }
 
+gboolean
+evd_reproxy_backend_is_bridge (EvdSocket *socket)
+{
+  return (evd_reproxy_backend_bridge_get_data (socket) != NULL);
+}
+
 EvdSocket *
 evd_reproxy_backend_get_free_bridge (EvdReproxyBackend *self)
 {
@@ -353,8 +404,9 @@ evd_reproxy_backend_bridge_closed (EvdReproxyBackend *self,
   g_queue_remove (self->priv->free_bridges, (gconstpointer) bridge);
   g_queue_remove (self->priv->busy_bridges, (gconstpointer) bridge);
 
-  if (evd_reproxy_backend_count_all_bridges (self) <
-      self->priv->max_pool_size)
+  if ( (evd_reproxy_client_awaiting (self->priv->reproxy)) ||
+       (evd_reproxy_backend_count_all_bridges (self) <
+        self->priv->min_pool_size) )
     {
       g_object_ref (bridge);
       evd_reproxy_backend_connect_bridge (self, bridge);
@@ -367,4 +419,38 @@ evd_reproxy_backend_bridge_closed (EvdReproxyBackend *self,
 
       g_debug ("bridge destroyed!");
     }
+}
+
+gboolean
+evd_reproxy_backend_bridge_is_doubtful (EvdSocket *bridge)
+{
+  EvdReproxyBackend *self;
+  self = evd_reproxy_backend_get_from_socket (bridge);
+
+  if (self != NULL)
+    {
+      if (evd_reproxy_backend_bridge_get_inactive_time (bridge) >
+          self->priv->bridge_idle_timeout)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+void
+evd_reproxy_backend_notify_bridge_activity (EvdSocket *bridge)
+{
+  EvdReproxyBackend *self;
+
+  self = evd_reproxy_backend_get_from_socket (bridge);
+  if (self != NULL)
+    {
+      gulong elapsed;
+      elapsed = evd_reproxy_backend_bridge_get_inactive_time (bridge);
+
+      self->priv->bridge_idle_timeout = MAX (self->priv->bridge_idle_timeout,
+                                             elapsed);
+    }
+
+  evd_reproxy_backend_bridge_set_last_activity_time (bridge);
 }

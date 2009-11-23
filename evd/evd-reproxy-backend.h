@@ -70,10 +70,16 @@ EvdReproxyBackend *evd_reproxy_backend_get_from_socket   (EvdSocket *socket);
 
 gboolean           evd_reproxy_backend_has_free_bridges  (EvdReproxyBackend *self);
 
+gboolean           evd_reproxy_backend_is_bridge         (EvdSocket *socket);
+
 EvdSocket *        evd_reproxy_backend_get_free_bridge   (EvdReproxyBackend *self);
 
 void               evd_reproxy_backend_bridge_closed     (EvdReproxyBackend *self,
                                                           EvdSocket         *bridge);
+
+gboolean           evd_reproxy_backend_bridge_is_doubtful (EvdSocket *bridge);
+
+void               evd_reproxy_backend_notify_bridge_activity (EvdSocket *bridge);
 
 G_END_DECLS
 
