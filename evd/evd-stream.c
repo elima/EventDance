@@ -334,7 +334,7 @@ evd_stream_request (EvdStream *self,
 {
   gsize actual_size = size;
 
-  if (wait != NULL)
+  if ( (wait != NULL) && (*wait < 0) )
     *wait = 0;
 
   g_mutex_lock (self->priv->mutex);
@@ -351,7 +351,8 @@ evd_stream_request (EvdStream *self,
 	  actual_size = 0;
 
 	  if (wait != NULL)
-	    *wait = (guint) ((latency - elapsed) / 1000);
+	    *wait = MAX ((guint) ((latency - elapsed) / 1000),
+                         *wait);
 	}
     }
 
@@ -363,7 +364,8 @@ evd_stream_request (EvdStream *self,
 
       if (wait != NULL)
 	if (actual_size < size)
-	  *wait = (guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1;
+          *wait = MAX ((guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1,
+                       *wait);
     }
 
   g_mutex_unlock (self->priv->mutex);
