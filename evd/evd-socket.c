@@ -571,6 +571,27 @@ evd_socket_invoke_on_read (EvdSocket *self)
 }
 
 static void
+evd_socket_invoke_on_write (EvdSocket *self)
+{
+  GClosure *closure = NULL;
+
+  closure = evd_stream_get_on_write (EVD_STREAM (self));
+  if (closure != NULL)
+    {
+      GValue params = { 0, };
+
+      g_value_init (&params, EVD_TYPE_SOCKET);
+      g_value_set_object (&params, self);
+
+      g_object_ref (self);
+      g_closure_invoke (closure, NULL, 1, &params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params);
+    }
+}
+
+static void
 evd_socket_figureout_from_address (EvdSocket *self,
 				   GSocketAddress *address)
 {
@@ -919,6 +940,8 @@ evd_socket_event_handler (gpointer data)
 		      /* emit 'connected' signal */
 		      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
 		    }
+
+                  evd_socket_invoke_on_write (socket);
 		}
 
 	      if (condition & G_IO_IN)
@@ -1250,6 +1273,38 @@ evd_socket_set_read_handler (EvdSocket            *self,
   g_closure_sink (closure);
 
   evd_stream_set_on_read (EVD_STREAM (self), closure);
+}
+
+void
+evd_socket_set_write_handler (EvdSocket             *self,
+                              EvdSocketWriteHandler  handler,
+                              gpointer               user_data)
+{
+  GClosure *closure;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (handler == NULL)
+    {
+      evd_stream_set_on_write (EVD_STREAM (self), NULL);
+      return;
+    }
+
+  closure = g_cclosure_new (G_CALLBACK (handler),
+			    user_data,
+			    NULL);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    {
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__VOID;
+
+      g_closure_set_marshal (closure, marshal);
+    }
+
+  g_closure_ref (closure);
+  g_closure_sink (closure);
+
+  evd_stream_set_on_write (EVD_STREAM (self), closure);
 }
 
 gssize

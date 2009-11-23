@@ -62,6 +62,9 @@ typedef struct _EvdSocketEvent EvdSocketEvent;
 typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 				       gpointer   user_data);
 
+typedef void (* EvdSocketWriteHandler) (EvdSocket *socket,
+                                        gpointer   user_data);
+
 struct _EvdSocket
 {
   EvdStream parent;
@@ -169,6 +172,10 @@ gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
 void          evd_socket_set_read_handler (EvdSocket            *self,
 					   EvdSocketReadHandler  handler,
 					   gpointer              user_data);
+
+void          evd_socket_set_write_handler (EvdSocket             *self,
+                                            EvdSocketWriteHandler  handler,
+                                            gpointer               user_data);
 
 /**
  * evd_socket_read_buffer:
