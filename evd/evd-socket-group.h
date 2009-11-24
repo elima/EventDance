@@ -33,7 +33,6 @@ G_BEGIN_DECLS
 
 typedef struct _EvdSocketGroup EvdSocketGroup;
 typedef struct _EvdSocketGroupClass EvdSocketGroupClass;
-typedef struct _EvdSocketGroupPrivate EvdSocketGroupPrivate;
 
 /**
  * EvdSocketGroupReadHandler:
@@ -55,9 +54,6 @@ typedef void (* EvdSocketGroupWriteHandler) (EvdSocket *group,
 struct _EvdSocketGroup
 {
   EvdStream parent;
-
-  /* private structure */
-  EvdSocketGroupPrivate *priv;
 };
 
 struct _EvdSocketGroupClass

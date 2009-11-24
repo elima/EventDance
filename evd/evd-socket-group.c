@@ -29,16 +29,6 @@
 
 G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_STREAM)
 
-#define EVD_SOCKET_GROUP_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-	                                   EVD_TYPE_SOCKET_GROUP, \
-                                           EvdSocketGroupPrivate))
-
-/* private data */
-struct _EvdSocketGroupPrivate
-{
-  GClosure *on_read_closure;
-};
-
 static void     evd_socket_group_class_init         (EvdSocketGroupClass *class);
 static void     evd_socket_group_init               (EvdSocketGroup *self);
 
@@ -59,21 +49,11 @@ evd_socket_group_class_init (EvdSocketGroupClass *class)
   class->socket_on_write = evd_socket_group_socket_on_write_internal;
   class->add = evd_socket_group_add_internal;
   class->remove = evd_socket_group_remove_internal;
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdSocketGroupPrivate));
 }
 
 static void
 evd_socket_group_init (EvdSocketGroup *self)
 {
-  EvdSocketGroupPrivate *priv;
-
-  priv = EVD_SOCKET_GROUP_GET_PRIVATE (self);
-  self->priv = priv;
-
-  /* initialize private members */
-  priv->on_read_closure = NULL;
 }
 
 static void
