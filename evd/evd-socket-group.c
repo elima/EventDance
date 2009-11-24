@@ -56,12 +56,12 @@ evd_socket_group_class_init (EvdSocketGroupClass *class)
   obj_class->finalize = evd_socket_group_finalize;
 
   class->socket_on_read = evd_socket_group_socket_on_read_internal;
+  class->socket_on_write = evd_socket_group_socket_on_write_internal;
   class->add = evd_socket_group_add_internal;
   class->remove = evd_socket_group_remove_internal;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketGroupPrivate));
-
 }
 
 static void
@@ -98,15 +98,54 @@ evd_socket_group_socket_on_read (EvdSocket *socket, gpointer user_data)
     class->socket_on_read (self, socket);
 }
 
+static void
+evd_socket_group_socket_on_write (EvdSocket *socket, gpointer user_data)
+{
+  EvdSocketGroup *self = user_data;
+  EvdSocketGroupClass *class = EVD_SOCKET_GROUP_GET_CLASS (self);
+
+  if (class->socket_on_write != NULL)
+    class->socket_on_write (self, socket);
+}
+
 /* protected methods */
 
 void
 evd_socket_group_socket_on_read_internal (EvdSocketGroup *self,
-                                          EvdSocket *socket)
+                                          EvdSocket      *socket)
 {
   GClosure *closure = NULL;
 
   closure = evd_stream_get_on_read (EVD_STREAM (self));
+  if (closure != NULL)
+    {
+      GValue params[2] = { {0, } };
+
+      g_value_init (&params[0], EVD_TYPE_SOCKET_GROUP);
+      g_value_set_object (&params[0], self);
+
+      g_object_ref (socket);
+      g_value_init (&params[1], EVD_TYPE_SOCKET);
+      g_value_set_object (&params[1], socket);
+
+      g_object_ref (self);
+      g_closure_invoke (closure, NULL, 2, params, NULL);
+      g_object_unref (self);
+
+      g_object_unref (socket);
+
+      g_value_unset (&params[0]);
+      g_value_unset (&params[1]);
+    }
+}
+
+void
+evd_socket_group_socket_on_write_internal (EvdSocketGroup *self,
+                                           EvdSocket      *socket)
+{
+  GClosure *closure = NULL;
+
+  closure = evd_stream_get_on_write (EVD_STREAM (self));
   if (closure != NULL)
     {
       GValue params[2] = { {0, } };
@@ -136,6 +175,10 @@ evd_socket_group_add_internal (EvdSocketGroup *self,
   evd_socket_set_read_handler (socket,
 			       evd_socket_group_socket_on_read,
 			       self);
+  evd_socket_set_write_handler (socket,
+                                evd_socket_group_socket_on_write,
+                                self);
+
   evd_socket_set_group (socket, self);
 }
 
@@ -220,4 +263,30 @@ evd_socket_group_set_read_handler (EvdSocketGroup            *self,
   g_closure_sink (closure);
 
   evd_stream_set_on_read (EVD_STREAM (self), closure);
+}
+
+void
+evd_socket_group_set_write_handler (EvdSocketGroup             *self,
+                                    EvdSocketGroupWriteHandler  handler,
+                                    gpointer                    user_data)
+{
+  GClosure *closure;
+
+  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
+
+  closure = g_cclosure_new (G_CALLBACK (handler),
+			    user_data,
+			    NULL);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    {
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__BOXED;
+
+      g_closure_set_marshal (closure, marshal);
+    }
+
+  g_closure_ref (closure);
+  g_closure_sink (closure);
+
+  evd_stream_set_on_write (EVD_STREAM (self), closure);
 }

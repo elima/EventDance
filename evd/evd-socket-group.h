@@ -48,6 +48,10 @@ typedef void (* EvdSocketGroupReadHandler) (EvdSocket *group,
 				            EvdSocket *socket,
 					    gpointer   user_data);
 
+typedef void (* EvdSocketGroupWriteHandler) (EvdSocket *group,
+                                             EvdSocket *socket,
+                                             gpointer   user_data);
+
 struct _EvdSocketGroup
 {
   EvdStream parent;
@@ -61,10 +65,11 @@ struct _EvdSocketGroupClass
   EvdStreamClass parent_class;
 
   /* virtual methods */
-  void     (* socket_on_read) (EvdSocketGroup *self, EvdSocket *socket);
+  void     (* socket_on_read)  (EvdSocketGroup *self, EvdSocket *socket);
+  void     (* socket_on_write) (EvdSocketGroup *self, EvdSocket *socket);
 
-  void     (* add)            (EvdSocketGroup *self, EvdSocket *socket);
-  gboolean (* remove)         (EvdSocketGroup *self, EvdSocket *socket);
+  void     (* add)             (EvdSocketGroup *self, EvdSocket *socket);
+  gboolean (* remove)          (EvdSocketGroup *self, EvdSocket *socket);
 };
 
 #define EVD_TYPE_SOCKET_GROUP           (evd_socket_group_get_type ())
@@ -87,6 +92,10 @@ gboolean        evd_socket_group_remove           (EvdSocketGroup *self,
 void            evd_socket_group_set_read_handler (EvdSocketGroup            *self,
 						   EvdSocketGroupReadHandler  handler,
 						   gpointer                   user_data);
+
+void            evd_socket_group_set_write_handler (EvdSocketGroup             *self,
+                                                    EvdSocketGroupWriteHandler  handler,
+                                                    gpointer                    user_data);
 
 G_END_DECLS
 
