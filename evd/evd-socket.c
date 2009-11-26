@@ -767,7 +767,7 @@ evd_socket_read_internal (EvdSocket *self,
       else
         {
           if ( (read_from_socket > 0) && (read_from_socket < size) )
-            self->priv->cond &= (! G_IO_IN);
+            self->priv->cond &= (~ G_IO_IN);
         }
     }
 
@@ -820,7 +820,7 @@ evd_socket_write_internal (EvdSocket    *self,
                                actual_size);
 
       if (actual_size < size)
-        self->priv->cond &= (! G_IO_OUT);
+        self->priv->cond &= (~ G_IO_OUT);
     }
   else
     if ( (actual_size == 0) && (retry_wait != NULL) )
@@ -968,11 +968,8 @@ evd_socket_event_handler (gpointer data)
 		      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
 		    }
 
-                  if ( (socket->priv->cond & G_IO_OUT) == 0)
-                    {
-                      socket->priv->cond |= G_IO_OUT;
-                      evd_socket_invoke_on_write (socket);
-                    }
+                  socket->priv->cond |= G_IO_OUT;
+                  evd_socket_invoke_on_write (socket);
 		}
 
 	      if (condition & G_IO_IN)
