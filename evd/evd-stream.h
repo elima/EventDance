@@ -75,6 +75,14 @@ void          evd_stream_set_on_read    (EvdStream *self,
 					 GClosure  *closure);
 GClosure     *evd_stream_get_on_read    (EvdStream *self);
 
+/**
+ * evd_stream_set_on_write:
+ * @self: The #EvdStream.
+ * @closure: (in) (allow-none): The #GClosure to be invoked.
+ *
+ * Specifies the closure to be invoked when it becomes safe to write data to the
+ * stream.
+ */
 void          evd_stream_set_on_write   (EvdStream *self,
 					 GClosure  *closure);
 GClosure     *evd_stream_get_on_write   (EvdStream *self);
