@@ -300,6 +300,11 @@ gssize        evd_socket_unread_buffer    (EvdSocket   *self,
 gssize        evd_socket_unread           (EvdSocket   *self,
 					   const gchar *buffer);
 
+gboolean      evd_socket_has_write_data_pending (EvdSocket *self);
+
+gboolean      evd_socket_can_read               (EvdSocket *self);
+gboolean      evd_socket_can_write              (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */
