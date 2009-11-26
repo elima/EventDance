@@ -67,6 +67,9 @@ EvdReproxy     *evd_reproxy_new               (void);
 void            evd_reproxy_add_backend       (EvdReproxy      *self,
                                                GSocketAddress  *address);
 
+void            evd_reproxy_del_backend       (EvdReproxy  *self,
+                                               const gchar *address);
+
 G_END_DECLS
 
 #endif /* __EVD_REPROXY_H__ */

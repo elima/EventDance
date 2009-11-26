@@ -44,12 +44,14 @@ typedef struct _EvdReproxyBridgeData EvdReproxyBridgeData;
 /* private data */
 struct _EvdReproxyBackendPrivate
 {
+  gboolean enabled;
+
   guint min_pool_size;
   guint max_pool_size;
 
   GQueue *free_bridges;
   GQueue *busy_bridges;
-  guint   nr_bridges_connecting;
+  GQueue *connecting_bridges;
 
   GSocketAddress *address;
 
@@ -62,7 +64,7 @@ struct _EvdReproxyBackendPrivate
 struct _EvdReproxyBridgeData
 {
   EvdReproxyBackend *backend;
-  GTimeVal last_activity_timeval;
+  GTimeVal           last_activity_timeval;
 };
 
 static void     evd_reproxy_backend_class_init            (EvdReproxyBackendClass *class);
@@ -74,6 +76,8 @@ static void     evd_reproxy_backend_dispose               (GObject *obj);
 static guint    evd_reproxy_backend_count_all_bridges     (EvdReproxyBackend *self);
 
 static void     evd_reproxy_backend_new_bridge            (EvdReproxyBackend *self);
+
+static void     evd_reproxy_backend_free_bridge_data      (EvdSocket *bridge);
 
 static void
 evd_reproxy_backend_class_init (EvdReproxyBackendClass *class)
@@ -102,21 +106,54 @@ evd_reproxy_backend_init (EvdReproxyBackend *self)
 
   priv->free_bridges = g_queue_new ();
   priv->busy_bridges = g_queue_new ();
-  priv->nr_bridges_connecting = 0;
+  priv->connecting_bridges = g_queue_new ();
 
   priv->bridge_idle_timeout = DEFAULT_BRIDGE_IDLE_TIMEOUT;
+
+  priv->enabled = TRUE;
+}
+
+static void
+evd_reproxy_backend_free_bridge_pool (GQueue *pool)
+{
+  EvdSocket *bridge;
+
+  while ( (bridge = EVD_SOCKET (g_queue_pop_head (pool))) != NULL)
+    {
+      g_debug ("[EvdReproxyBackend] Closing bridge 0x%X",
+               (guintptr) bridge);
+      evd_socket_close (bridge, NULL);
+    }
 }
 
 static void
 evd_reproxy_backend_dispose (GObject *obj)
 {
+  EvdReproxyBackend *self = EVD_REPROXY_BACKEND (obj);
+
+  self->priv->enabled = FALSE;
+
+  evd_reproxy_backend_free_bridge_pool (self->priv->free_bridges);
+  evd_reproxy_backend_free_bridge_pool (self->priv->busy_bridges);
+  evd_reproxy_backend_free_bridge_pool (self->priv->connecting_bridges);
+
   G_OBJECT_CLASS (evd_reproxy_backend_parent_class)->dispose (obj);
 }
 
 static void
 evd_reproxy_backend_finalize (GObject *obj)
 {
+  EvdReproxyBackend *self = EVD_REPROXY_BACKEND (obj);
+
+  g_queue_free (self->priv->free_bridges);
+  g_queue_free (self->priv->busy_bridges);
+  g_queue_free (self->priv->connecting_bridges);
+
+  g_object_unref (self->priv->address);
+
   G_OBJECT_CLASS (evd_reproxy_backend_parent_class)->finalize (obj);
+
+  g_debug ("[ReproxyBackend] Reproxy finalized (%X)", (guintptr) obj);
 }
 
 static EvdReproxyBridgeData *
@@ -179,7 +216,7 @@ evd_reproxy_backend_count_all_bridges (EvdReproxyBackend *self)
 {
   return g_queue_get_length (self->priv->free_bridges) +
     g_queue_get_length (self->priv->busy_bridges) +
-    self->priv->nr_bridges_connecting;
+    g_queue_get_length (self->priv->connecting_bridges);
 }
 
 static void
@@ -188,10 +225,8 @@ evd_reproxy_backend_bridge_on_connect (EvdSocket *socket,
 {
   EvdReproxyBackend *self = (EvdReproxyBackend *) user_data;
 
-  self->priv->nr_bridges_connecting--;
+  g_queue_remove (self->priv->connecting_bridges, (gconstpointer) socket);
   evd_reproxy_backend_bridge_set_last_activity_time (socket);
-
-  g_debug ("bridge connected! (%X)", (guintptr) socket);
 
   if (evd_reproxy_client_awaiting (self->priv->reproxy))
     {
@@ -212,8 +247,6 @@ evd_reproxy_backend_bridge_on_connect (EvdSocket *socket,
   else
     {
       g_queue_push_tail (self->priv->free_bridges, (gpointer) socket);
-      g_debug ("new free bridge (%d)",
-               evd_reproxy_backend_count_free_bridges (self));
     }
 
   if ( (evd_reproxy_client_awaiting (self->priv->reproxy)) ||
@@ -254,8 +287,6 @@ evd_reproxy_backend_bridge_on_error (EvdSocket   *bridge,
                    evd_reproxy_backend_check_inactive_bridge,
                    (gpointer) self);
 
-  g_debug ("socket error after %d miliseconds of inactivity: %s", (guint) elapsed, msg);
-
   evd_reproxy_notify_bridge_error (self->priv->reproxy, bridge);
 }
 
@@ -275,7 +306,8 @@ evd_reproxy_backend_connect_bridge (EvdReproxyBackend *self,
     }
   else
     {
-      self->priv->nr_bridges_connecting++;
+      g_queue_push_tail (self->priv->connecting_bridges,
+                         (gpointer) bridge);
     }
 }
 
@@ -293,8 +325,9 @@ evd_reproxy_backend_new_bridge (EvdReproxyBackend *self)
 
   bridge = evd_socket_new ();
 
-  g_object_ref (bridge);
-  g_object_set (bridge, "group", EVD_SOCKET_GROUP (self->priv->reproxy), NULL);
+  g_object_set (bridge,
+                "group", EVD_SOCKET_GROUP (self->priv->reproxy),
+                NULL);
 
   g_signal_connect (bridge,
                     "connect",
@@ -315,14 +348,16 @@ evd_reproxy_backend_new_bridge (EvdReproxyBackend *self)
 }
 
 static void
-evd_reproxy_backend_free_bridge (EvdReproxyBackend *self,
-                                 EvdSocket         *bridge)
+evd_reproxy_backend_free_bridge_data (EvdSocket *bridge)
 {
   EvdReproxyBridgeData *bridge_data;
 
   bridge_data = evd_reproxy_backend_bridge_get_data (bridge);
-  g_free (bridge_data);
-  evd_reproxy_backend_bridge_set_data (bridge, NULL);
+  if (bridge_data)
+    {
+      g_free (bridge_data);
+      evd_reproxy_backend_bridge_set_data (bridge, NULL);
+    }
 }
 
 /* protected methods */
@@ -340,7 +375,6 @@ evd_reproxy_backend_new (EvdService     *reproxy,
 
   self = g_object_new (EVD_TYPE_REPROXY_BACKEND, NULL);
 
-  g_object_ref (reproxy);
   self->priv->reproxy = EVD_REPROXY (reproxy);
 
   g_object_ref (address);
@@ -404,20 +438,23 @@ evd_reproxy_backend_bridge_closed (EvdReproxyBackend *self,
   g_queue_remove (self->priv->free_bridges, (gconstpointer) bridge);
   g_queue_remove (self->priv->busy_bridges, (gconstpointer) bridge);
 
-  if ( (evd_reproxy_client_awaiting (self->priv->reproxy)) ||
-       (evd_reproxy_backend_count_all_bridges (self) <
-        self->priv->min_pool_size) )
+  if ( (self->priv->enabled) &&
+       ((evd_reproxy_client_awaiting (self->priv->reproxy)) ||
+        (evd_reproxy_backend_count_all_bridges (self) <
+         self->priv->min_pool_size)) )
     {
-      g_object_ref (bridge);
       evd_reproxy_backend_connect_bridge (self, bridge);
-      g_debug ("bridge reused");
+      g_debug ("[EvdReproxyBackend 0x%X] Bridge reused (%X)",
+               (guintptr) self,
+               (guintptr) bridge);
     }
   else
     {
-      evd_reproxy_backend_free_bridge (self, bridge);
+      g_debug ("[EvdReproxyBackend 0x%X] Destroying bridge (%X)",
+               (guintptr) self,
+               (guintptr) bridge);
+      evd_reproxy_backend_free_bridge_data (bridge);
       g_object_unref (bridge);
-
-      g_debug ("bridge destroyed!");
     }
 }
 
