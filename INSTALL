@@ -1,12 +1,7 @@
 
 Building:
-  $ ./autogen.sh  [--enable-gtk-doc] [--prefix=/usr]
+  $ ./autogen.sh [--enable-introspection=auto/yes/no] [--enable-gtk-doc=no/yes] [--prefix=/usr/local]
   $ make
 
 Installing:
-  $ sudo make install
-
-Running:
-  $ evd
-
-
+  # make install
