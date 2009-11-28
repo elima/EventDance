@@ -56,7 +56,6 @@ struct _EvdReproxySocketData
 {
   EvdSocket *bridge;
   GString   *cache;
-  guint      read_src_id;
 };
 
 static void     evd_reproxy_class_init            (EvdReproxyClass *class);
@@ -190,7 +189,6 @@ evd_reproxy_socket_create_data (EvdSocket *socket)
         evd_reproxy_client_free_cached_data (socket);
     }
 
-  data->read_src_id = 0;
   data->cache = NULL;
   data->bridge = NULL;
 }
@@ -211,12 +209,6 @@ evd_reproxy_socket_free_data (EvdSocket *socket)
   if (data != NULL)
     {
       evd_reproxy_client_free_cached_data (socket);
-
-      if (data->read_src_id > 0)
-        {
-          g_source_remove (data->read_src_id);
-          data->read_src_id = 0;
-        }
 
       g_free (data);
       g_object_set_data (G_OBJECT (socket), SOCKET_DATA_KEY, NULL);
@@ -317,7 +309,6 @@ evd_reproxy_redirect_data (EvdSocket *from)
   gssize read_size;
   gssize write_size;
   GError *error = NULL;
-  guint retry_wait = 0;
   EvdSocket *to;
   EvdReproxySocketData *data;
 
@@ -333,7 +324,7 @@ evd_reproxy_redirect_data (EvdSocket *from)
   if ( (read_size = evd_socket_read_buffer (from,
                                             buf,
                                             BLOCK_SIZE,
-                                            &retry_wait,
+                                            NULL,
                                             &error)) >= 0)
     {
       if (read_size > 0)
@@ -373,18 +364,6 @@ evd_reproxy_redirect_data (EvdSocket *from)
 
               evd_socket_unread_buffer (from, buf, read_size);
             }
-        }
-
-      if ( (read_size > 0) || (retry_wait > 0) )
-        {
-          data->read_src_id =
-            g_timeout_add (retry_wait + 1,
-                           (GSourceFunc) evd_reproxy_redirect_data,
-                           from);
-        }
-      else
-        {
-          data->read_src_id = 0;
         }
     }
   else
@@ -469,7 +448,6 @@ evd_reproxy_socket_on_read (EvdSocketGroup *socket_group,
 {
   EvdReproxy *self = EVD_REPROXY (socket_group);
   EvdSocket *bridge;
-  EvdReproxySocketData *data;
 
   bridge = evd_reproxy_socket_get_bridge (socket);
   if (bridge == NULL)
@@ -502,8 +480,7 @@ evd_reproxy_socket_on_read (EvdSocketGroup *socket_group,
         }
     }
 
-  data = evd_reproxy_socket_get_data (socket);
-  if (data->read_src_id == 0)
+  if ( (bridge != NULL) && (evd_socket_can_write (bridge)) )
     evd_reproxy_redirect_data (socket);
 }
 
@@ -514,7 +491,7 @@ evd_reproxy_socket_on_write (EvdSocketGroup *socket_group,
   EvdSocket *bridge;
 
   bridge = evd_reproxy_socket_get_bridge (socket);
-  if (bridge != NULL)
+  if ( (bridge != NULL) && (evd_socket_can_read (bridge)) )
     evd_reproxy_redirect_data (bridge);
 }
 
@@ -591,8 +568,7 @@ evd_reproxy_new_bridge_available (EvdReproxy *self,
       evd_reproxy_bridge_sockets (self, client, bridge);
 
       data = evd_reproxy_socket_get_data (client);
-      if (data->read_src_id == 0)
-        evd_reproxy_redirect_data (client);
+      evd_reproxy_redirect_data (client);
 
       return TRUE;
     }
