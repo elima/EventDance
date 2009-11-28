@@ -290,7 +290,7 @@ evd_socket_class_init (EvdSocketClass *class)
                                    g_param_spec_boolean ("auto-write",
                                                          "Enables/disables auto-write support on socket",
                                                          "A socket with auto-write on, will automatically retry uncomplete data writes",
-                                                         TRUE,
+                                                         FALSE,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
@@ -327,7 +327,7 @@ evd_socket_init (EvdSocket *self)
 
   priv->status = EVD_SOCKET_CLOSED;
 
-  priv->auto_write   = TRUE;
+  priv->auto_write   = FALSE;
   priv->read_buffer  = g_string_new ("");
   priv->write_buffer = g_string_new ("");
   priv->auto_write_src_id = 0;
