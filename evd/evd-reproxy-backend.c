@@ -33,8 +33,8 @@ G_DEFINE_TYPE (EvdReproxyBackend, evd_reproxy_backend, G_TYPE_OBJECT)
                                               EVD_TYPE_REPROXY_BACKEND, \
                                               EvdReproxyBackendPrivate))
 
-#define DEFAULT_MIN_POOL_SIZE                    1
-#define DEFAULT_MAX_POOL_SIZE                    5
+#define DEFAULT_MIN_POOL_SIZE                    5
+#define DEFAULT_MAX_POOL_SIZE                   50
 #define DEFAULT_BRIDGE_IDLE_TIMEOUT  1000 * 60 * 1 /* in miliseconds, 5 minutes */
 
 #define BRIDGE_DATA_KEY "bridge-data"
