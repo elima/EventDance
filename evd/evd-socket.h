@@ -140,6 +140,9 @@ GMainContext *evd_socket_get_context      (EvdSocket *self);
 GSocketFamily evd_socket_get_family       (EvdSocket *self);
 EvdSocketState evd_socket_get_status      (EvdSocket *self);
 
+gint          evd_socket_get_priority     (EvdSocket *self);
+void          evd_socket_set_priority     (EvdSocket *self, gint priority);
+
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 
 gboolean      evd_socket_bind             (EvdSocket       *self,

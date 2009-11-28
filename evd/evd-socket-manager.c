@@ -30,9 +30,9 @@
 #include "evd-socket-manager.h"
 #include "evd-socket-protected.h"
 
-#define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to handle */
-#define DEFAULT_MIN_LATENCY    100000 /* nanoseconds between dispatch calls */
-#define DEFAULT_DISPATCH_LOT     TRUE /* whether events whall be dispatched by lot or not */
+#define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to poll */
+#define DEFAULT_MIN_LATENCY      1000 /* nanoseconds between dispatch calls */
+#define DEFAULT_DISPATCH_LOT    FALSE /* whether events whall be dispatched by lot or not */
 
 #define DOMAIN_QUARK_STRING "org.eventdance.socket.manager"
 
@@ -181,10 +181,13 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
     {
       EvdSocketEvent *msg;
       EvdSocket *socket;
+      gint priority;
 
       socket = (EvdSocket *) events[i].data.ptr;
       if (! EVD_IS_SOCKET (socket))
 	continue;
+
+      priority = evd_socket_get_actual_priority (socket);
 
       /* create the event message */
       msg = g_new0 (EvdSocketEvent, 1);
@@ -209,6 +212,7 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
 	{
 	  /* dispatch a single event */
 	  src = g_idle_source_new ();
+          g_source_set_priority (src, priority);
 	  g_source_set_callback (src,
 				 evd_socket_event_handler,
 				 (gpointer) msg,

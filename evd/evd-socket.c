@@ -72,6 +72,9 @@ struct _EvdSocketPrivate
   GString *write_buffer;
 
   GIOCondition cond;
+
+  gint actual_priority;
+  gint priority;
 };
 
 /* signals */
@@ -100,7 +103,8 @@ enum
   PROP_READ_CLOSURE,
   PROP_CONNECT_TIMEOUT,
   PROP_AUTO_WRITE,
-  PROP_GROUP
+  PROP_GROUP,
+  PROP_PRIORITY
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -287,6 +291,16 @@ evd_socket_class_init (EvdSocketClass *class)
 							 G_PARAM_READWRITE |
 							 G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_PRIORITY,
+                                   g_param_spec_int ("priority",
+                                                     "The priority of socket's events",
+                                                     "The priority of the socket when dispatching its events in the loop",
+                                                     G_PRIORITY_HIGH,
+                                                     G_PRIORITY_LOW,
+                                                     G_PRIORITY_DEFAULT,
+                                                     G_PARAM_READWRITE |
+                                                     G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
 }
@@ -310,8 +324,8 @@ evd_socket_init (EvdSocket *self)
 
   priv->status = EVD_SOCKET_CLOSED;
 
-  priv->auto_write = TRUE;
-  priv->read_buffer = g_string_new ("");
+  priv->auto_write   = TRUE;
+  priv->read_buffer  = g_string_new ("");
   priv->write_buffer = g_string_new ("");
   priv->auto_write_src_id = 0;
 
@@ -319,6 +333,9 @@ evd_socket_init (EvdSocket *self)
   /* TODO: check if we should 'ref' the context */
 
   priv->cond = 0;
+
+  priv->priority        = G_PRIORITY_DEFAULT;
+  priv->actual_priority = G_PRIORITY_DEFAULT;
 
   evd_socket_manager_ref ();
 }
@@ -448,6 +465,10 @@ evd_socket_set_property (GObject      *obj,
         }
       break;
 
+    case PROP_PRIORITY:
+      evd_socket_set_priority (self, g_value_get_uint (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -506,6 +527,10 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_AUTO_WRITE:
       g_value_set_boolean (value, self->priv->auto_write);
+      break;
+
+    case PROP_PRIORITY:
+      g_value_set_uint (value, self->priv->priority);
       break;
 
     default:
@@ -960,6 +985,9 @@ evd_socket_event_handler (gpointer data)
 		    {
 		      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
 
+                      /* restore priority */
+		      socket->priv->actual_priority = socket->priv->priority;
+
 		      /* remove any connect_timeout src */
 		      if (socket->priv->connect_timeout_src_id > 0)
 			g_source_remove (socket->priv->connect_timeout_src_id);
@@ -1024,6 +1052,18 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
     }
 }
 
+void
+evd_socket_set_actual_priority (EvdSocket *self, gint priority)
+{
+  self->priv->actual_priority = priority;
+}
+
+gint
+evd_socket_get_actual_priority (EvdSocket *self)
+{
+  return self->priv->actual_priority;
+}
+
 /* public methods */
 
 EvdSocket *
@@ -1070,6 +1110,26 @@ EvdSocketGroup *
 evd_socket_get_group (EvdSocket *self)
 {
   return self->priv->group;
+}
+
+gint
+evd_socket_get_priority (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), G_PRIORITY_DEFAULT);
+
+  return self->priv->priority;
+}
+
+void
+evd_socket_set_priority (EvdSocket *self, gint priority)
+{
+  g_return_if_fail (EVD_IS_SOCKET (self));
+  g_return_if_fail ( (priority <= G_PRIORITY_LOW) &&
+                     (priority >= G_PRIORITY_HIGH));
+
+  if (self->priv->actual_priority == self->priv->priority)
+    self->priv->actual_priority = priority;
+  self->priv->priority = priority;
 }
 
 gboolean
@@ -1148,7 +1208,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
     if (evd_socket_watch (self, error))
       {
 	self->priv->status = EVD_SOCKET_LISTENING;
-
+        self->priv->actual_priority = G_PRIORITY_HIGH + 1;
 	g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
 	return TRUE;
       }
@@ -1239,11 +1299,17 @@ evd_socket_connect_to (EvdSocket        *self,
       _error = NULL;
     }
 
-  evd_socket_set_status (self, EVD_SOCKET_CONNECTING);
-  if (evd_socket_watch (self, error))
-    return TRUE;
-
-  return FALSE;
+  if (! evd_socket_watch (self, error))
+    {
+      evd_socket_cleanup (self, NULL);
+      return FALSE;
+    }
+  else
+    {
+      self->priv->status = EVD_SOCKET_CONNECTING;
+      self->priv->actual_priority = G_PRIORITY_HIGH + 2;
+      return TRUE;
+    }
 }
 
 gboolean
@@ -1262,9 +1328,10 @@ evd_socket_cancel_connect (EvdSocket *self, GError **error)
     }
   else
     {
-      *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-			    EVD_SOCKET_ERROR_NOT_CONNECTING,
-			    "Socket is not connecting");
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_NOT_CONNECTING,
+                              "Socket is not connecting");
 
       return FALSE;
     }
