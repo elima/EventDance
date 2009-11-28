@@ -38,23 +38,25 @@
 #define SOCKET_BANDWIDTH_IN     0.0
 #define SOCKET_BANDWIDTH_OUT    0.0
 
-#define SOCKET_LATENCY_IN     000.0
-#define SOCKET_LATENCY_OUT    000.0
+#define SOCKET_LATENCY_IN       0.0
+#define SOCKET_LATENCY_OUT      0.0
 
 #define GROUP_BANDWIDTH_IN      0.0
 #define GROUP_BANDWIDTH_OUT     0.0
+
+#define GROUP_LATENCY_IN        0.0
+#define GROUP_LATENCY_OUT       0.0
 
 #define INET_PORT 5555
 
 
 GMainLoop      *main_loop_server;
 EvdInetSocket  *server;
-EvdSocketGroup *group;
+EvdSocketGroup *group_senders;
+EvdSocketGroup *group_receivers;
 
-static guint conns = 0;
 static gchar data[DATA_SIZE];
 static gsize total_read = 0;
-static gulong total_sent = 0;
 static guint clients_done = 0;
 static guint sockets_closed = 0;
 
@@ -63,73 +65,15 @@ static GMainLoop *main_loops[THREADS];
 G_LOCK_DEFINE_STATIC (sockets_closed);
 G_LOCK_DEFINE_STATIC (total_read);
 
-static guint
-timeout_add (guint timeout,
-	     GMainContext *context,
-	     GSourceFunc func,
-	     gpointer user_data)
-{
-  GSource *src;
-  guint src_id;
-
-  if (timeout == 0)
-    src = g_idle_source_new ();
-  else
-    src = g_timeout_source_new (timeout);
-
-  g_source_set_callback (src,
-			 func,
-			 user_data,
-			 NULL);
-  src_id = g_source_attach (src, context);
-  g_source_unref (src);
-
-  return src_id;
-}
-
-static gboolean
-client_send_data (gpointer user_data)
-{
-  gsize size;
-  EvdSocket *client = EVD_SOCKET (user_data);
-  GError *error = NULL;
-  guint retry_wait;
-
-  size = DATA_SIZE - evd_stream_get_total_written (EVD_STREAM (client));
-  if (size > BLOCK_SIZE)
-    size = BLOCK_SIZE;
-
-  if ( (size = evd_socket_write_buffer (client, data, DATA_SIZE /*size*/,
-					&retry_wait, &error)) < 0)
-    g_debug ("ERROR sending data: %s", error->message);
-  else
-    {
-      //      g_debug ("%d bytes sent from client socket 0x%X", size, (guintptr) client);
-      total_sent += size;
-
-      /*
-      if (evd_stream_get_total_written (EVD_STREAM (client)) < DATA_SIZE)
-	{
-	  timeout_add (retry_wait, g_main_context_get_thread_default (),
-		       (GSourceFunc) client_send_data,
-		       (gpointer) client);
-	}
-      */
-    }
-
-  return FALSE;
-}
-
 static void
 client_on_connect (EvdSocket *socket,
 		   GSocketAddress *addr,
 		   gpointer user_data)
 {
-  conns++;
-  //  g_debug ("client connected (%d)", conns);
   g_object_set (socket,
 		"bandwidth-in", SOCKET_BANDWIDTH_IN,
 		"latency-in", SOCKET_LATENCY_IN,
+                "auto_write", FALSE,
 		NULL);
 }
 
@@ -144,6 +88,7 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 {
   G_LOCK (sockets_closed);
   sockets_closed ++;
+  //  g_debug ("sockets closed: %d", sockets_closed);
   if (sockets_closed == THREADS * SOCKETS_PER_THREAD * 2)
     {
       gint i;
@@ -157,7 +102,9 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 
 	  g_main_loop_quit (main_loops[i]);
 	}
+
       g_main_loop_quit (main_loop_server);
+      g_main_context_wakeup (g_main_loop_get_context (main_loop_server));
     }
   G_UNLOCK (sockets_closed);
 
@@ -168,8 +115,6 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 static void
 server_on_new_connection (EvdSocket *self, EvdSocket *client, gpointer user_data)
 {
-  //  g_debug ("incoming connection on server socket (0x%X)", (guintptr) client);
-
   g_signal_connect (client, "close",
 		    G_CALLBACK (client_on_close),
 		    NULL);
@@ -177,29 +122,27 @@ server_on_new_connection (EvdSocket *self, EvdSocket *client, gpointer user_data
   g_object_set (client,
 		"bandwidth-out", SOCKET_BANDWIDTH_OUT,
 		"latency-out", SOCKET_LATENCY_OUT,
-		"group", group,
+		"group", group_senders,
+                "auto_write", FALSE,
 		NULL);
 
   g_object_ref_sink (client);
-
-  /* send data to client */
-  g_idle_add ((GSourceFunc) client_send_data,
-	      (gpointer) client);
 }
 
-static gboolean
-client_read_data (gpointer user_data)
+static void
+group_socket_on_read (EvdSocketGroup *self,
+                      EvdSocket      *socket,
+                      gpointer        user_data)
 {
-  EvdSocket *client = EVD_SOCKET (user_data);
   gssize size;
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
   guint retry_wait;
 
-  if (evd_socket_get_status (client) != EVD_SOCKET_CONNECTED)
-    return FALSE;
+  if (evd_socket_get_status (socket) != EVD_SOCKET_CONNECTED)
+    return;
 
-  if ( (size = evd_socket_read_buffer (client,
+  if ( (size = evd_socket_read_buffer (socket,
 				       buf,
 				       BLOCK_SIZE,
 				       &retry_wait,
@@ -215,40 +158,44 @@ client_read_data (gpointer user_data)
       g_print ("read %s/%s at %.2f KB/s       \r",
 	       g_format_size_for_display (total_read),
 	       g_format_size_for_display (TOTAL_DATA_SIZE),
-	       evd_stream_get_actual_bandwidth_in (EVD_STREAM (group)));
+	       evd_stream_get_actual_bandwidth_in (EVD_STREAM (group_receivers)));
 
       G_UNLOCK (total_read);
 
-      if (size > 1024 * 1024)
-	g_debug ("%d bytes read in socket 0x%X", size, (guintptr) client);
+      if (evd_stream_get_total_read (EVD_STREAM (socket)) == DATA_SIZE)
+        {
+          if (! evd_socket_close (socket, &error))
+            {
+              g_debug ("ERROR closing socket: %s", error->message);
+              g_error_free (error);
+            }
 
-      if (evd_stream_get_total_read (EVD_STREAM (client)) < DATA_SIZE)
-	{
-	  g_object_ref (client);
-	  timeout_add (retry_wait,
-		       g_main_context_get_thread_default (),
-		       (GSourceFunc) client_read_data,
-		       (gpointer) client);
-	}
-      else
-	{
-	  if (! evd_socket_close (client, &error))
-	    g_debug ("ERROR closing socket: %s", error->message);
-	}
+          g_object_unref (socket);
+        }
     }
-
-  g_object_unref (client);
-
-  return FALSE;
 }
 
 static void
-group_socket_on_read (EvdSocketGroup *self, EvdSocket *socket, gpointer user_data)
+group_socket_on_write (EvdSocketGroup *self,
+                       EvdSocket      *socket,
+                       gpointer        user_data)
 {
-  timeout_add (0,
-	       g_main_context_get_thread_default (),
-	       client_read_data,
-	       (gpointer) socket);
+  gulong total_sent;
+  GError *error = NULL;
+
+  total_sent = evd_stream_get_total_written (EVD_STREAM (socket));
+  if (total_sent < DATA_SIZE)
+    {
+      if (evd_socket_write_buffer (socket,
+                                   (gchar *) (((guintptr) data) + total_sent),
+                                   DATA_SIZE - total_sent,
+                                   NULL,
+                                   &error) < 0)
+        {
+          g_debug ("ERROR sending data: %s", error->message);
+          g_free (error);
+        }
+    }
 }
 
 static gpointer
@@ -277,7 +224,7 @@ thread_handler (gpointer user_data)
       client = evd_inet_socket_new ();
       g_object_set (client,
 		    "connect-timeout", 3000,
-		    "group", group,
+		    "group", group_receivers,
 		    NULL);
 
       g_signal_connect (client, "connect",
@@ -340,13 +287,24 @@ main (gint argc, gchar **argv)
 		    NULL);
 
   /* socket group */
-  group = evd_socket_group_new ();
-  evd_socket_group_set_read_handler (group,
+  group_senders = evd_socket_group_new ();
+  group_receivers = evd_socket_group_new ();
+  evd_socket_group_set_read_handler (group_receivers,
 		     (EvdSocketGroupReadHandler) group_socket_on_read,
 		     NULL);
-  g_object_set (group,
-		"bandwidth-in", GROUP_BANDWIDTH_IN,
+
+  evd_socket_group_set_write_handler (group_senders,
+                     (EvdSocketGroupReadHandler) group_socket_on_write,
+		     NULL);
+
+  g_object_set (group_senders,
 		"bandwidth-out", GROUP_BANDWIDTH_OUT,
+                "latency-out", GROUP_LATENCY_OUT,
+		NULL);
+
+  g_object_set (group_receivers,
+		"bandwidth-in", GROUP_BANDWIDTH_IN,
+                "latency-in", GROUP_LATENCY_IN,
 		NULL);
 
   /* fill data with random bytes */
@@ -358,9 +316,7 @@ main (gint argc, gchar **argv)
       g_print ("\nRUN #%d:\n", j+1);
 
       total_read = 0;
-      total_sent = 0;
       clients_done = 0;
-      conns = 0;
       sockets_closed = 0;
 
       /* create thread for each context */
@@ -380,7 +336,8 @@ main (gint argc, gchar **argv)
 
   /* free stuff */
   g_object_unref (server);
-  g_object_unref (group);
+  g_object_unref (group_senders);
+  g_object_unref (group_receivers);
 
   g_main_loop_unref (main_loop_server);
 
