@@ -60,7 +60,7 @@ typedef struct _EvdSocketEvent EvdSocketEvent;
  * Prototype for a callback to be executed when 'read' event is received on a socket.
  */
 typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
-				       gpointer   user_data);
+                                       gpointer   user_data);
 
 typedef void (* EvdSocketWriteHandler) (EvdSocket *socket,
                                         gpointer   user_data);
@@ -82,14 +82,14 @@ struct _EvdSocketClass
 
   /* signal prototypes */
   void (* error)           (EvdSocket *self,
-			    GError    *error);
+                            GError    *error);
   void (* close)           (EvdSocket *self);
   void (* connect)         (EvdSocket *self);
   void (* bind)            (EvdSocket      *self,
-			    GSocketAddress *address);
+                            GSocketAddress *address);
   void (* listen)          (EvdSocket *self);
   void (* new_connection)  (EvdSocket *self,
-			    EvdSocket *socket);
+                            EvdSocket *socket);
   void (* connect_timeout) (EvdSocket *self);
 };
 
@@ -146,9 +146,9 @@ void          evd_socket_set_priority     (EvdSocket *self, gint priority);
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 
 gboolean      evd_socket_bind             (EvdSocket       *self,
-					   GSocketAddress  *address,
-					   gboolean         allow_reuse,
-					   GError         **error);
+                                           GSocketAddress  *address,
+                                           gboolean         allow_reuse,
+                                           GError         **error);
 gboolean      evd_socket_listen           (EvdSocket *self, GError **error);
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 
@@ -168,13 +168,13 @@ EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
  * Rename to: connect_toto
  */
 gboolean      evd_socket_connect_to       (EvdSocket       *self,
-					   GSocketAddress  *address,
-					   GError         **error);
+                                           GSocketAddress  *address,
+                                           GError         **error);
 gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
 
 void          evd_socket_set_read_handler (EvdSocket            *self,
-					   EvdSocketReadHandler  handler,
-					   gpointer              user_data);
+                                           EvdSocketReadHandler  handler,
+                                           gpointer              user_data);
 
 void          evd_socket_set_write_handler (EvdSocket             *self,
                                             EvdSocketWriteHandler  handler,
@@ -197,10 +197,10 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
  * Return value: The actual number of bytes read.
  */
 gssize        evd_socket_read_buffer      (EvdSocket *self,
-					   gchar     *buffer,
-					   gsize      size,
-					   guint     *retry_wait,
-					   GError   **error);
+                                           gchar     *buffer,
+                                           gsize      size,
+                                           guint     *retry_wait,
+                                           GError   **error);
 
 /**
  * evd_socket_read:
@@ -216,9 +216,9 @@ gssize        evd_socket_read_buffer      (EvdSocket *self,
  * Return value: (transfer full): A null-terminated string containing the data read, or NULL on error.
  */
 gchar         *evd_socket_read            (EvdSocket *self,
-					   gsize     *size,
-					   guint     *retry_wait,
-					   GError   **error);
+                                           gsize     *size,
+                                           guint     *retry_wait,
+                                           GError   **error);
 
 /**
  * evd_socket_write_buffer:
@@ -241,10 +241,10 @@ gchar         *evd_socket_read            (EvdSocket *self,
  * Return value: The actual number of bytes written.
  */
 gssize        evd_socket_write_buffer     (EvdSocket    *self,
-					   const gchar  *buffer,
-					   gsize         size,
-					   guint        *retry_wait,
-					   GError      **error);
+                                           const gchar  *buffer,
+                                           gsize         size,
+                                           guint        *retry_wait,
+                                           GError      **error);
 
 /**
  * evd_socket_write:
@@ -262,9 +262,9 @@ gssize        evd_socket_write_buffer     (EvdSocket    *self,
  * Return value: The actual number of bytes written.
  */
 gssize        evd_socket_write            (EvdSocket    *self,
-					   const gchar  *buffer,
-					   guint        *retry_wait,
-					   GError      **error);
+                                           const gchar  *buffer,
+                                           guint        *retry_wait,
+                                           GError      **error);
 
 /**
  * evd_socket_unread_buffer:
@@ -287,8 +287,8 @@ gssize        evd_socket_write            (EvdSocket    *self,
  */
 
 gssize        evd_socket_unread_buffer    (EvdSocket   *self,
-					   const gchar *buffer,
-					   gsize        size);
+                                           const gchar *buffer,
+                                           gsize        size);
 
 /**
  * evd_socket_unread:
@@ -301,7 +301,7 @@ gssize        evd_socket_unread_buffer    (EvdSocket   *self,
  * Return value: The actual number of bytes unread.
  */
 gssize        evd_socket_unread           (EvdSocket   *self,
-					   const gchar *buffer);
+                                           const gchar *buffer);
 
 gboolean      evd_socket_has_write_data_pending (EvdSocket *self);
 

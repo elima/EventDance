@@ -43,7 +43,7 @@
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-	                             EVD_TYPE_SOCKET, \
+                                     EVD_TYPE_SOCKET, \
                                      EvdSocketPrivate))
 
 /* private data */
@@ -117,31 +117,31 @@ static void     evd_socket_finalize           (GObject *obj);
 static void     evd_socket_dispose            (GObject *obj);
 
 static void     evd_socket_set_property       (GObject      *obj,
-					       guint         prop_id,
-					       const GValue *value,
-					       GParamSpec   *pspec);
+                                               guint         prop_id,
+                                               const GValue *value,
+                                               GParamSpec   *pspec);
 static void     evd_socket_get_property       (GObject    *obj,
-					       guint       prop_id,
-					       GValue     *value,
-					       GParamSpec *pspec);
+                                               guint       prop_id,
+                                               GValue     *value,
+                                               GParamSpec *pspec);
 
 static gboolean evd_socket_watch              (EvdSocket  *self,
-					       GError    **error);
+                                               GError    **error);
 static gboolean evd_socket_unwatch            (EvdSocket  *self,
-					       GError    **error);
+                                               GError    **error);
 
 static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
 
 static guint    evd_socket_timeout_add        (EvdSocket   *self,
-					       guint        timeout,
-					       GSourceFunc  callback,
-					       gpointer     user_data);
+                                               guint        timeout,
+                                               GSourceFunc  callback,
+                                               gpointer     user_data);
 
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
-					       const gchar  *buf,
-					       gsize         size,
-					       guint        *retry_wait,
-					       GError      **error);
+                                               const gchar  *buf,
+                                               gsize         size,
+                                               guint        *retry_wait,
+                                               GError      **error);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
@@ -160,139 +160,139 @@ evd_socket_class_init (EvdSocketClass *class)
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
     g_signal_new ("error",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, error),
-		  NULL, NULL,
-		  evd_marshal_VOID__INT_STRING,
-		  G_TYPE_NONE, 2,
-		  G_TYPE_INT,
-		  G_TYPE_STRING);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, error),
+                  NULL, NULL,
+                  evd_marshal_VOID__INT_STRING,
+                  G_TYPE_NONE, 2,
+                  G_TYPE_INT,
+                  G_TYPE_STRING);
 
   evd_socket_signals[SIGNAL_CLOSE] =
     g_signal_new ("close",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, close),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__VOID,
-		  G_TYPE_NONE, 0);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, close),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   evd_socket_signals[SIGNAL_CONNECT] =
     g_signal_new ("connect",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, connect),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__VOID,
-		  G_TYPE_NONE, 0);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, connect),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   evd_socket_signals[SIGNAL_BIND] =
     g_signal_new ("bind",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, bind),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-		  G_TYPE_SOCKET_ADDRESS);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, bind),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+                  G_TYPE_NONE, 1,
+                  G_TYPE_SOCKET_ADDRESS);
 
   evd_socket_signals[SIGNAL_LISTEN] =
     g_signal_new ("listen",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, listen),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__VOID,
-		  G_TYPE_NONE, 0);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, listen),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   evd_socket_signals[SIGNAL_NEW_CONNECTION] =
     g_signal_new ("new-connection",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, new_connection),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__BOXED,
-		  G_TYPE_NONE, 1,
-		  EVD_TYPE_SOCKET);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, new_connection),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__BOXED,
+                  G_TYPE_NONE, 1,
+                  EVD_TYPE_SOCKET);
 
   evd_socket_signals[SIGNAL_CONNECT_TIMEOUT] =
     g_signal_new ("connect-timeout",
-		  G_TYPE_FROM_CLASS (obj_class),
-		  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		  G_STRUCT_OFFSET (EvdSocketClass, connect_timeout),
-		  NULL, NULL,
-		  g_cclosure_marshal_VOID__VOID,
-		  G_TYPE_NONE, 0);
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdSocketClass, connect_timeout),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_SOCKET,
                                    g_param_spec_object ("socket",
-						       "The actual GSocket",
-						       "The underlaying socket",
-						       G_TYPE_SOCKET,
-						       G_PARAM_READABLE |
-						       G_PARAM_STATIC_STRINGS));
+                                                       "The actual GSocket",
+                                                       "The underlaying socket",
+                                                       G_TYPE_SOCKET,
+                                                       G_PARAM_READABLE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_FAMILY,
-				   g_param_spec_enum ("family",
-						      "Socket family",
-						      "The sockets address family",
-						      G_TYPE_SOCKET_FAMILY,
-						      G_SOCKET_FAMILY_INVALID,
+                                   g_param_spec_enum ("family",
+                                                      "Socket family",
+                                                      "The sockets address family",
+                                                      G_TYPE_SOCKET_FAMILY,
+                                                      G_SOCKET_FAMILY_INVALID,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_TYPE,
-				   g_param_spec_enum ("type",
-						      "Socket type",
-						      "The sockets type",
-						      G_TYPE_SOCKET_TYPE,
-						      G_SOCKET_TYPE_INVALID,
+                                   g_param_spec_enum ("type",
+                                                      "Socket type",
+                                                      "The sockets type",
+                                                      G_TYPE_SOCKET_TYPE,
+                                                      G_SOCKET_TYPE_INVALID,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_PROTOCOL,
-				   g_param_spec_enum ("protocol",
-						      "Socket protocol",
-						      "The id of the protocol to use, or -1 for unknown",
-						      G_TYPE_SOCKET_PROTOCOL,
-						      G_SOCKET_PROTOCOL_UNKNOWN,
+                                   g_param_spec_enum ("protocol",
+                                                      "Socket protocol",
+                                                      "The id of the protocol to use, or -1 for unknown",
+                                                      G_TYPE_SOCKET_PROTOCOL,
+                                                      G_SOCKET_PROTOCOL_UNKNOWN,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
                                    g_param_spec_boxed ("read-handler",
-						       "Read closure",
-						       "The callback closure that will be invoked when data is ready to be read",
-						       G_TYPE_CLOSURE,
-						       G_PARAM_READWRITE));
+                                                       "Read closure",
+                                                       "The callback closure that will be invoked when data is ready to be read",
+                                                       G_TYPE_CLOSURE,
+                                                       G_PARAM_READWRITE));
 
   g_object_class_install_property (obj_class, PROP_CONNECT_TIMEOUT,
                                    g_param_spec_uint ("connect-timeout",
-						      "Connect timeout",
-						      "The timeout in seconds to wait for a connect operation",
-						      0,
-						      G_MAXUINT,
-						      DEFAULT_CONNECT_TIMEOUT,
-						      G_PARAM_READWRITE |
-						      G_PARAM_STATIC_STRINGS));
+                                                      "Connect timeout",
+                                                      "The timeout in seconds to wait for a connect operation",
+                                                      0,
+                                                      G_MAXUINT,
+                                                      DEFAULT_CONNECT_TIMEOUT,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_GROUP,
                                    g_param_spec_object ("group",
-							"Socket group",
-							"The socket group owning this socket",
-							EVD_TYPE_SOCKET_GROUP,
-							G_PARAM_READWRITE |
-							G_PARAM_STATIC_STRINGS));
+                                                        "Socket group",
+                                                        "The socket group owning this socket",
+                                                        EVD_TYPE_SOCKET_GROUP,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_AUTO_WRITE,
                                    g_param_spec_boolean ("auto-write",
-							 "Enables/disables auto-write support on socket",
-							 "A socket with auto-write on, will automatically retry uncomplete data writes",
-							 TRUE,
-							 G_PARAM_READWRITE |
-							 G_PARAM_STATIC_STRINGS));
+                                                         "Enables/disables auto-write support on socket",
+                                                         "A socket with auto-write on, will automatically retry uncomplete data writes",
+                                                         TRUE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_PRIORITY,
                                    g_param_spec_int ("priority",
@@ -398,11 +398,11 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
   if (self->priv->socket != NULL)
     {
       if (! g_socket_is_closed (self->priv->socket))
-	{
-	  if ( (! evd_socket_unwatch (self, error)) ||
-	       (! g_socket_close (self->priv->socket, error)) )
-	    result = FALSE;
-	}
+        {
+          if ( (! evd_socket_unwatch (self, error)) ||
+               (! g_socket_close (self->priv->socket, error)) )
+            result = FALSE;
+        }
 
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
@@ -437,9 +437,9 @@ evd_socket_finalize (GObject *obj)
 
 static void
 evd_socket_set_property (GObject      *obj,
-			 guint         prop_id,
-			 const GValue *value,
-			 GParamSpec   *pspec)
+                         guint         prop_id,
+                         const GValue *value,
+                         GParamSpec   *pspec)
 {
   EvdSocket *self;
 
@@ -501,9 +501,9 @@ evd_socket_set_property (GObject      *obj,
 
 static void
 evd_socket_get_property (GObject    *obj,
-			 guint       prop_id,
-			 GValue     *value,
-			 GParamSpec *pspec)
+                         guint       prop_id,
+                         GValue     *value,
+                         GParamSpec *pspec)
 {
   EvdSocket *self;
 
@@ -517,28 +517,28 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_FAMILY:
       if (self->priv->socket != NULL)
-	g_value_set_enum (value, g_socket_get_family (self->priv->socket));
+        g_value_set_enum (value, g_socket_get_family (self->priv->socket));
       else
-	g_value_set_enum (value, self->priv->family);
+        g_value_set_enum (value, self->priv->family);
       break;
 
     case PROP_TYPE:
       if (self->priv->socket != NULL)
-	{
-	  GSocketType type;
-	  g_object_get (self->priv->socket, "type", &type, NULL);
-	  g_value_set_enum (value, type);
-	}
+        {
+          GSocketType type;
+          g_object_get (self->priv->socket, "type", &type, NULL);
+          g_value_set_enum (value, type);
+        }
       else
-	g_value_set_enum (value, self->priv->type);
+        g_value_set_enum (value, self->priv->type);
 
       break;
 
     case PROP_PROTOCOL:
       if (self->priv->socket != NULL)
-	g_value_set_enum (value, g_socket_get_protocol (self->priv->socket));
+        g_value_set_enum (value, g_socket_get_protocol (self->priv->socket));
       else
-	g_value_set_enum (value, self->priv->protocol);
+        g_value_set_enum (value, self->priv->protocol);
       break;
 
     case PROP_CONNECT_TIMEOUT:
@@ -570,14 +570,14 @@ evd_socket_set_socket (EvdSocket *self, GSocket *socket)
   g_object_ref (socket);
 
   g_object_set (socket,
-		"blocking", FALSE,
-		"keepalive", TRUE,
-		NULL);
+                "blocking", FALSE,
+                "keepalive", TRUE,
+                NULL);
 }
 
 static gboolean
 evd_socket_check (EvdSocket  *self,
-		  GError    **error)
+                  GError    **error)
 {
   GSocket *socket;
 
@@ -585,9 +585,9 @@ evd_socket_check (EvdSocket  *self,
     return TRUE;
 
   socket = g_socket_new (self->priv->family,
-			 self->priv->type,
-			 self->priv->protocol,
-			 error);
+                         self->priv->type,
+                         self->priv->protocol,
+                         error);
 
   if (socket != NULL)
     {
@@ -654,16 +654,16 @@ evd_socket_invoke_on_write (EvdSocket *self)
 
 static void
 evd_socket_figureout_from_address (EvdSocket *self,
-				   GSocketAddress *address)
+                                   GSocketAddress *address)
 {
   self->priv->family = g_socket_address_get_family (address);
 
   if (self->priv->type == G_SOCKET_TYPE_INVALID)
     {
       if (self->priv->protocol == G_SOCKET_PROTOCOL_UDP)
-	self->priv->type = G_SOCKET_TYPE_DATAGRAM;
+        self->priv->type = G_SOCKET_TYPE_DATAGRAM;
       else
-	self->priv->type = G_SOCKET_TYPE_STREAM;
+        self->priv->type = G_SOCKET_TYPE_STREAM;
     }
 
   if (self->priv->protocol == G_SOCKET_PROTOCOL_UNKNOWN)
@@ -698,8 +698,8 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
   if (self->priv->socket == NULL)
     {
       *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-			    EVD_SOCKET_ERROR_NOT_CONNECTED,
-			    "Socket is not connected");
+                            EVD_SOCKET_ERROR_NOT_CONNECTED,
+                            "Socket is not connected");
 
       return FALSE;
     }
@@ -725,15 +725,15 @@ evd_socket_remove_from_event_cache (EvdSocket *socket)
       msg = g_queue_peek_nth (queue, i);
 
       if (msg->socket == socket)
-	{
-	  EvdSocketEvent *event = (EvdSocketEvent *) msg;
+        {
+          EvdSocketEvent *event = (EvdSocketEvent *) msg;
 
-	  g_queue_remove (queue, (gconstpointer) msg);
-	  g_object_unref (event->socket);
-	  g_free (event);
-	}
+          g_queue_remove (queue, (gconstpointer) msg);
+          g_object_unref (event->socket);
+          g_free (event);
+        }
       else
-	i++;
+        i++;
     }
 }
 
@@ -748,10 +748,10 @@ evd_socket_write_buffered (EvdSocket *self)
   size = MIN (self->priv->write_buffer->len, MAX_BLOCK_SIZE);
 
   if ( (actual_size = evd_socket_write_internal (self,
-						 self->priv->write_buffer->str,
-						 size,
-						 &retry_wait,
-						 &error)) < 0)
+                                                 self->priv->write_buffer->str,
+                                                 size,
+                                                 &retry_wait,
+                                                 &error)) < 0)
     {
       /* emit 'error' signal */
       evd_socket_throw_error (self, error);
@@ -774,9 +774,9 @@ evd_socket_write_buffered (EvdSocket *self)
 
 static gssize
 evd_socket_read_internal (EvdSocket *self,
-			  gchar     *buffer,
-			  gsize      size,
-			  GError   **error)
+                          gchar     *buffer,
+                          gsize      size,
+                          GError   **error)
 {
   GError *_error = NULL;
   gssize read_from_buf = 0;
@@ -796,23 +796,23 @@ evd_socket_read_internal (EvdSocket *self,
     {
       buf = (gchar *) ( ((guintptr) buffer) + read_from_buf);
       if ( (read_from_socket = g_socket_receive (self->priv->socket,
-						 buf,
-						 size,
-						 NULL,
-						 &_error)) < 0)
-	{
-	  if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
-	    {
-	      g_error_free (_error);
-	      read_from_socket = 0;
-	    }
-	  else
-	    {
-	      if (error != NULL)
-		*error = _error;
-	      return -1;
-	    }
-	}
+                                                 buf,
+                                                 size,
+                                                 NULL,
+                                                 &_error)) < 0)
+        {
+          if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
+            {
+              g_error_free (_error);
+              read_from_socket = 0;
+            }
+          else
+            {
+              if (error != NULL)
+                *error = _error;
+              return -1;
+            }
+        }
       else
         {
           if ( (read_from_socket > 0) && (read_from_socket < size) )
@@ -841,10 +841,10 @@ evd_socket_write_wait_timeout (gpointer user_data)
 
 static gssize
 evd_socket_write_internal (EvdSocket    *self,
-			   const gchar  *buf,
-			   gsize         size,
-			   guint        *retry_wait,
-			   GError      **error)
+                           const gchar  *buf,
+                           gsize         size,
+                           guint        *retry_wait,
+                           GError      **error)
 {
   gssize actual_size = 0;
   gsize limited_size;
@@ -912,9 +912,9 @@ evd_socket_write_internal (EvdSocket    *self,
 
 static guint
 evd_socket_timeout_add (EvdSocket   *self,
-			guint        timeout,
-			GSourceFunc  callback,
-			gpointer     user_data)
+                        guint        timeout,
+                        GSourceFunc  callback,
+                        gpointer     user_data)
 {
   guint src_id;
   GSource *src;
@@ -925,9 +925,9 @@ evd_socket_timeout_add (EvdSocket   *self,
     src = g_timeout_source_new (timeout);
 
   g_source_set_callback (src,
-			 callback,
-			 user_data,
-			 NULL);
+                         callback,
+                         user_data,
+                         NULL);
   src_id = g_source_attach (src, self->priv->context);
   g_source_unref (src);
 
@@ -957,11 +957,11 @@ void
 evd_socket_throw_error (EvdSocket *self, GError *error)
 {
   g_signal_emit (self,
-		 evd_socket_signals[SIGNAL_ERROR],
-		 0,
-		 error->code,
-		 error->message,
-		 NULL);
+                 evd_socket_signals[SIGNAL_ERROR],
+                 0,
+                 error->code,
+                 error->message,
+                 NULL);
 }
 
 gboolean
@@ -992,22 +992,22 @@ evd_socket_event_handler (gpointer data)
   else
     {
       if (socket->priv->status == EVD_SOCKET_LISTENING)
-	{
-	  EvdSocket *client;
+        {
+          EvdSocket *client;
 
-	  while ( (socket->priv->status == EVD_SOCKET_LISTENING) &&
+          while ( (socket->priv->status == EVD_SOCKET_LISTENING) &&
                   ((client = evd_socket_accept (socket, &error)) != NULL) )
-	    {
-	      /* TODO: allow external function to decide whether to
-		 accept/refuse the new connection */
+            {
+              /* TODO: allow external function to decide whether to
+                 accept/refuse the new connection */
 
-	      /* fire 'new-connection' signal */
-	      g_signal_emit (socket,
-			     evd_socket_signals[SIGNAL_NEW_CONNECTION],
-			     0,
-			     client, NULL);
-	      g_object_unref (client);
-	    }
+              /* fire 'new-connection' signal */
+              g_signal_emit (socket,
+                             evd_socket_signals[SIGNAL_NEW_CONNECTION],
+                             0,
+                             client, NULL);
+              g_object_unref (client);
+            }
 
           if (error != NULL)
             {
@@ -1027,53 +1027,53 @@ evd_socket_event_handler (gpointer data)
               if (error != NULL)
                 g_error_free (error);
             }
-	}
+        }
       else
-	{
-	  if (condition & G_IO_ERR)
-	    {
-	      /* socket error, emit 'error' signal */
-	      error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-				   EVD_SOCKET_ERROR_UNKNOWN,
-				   "Socket error");
+        {
+          if (condition & G_IO_ERR)
+            {
+              /* socket error, emit 'error' signal */
+              error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+                                   EVD_SOCKET_ERROR_UNKNOWN,
+                                   "Socket error");
 
-	      evd_socket_throw_error (socket, error);
+              evd_socket_throw_error (socket, error);
               evd_socket_close (socket, &error);
-	    }
-	  else if (condition & G_IO_HUP)
-	    {
-	      evd_socket_close (socket, &error);
-	    }
-	  else if (socket->priv->status != EVD_SOCKET_CLOSED)
-	    {
-	      if (condition & G_IO_OUT)
-		{
-		  if (socket->priv->status == EVD_SOCKET_CONNECTING)
-		    {
-		      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
+            }
+          else if (condition & G_IO_HUP)
+            {
+              evd_socket_close (socket, &error);
+            }
+          else if (socket->priv->status != EVD_SOCKET_CLOSED)
+            {
+              if (condition & G_IO_OUT)
+                {
+                  if (socket->priv->status == EVD_SOCKET_CONNECTING)
+                    {
+                      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
 
                       /* restore priority */
-		      socket->priv->actual_priority = socket->priv->priority;
+                      socket->priv->actual_priority = socket->priv->priority;
 
-		      /* remove any connect_timeout src */
-		      if (socket->priv->connect_timeout_src_id > 0)
-			g_source_remove (socket->priv->connect_timeout_src_id);
+                      /* remove any connect_timeout src */
+                      if (socket->priv->connect_timeout_src_id > 0)
+                        g_source_remove (socket->priv->connect_timeout_src_id);
 
-		      /* emit 'connected' signal */
-		      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
-		    }
+                      /* emit 'connected' signal */
+                      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
+                    }
 
                   socket->priv->cond |= G_IO_OUT;
                   evd_socket_invoke_on_write (socket);
-		}
+                }
 
-	      if (condition & G_IO_IN)
-		{
+              if (condition & G_IO_IN)
+                {
                   socket->priv->cond |= G_IO_IN;
-		  evd_socket_invoke_on_read (socket);
-		}
-	    }
-	}
+                  evd_socket_invoke_on_read (socket);
+                }
+            }
+        }
     }
 
   if (! dont_free)
@@ -1226,9 +1226,9 @@ evd_socket_close (EvdSocket *self, GError **error)
 
 gboolean
 evd_socket_bind (EvdSocket       *self,
-		 GSocketAddress  *address,
-		 gboolean         allow_reuse,
-		 GError         **error)
+                 GSocketAddress  *address,
+                 gboolean         allow_reuse,
+                 GError         **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
@@ -1239,9 +1239,9 @@ evd_socket_bind (EvdSocket       *self,
     return FALSE;
 
   if (g_socket_bind (self->priv->socket,
-		     address,
-		     allow_reuse,
-		     error))
+                     address,
+                     allow_reuse,
+                     error))
     {
       evd_socket_set_status (self, EVD_SOCKET_BOUND);
 
@@ -1264,8 +1264,8 @@ evd_socket_listen (EvdSocket *self, GError **error)
   if (self->priv->status != EVD_SOCKET_BOUND)
     {
       *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-			    EVD_SOCKET_ERROR_NOT_BOUND,
-			    "Socket is not bound to an address");
+                            EVD_SOCKET_ERROR_NOT_BOUND,
+                            "Socket is not bound to an address");
 
       return FALSE;
     }
@@ -1274,10 +1274,10 @@ evd_socket_listen (EvdSocket *self, GError **error)
   if (g_socket_listen (self->priv->socket, error))
     if (evd_socket_watch (self, error))
       {
-	self->priv->status = EVD_SOCKET_LISTENING;
+        self->priv->status = EVD_SOCKET_LISTENING;
         self->priv->actual_priority = G_PRIORITY_HIGH + 1;
-	g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
-	return TRUE;
+        g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
+        return TRUE;
       }
 
   return FALSE;
@@ -1297,10 +1297,10 @@ evd_socket_accept (EvdSocket *self, GError **error)
       evd_socket_set_socket (client, client_socket);
 
       if (evd_socket_watch (client, error))
-	{
-	  evd_socket_set_status (client, EVD_SOCKET_CONNECTED);
-	  return client;
-	}
+        {
+          evd_socket_set_status (client, EVD_SOCKET_CONNECTED);
+          return client;
+        }
     }
 
   return NULL;
@@ -1308,8 +1308,8 @@ evd_socket_accept (EvdSocket *self, GError **error)
 
 gboolean
 evd_socket_connect_to (EvdSocket        *self,
-		       GSocketAddress   *address,
-		       GError          **error)
+                       GSocketAddress   *address,
+                       GError          **error)
 {
   GError *_error = NULL;
 
@@ -1331,31 +1331,31 @@ evd_socket_connect_to (EvdSocket        *self,
   if (self->priv->connect_timeout > 0)
     self->priv->connect_timeout_src_id =
       g_timeout_add (self->priv->connect_timeout * 1000,
-		     (GSourceFunc) evd_socket_connect_timeout,
-		     (gpointer) self);
+                     (GSourceFunc) evd_socket_connect_timeout,
+                     (gpointer) self);
 
   if (self->priv->connect_cancellable == NULL)
     self->priv->connect_cancellable = g_cancellable_new ();
 
   if (! g_socket_connect (self->priv->socket,
-			  address,
-			  self->priv->connect_cancellable,
-			  &_error))
+                          address,
+                          self->priv->connect_cancellable,
+                          &_error))
     {
       /* an error ocurred, but error-pending
-	 is normal as on async ops */
+         is normal as on async ops */
       if ((_error)->code != G_IO_ERROR_PENDING)
-	{
-	  if (error != NULL)
-	    *error = _error;
+        {
+          if (error != NULL)
+            *error = _error;
 
-	  return FALSE;
-	}
+          return FALSE;
+        }
       else
-	{
-	  g_error_free (_error);
-	  _error = NULL;
-	}
+        {
+          g_error_free (_error);
+          _error = NULL;
+        }
     }
 
   /* g_socket_connect returns TRUE on a non-blocking socket, however
@@ -1387,7 +1387,7 @@ evd_socket_cancel_connect (EvdSocket *self, GError **error)
   if (self->priv->status == EVD_SOCKET_CONNECTING)
     {
       if (self->priv->connect_timeout_src_id > 0)
-	g_source_remove (self->priv->connect_timeout_src_id);
+        g_source_remove (self->priv->connect_timeout_src_id);
 
       g_cancellable_cancel (self->priv->connect_cancellable);
 
@@ -1406,8 +1406,8 @@ evd_socket_cancel_connect (EvdSocket *self, GError **error)
 
 void
 evd_socket_set_read_handler (EvdSocket            *self,
-			     EvdSocketReadHandler  handler,
-			     gpointer              user_data)
+                             EvdSocketReadHandler  handler,
+                             gpointer              user_data)
 {
   GClosure *closure;
 
@@ -1420,8 +1420,8 @@ evd_socket_set_read_handler (EvdSocket            *self,
     }
 
   closure = g_cclosure_new (G_CALLBACK (handler),
-			    user_data,
-			    NULL);
+                            user_data,
+                            NULL);
 
   if (G_CLOSURE_NEEDS_MARSHAL (closure))
     {
@@ -1451,8 +1451,8 @@ evd_socket_set_write_handler (EvdSocket             *self,
     }
 
   closure = g_cclosure_new (G_CALLBACK (handler),
-			    user_data,
-			    NULL);
+                            user_data,
+                            NULL);
 
   if (G_CLOSURE_NEEDS_MARSHAL (closure))
     {
@@ -1468,10 +1468,10 @@ evd_socket_set_write_handler (EvdSocket             *self,
 
 gssize
 evd_socket_read_buffer (EvdSocket *self,
-			gchar     *buffer,
-			gsize      size,
-			guint     *retry_wait,
-			GError   **error)
+                        gchar     *buffer,
+                        gsize      size,
+                        guint     *retry_wait,
+                        GError   **error)
 {
   gssize actual_size = -1;
   gsize limited_size;
@@ -1511,16 +1511,16 @@ evd_socket_read_buffer (EvdSocket *self,
     }
 
   if ( (actual_size = evd_socket_read_internal (self,
-						buffer,
-						limited_size,
-						error)) > 0)
+                                                buffer,
+                                                limited_size,
+                                                error)) > 0)
     {
       if (self->priv->group != NULL)
-	evd_stream_report_read (EVD_STREAM (self->priv->group),
-				(gsize) actual_size);
+        evd_stream_report_read (EVD_STREAM (self->priv->group),
+                                (gsize) actual_size);
 
       evd_stream_report_read (EVD_STREAM (self),
-			      (gsize) actual_size);
+                              (gsize) actual_size);
 
       /* check if we should keep reading after retry_wait miliseconds */
       if ( (self->priv->read_src_id == 0) && (actual_size == limited_size) )
@@ -1538,9 +1538,9 @@ evd_socket_read_buffer (EvdSocket *self,
 
 gchar *
 evd_socket_read (EvdSocket *self,
-		 gsize     *size,
-		 guint     *retry_wait,
-		 GError   **error)
+                 gsize     *size,
+                 guint     *retry_wait,
+                 GError   **error)
 {
   gchar *buf;
 
@@ -1551,10 +1551,10 @@ evd_socket_read (EvdSocket *self,
   buf[0] = 0;
 
   if ( (*size = evd_socket_read_buffer (self,
-					buf,
-					*size,
-					retry_wait,
-					error)) > 0)
+                                        buf,
+                                        *size,
+                                        retry_wait,
+                                        error)) > 0)
     return buf;
   else
     g_free (buf);
@@ -1564,10 +1564,10 @@ evd_socket_read (EvdSocket *self,
 
 gssize
 evd_socket_write_buffer (EvdSocket    *self,
-			 const gchar  *buf,
-			 gsize         size,
-			 guint        *retry_wait,
-			 GError      **error)
+                         const gchar  *buf,
+                         gsize         size,
+                         guint        *retry_wait,
+                         GError      **error)
 {
   gsize orig_size = size;
   gsize actual_size;
@@ -1584,31 +1584,31 @@ evd_socket_write_buffer (EvdSocket    *self,
   if (self->priv->write_buffer->len > 0)
     {
       g_string_append_len (self->priv->write_buffer,
-			   buf,
-			   size);
+                           buf,
+                           size);
 
       actual_size = 0;
     }
   else
     {
       actual_size = evd_socket_write_internal (self,
-					       buf,
-					       size,
-					       &_retry_wait,
-					       error);
+                                               buf,
+                                               size,
+                                               &_retry_wait,
+                                               error);
 
       if ( (self->priv->auto_write) &&
-	   (actual_size < orig_size) && (actual_size >= 0) )
-	{
-	  g_string_append_len (self->priv->write_buffer,
-			       (gchar *) (((guintptr) buf) + (actual_size)),
-			       orig_size - actual_size);
+           (actual_size < orig_size) && (actual_size >= 0) )
+        {
+          g_string_append_len (self->priv->write_buffer,
+                               (gchar *) (((guintptr) buf) + (actual_size)),
+                               orig_size - actual_size);
 
-	  evd_socket_timeout_add (self,
-				  _retry_wait,
-				  (GSourceFunc) evd_socket_write_buffered,
-				  self);
-	}
+          evd_socket_timeout_add (self,
+                                  _retry_wait,
+                                  (GSourceFunc) evd_socket_write_buffered,
+                                  self);
+        }
     }
 
   if (retry_wait != NULL)
@@ -1619,9 +1619,9 @@ evd_socket_write_buffer (EvdSocket    *self,
 
 gssize
 evd_socket_write (EvdSocket    *self,
-		  const gchar  *buf,
-		  guint        *retry_wait,
-		  GError      **error)
+                  const gchar  *buf,
+                  guint        *retry_wait,
+                  GError      **error)
 {
   gsize size;
 
@@ -1642,7 +1642,7 @@ evd_socket_unread_buffer (EvdSocket   *self,
   g_return_val_if_fail (size > 0, -1);
 
   actual_size = MAX (MAX_READ_BUFFER_SIZE - self->priv->read_buffer->len,
-		     size);
+                     size);
 
   if (actual_size > 0)
     {
