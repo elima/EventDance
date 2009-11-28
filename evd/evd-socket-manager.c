@@ -39,7 +39,7 @@
 G_DEFINE_TYPE (EvdSocketManager, evd_socket_manager, G_TYPE_OBJECT)
 
 #define EVD_SOCKET_MANAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-		                             EVD_TYPE_SOCKET_MANAGER, \
+                                             EVD_TYPE_SOCKET_MANAGER, \
                                              EvdSocketManagerPrivate))
 
 /* private data */
@@ -120,7 +120,7 @@ evd_socket_manager_finalize (GObject *obj)
 {
   evd_socket_manager_singleton = NULL;
 
-  //  g_debug ("Socket manager finalized!");
+  //  g_debug ("[EvdSocketManager 0x%X] Socket manager finalized", (guintptr) obj);
 
   G_OBJECT_CLASS (evd_socket_manager_parent_class)->finalize (obj);
 }
@@ -185,7 +185,7 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
 
       socket = (EvdSocket *) events[i].data.ptr;
       if (! EVD_IS_SOCKET (socket))
-	continue;
+        continue;
 
       priority = evd_socket_get_actual_priority (socket);
 
@@ -193,46 +193,46 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       msg = g_new0 (EvdSocketEvent, 1);
       msg->socket = socket;
       if (events[i].events & EPOLLIN)
-	msg->condition |= G_IO_IN;
+        msg->condition |= G_IO_IN;
       if (events[i].events & EPOLLOUT)
-	msg->condition |= G_IO_OUT;
+        msg->condition |= G_IO_OUT;
       if (events[i].events & EPOLLRDHUP)
-	msg->condition |= G_IO_HUP;
+        msg->condition |= G_IO_HUP;
       if (events[i].events & EPOLLHUP)
-	msg->condition |= G_IO_HUP;
+        msg->condition |= G_IO_HUP;
       if (events[i].events & EPOLLERR)
-	msg->condition |= G_IO_ERR;
+        msg->condition |= G_IO_ERR;
 
       /* obtain the context for this event */
       context = evd_socket_get_context (socket);
       if (context == NULL)
-	context = g_main_context_default ();
+        context = g_main_context_default ();
 
       if (! self->priv->dispatch_lot)
-	{
-	  /* dispatch a single event */
-	  src = g_idle_source_new ();
+        {
+          /* dispatch a single event */
+          src = g_idle_source_new ();
           g_source_set_priority (src, priority);
-	  g_source_set_callback (src,
-				 evd_socket_event_handler,
-				 (gpointer) msg,
-				 NULL);
-	  g_source_attach (src, context);
-	  g_source_unref (src);
-	}
+          g_source_set_callback (src,
+                                 evd_socket_event_handler,
+                                 (gpointer) msg,
+                                 NULL);
+          g_source_attach (src, context);
+          g_source_unref (src);
+        }
       else
-	{
-	  /* group events by context */
-	  queue = g_hash_table_lookup (contexts, context);
-	  if (queue == NULL)
-	    {
-	      queue = g_queue_new ();
-	      g_hash_table_insert (contexts,
-				   (gpointer) context,
-				   (gpointer) queue);
-	    }
-	  g_queue_push_tail (queue, (gpointer) msg);
-	}
+        {
+          /* group events by context */
+          queue = g_hash_table_lookup (contexts, context);
+          if (queue == NULL)
+            {
+              queue = g_queue_new ();
+              g_hash_table_insert (contexts,
+                                   (gpointer) context,
+                                   (gpointer) queue);
+            }
+          g_queue_push_tail (queue, (gpointer) msg);
+        }
     }
 
   if (self->priv->dispatch_lot)
@@ -240,17 +240,17 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       /* dispatch the lot of events to each context */
       g_hash_table_iter_init (&iter, contexts);
       while (g_hash_table_iter_next (&iter,
-				     (gpointer *) &context,
-				     (gpointer *) &queue))
-	{
-	  src = g_idle_source_new ();
-	  g_source_set_callback (src,
-				 evd_socket_event_list_handler,
-				 (gpointer) queue,
-				 NULL);
-	  g_source_attach (src, context);
-	  g_source_unref (src);
-	}
+                                     (gpointer *) &context,
+                                     (gpointer *) &queue))
+        {
+          src = g_idle_source_new ();
+          g_source_set_callback (src,
+                                 evd_socket_event_list_handler,
+                                 (gpointer) queue,
+                                 NULL);
+          g_source_attach (src, context);
+          g_source_unref (src);
+        }
       g_hash_table_unref (contexts);
     }
 }
@@ -283,7 +283,7 @@ evd_socket_manager_thread_loop (gpointer data)
 
 static void
 evd_socket_manager_start (EvdSocketManager  *self,
-			  GError           **error)
+                          GError           **error)
 {
   self->priv->started = TRUE;
   self->priv->ref_count = 0;
@@ -294,9 +294,9 @@ evd_socket_manager_start (EvdSocketManager  *self,
     g_thread_init (NULL);
 
   self->priv->thread = g_thread_create (evd_socket_manager_thread_loop,
-					(gpointer) self,
-					TRUE,
-					error);
+                                        (gpointer) self,
+                                        TRUE,
+                                        error);
 }
 
 static EvdSocketManager *
@@ -376,14 +376,14 @@ evd_socket_manager_unref (void)
       self->priv->ref_count--;
 
       if (self->priv->ref_count < 0)
-	{
+        {
           if (self->priv->started)
             evd_socket_manager_stop (self);
 
-	  g_object_unref (self);
+          g_object_unref (self);
 
           evd_socket_manager_singleton = NULL;
-	}
+        }
     }
 
   G_UNLOCK (ref_count);
@@ -391,7 +391,7 @@ evd_socket_manager_unref (void)
 
 gboolean
 evd_socket_manager_add_socket (EvdSocket  *socket,
-			       GError    **error)
+                               GError    **error)
 {
   EvdSocketManager *self;
   gint fd;
@@ -425,7 +425,7 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
 
 gboolean
 evd_socket_manager_del_socket (EvdSocket  *socket,
-			       GError    **error)
+                               GError    **error)
 {
   EvdSocketManager *self;
   gboolean result = TRUE;

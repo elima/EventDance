@@ -68,9 +68,9 @@ void              evd_socket_manager_ref          (void);
 void              evd_socket_manager_unref        (void);
 
 gboolean          evd_socket_manager_add_socket   (EvdSocket  *socket,
-						   GError    **error);
+                                                   GError    **error);
 gboolean          evd_socket_manager_del_socket   (EvdSocket  *socket,
-						   GError    **error);
+                                                   GError    **error);
 
 G_END_DECLS
 
