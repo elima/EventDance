@@ -66,7 +66,10 @@ struct _EvdSocketPrivate
   EvdSocketGroup *group;
 
   gboolean auto_write;
-  gboolean auto_write_src_id;
+  gint     auto_write_src_id;
+
+  gint read_src_id;
+  gint write_src_id;
 
   GString *read_buffer;
   GString *write_buffer;
@@ -332,6 +335,9 @@ evd_socket_init (EvdSocket *self)
   priv->context = g_main_context_get_thread_default ();
   /* TODO: check if we should 'ref' the context */
 
+  priv->read_src_id = 0;
+  priv->write_src_id = 0;
+
   priv->cond = 0;
 
   priv->priority        = G_PRIORITY_DEFAULT;
@@ -347,25 +353,28 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 
   evd_socket_remove_from_event_cache (self);
 
-  if (self->priv->socket != NULL)
-    {
-      if (! g_socket_is_closed (self->priv->socket))
-	{
-	  if ( (! evd_socket_unwatch (self, error)) ||
-	       (! g_socket_close (self->priv->socket, error)) )
-	    result = FALSE;
-	}
-
-      g_object_unref (self->priv->socket);
-      self->priv->socket = NULL;
-
-      self->priv->status = EVD_SOCKET_CLOSED;
-    }
-
   if (self->priv->connect_cancellable != NULL)
     {
       g_object_unref (self->priv->connect_cancellable);
       self->priv->connect_cancellable = NULL;
+    }
+
+  if (self->priv->connect_timeout_src_id != 0)
+    {
+      g_source_remove (self->priv->connect_timeout_src_id);
+      self->priv->connect_timeout_src_id = 0;
+    }
+
+  if (self->priv->read_src_id != 0)
+    {
+      g_source_remove (self->priv->read_src_id);
+      self->priv->read_src_id = 0;
+    }
+
+  if (self->priv->write_src_id != 0)
+    {
+      g_source_remove (self->priv->write_src_id);
+      self->priv->write_src_id = 0;
     }
 
   if (self->priv->auto_write_src_id != 0)
@@ -384,6 +393,21 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
     {
       g_string_free (self->priv->write_buffer, TRUE);
       self->priv->write_buffer = NULL;
+    }
+
+  if (self->priv->socket != NULL)
+    {
+      if (! g_socket_is_closed (self->priv->socket))
+	{
+	  if ( (! evd_socket_unwatch (self, error)) ||
+	       (! g_socket_close (self->priv->socket, error)) )
+	    result = FALSE;
+	}
+
+      g_object_unref (self->priv->socket);
+      self->priv->socket = NULL;
+
+      self->priv->status = EVD_SOCKET_CLOSED;
     }
 
   return result;
@@ -652,7 +676,7 @@ evd_socket_connect_timeout (gpointer user_data)
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
 
-  /* emit 'connect-timeout' signal*/
+  /* emit 'connect-timeout' signal */
   g_signal_emit (self, evd_socket_signals[SIGNAL_CONNECT_TIMEOUT], 0, NULL);
 
   self->priv->connect_timeout_src_id = 0;
@@ -802,6 +826,19 @@ evd_socket_read_internal (EvdSocket *self,
   return read_from_buf + read_from_socket;
 }
 
+static gboolean
+evd_socket_write_wait_timeout (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  self->priv->write_src_id = 0;
+
+  if ( (self->priv->cond & G_IO_OUT) > 0)
+    evd_socket_invoke_on_write (self);
+
+  return FALSE;
+}
+
 static gssize
 evd_socket_write_internal (EvdSocket    *self,
 			   const gchar  *buf,
@@ -809,47 +846,66 @@ evd_socket_write_internal (EvdSocket    *self,
 			   guint        *retry_wait,
 			   GError      **error)
 {
-  gssize actual_size;
+  gssize actual_size = 0;
+  gsize limited_size;
+  guint _retry_wait;
 
   if (! evd_socket_is_connected (self, error))
     return FALSE;
 
-  if (retry_wait != NULL)
-    *retry_wait = 0;
-
   /* handle latency and bandwidth */
-  if ( (size = evd_stream_request_write (EVD_STREAM (self),
-					 size,
-					 retry_wait)) == 0)
-    return 0;
+  limited_size = evd_stream_request_write (EVD_STREAM (self),
+                                           size,
+                                           &_retry_wait);
 
-  if (self->priv->group != NULL)
-    if ( (size = evd_stream_request_write (EVD_STREAM (self->priv->group),
-					   size,
-					   retry_wait)) == 0)
-      return 0;
+  if ( (limited_size > 0) && (self->priv->group != NULL) )
+    limited_size = evd_stream_request_write (EVD_STREAM (self->priv->group),
+                                             size,
+                                             &_retry_wait);
 
-  actual_size = g_socket_send (self->priv->socket,
-			       buf,
-			       size,
-			       NULL,
-			       error);
-
-  if (actual_size > 0)
+  if (limited_size == 0)
     {
-      if (self->priv->group != NULL)
-        evd_stream_report_write (EVD_STREAM (self->priv->group),
-                                 actual_size);
-
-      evd_stream_report_write (EVD_STREAM (self),
-                               actual_size);
-
-      if (actual_size < size)
-        self->priv->cond &= (~ G_IO_OUT);
+      /* wait and re-schedule a write-event */
+      if (self->priv->write_src_id == 0)
+        self->priv->write_src_id =
+          evd_socket_timeout_add (self,
+                                  _retry_wait,
+                                  (GSourceFunc) evd_socket_write_wait_timeout,
+                                  (gpointer) self);
     }
   else
-    if ( (actual_size == 0) && (retry_wait != NULL) )
-      *retry_wait = 0;
+    {
+      actual_size = g_socket_send (self->priv->socket,
+                                   buf,
+                                   limited_size,
+                                   NULL,
+                                   error);
+
+      if (actual_size > 0)
+        {
+          if (self->priv->group != NULL)
+            evd_stream_report_write (EVD_STREAM (self->priv->group),
+                                     actual_size);
+
+          evd_stream_report_write (EVD_STREAM (self),
+                                   actual_size);
+
+          if (actual_size < size)
+            {
+              if (self->priv->write_src_id == 0)
+                self->priv->write_src_id =
+                  evd_socket_timeout_add (self,
+                                          _retry_wait,
+                                          (GSourceFunc) evd_socket_write_wait_timeout,
+                                          (gpointer) self);
+
+              self->priv->cond &= (~ G_IO_OUT);
+            }
+        }
+    }
+
+  if (retry_wait != NULL)
+    *retry_wait = _retry_wait;
 
   return actual_size;
 }
@@ -876,6 +932,17 @@ evd_socket_timeout_add (EvdSocket   *self,
   g_source_unref (src);
 
   return src_id;
+}
+
+static gboolean
+evd_socket_read_wait_timeout (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  self->priv->read_src_id = 0;
+  evd_socket_invoke_on_read (self);
+
+  return FALSE;
 }
 
 /* protected methods */
@@ -1407,6 +1474,8 @@ evd_socket_read_buffer (EvdSocket *self,
 			GError   **error)
 {
   gssize actual_size = -1;
+  gsize limited_size;
+  guint _retry_wait = 0;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);
@@ -1419,20 +1488,31 @@ evd_socket_read_buffer (EvdSocket *self,
     *retry_wait = 0;
 
   /* handle latency and bandwidth */
-  if ( (size = evd_stream_request_read (EVD_STREAM (self),
-					size,
-					retry_wait)) == 0)
-    return 0;
+  limited_size = evd_stream_request_read (EVD_STREAM (self),
+                                          size,
+                                          &_retry_wait);
 
-  if (self->priv->group != NULL)
-    if ( (size = evd_stream_request_read (EVD_STREAM (self->priv->group),
-					  size,
-					  retry_wait)) == 0)
+  if ( (limited_size > 0) && (self->priv->group != NULL) )
+    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
+                                            limited_size,
+                                            &_retry_wait);
+
+  if (limited_size == 0)
+    {
+      if (self->priv->read_src_id == 0)
+        self->priv->read_src_id =
+          evd_socket_timeout_add (self,
+                                  _retry_wait,
+                                  (GSourceFunc) evd_socket_read_wait_timeout,
+                                  (gpointer) self);
+
+      self->priv->cond &= (~ G_IO_IN);
       return 0;
+    }
 
   if ( (actual_size = evd_socket_read_internal (self,
 						buffer,
-						size,
+						limited_size,
 						error)) > 0)
     {
       if (self->priv->group != NULL)
@@ -1441,10 +1521,17 @@ evd_socket_read_buffer (EvdSocket *self,
 
       evd_stream_report_read (EVD_STREAM (self),
 			      (gsize) actual_size);
+
+      /* check if we should keep reading after retry_wait miliseconds */
+      if ( (self->priv->read_src_id == 0) && (actual_size == limited_size) )
+        {
+          self->priv->read_src_id =
+            evd_socket_timeout_add (self,
+                                    _retry_wait,
+                                    (GSourceFunc) evd_socket_read_wait_timeout,
+                                    (gpointer) self);
+        }
     }
-  else
-    if ( (actual_size == 0) && (retry_wait != NULL) )
-      *retry_wait = 0;
 
   return actual_size;
 }
