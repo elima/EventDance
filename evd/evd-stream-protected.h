@@ -37,9 +37,9 @@ G_BEGIN_DECLS
  */
 
 void          evd_stream_report_read    (EvdStream *self,
-					 gsize      size);
+                                         gsize      size);
 void          evd_stream_report_write   (EvdStream *self,
-					 gsize      size);
+                                         gsize      size);
 
 G_END_DECLS
 

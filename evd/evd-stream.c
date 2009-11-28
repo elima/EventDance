@@ -32,7 +32,7 @@
 G_DEFINE_ABSTRACT_TYPE (EvdStream, evd_stream, G_TYPE_OBJECT)
 
 #define EVD_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-	                             EVD_TYPE_STREAM, \
+                                     EVD_TYPE_STREAM, \
                                      EvdStreamPrivate))
 
 /* private data */
@@ -78,13 +78,13 @@ static void     evd_stream_finalize           (GObject *obj);
 static void     evd_stream_dispose            (GObject *obj);
 
 static void     evd_stream_set_property       (GObject      *obj,
-					       guint         prop_id,
-					       const GValue *value,
-					       GParamSpec   *pspec);
+                                               guint         prop_id,
+                                               const GValue *value,
+                                               GParamSpec   *pspec);
 static void     evd_stream_get_property       (GObject    *obj,
-					       guint       prop_id,
-					       GValue     *value,
-					       GParamSpec *pspec);
+                                               guint       prop_id,
+                                               GValue     *value,
+                                               GParamSpec *pspec);
 
 static void
 evd_stream_class_init (EvdStreamClass *class)
@@ -101,57 +101,57 @@ evd_stream_class_init (EvdStreamClass *class)
   /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
                                    g_param_spec_boxed ("read-closure",
-						       "Read closure",
-						       "The callback closure that will be invoked when data is ready to be read",
-						       G_TYPE_CLOSURE,
-						       G_PARAM_READWRITE));
+                                                       "Read closure",
+                                                       "The callback closure that will be invoked when data is ready to be read",
+                                                       G_TYPE_CLOSURE,
+                                                       G_PARAM_READWRITE));
 
   g_object_class_install_property (obj_class, PROP_WRITE_CLOSURE,
                                    g_param_spec_boxed ("write-closure",
-						       "Write closure",
-						       "The callback closure that will be invoked when data is ready to be written",
-						       G_TYPE_CLOSURE,
-						       G_PARAM_READWRITE));
+                                                       "Write closure",
+                                                       "The callback closure that will be invoked when data is ready to be written",
+                                                       G_TYPE_CLOSURE,
+                                                       G_PARAM_READWRITE));
 
   g_object_class_install_property (obj_class, PROP_BANDWIDTH_IN,
                                    g_param_spec_float ("bandwidth-in",
-						       "Inbound bandwidth limit",
-						       "The maximum bandwidth for reading, in kilobytes",
-						       0.0,
-						       G_MAXFLOAT,
-						       0.0,
-						       G_PARAM_READWRITE |
-						       G_PARAM_STATIC_STRINGS));
+                                                       "Inbound bandwidth limit",
+                                                       "The maximum bandwidth for reading, in kilobytes",
+                                                       0.0,
+                                                       G_MAXFLOAT,
+                                                       0.0,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_BANDWIDTH_OUT,
                                    g_param_spec_float ("bandwidth-out",
-						       "Outbound bandwidth limit",
-						       "The maximum bandwidth for writing, in kilobytes",
-						       0.0,
-						       G_MAXFLOAT,
-						       0.0,
-						       G_PARAM_READWRITE |
-						       G_PARAM_STATIC_STRINGS));
+                                                       "Outbound bandwidth limit",
+                                                       "The maximum bandwidth for writing, in kilobytes",
+                                                       0.0,
+                                                       G_MAXFLOAT,
+                                                       0.0,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_LATENCY_IN,
                                    g_param_spec_float ("latency-in",
-						       "Inbound minimum latency",
-						       "The minimum time between two reads, in miliseconds",
-						       0.0,
-						       G_MAXFLOAT,
-						       0.0,
-						       G_PARAM_READWRITE |
-						       G_PARAM_STATIC_STRINGS));
+                                                       "Inbound minimum latency",
+                                                       "The minimum time between two reads, in miliseconds",
+                                                       0.0,
+                                                       G_MAXFLOAT,
+                                                       0.0,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_LATENCY_OUT,
                                    g_param_spec_float ("latency-out",
-						       "Outbound minimum latency",
-						       "The minimum time between two writes, in miliseconds",
-						       0.0,
-						       G_MAXFLOAT,
-						       0.0,
-						       G_PARAM_READWRITE |
-						       G_PARAM_STATIC_STRINGS));
+                                                       "Outbound minimum latency",
+                                                       "The minimum time between two writes, in miliseconds",
+                                                       0.0,
+                                                       G_MAXFLOAT,
+                                                       0.0,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdStreamPrivate));
@@ -206,9 +206,9 @@ evd_stream_finalize (GObject *obj)
 
 static void
 evd_stream_set_property (GObject      *obj,
-			 guint         prop_id,
-			 const GValue *value,
-			 GParamSpec   *pspec)
+                         guint         prop_id,
+                         const GValue *value,
+                         GParamSpec   *pspec)
 {
   EvdStream *self;
 
@@ -233,8 +233,8 @@ evd_stream_set_property (GObject      *obj,
       break;
 
       /* Latency properties are in miliseconds, but we store the value
-	 internally  in microseconds, to allow up to 1/1000 fraction of a
-	 milisecond */
+         internally  in microseconds, to allow up to 1/1000 fraction of a
+         milisecond */
     case PROP_LATENCY_IN:
       self->priv->latency_in = (gulong) (g_value_get_float (value) * 1000.0);
       break;
@@ -251,9 +251,9 @@ evd_stream_set_property (GObject      *obj,
 
 static void
 evd_stream_get_property (GObject    *obj,
-			 guint       prop_id,
-			 GValue     *value,
-			 GParamSpec *pspec)
+                         guint       prop_id,
+                         GValue     *value,
+                         GParamSpec *pspec)
 {
   EvdStream *self;
 
@@ -325,12 +325,12 @@ g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
 
 static gsize
 evd_stream_request (EvdStream *self,
-		    gsize      bandwidth,
-		    gulong     latency,
-		    gsize      bytes,
-		    GTimeVal  *last,
-		    gsize      size,
-		    guint     *wait)
+                    gsize      bandwidth,
+                    gulong     latency,
+                    gsize      bytes,
+                    GTimeVal  *last,
+                    gsize      size,
+                    guint     *wait)
 {
   gsize actual_size = size;
 
@@ -345,15 +345,15 @@ evd_stream_request (EvdStream *self,
       gulong elapsed;
 
       elapsed = g_timeval_get_diff_micro (&self->priv->current_time,
-					  last);
+                                          last);
       if (elapsed < latency)
-	{
-	  actual_size = 0;
+        {
+          actual_size = 0;
 
-	  if (wait != NULL)
-	    *wait = MAX ((guint) ((latency - elapsed) / 1000),
+          if (wait != NULL)
+            *wait = MAX ((guint) ((latency - elapsed) / 1000),
                          *wait);
-	}
+        }
     }
 
   /* bandwidth check */
@@ -363,7 +363,7 @@ evd_stream_request (EvdStream *self,
       actual_size = MIN (actual_size, size);
 
       if (wait != NULL)
-	if (actual_size < size)
+        if (actual_size < size)
           *wait = MAX ((guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1,
                        *wait);
     }
@@ -377,7 +377,7 @@ evd_stream_request (EvdStream *self,
 
 void
 evd_stream_report_read (EvdStream *self,
-			gsize     size)
+                        gsize     size)
 {
   evd_stream_update_current_time (self);
 
@@ -387,15 +387,15 @@ evd_stream_report_read (EvdStream *self,
   self->priv->total_in += size;
 
   g_memmove (&self->priv->last_in,
-	     &self->priv->current_time,
-	     sizeof (GTimeVal));
+             &self->priv->current_time,
+             sizeof (GTimeVal));
 
   g_mutex_unlock (self->priv->mutex);
 }
 
 void
 evd_stream_report_write (EvdStream *self,
-			 gsize     size)
+                         gsize     size)
 {
   evd_stream_update_current_time (self);
 
@@ -405,8 +405,8 @@ evd_stream_report_write (EvdStream *self,
   self->priv->total_out += size;
 
   g_memmove (&self->priv->last_out,
-	     &self->priv->current_time,
-	     sizeof (GTimeVal));
+             &self->priv->current_time,
+             sizeof (GTimeVal));
 
   g_mutex_unlock (self->priv->mutex);
 }
@@ -471,34 +471,34 @@ evd_stream_get_on_write (EvdStream *self)
 
 gsize
 evd_stream_request_read  (EvdStream *self,
-			  gsize      size,
-			  guint     *wait)
+                          gsize      size,
+                          guint     *wait)
 {
   evd_stream_update_current_time (self);
 
   return evd_stream_request (self,
-			     self->priv->bandwidth_in,
-			     self->priv->latency_in,
-			     self->priv->bytes_in,
-			     &self->priv->last_in,
-			     size,
-			     wait);
+                             self->priv->bandwidth_in,
+                             self->priv->latency_in,
+                             self->priv->bytes_in,
+                             &self->priv->last_in,
+                             size,
+                             wait);
 }
 
 gsize
 evd_stream_request_write (EvdStream *self,
-			  gsize      size,
-			  guint     *wait)
+                          gsize      size,
+                          guint     *wait)
 {
   evd_stream_update_current_time (self);
 
   return evd_stream_request (self,
-			     self->priv->bandwidth_out,
-			     self->priv->latency_out,
-			     self->priv->bytes_out,
-			     &self->priv->last_out,
-			     size,
-			     wait);
+                             self->priv->bandwidth_out,
+                             self->priv->latency_out,
+                             self->priv->bytes_out,
+                             &self->priv->last_out,
+                             size,
+                             wait);
 }
 
 gulong

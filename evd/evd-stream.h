@@ -72,7 +72,7 @@ EvdStream    *evd_stream_new            (void);
  * stream.
  */
 void          evd_stream_set_on_read    (EvdStream *self,
-					 GClosure  *closure);
+                                         GClosure  *closure);
 GClosure     *evd_stream_get_on_read    (EvdStream *self);
 
 /**
@@ -84,15 +84,15 @@ GClosure     *evd_stream_get_on_read    (EvdStream *self);
  * stream.
  */
 void          evd_stream_set_on_write   (EvdStream *self,
-					 GClosure  *closure);
+                                         GClosure  *closure);
 GClosure     *evd_stream_get_on_write   (EvdStream *self);
 
 gsize         evd_stream_request_write  (EvdStream *self,
-					 gsize      size,
-					 guint     *wait);
+                                         gsize      size,
+                                         guint     *wait);
 gsize         evd_stream_request_read   (EvdStream *self,
-					 gsize      size,
-					 guint     *wait);
+                                         gsize      size,
+                                         guint     *wait);
 
 gulong        evd_stream_get_total_read (EvdStream *self);
 gulong        evd_stream_get_total_written (EvdStream *self);
