@@ -42,7 +42,7 @@ function read_data () {
   if ( (this.get_status () == Evd.SocketState.CONNECTED) &&
        ( (this.data_read < DATA_SIZE) || (this.data_written < DATA_SIZE) ) ) {
 
-    let [data, len, wait] = this.read (BLOCK_SIZE+1);
+    let [data, len] = this.read (BLOCK_SIZE+1);
 
     if (len > 0) {
       total_data_read += len;
@@ -58,11 +58,6 @@ function read_data () {
 	log ("active sockets: " + active_sockets);
       }
     }
-    else
-      if (wait > 0)
-	MainLoop.timeout_add (wait, Lang.bind (this, read_data));
-      else
-	MainLoop.idle_add (Lang.bind (this, read_data));
 
     if (total_data_read == DATA_SIZE * CLIENT_SOCKETS * 2)
       {
@@ -84,7 +79,7 @@ function client_write () {
   if (DATA_SIZE - this.data_written < size)
     size = DATA_SIZE - this.data_written;
 
-  let [len, wait] = this.write_buffer (this.data, size);
+  let [len] = this.write_buffer (this.data, size);
 
   if (len > 0) {
     this.data_written += len;

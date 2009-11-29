@@ -103,6 +103,8 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 	  g_main_loop_quit (main_loops[i]);
 	}
 
+      g_print ("\nPASSED\n");
+
       g_main_loop_quit (main_loop_server);
       g_main_context_wakeup (g_main_loop_get_context (main_loop_server));
     }
@@ -137,7 +139,6 @@ group_socket_on_read (EvdSocketGroup *self,
   gssize size;
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
-  guint retry_wait;
 
   if (evd_socket_get_status (socket) != EVD_SOCKET_CONNECTED)
     return;
@@ -145,7 +146,6 @@ group_socket_on_read (EvdSocketGroup *self,
   if ( (size = evd_socket_read_buffer (socket,
 				       buf,
 				       BLOCK_SIZE,
-				       &retry_wait,
 				       &error)) < 0)
     {
       g_debug ("ERROR reading data: %s", error->message);
@@ -189,7 +189,6 @@ group_socket_on_write (EvdSocketGroup *self,
       if (evd_socket_write_buffer (socket,
                                    (gchar *) (((guintptr) data) + total_sent),
                                    DATA_SIZE - total_sent,
-                                   NULL,
                                    &error) < 0)
         {
           g_debug ("ERROR sending data: %s", error->message);

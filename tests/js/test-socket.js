@@ -16,9 +16,9 @@ function terminate () {
 }
 
 function read_data () {
-  let [data, len, wait] = this.read (READ_BLOCK_SIZE);
+  let [data, len] = this.read (READ_BLOCK_SIZE);
 
-  log (len + " bytes read from socket: " + data + " (wait: " + wait + ")");
+  log (len + " bytes read from socket: " + data);
 
   bytes_read += len;
 
@@ -27,9 +27,6 @@ function read_data () {
       MainLoop.idle_add (terminate);
       return;
     }
-
-  if (wait > 0)
-    MainLoop.timeout_add (wait, Lang.bind (this, read_data));
 }
 
 function read_handler_group (group, socket) {
@@ -60,6 +57,7 @@ socket1.connect ('new-connection', function (socket, client) {
     client.connect ('close', on_socket_closed);
     client.group = group;
     client.bandwidth_in = 6;
+    client.auto_write = true;
 
     log ("new client connected from address " +
 	 client.socket.remote_address.address.to_string () +
@@ -86,6 +84,7 @@ socket2 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
 
 socket2.connect_timeout = 3;
 socket2.bandwidth_in = 3;
+socket2.auto_write = true;
 
 socket2.connect ('close', on_socket_closed);
 socket2.group = group;

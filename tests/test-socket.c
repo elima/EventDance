@@ -66,7 +66,6 @@ on_socket_read (EvdSocket *socket, gpointer user_data)
   if ((size = evd_socket_read_buffer (socket,
 				      buf,
 				      BLOCK_SIZE,
-				      NULL,
 				      &error)) == -1)
     {
       g_debug ("ERROR: Failed to read data from socket: %s", error->message);
@@ -125,7 +124,6 @@ on_socket_connected (EvdSocket *socket, gpointer user_data)
   if (evd_socket_write_buffer (socket,
 			       greeting,
 			       strlen (greeting),
-			       NULL,
 			       &error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);
@@ -157,7 +155,6 @@ on_socket_new_connection (EvdSocket *socket,
   if (evd_socket_write_buffer (client,
 			       greeting,
 			       strlen (greeting),
-			       NULL,
 			       &error) < 0)
     {
       g_debug ("ERROR sending greeting: %s", error->message);

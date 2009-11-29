@@ -139,7 +139,6 @@ static guint    evd_socket_timeout_add        (EvdSocket   *self,
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                const gchar  *buf,
                                                gsize         size,
-                                               guint        *retry_wait,
                                                GError      **error);
 
 static void
@@ -789,7 +788,6 @@ evd_socket_write_wait_timeout (gpointer user_data)
 
   if (self->priv->write_buffer->len > 0)
     {
-      guint retry_wait = 0;
       GError *error = NULL;
       gsize size;
       gssize actual_size;
@@ -799,7 +797,6 @@ evd_socket_write_wait_timeout (gpointer user_data)
       if ( (actual_size = evd_socket_write_internal (self,
                                                      self->priv->write_buffer->str,
                                                      size,
-                                                     &retry_wait,
                                                      &error)) < 0)
         {
           evd_socket_throw_error (self, error);
@@ -821,7 +818,6 @@ static gssize
 evd_socket_write_internal (EvdSocket    *self,
                            const gchar  *buf,
                            gsize         size,
-                           guint        *retry_wait,
                            GError      **error)
 {
   gssize actual_size = 0;
@@ -865,9 +861,6 @@ evd_socket_write_internal (EvdSocket    *self,
             {
               self->priv->cond &= (~ G_IO_OUT);
             }
-
-          if (retry_wait != NULL)
-            *retry_wait = _retry_wait;
         }
     }
 
@@ -1445,7 +1438,6 @@ gssize
 evd_socket_read_buffer (EvdSocket *self,
                         gchar     *buffer,
                         gsize      size,
-                        guint     *retry_wait,
                         GError   **error)
 {
   gssize actual_size = -1;
@@ -1458,9 +1450,6 @@ evd_socket_read_buffer (EvdSocket *self,
 
   if (! evd_socket_is_connected (self, error))
     return -1;
-
-  if (retry_wait != NULL)
-    *retry_wait = 0;
 
   /* handle latency and bandwidth */
   limited_size = evd_stream_request_read (EVD_STREAM (self),
@@ -1514,7 +1503,6 @@ evd_socket_read_buffer (EvdSocket *self,
 gchar *
 evd_socket_read (EvdSocket *self,
                  gsize     *size,
-                 guint     *retry_wait,
                  GError   **error)
 {
   gchar *buf;
@@ -1528,7 +1516,6 @@ evd_socket_read (EvdSocket *self,
   if ( (*size = evd_socket_read_buffer (self,
                                         buf,
                                         *size,
-                                        retry_wait,
                                         error)) > 0)
     return buf;
   else
@@ -1541,12 +1528,10 @@ gssize
 evd_socket_write_buffer (EvdSocket    *self,
                          const gchar  *buf,
                          gsize         size,
-                         guint        *retry_wait,
                          GError      **error)
 {
   gsize orig_size = size;
   gsize actual_size;
-  guint _retry_wait = 0;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buf != NULL, -1);
@@ -1569,7 +1554,6 @@ evd_socket_write_buffer (EvdSocket    *self,
       actual_size = evd_socket_write_internal (self,
                                                buf,
                                                size,
-                                               &_retry_wait,
                                                error);
 
       if ( (self->priv->auto_write) &&
@@ -1581,23 +1565,19 @@ evd_socket_write_buffer (EvdSocket    *self,
         }
     }
 
-  if (retry_wait != NULL)
-    *retry_wait = _retry_wait;
-
   return actual_size;
 }
 
 gssize
 evd_socket_write (EvdSocket    *self,
                   const gchar  *buf,
-                  guint        *retry_wait,
                   GError      **error)
 {
   gsize size;
 
   size = strlen (buf);
 
-  return evd_socket_write_buffer (self, buf, size, retry_wait, error);
+  return evd_socket_write_buffer (self, buf, size, error);
 }
 
 gssize

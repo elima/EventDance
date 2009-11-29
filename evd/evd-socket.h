@@ -185,28 +185,22 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
  * @self: The #EvdSocket to read from.
  * @buffer: (out) (transfer full): The buffer to store the data.
  * @size: (inout): Maximum number of bytes to read.
- * @retry_wait: (out): Miliseconds to wait until next read attempt, or NULL.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
  * Reads up to @size bytes of data from the socket. The data read will be copied
- * into @buffer. If @retry_wait is provided, it will return the minimum time (in
- * miliseconds) to wait before another call to read would return any data. This is
- * useful when limits of bandwith or latency are set, either in the socket or its
- * container, to avoid performing subsequent read calls that will return no data.
+ * into @buffer.
  *
  * Return value: The actual number of bytes read.
  */
 gssize        evd_socket_read_buffer      (EvdSocket *self,
                                            gchar     *buffer,
                                            gsize      size,
-                                           guint     *retry_wait,
                                            GError   **error);
 
 /**
  * evd_socket_read:
  * @self: The #EvdSocket to read from.
  * @size: (inout): Maximum number of bytes to read.
- * @retry_wait: (out): Miliseconds to wait until next read attempt, or NULL.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
  * Reads up to @size bytes of data from the socket. This method assumes data will
@@ -217,7 +211,6 @@ gssize        evd_socket_read_buffer      (EvdSocket *self,
  */
 gchar         *evd_socket_read            (EvdSocket *self,
                                            gsize     *size,
-                                           guint     *retry_wait,
                                            GError   **error);
 
 /**
@@ -225,32 +218,24 @@ gchar         *evd_socket_read            (EvdSocket *self,
  * @self: The #EvdSocket to write to.
  * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
  * @size: (inout): Maximum number of bytes to write. @buffer should be at least @size long.
- * @retry_wait: (out): Miliseconds to wait until next write attempt, or NULL.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
- * Writes up to @size bytes of data to the socket. If @retry_wait is provided,
- * it will return the minimum time (in miliseconds) to wait before another call to
- * write would actually send any data. This is useful when limits of bandwith or latency are
- * set, either in the socket or its container, to avoid performing subsequent write calls that
- * will not put any data on the wire.
+ * Writes up to @size bytes of data to the socket.
  *
  * If #auto-write property is TRUE, this method will always respond as it was able to send
- * all data requested, and will buffer and handle the actual writting internally. So when #auto_write
- * is on, @retry_wait should be ignored as it will be used internally.
+ * all data requested, and will buffer and handle the actual writting internally.
  *
  * Return value: The actual number of bytes written.
  */
 gssize        evd_socket_write_buffer     (EvdSocket    *self,
                                            const gchar  *buffer,
                                            gsize         size,
-                                           guint        *retry_wait,
                                            GError      **error);
 
 /**
  * evd_socket_write:
  * @self: The #EvdSocket to write to.
  * @buffer: (transfer none): Buffer holding the data to be written. Should not contain nulls.
- * @retry_wait: (out): Miliseconds to wait until next write attempt, or NULL.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
  * Writes up to @size bytes of data to the socket. @buffer should be a null-terminated string.
@@ -263,7 +248,6 @@ gssize        evd_socket_write_buffer     (EvdSocket    *self,
  */
 gssize        evd_socket_write            (EvdSocket    *self,
                                            const gchar  *buffer,
-                                           guint        *retry_wait,
                                            GError      **error);
 
 /**
