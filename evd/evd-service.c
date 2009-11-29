@@ -79,7 +79,7 @@ evd_service_class_init (EvdServiceClass *class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdServiceClass, new_connection),
                   NULL, NULL,
-                  g_cclosure_marshal_VOID__BOXED,
+                  g_cclosure_marshal_VOID__OBJECT,
                   G_TYPE_NONE, 1,
                   EVD_TYPE_SOCKET);
 
@@ -89,7 +89,7 @@ evd_service_class_init (EvdServiceClass *class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdServiceClass, close),
                   NULL, NULL,
-                  g_cclosure_marshal_VOID__BOXED,
+                  g_cclosure_marshal_VOID__OBJECT,
                   G_TYPE_NONE, 1,
                   EVD_TYPE_SOCKET);
 

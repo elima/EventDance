@@ -234,7 +234,7 @@ evd_socket_group_set_read_handler (EvdSocketGroup            *self,
 
   if (G_CLOSURE_NEEDS_MARSHAL (closure))
     {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__BOXED;
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__OBJECT;
 
       g_closure_set_marshal (closure, marshal);
     }
@@ -260,7 +260,7 @@ evd_socket_group_set_write_handler (EvdSocketGroup             *self,
 
   if (G_CLOSURE_NEEDS_MARSHAL (closure))
     {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__BOXED;
+      GClosureMarshal marshal = g_cclosure_marshal_VOID__OBJECT;
 
       g_closure_set_marshal (closure, marshal);
     }
