@@ -114,6 +114,7 @@ let sig_id = server.connect ('new-connection', function (socket, client) {
     active_sockets += 2;
     connections++;
     //    log ("new-connection: " + connections);
+    client.auto_write = true;
     Lang.bind (client, client_write) ();
 });
 
@@ -130,6 +131,7 @@ for (let i=0; i<CLIENT_SOCKETS; i++) {
 
     socket.connect ('connect', function (self) {
 	//	log ("client connected!");
+        self.auto_write = true;
 	Lang.bind (self, client_write) ();
       });
 
