@@ -1,26 +1,74 @@
-Eventdance v0.1
-Copyright (C) 2009, Igalia S.L.
+EventDance 0.1 README
+=====================
 
-Brief description of project....
+Event distribution framework.
 
------------------------------------------------------------------------------
- Build
------------------------------------------------------------------------------
+EventDance is an open source library for interconnecting heterogeneous
+applications in a fast, scalable and low-latency fashion. It uses a
+high-level, publish/subscribe-based event delivery mechanism to achieve
+reliable communication among local and remote systems.
+
+EventDance currently requires:
+
+  * GLib >= 2.16.0
+
+If you are building the API reference you will also need:
+
+  * GTK-Doc >= 1.11
+
+If you are building the Introspection data you will also need:
+
+  * GObject-Introspection >= 0.6.3
+
+The official website is:
+   (no official website yet)
+
+The EventDance blog is at:
+   http://blogs.igalia.com/elima
+
+To subscribe to the EventDance mailing list, send mail to:
+   (no mailing list yet, working on it)
+
+The official mailing list archive is:
+   (no mailing-list archive yet)
+
+Bug reporting and tracking:
+   (by now, just mail elima@igalia.com)
+
+EventDance is licensed under the terms of the GNU Lesser General Public
+License, version 3 or (at your option) later.
+
+INSTALLATION
+============
+
 $ ./autogen.sh
 $ make
+# make install
 
------------------------------------------------------------------------------
- Build with documentation generated (usually for libraries)
------------------------------------------------------------------------------
-$ ./autogen.sh --enable-gtk-doc
-$ make
+See the INSTALL file for details. Specific EventDance options to pass
+in autogen.sh:
 
-( If built with the --enable-gtk-doc flag above you can view the index.html
-  file in your web browser. )
-$ firefox ./docs/reference/index.html
+ --enable-gtk-doc
+	use gtk-doc to build API documentation (default=no). Requires gtk-doc
+	present on system.
 
------------------------------------------------------------------------------
- Install
------------------------------------------------------------------------------
-$ sudo make install
+ --enable-introspection
+        build the introspection data. Requires GObject-Introspection
+        present on system.
 
+VERSIONING
+==========
+
+EventDance uses the common "Linux kernel" versioning system, where
+even-numbered minor versions are stable and odd-numbered minor
+versions are development snapshots.
+
+Different major versions break both API and ABI but are parallel
+installable. The same major version with differing minor version is
+expected to be ABI compatible with other minor versions; differing
+micro versions are meant just for bug fixing. On odd minor versions
+the newly added API might still change.
+
+The micro version indicates the origin of the release: even micro
+numbers are only used for released archives; odd micro numbers are
+only used on the SVN repository.
