@@ -23,359 +23,154 @@
  * 02110-1301 USA
  */
 
-#include <string.h>
-
-#include <glib.h>
-#include <gio/gio.h>
-
 #include <evd.h>
+#include <evd-socket-manager.h>
 
-#define BLOCK_SIZE 1024
-#define INET_PORT  6666
-#define TIMEOUT    3000
-
-EvdSocket *socket1, *socket2, *socket3;
-GMainLoop *main_loop;
-
-static const gchar *greeting = "Hello world!";
-static const gchar *unread_text = "This is a text to unread - ";
-guint bytes_read;
-guint bytes_expected;
-
-guint sockets_closed;
-guint expected_sockets_closed;
-
-static gboolean
-terminate (gpointer user_data)
+typedef struct
 {
-  if (g_main_context_pending (NULL))
-    g_main_context_dispatch (g_main_context_default ());
+  GMainLoop *main_loop;
+  EvdSocket *socket;
+} EvdSocketFixture;
 
-  g_main_loop_quit (main_loop);
+static void
+evd_socket_fixture_setup (EvdSocketFixture *fixture)
+{
+  fixture->main_loop = g_main_loop_new (NULL, FALSE);
+  fixture->socket = evd_socket_new ();
 
-  return FALSE;
+  g_assert (evd_socket_manager_get () != NULL);
 }
 
 static void
-on_socket_read (EvdSocket *socket, gpointer user_data)
+evd_socket_fixture_teardown (EvdSocketFixture *fixture)
 {
-  GError *error = NULL;
-  gchar buf[BLOCK_SIZE] = { 0, };
-  gssize size;
+  g_object_unref (fixture->socket);
+  g_main_loop_quit (fixture->main_loop);
+  g_main_loop_unref (fixture->main_loop);
 
-  if ((size = evd_socket_read_buffer (socket,
-				      buf,
-				      BLOCK_SIZE,
-				      &error)) == -1)
-    {
-      g_debug ("ERROR: Failed to read data from socket: %s", error->message);
-      return;
-    }
+  g_assert (evd_socket_manager_get () == NULL);
+}
 
-  if (size > 0)
-    {
-      g_debug ("%d bytes read from socket (%X): %s",
-	       (guint) size,
-	       (guint) (guintptr) socket,
-	       buf);
+/* common test functions */
+static void
+evd_socket_test_config (EvdSocket      *socket,
+                        GSocketFamily   family,
+                        GSocketType     type,
+                        GSocketProtocol protocol)
+{
+  GSocketFamily _family;
+  GSocketType _type;
+  GSocketProtocol _protocol;
 
-      bytes_read += size;
-    }
+  g_object_get (socket,
+                "family", &_family,
+                "protocol", &_protocol,
+                "type", &_type,
+                NULL);
+  g_assert (family == _family);
+  g_assert (type == _type);
+  g_assert (protocol == _protocol);
+}
 
-  if (bytes_read == bytes_expected)
-    {
-      evd_socket_close (socket1, NULL);
-      evd_socket_close (socket2, NULL);
-    }
+/* test initial state */
+static void
+evd_socket_test_initial_state (EvdSocketFixture *f)
+{
+  /* EvdStream */
+  g_assert (EVD_IS_STREAM (f->socket));
+  g_assert (EVD_IS_SOCKET (f->socket));
+
+  g_assert (evd_stream_get_on_read (EVD_STREAM (f->socket)) == NULL);
+  g_assert (evd_stream_get_on_write (EVD_STREAM (f->socket)) == NULL);
+
+  g_assert_cmpuint (evd_stream_get_total_read (EVD_STREAM (f->socket)), ==, 0);
+  g_assert_cmpuint (evd_stream_get_total_written (EVD_STREAM (f->socket)), ==, 0);
+
+  /* EvdSocket */
+  g_assert (evd_socket_get_socket (f->socket) == NULL);
+  g_assert (evd_socket_get_context (f->socket) == NULL);
+  g_assert (evd_socket_get_group (f->socket) == NULL);
+
+  g_assert_cmpint (evd_socket_get_status (f->socket), ==, EVD_SOCKET_CLOSED);
+  g_assert_cmpint (evd_socket_get_priority (f->socket), ==, G_PRIORITY_DEFAULT);
+
+  evd_socket_test_config (f->socket,
+                          G_SOCKET_FAMILY_INVALID,
+                          G_SOCKET_TYPE_INVALID,
+                          G_SOCKET_PROTOCOL_UNKNOWN);
+
+  g_assert (evd_socket_can_read (f->socket) == FALSE);
+  g_assert (evd_socket_can_write (f->socket) == FALSE);
+  g_assert (evd_socket_has_write_data_pending (f->socket) == FALSE);
+}
+
+/* test bind and listen */
+
+static void
+evd_socket_test_bind_on_bound (EvdSocket *self,
+                               gpointer   user_data)
+{
+  g_assert (EVD_IS_SOCKET (self));
+  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_BOUND);
+  g_assert (evd_socket_get_socket (self) != NULL);
+
+  evd_socket_test_config (self,
+                          G_SOCKET_FAMILY_IPV4,
+                          G_SOCKET_TYPE_STREAM,
+                          G_SOCKET_PROTOCOL_DEFAULT);
 }
 
 static void
-on_socket_close (EvdSocket *socket, gpointer user_data)
+evd_socket_test_bind_and_listen (EvdSocketFixture *f)
 {
-  g_debug ("Socket closed (%X)", (guint) (guintptr) socket);
+  GError *error = NULL;
+  GInetAddress *inet_addr;
+  GSocketAddress *socket_addr;
 
-  sockets_closed ++;
+  inet_addr = g_inet_address_new_from_string ("127.0.0.1");
 
-  g_object_unref (socket);
+  /* privilaged port, should fail */
+  socket_addr = g_inet_socket_address_new (inet_addr,
+                                           g_random_int_range (1, 1023));
 
-  if (sockets_closed == expected_sockets_closed)
-    {
-      g_idle_add ((GSourceFunc) terminate, NULL);
-    }
+  evd_socket_bind (f->socket, socket_addr, TRUE, &error);
+
+  g_assert_error (error,
+                  g_quark_from_string ("g-io-error-quark"),
+                  G_IO_ERROR_PERMISSION_DENIED);
+  g_error_free (error);
+  error = NULL;
+  g_object_unref (socket_addr);
+
+  /* non-privileged port, should bind OK */
+  g_signal_connect (f->socket,
+                    "bind",
+                    G_CALLBACK (evd_socket_test_bind_on_bound),
+                    NULL);
+  socket_addr = g_inet_socket_address_new (inet_addr,
+                                           g_random_int_range (1024, 0xFFFF-1));
+
+  evd_socket_bind (f->socket, socket_addr, TRUE, &error);
+
+  g_assert_no_error (error);
+  g_object_unref (socket_addr);
 }
+
 
 static void
-on_socket_connected (EvdSocket *socket, gpointer user_data)
+test_socket (void)
 {
-  GError *error = NULL;
+  g_test_add ("/evd/socket/initial-state",
+              EvdSocketFixture,
+              NULL,
+              evd_socket_fixture_setup,
+              evd_socket_test_initial_state,
+              evd_socket_fixture_teardown);
 
-  g_debug ("Socket connected (%X)", (guint) (guintptr) socket);
-
-  evd_socket_set_read_handler (socket,
-			       on_socket_read,
-			       NULL);
-
-  /*
-  g_object_set (socket,
-		"bandwidth-out", 0.002,
-		NULL);
-  */
-
-  if (evd_socket_write_buffer (socket,
-			       greeting,
-			       strlen (greeting),
-			       &error) < 0)
-    {
-      g_debug ("ERROR sending greeting: %s", error->message);
-    }
-}
-
-static void
-on_socket_new_connection (EvdSocket *socket,
-			  EvdSocket *client,
-			  gpointer   user_data)
-{
-  GError *error = NULL;
-
-  g_debug ("Incoming connection (%X) on socket (%X)",
-	   (guint) (guintptr) client,
-	   (guint) (guintptr) socket);
-
-  g_object_ref (client);
-
-  g_signal_connect (client,
-		    "close",
-		    G_CALLBACK (on_socket_close),
-		    NULL);
-
-  evd_socket_set_read_handler (client,
-			       on_socket_read,
-			       NULL);
-
-  if (evd_socket_write_buffer (client,
-			       greeting,
-			       strlen (greeting),
-			       &error) < 0)
-    {
-      g_debug ("ERROR sending greeting: %s", error->message);
-    }
-
-  socket3 = client;
-}
-
-static void
-on_socket_listen (EvdSocket *socket, gpointer user_data)
-{
-  g_debug ("Socket (%X) listening", (guint) (guintptr) socket);
-}
-
-static gboolean
-test_connection (GSourceFunc test_func)
-{
-  bytes_read = 0;
-  sockets_closed = 0;
-
-  main_loop = g_main_loop_new (g_main_context_default (), FALSE);
-
-  g_idle_add (test_func, NULL);
-
-  /*
-  g_timeout_add (TIMEOUT,
-		 (GSourceFunc) terminate,
-		 NULL);
-  */
-
-  g_main_loop_run (main_loop);
-
-  g_main_loop_unref (main_loop);
-
-  g_print ("Test result: ");
-  if (sockets_closed != expected_sockets_closed)
-    g_print ("FAILED\n");
-  else
-    g_print ("PASSED\n");
-
-  return FALSE;
-}
-
-static gboolean
-test_tcp_sockets (gpointer data)
-{
-  GSocketAddress *addr;
-  GError *error = NULL;
-
-  /* TCP socket test */
-  /* =============== */
-
-  bytes_expected = strlen (greeting) * 2 + strlen (unread_text);
-  expected_sockets_closed = 3;
-
-  g_print ("\nTest 1/3: TCP sockets\n");
-  g_print ("=======================\n");
-
-  /* create server socket */
-  socket1 = evd_socket_new ();
-
-  g_signal_connect (socket1,
-		    "new-connection",
-		    G_CALLBACK (on_socket_new_connection),
-		    NULL);
-  g_signal_connect (socket1,
-		    "close",
-		    G_CALLBACK (on_socket_close),
-		    NULL);
-  g_signal_connect (socket1,
-		    "listen",
-		    G_CALLBACK (on_socket_listen),
-		    NULL);
-
-  /* bind server socket */
-  addr = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4),
-				    INET_PORT);
-  if (! evd_socket_bind (socket1, addr, TRUE, &error))
-    {
-      g_error ("TCP server socket bind error: %s", error->message);
-      return -1;
-    }
-  g_object_unref (addr);
-
-  /* start listening */
-  if (! evd_socket_listen (socket1, &error))
-    {
-      g_error ("TCP server socket listen error: %s", error->message);
-      return -1;
-    }
-
-  /* create client socket */
-  socket2 = evd_socket_new ();
-
-  evd_socket_unread_buffer (socket2, unread_text, strlen (unread_text));
-
-  g_signal_connect (socket2,
-		    "close",
-		    G_CALLBACK (on_socket_close),
-		    NULL);
-  g_signal_connect (socket2,
-		    "connect",
-		    G_CALLBACK (on_socket_connected),
-		    NULL);
-
-  /* connect client socket */
-  addr = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
-				    INET_PORT);
-  if (! evd_socket_connect_to (socket2, addr, &error))
-    {
-      g_error ("TCP client socket connect error: %s", error->message);
-      return -1;
-    }
-  g_object_unref (addr);
-
-  return FALSE;
-}
-
-static gboolean
-test_udp_sockets (gpointer data)
-{
-  GSocketAddress *addr1, *addr2;
-  GError *error = NULL;
-
-  /* UDP socket test */
-  /* =============== */
-
-  bytes_expected = strlen (greeting) * 2 + strlen (unread_text) * 2;
-  expected_sockets_closed = 2;
-
-  g_print ("\nTest 2/3: UDP sockets\n");
-  g_print ("=======================\n");
-
-  addr1 = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
-				     6666);
-  addr2 = g_inet_socket_address_new (g_inet_address_new_from_string ("127.0.0.1"),
-				     6667);
-
-  /* create socket1 */
-  socket1 = evd_socket_new ();
-
-  evd_socket_unread_buffer (socket1, unread_text, strlen (unread_text));
-
-  g_object_set (socket1,
-		"type", G_SOCKET_TYPE_DATAGRAM,
-		"protocol", G_SOCKET_PROTOCOL_UDP,
-		NULL);
-
-  g_signal_connect (socket1,
-		    "close",
-		    G_CALLBACK (on_socket_close),
-		    NULL);
-  g_signal_connect (socket1,
-		    "connect",
-		    G_CALLBACK (on_socket_connected),
-		    NULL);
-
-  /* bind socket1 */
-  if (! evd_socket_bind (socket1, addr2, TRUE, &error))
-    {
-      g_debug ("UDP socket1 bind error: %s", error->message);
-      return FALSE;
-    }
-
-  /* connect socket1 */
-  if (! evd_socket_connect_to (socket1, addr1, &error))
-    {
-      g_error ("UDP socket1 connect error: %s", error->message);
-      return FALSE;
-    }
-
-  /* create socket2 */
-  socket2 = evd_socket_new ();
-
-  evd_socket_unread_buffer (socket2, unread_text, strlen (unread_text));
-  g_object_set (socket2,
-		"type", G_SOCKET_TYPE_DATAGRAM,
-		"protocol", G_SOCKET_PROTOCOL_UDP,
-		NULL);
-
-  g_signal_connect (socket2,
-		    "close",
-		    G_CALLBACK (on_socket_close),
-		    NULL);
-  g_signal_connect (socket2,
-		    "connect",
-		    G_CALLBACK (on_socket_connected),
-		    NULL);
-
-  if (! evd_socket_bind (socket2, addr1, TRUE, &error))
-    {
-      g_debug ("UDP socket2 bind error: %s", error->message);
-      return FALSE;
-    }
-
-  /* connect socket2 */
-  if (! evd_socket_connect_to (socket2, addr2, &error))
-    {
-      g_error ("UDP socket2 connect error: %s", error->message);
-      return FALSE;
-    }
-
-  g_object_unref (addr1);
-  g_object_unref (addr2);
-
-  return FALSE;
-}
-
-gint
-main (gint argc, gchar **argv)
-{
-  gint i;
-
-  g_type_init ();
-
-  for (i=0; i<100; i++)
-    {
-      g_debug ("RUN: %d", i);
-      test_connection (test_tcp_sockets);
-      test_connection (test_udp_sockets);
-    }
-
-  return 0;
+  g_test_add ("/evd/socket/bind&listen",
+              EvdSocketFixture,
+              NULL,
+              evd_socket_fixture_setup,
+              evd_socket_test_bind_and_listen,
+              evd_socket_fixture_teardown);
 }

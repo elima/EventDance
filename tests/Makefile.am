@@ -11,10 +11,9 @@ TEST_PROGS =
 
 noinst_PROGRAMS = \
 	evd-tester \
-	test-socket \
 	test-socket-context
 
-# test-socket
+# evd-tester
 evd_tester_CFLAGS = \
 	$(AM_CFLAGS)
 
@@ -25,17 +24,6 @@ evd_tester_LDADD = \
 evd_tester_SOURCES = \
 	evd-tester.c \
 	$(TEST_PROGS)
-
-# test-socket
-test_socket_CFLAGS = \
-	$(AM_CFLAGS)
-
-test_socket_LDADD = \
-	$(GLIB_LIBS) \
-	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
-
-test_socket_SOURCES = \
-	test-socket.c
 
 # test-socket-context
 test_socket_context_CFLAGS = \
@@ -48,7 +36,6 @@ test_socket_context_LDADD = \
 test_socket_context_SOURCES = \
 	test-socket-context.c
 
-test: test-socket test-socket-context
+test: evd-tester
 	./evd-tester
-#	./test-socket
 #	./test-socket-context

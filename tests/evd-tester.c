@@ -25,6 +25,7 @@
 
 #include <glib.h>
 
+#include "test-socket.c"
 #include "test-inet-socket.c"
 
 gint
@@ -33,6 +34,7 @@ main (gint argc, gchar **argv)
   g_type_init ();
   g_test_init (&argc, &argv, NULL);
 
+  test_socket ();
   test_inet_socket ();
 
   g_test_run ();
