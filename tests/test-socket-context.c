@@ -152,13 +152,22 @@ group_socket_on_read (EvdSocketGroup *self,
     }
   else
     {
+      gchar *total_read_st;
+      gchar *total_size_st;
+
       G_LOCK (total_read);
       total_read += size;
 
+      total_read_st = g_format_size_for_display (total_read);
+      total_size_st = g_format_size_for_display (TOTAL_DATA_SIZE);
+
       g_print ("read %s/%s at %.2f KB/s       \r",
-	       g_format_size_for_display (total_read),
-	       g_format_size_for_display (TOTAL_DATA_SIZE),
+	       total_read_st,
+	       total_size_st,
 	       evd_stream_get_actual_bandwidth_in (EVD_STREAM (group_receivers)));
+
+      g_free (total_read_st);
+      g_free (total_size_st);
 
       G_UNLOCK (total_read);
 

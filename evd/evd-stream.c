@@ -201,6 +201,12 @@ evd_stream_finalize (GObject *obj)
 
   g_mutex_free (self->priv->mutex);
 
+  if (self->priv->read_closure != NULL)
+    g_closure_unref (self->priv->read_closure);
+
+  if (self->priv->write_closure != NULL)
+    g_closure_unref (self->priv->write_closure);
+
   G_OBJECT_CLASS (evd_stream_parent_class)->finalize (obj);
 }
 
@@ -433,7 +439,10 @@ evd_stream_set_on_read (EvdStream *self,
     g_closure_unref (self->priv->read_closure);
 
   if (closure != NULL)
-    g_closure_ref (closure);
+    {
+      g_closure_ref (closure);
+      g_closure_sink (closure);
+    }
 
   self->priv->read_closure = closure;
 }
@@ -456,7 +465,10 @@ evd_stream_set_on_write (EvdStream *self,
     g_closure_unref (self->priv->write_closure);
 
   if (closure != NULL)
-    g_closure_ref (closure);
+    {
+      g_closure_ref (closure);
+      g_closure_sink (closure);
+    }
 
   self->priv->write_closure = closure;
 }

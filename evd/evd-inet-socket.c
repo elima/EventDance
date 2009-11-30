@@ -148,7 +148,6 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 	}
 
       g_resolver_free_addresses (result);
-      g_free (data);
     }
   else
     {
@@ -158,6 +157,8 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
       error->code = EVD_INET_SOCKET_ERROR_RESOLVE;
       evd_socket_throw_error (EVD_SOCKET (self), error);
     }
+
+  g_free (data);
 }
 
 static gboolean

@@ -239,9 +239,6 @@ evd_socket_group_set_read_handler (EvdSocketGroup            *self,
       g_closure_set_marshal (closure, marshal);
     }
 
-  g_closure_ref (closure);
-  g_closure_sink (closure);
-
   evd_stream_set_on_read (EVD_STREAM (self), closure);
 }
 
@@ -264,9 +261,6 @@ evd_socket_group_set_write_handler (EvdSocketGroup             *self,
 
       g_closure_set_marshal (closure, marshal);
     }
-
-  g_closure_ref (closure);
-  g_closure_sink (closure);
 
   evd_stream_set_on_write (EVD_STREAM (self), closure);
 }
