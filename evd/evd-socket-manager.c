@@ -65,7 +65,6 @@ static void     evd_socket_manager_class_init   (EvdSocketManagerClass *class);
 static void     evd_socket_manager_init         (EvdSocketManager *self);
 static void     evd_socket_manager_finalize     (GObject *obj);
 static void     evd_socket_manager_dispose      (GObject *obj);
-static EvdSocketManager *evd_socket_manager_get (void);
 
 static void
 evd_socket_manager_class_init (EvdSocketManagerClass *class)
@@ -299,12 +298,6 @@ evd_socket_manager_start (EvdSocketManager  *self,
                                         error);
 }
 
-static EvdSocketManager *
-evd_socket_manager_get (void)
-{
-  return evd_socket_manager_singleton;
-}
-
 static gboolean
 evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
                                       gint              fd,
@@ -348,6 +341,12 @@ evd_socket_manager_stop (EvdSocketManager *self)
 }
 
 /* public methods */
+
+EvdSocketManager *
+evd_socket_manager_get (void)
+{
+  return evd_socket_manager_singleton;
+}
 
 void
 evd_socket_manager_ref (void)
