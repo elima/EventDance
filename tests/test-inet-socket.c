@@ -24,6 +24,7 @@
  */
 
 #include <evd.h>
+#include <evd-socket-manager.h>
 
 typedef struct
 {
@@ -42,9 +43,10 @@ static void
 evd_inet_socket_fixture_teardown (EvdInetSocketFixture *fixture)
 {
   g_object_unref (fixture->socket);
-
   g_main_loop_quit (fixture->main_loop);
   g_main_loop_unref (fixture->main_loop);
+
+  g_assert (evd_socket_manager_get () == NULL);
 }
 
 static void
