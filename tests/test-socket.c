@@ -23,54 +23,14 @@
  * 02110-1301 USA
  */
 
+#include <glib.h>
+#include <gio/gio.h>
+#include <glib/gstdio.h>
+
 #include <evd.h>
 #include <evd-socket-manager.h>
 
-typedef struct
-{
-  GMainLoop *main_loop;
-  EvdSocket *socket;
-} EvdSocketFixture;
-
-static void
-evd_socket_fixture_setup (EvdSocketFixture *fixture)
-{
-  fixture->main_loop = g_main_loop_new (NULL, FALSE);
-  fixture->socket = evd_socket_new ();
-
-  g_assert (evd_socket_manager_get () != NULL);
-}
-
-static void
-evd_socket_fixture_teardown (EvdSocketFixture *fixture)
-{
-  g_object_unref (fixture->socket);
-  g_main_loop_quit (fixture->main_loop);
-  g_main_loop_unref (fixture->main_loop);
-
-  g_assert (evd_socket_manager_get () == NULL);
-}
-
-/* common test functions */
-static void
-evd_socket_test_config (EvdSocket      *socket,
-                        GSocketFamily   family,
-                        GSocketType     type,
-                        GSocketProtocol protocol)
-{
-  GSocketFamily _family;
-  GSocketType _type;
-  GSocketProtocol _protocol;
-
-  g_object_get (socket,
-                "family", &_family,
-                "protocol", &_protocol,
-                "type", &_type,
-                NULL);
-  g_assert (family == _family);
-  g_assert (type == _type);
-  g_assert (protocol == _protocol);
-}
+#include "test-socket-common.c"
 
 /* test initial state */
 static void
@@ -104,58 +64,52 @@ evd_socket_test_initial_state (EvdSocketFixture *f)
   g_assert (evd_socket_has_write_data_pending (f->socket) == FALSE);
 }
 
-/* test bind and listen */
+/* test inet socket */
 
 static void
-evd_socket_test_bind_on_bound (EvdSocket *self,
-                               gpointer   user_data)
+evd_socket_inet_ipv4_fixture_setup (EvdSocketFixture *fixture)
 {
-  g_assert (EVD_IS_SOCKET (self));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_BOUND);
-  g_assert (evd_socket_get_socket (self) != NULL);
-
-  evd_socket_test_config (self,
-                          G_SOCKET_FAMILY_IPV4,
-                          G_SOCKET_TYPE_STREAM,
-                          G_SOCKET_PROTOCOL_DEFAULT);
-}
-
-static void
-evd_socket_test_bind_and_listen (EvdSocketFixture *f)
-{
-  GError *error = NULL;
+  gint port;
   GInetAddress *inet_addr;
-  GSocketAddress *socket_addr;
+
+  evd_socket_fixture_setup (fixture);
 
   inet_addr = g_inet_address_new_from_string ("127.0.0.1");
+  port = g_random_int_range (1024, 0xFFFF-1);
 
-  /* privilaged port, should fail */
-  socket_addr = g_inet_socket_address_new (inet_addr,
-                                           g_random_int_range (1, 1023));
-
-  evd_socket_bind (f->socket, socket_addr, TRUE, &error);
-
-  g_assert_error (error,
-                  g_quark_from_string ("g-io-error-quark"),
-                  G_IO_ERROR_PERMISSION_DENIED);
-  g_error_free (error);
-  error = NULL;
-  g_object_unref (socket_addr);
-
-  /* non-privileged port, should bind OK */
-  g_signal_connect (f->socket,
-                    "bind",
-                    G_CALLBACK (evd_socket_test_bind_on_bound),
-                    NULL);
-  socket_addr = g_inet_socket_address_new (inet_addr,
-                                           g_random_int_range (1024, 0xFFFF-1));
-
-  evd_socket_bind (f->socket, socket_addr, TRUE, &error);
-
-  g_assert_no_error (error);
-  g_object_unref (socket_addr);
+  fixture->socket_addr = g_inet_socket_address_new (inet_addr, port);
+  g_object_unref (inet_addr);
 }
 
+/* test inet socket */
+
+static void
+evd_socket_inet_ipv6_fixture_setup (EvdSocketFixture *fixture)
+{
+  gint port;
+  GInetAddress *inet_addr;
+
+  evd_socket_fixture_setup (fixture);
+
+  inet_addr = g_inet_address_new_from_string ("::1");
+  port = g_random_int_range (1024, 0xFFFF-1);
+
+  fixture->socket_addr = g_inet_socket_address_new (inet_addr, port);
+  g_object_unref (inet_addr);
+}
+
+/* test unix socket */
+
+static void
+evd_socket_unix_fixture_setup (EvdSocketFixture *fixture)
+{
+  const gchar *UNIX_FILENAME = "/tmp/evd-test-socket-unix";
+
+  evd_socket_fixture_setup (fixture);
+
+  g_unlink (UNIX_FILENAME);
+  fixture->socket_addr = G_SOCKET_ADDRESS (g_unix_socket_address_new (UNIX_FILENAME));
+}
 
 static void
 test_socket (void)
@@ -167,10 +121,24 @@ test_socket (void)
               evd_socket_test_initial_state,
               evd_socket_fixture_teardown);
 
-  g_test_add ("/evd/socket/bind&listen",
+  g_test_add ("/evd/socket/unix",
               EvdSocketFixture,
               NULL,
-              evd_socket_fixture_setup,
-              evd_socket_test_bind_and_listen,
+              evd_socket_unix_fixture_setup,
+              evd_socket_test,
+              evd_socket_fixture_teardown);
+
+  g_test_add ("/evd/socket/inet/ipv4",
+              EvdSocketFixture,
+              NULL,
+              evd_socket_inet_ipv4_fixture_setup,
+              evd_socket_test,
+              evd_socket_fixture_teardown);
+
+  g_test_add ("/evd/socket/inet/ipv6",
+              EvdSocketFixture,
+              NULL,
+              evd_socket_inet_ipv6_fixture_setup,
+              evd_socket_test,
               evd_socket_fixture_teardown);
 }

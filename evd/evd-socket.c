@@ -1056,16 +1056,23 @@ gboolean
 evd_socket_event_list_handler (gpointer data)
 {
   GQueue *queue = data;
-  gpointer msg;
+  EvdSocketEvent *msg;
 
-  while ( (msg = g_queue_pop_head (queue)) != NULL)
+  while ( (msg = (EvdSocketEvent *) g_queue_pop_head (queue)) != NULL)
     {
       EvdSocket *socket;
 
-      socket = ((EvdSocketEvent *) msg)->socket;
-      socket->priv->event_queue_cache = queue;
-      evd_socket_event_handler (msg);
-      socket->priv->event_queue_cache = NULL;
+      socket = msg->socket;
+      if (! EVD_IS_SOCKET (socket))
+        {
+          g_free (msg);
+        }
+      else
+        {
+          socket->priv->event_queue_cache = queue;
+          evd_socket_event_handler ((gpointer) msg);
+          socket->priv->event_queue_cache = NULL;
+        }
     }
 
   g_queue_free (queue);
