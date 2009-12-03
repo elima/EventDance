@@ -27,15 +27,16 @@
 #define __TEST_SOCKET_COMMON_H__
 
 #include <gio/gio.h>
+#include <string.h>
 
 #include <evd.h>
 #include <evd-socket-manager.h>
 
 #include <evd-socket-protected.h>
 
-const gchar *evd_socket_test_unread_greeting1 = "Once upon a time ";
-const gchar *evd_socket_test_greeting1 = "in a very remote land... ";
-const gchar *evd_socket_test_greeting2 = "and they lived in joy forever.";
+#define EVD_SOCKET_TEST_UNREAD_TEXT "Once upon a time "
+#define EVD_SOCKET_TEST_TEXT1       "in a very remote land... "
+#define EVD_SOCKET_TEST_TEXT2       "and they lived in joy forever."
 
 typedef struct
 {
@@ -51,6 +52,8 @@ typedef struct
   gboolean listen;
   gboolean connect;
   gboolean new_conn;
+
+  gsize total_read;
 } EvdSocketFixture;
 
 static void
@@ -68,6 +71,8 @@ evd_socket_fixture_setup (EvdSocketFixture *fixture)
   fixture->listen = FALSE;
   fixture->connect = FALSE;
   fixture->new_conn = FALSE;
+
+  fixture->total_read = 0;
 
   g_assert (evd_socket_manager_get () != NULL);
 }
@@ -176,16 +181,65 @@ static void
 evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
 {
   EvdSocketFixture *f = (EvdSocketFixture *) user_data;
+  GError *error = NULL;
+  gchar buf[1024] = { 0, };
+  gssize size;
+  gchar *expected_st;
+  gssize expected_size;
 
   g_assert (evd_socket_can_read (self));
+
+  size = evd_socket_read_buffer (self, buf, 1023, &error);
+  g_assert_no_error (error);
+
+  if (size == 0)
+    return;
+
+  /* validate text read */
+  expected_size = strlen (EVD_SOCKET_TEST_UNREAD_TEXT) +
+    strlen (EVD_SOCKET_TEST_TEXT1) +
+    strlen (EVD_SOCKET_TEST_TEXT2);
+
+  g_assert_cmpint (size, ==, expected_size);
+
+  expected_st = g_strconcat (EVD_SOCKET_TEST_UNREAD_TEXT,
+                             EVD_SOCKET_TEST_TEXT1,
+                             EVD_SOCKET_TEST_TEXT2,
+                             NULL);
+  g_assert_cmpstr (buf, ==, expected_st);
+  g_free (expected_st);
+
+  /* break mainloop if finished reading */
+  f->total_read += size;
+  if (f->total_read ==
+      (strlen (EVD_SOCKET_TEST_UNREAD_TEXT) +
+       strlen (EVD_SOCKET_TEST_TEXT1) +
+       strlen (EVD_SOCKET_TEST_TEXT2)) * 2)
+    {
+      evd_socket_test_break ((gpointer) f);
+    }
 }
 
 static void
 evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
 {
   EvdSocketFixture *f = (EvdSocketFixture *) user_data;
+  GError *error = NULL;
 
   g_assert (evd_socket_can_write (self));
+
+  evd_socket_unread (self, EVD_SOCKET_TEST_UNREAD_TEXT);
+
+  evd_socket_write_buffer (self,
+                           EVD_SOCKET_TEST_TEXT1,
+                           strlen (EVD_SOCKET_TEST_TEXT1),
+                           &error);
+  g_assert_no_error (error);
+
+  evd_socket_write (self,
+                    EVD_SOCKET_TEST_TEXT2,
+                    &error);
+  g_assert_no_error (error);
 }
 
 static void
@@ -223,8 +277,6 @@ evd_socket_test_on_connect (EvdSocket *self,
   g_assert (EVD_IS_SOCKET (self));
   g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_CONNECTED);
   g_assert (evd_socket_get_socket (self) != NULL);
-
-  evd_socket_test_break ((gpointer) f);
 }
 
 static gboolean
