@@ -184,7 +184,7 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
  * evd_socket_read_buffer:
  * @self: The #EvdSocket to read from.
  * @buffer: (out) (transfer full): The buffer to store the data.
- * @size: (inout): Maximum number of bytes to read.
+ * @size: (in): Maximum number of bytes to read.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
  * Reads up to @size bytes of data from the socket. The data read will be copied
