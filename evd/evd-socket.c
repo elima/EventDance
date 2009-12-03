@@ -1031,8 +1031,11 @@ evd_socket_event_handler (gpointer data)
                       g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
                     }
 
-                  socket->priv->cond |= G_IO_OUT;
-                  evd_socket_invoke_on_write (socket);
+                  if ( (socket->priv->cond & G_IO_OUT) == 0)
+                    {
+                      socket->priv->cond |= G_IO_OUT;
+                      evd_socket_invoke_on_write (socket);
+                    }
                 }
 
               if (condition & G_IO_IN)
