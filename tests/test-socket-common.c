@@ -230,6 +230,7 @@ evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
 
   evd_socket_unread (self, EVD_SOCKET_TEST_UNREAD_TEXT, &error);
   g_assert_no_error (error);
+  g_assert (evd_socket_can_read (self) == TRUE);
 
   evd_socket_write_buffer (self,
                            EVD_SOCKET_TEST_TEXT1,
