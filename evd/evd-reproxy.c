@@ -338,7 +338,8 @@ evd_reproxy_redirect_data (EvdSocket *from)
                 {
                   evd_socket_unread_buffer (from,
                                             (gchar *) (((guintptr) buf) + write_size),
-                                            read_size - write_size);
+                                            read_size - write_size,
+                                            NULL);
                 }
 
               if (! evd_reproxy_backend_is_bridge (from))
@@ -360,7 +361,7 @@ evd_reproxy_redirect_data (EvdSocket *from)
               g_warning ("Failed to redirect data: %s", error->message);
               g_error_free (error);
 
-              evd_socket_unread_buffer (from, buf, read_size);
+              evd_socket_unread_buffer (from, buf, read_size, NULL);
             }
         }
     }
@@ -593,7 +594,7 @@ evd_reproxy_notify_bridge_error (EvdReproxy *self,
       cache = evd_reproxy_client_get_cached_data (client);
       if (cache != NULL)
         {
-          evd_socket_unread_buffer (client, cache->str, cache->len);
+          evd_socket_unread_buffer (client, cache->str, cache->len, NULL);
           evd_reproxy_client_free_cached_data (client);
         }
 

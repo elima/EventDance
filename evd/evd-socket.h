@@ -120,6 +120,7 @@ typedef enum
   EVD_SOCKET_ERROR_NOT_BOUND,
   EVD_SOCKET_ERROR_CLOSE,
   EVD_SOCKET_ERROR_ACCEPT,
+  EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
   EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
 
@@ -270,9 +271,10 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * Return value: The actual number of bytes unread.
  */
 
-gssize        evd_socket_unread_buffer    (EvdSocket   *self,
-                                           const gchar *buffer,
-                                           gsize        size);
+gssize        evd_socket_unread_buffer    (EvdSocket    *self,
+                                           const gchar  *buffer,
+                                           gsize         size,
+                                           GError      **error);
 
 /**
  * evd_socket_unread:
@@ -284,8 +286,9 @@ gssize        evd_socket_unread_buffer    (EvdSocket   *self,
  *
  * Return value: The actual number of bytes unread.
  */
-gssize        evd_socket_unread           (EvdSocket   *self,
-                                           const gchar *buffer);
+gssize        evd_socket_unread           (EvdSocket    *self,
+                                           const gchar  *buffer,
+                                           GError      **error);
 
 gboolean      evd_socket_has_write_data_pending (EvdSocket *self);
 

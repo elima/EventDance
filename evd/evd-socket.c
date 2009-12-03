@@ -37,8 +37,9 @@
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.glib.socket"
 
-#define MAX_BLOCK_SIZE          64 * 1024
-#define MAX_READ_BUFFER_SIZE    64 * 1024
+#define MAX_BLOCK_SIZE          0xFFFF
+#define MAX_READ_BUFFER_SIZE    0xFFFF
+#define MAX_WRITE_BUFFER_SIZE   0xFFFF
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
@@ -774,7 +775,12 @@ evd_socket_read_internal (EvdSocket *self,
     }
 
   if (read_from_buf > 0)
-    g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+    {
+      g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+
+      if ( (self->priv->read_buffer->len == 0) && (read_from_socket == 0) )
+        self->priv->cond &= (~ G_IO_IN);
+    }
 
   return read_from_buf + read_from_socket;
 }
@@ -911,6 +917,56 @@ evd_socket_read_wait_timeout (gpointer user_data)
   evd_socket_invoke_on_read (self);
 
   return FALSE;
+}
+
+static gboolean
+evd_socket_read_buffer_add_data (EvdSocket    *self,
+                                 const gchar  *buf,
+                                 gsize         size,
+                                 GError      **error)
+{
+  if (self->priv->read_buffer->len + size > MAX_READ_BUFFER_SIZE)
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
+                              "Read buffer is full");
+
+      return FALSE;
+    }
+  else
+    {
+      g_string_append_len (self->priv->read_buffer,
+                           buf,
+                           size);
+
+      return TRUE;
+    }
+}
+
+static gboolean
+evd_socket_write_buffer_add_data (EvdSocket    *self,
+                                  const gchar  *buf,
+                                  gsize         size,
+                                  GError      **error)
+{
+  if (self->priv->write_buffer->len + size > MAX_WRITE_BUFFER_SIZE)
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
+                              "Write buffer is full");
+
+      return FALSE;
+    }
+  else
+    {
+      g_string_append_len (self->priv->write_buffer,
+                           buf,
+                           size);
+
+      return TRUE;
+    }
 }
 
 /* protected methods */
@@ -1537,7 +1593,6 @@ evd_socket_write_buffer (EvdSocket    *self,
                          GError      **error)
 {
   gsize orig_size = size;
-  gsize actual_size;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buf != NULL, -1);
@@ -1549,14 +1604,15 @@ evd_socket_write_buffer (EvdSocket    *self,
   /* check if there is data pending to be written */
   if (self->priv->write_buffer->len > 0)
     {
-      g_string_append_len (self->priv->write_buffer,
-                           buf,
-                           size);
-
-      actual_size = 0;
+      if (! evd_socket_write_buffer_add_data (self, buf, size, error))
+        return -1;
+      else
+        return 0;
     }
   else
     {
+      gsize actual_size;
+
       actual_size = evd_socket_write_internal (self,
                                                buf,
                                                size,
@@ -1565,13 +1621,17 @@ evd_socket_write_buffer (EvdSocket    *self,
       if ( (self->priv->auto_write) &&
            (actual_size < orig_size) && (actual_size >= 0) )
         {
-          g_string_append_len (self->priv->write_buffer,
-                               (gchar *) (((guintptr) buf) + (actual_size)),
-                               orig_size - actual_size);
+          if (! evd_socket_write_buffer_add_data (self,
+                                   (gchar *) (((guintptr) buf) + (actual_size)),
+                                   orig_size - actual_size,
+                                   error))
+            return -1;
+          else
+            return 0;
         }
-    }
 
-  return actual_size;
+      return actual_size;
+    }
 }
 
 gssize
@@ -1587,38 +1647,40 @@ evd_socket_write (EvdSocket    *self,
 }
 
 gssize
-evd_socket_unread_buffer (EvdSocket   *self,
-                          const gchar *buffer,
-                          gsize        size)
+evd_socket_unread_buffer (EvdSocket    *self,
+                          const gchar  *buffer,
+                          gsize         size,
+                          GError      **error)
 {
-  gssize actual_size;
-
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);
   g_return_val_if_fail (size > 0, -1);
 
-  actual_size = MAX (MAX_READ_BUFFER_SIZE - self->priv->read_buffer->len,
-                     size);
-
-  if (actual_size > 0)
+  if (! evd_socket_read_buffer_add_data (self,
+                                         buffer,
+                                         size,
+                                         error))
+    {
+      return -1;
+    }
+  else
     {
       self->priv->cond |= G_IO_IN;
 
-      g_string_append_len (self->priv->read_buffer,
-                           buffer,
-                           size);
-    }
+      /* TODO: Should we invoke on-read handler here? */
 
-  return actual_size;
+      return size;
+    }
 }
 
 gssize
-evd_socket_unread (EvdSocket   *self,
-                   const gchar *buffer)
+evd_socket_unread (EvdSocket    *self,
+                   const gchar  *buffer,
+                   GError      **error)
 {
   g_return_val_if_fail (buffer != NULL, -1);
 
-  return evd_socket_unread_buffer (self, buffer, strlen (buffer));
+  return evd_socket_unread_buffer (self, buffer, strlen (buffer), error);
 }
 
 gboolean
