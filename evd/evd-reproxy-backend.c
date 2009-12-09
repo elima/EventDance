@@ -121,7 +121,7 @@ evd_reproxy_backend_free_bridge_pool (GQueue *pool)
   while ( (bridge = EVD_SOCKET (g_queue_pop_head (pool))) != NULL)
     {
       g_debug ("[EvdReproxyBackend] Closing bridge 0x%X",
-               (guintptr) bridge);
+               (guint) (guintptr) bridge);
       evd_socket_close (bridge, NULL);
     }
 }
@@ -153,7 +153,7 @@ evd_reproxy_backend_finalize (GObject *obj)
 
   G_OBJECT_CLASS (evd_reproxy_backend_parent_class)->finalize (obj);
 
-  g_debug ("[ReproxyBackend] Reproxy finalized (%X)", (guintptr) obj);
+  g_debug ("[ReproxyBackend] Reproxy finalized (%X)", (guint) (guintptr) obj);
 }
 
 static EvdReproxyBridgeData *
@@ -445,14 +445,14 @@ evd_reproxy_backend_bridge_closed (EvdReproxyBackend *self,
     {
       evd_reproxy_backend_connect_bridge (self, bridge);
       g_debug ("[EvdReproxyBackend 0x%X] Bridge reused (%X)",
-               (guintptr) self,
-               (guintptr) bridge);
+               (guint) (guintptr) self,
+               (guint) (guintptr) bridge);
     }
   else
     {
       g_debug ("[EvdReproxyBackend 0x%X] Destroying bridge (%X)",
-               (guintptr) self,
-               (guintptr) bridge);
+               (guint) (guintptr) self,
+               (guint) (guintptr) bridge);
       evd_reproxy_backend_free_bridge_data (bridge);
       g_object_unref (bridge);
     }

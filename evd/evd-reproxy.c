@@ -459,8 +459,8 @@ evd_reproxy_socket_on_read (EvdSocketGroup *socket_group,
         }
 
       g_debug ("[EvdReproxy 0x%X] New client (%X)",
-               (guintptr) self,
-               (guintptr) socket);
+               (guint) (guintptr) self,
+               (guint) (guintptr) socket);
       g_object_ref_sink (socket);
 
       evd_reproxy_socket_create_data (socket);
@@ -502,7 +502,7 @@ evd_reproxy_socket_on_close (EvdService *service,
   EvdSocket *bridge;
   EvdReproxyBackend *backend;
 
-  g_debug ("[EvdReproxy] Socket closed (0x%X)", (guintptr) socket);
+  g_debug ("[EvdReproxy] Socket closed (0x%X)", (guint) (guintptr) socket);
 
   bridge = evd_reproxy_socket_get_bridge (socket);
   if (bridge != NULL)
@@ -525,7 +525,7 @@ evd_reproxy_socket_on_close (EvdService *service,
     }
   else
     {
-      g_debug ("[EvdReproxy] Client closed (0x%X)", (guintptr) socket);
+      g_debug ("[EvdReproxy] Client closed (0x%X)", (guint) (guintptr) socket);
       g_queue_remove (self->priv->awaiting_clients, (gconstpointer) socket);
       g_object_unref (socket);
     }
