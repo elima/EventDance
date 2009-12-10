@@ -23,9 +23,8 @@
  * 02110-1301 USA
  */
 
-#include <stdlib.h>
-
 #include "evd-json-filter.h"
+#include "evd-marshal.h"
 
 G_DEFINE_TYPE (EvdJsonFilter, evd_json_filter, G_TYPE_OBJECT)
 
@@ -206,14 +205,10 @@ struct _EvdJsonFilterPrivate
   gint  top;
   gint* stack;
 
-  gboolean content;
-};
+  gint     content_start;
+  GString *cache;
 
-
-/* properties */
-enum
-{
-  PROP_0,
+  GClosure *on_packet;
 };
 
 static void     evd_json_filter_class_init         (EvdJsonFilterClass *class);
@@ -221,15 +216,6 @@ static void     evd_json_filter_init               (EvdJsonFilter *self);
 
 static void     evd_json_filter_finalize           (GObject *obj);
 static void     evd_json_filter_dispose            (GObject *obj);
-
-static void     evd_json_filter_set_property       (GObject      *obj,
-                                               guint         prop_id,
-                                               const GValue *value,
-                                               GParamSpec   *pspec);
-static void     evd_json_filter_get_property       (GObject    *obj,
-                                               guint       prop_id,
-                                               GValue     *value,
-                                               GParamSpec *pspec);
 
 static void
 evd_json_filter_class_init (EvdJsonFilterClass *class)
@@ -240,10 +226,6 @@ evd_json_filter_class_init (EvdJsonFilterClass *class)
 
   obj_class->dispose = evd_json_filter_dispose;
   obj_class->finalize = evd_json_filter_finalize;
-  obj_class->get_property = evd_json_filter_get_property;
-  obj_class->set_property = evd_json_filter_set_property;
-
-  /* install properties */
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdJsonFilterPrivate));
@@ -259,8 +241,11 @@ evd_json_filter_init (EvdJsonFilter *self)
 
   /* initialize private members */
   priv->stack = g_new0 (gint, MAX_DEPTH);
+  priv->cache = g_string_new ("");
 
   evd_json_filter_reset (self);
+
+  priv->on_packet = NULL;
 }
 
 static void
@@ -276,43 +261,12 @@ evd_json_filter_finalize (GObject *obj)
 
   g_free (self->priv->stack);
 
+  g_string_free (self->priv->cache, TRUE);
+
+  if (self->priv->on_packet != NULL)
+    g_closure_unref (self->priv->on_packet);
+
   G_OBJECT_CLASS (evd_json_filter_parent_class)->finalize (obj);
-}
-
-static void
-evd_json_filter_set_property (GObject      *obj,
-                         guint         prop_id,
-                         const GValue *value,
-                         GParamSpec   *pspec)
-{
-  EvdJsonFilter *self;
-
-  self = EVD_JSON_FILTER (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-evd_json_filter_get_property (GObject    *obj,
-                         guint       prop_id,
-                         GValue     *value,
-                         GParamSpec *pspec)
-{
-  EvdJsonFilter *self;
-
-  self = EVD_JSON_FILTER (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static gboolean
@@ -357,7 +311,7 @@ evd_json_filter_error (EvdJsonFilter *self)
 }
 
 static gboolean
-evd_json_filter_process (EvdJsonFilter *self, gint next_char)
+evd_json_filter_process (EvdJsonFilter *self, gint next_char, gsize offset)
 {
   /*
    * After calling new_JSON_checker, call this function for each character (or
@@ -367,8 +321,6 @@ evd_json_filter_process (EvdJsonFilter *self, gint next_char)
    */
 
   gint next_class, next_state;
-
-  g_debug ("%c", next_char);
 
   /* Determine the character's class. */
   if (next_char < 0)
@@ -394,7 +346,8 @@ evd_json_filter_process (EvdJsonFilter *self, gint next_char)
       }
     else
       {
-        self->priv->content = TRUE;
+        if (self->priv->content_start == -1)
+          self->priv->content_start = offset;
 
         /* Or perform one of the actions. */
         switch (next_state)
@@ -509,17 +462,36 @@ evd_json_filter_process (EvdJsonFilter *self, gint next_char)
           }
       }
 
-    if (self->priv->content &&
-        self->priv->stack[self->priv->top] == MODE_DONE)
-      {
-        g_debug ("done!");
-        evd_json_filter_reset (self);
-      }
-
     return TRUE;
 }
 
-/* protected methods */
+static void
+evd_json_filter_notify_packet (EvdJsonFilter *self,
+                               const gchar   *buffer,
+                               gsize          size)
+{
+  if (self->priv->on_packet != NULL)
+    {
+      GValue params[3] = { {0, } };
+
+      g_value_init (&params[0], EVD_TYPE_JSON_FILTER);
+      g_value_set_object (&params[0], self);
+
+      g_value_init (&params[1], G_TYPE_STRING);
+      g_value_set_string (&params[1], buffer);
+
+      g_value_init (&params[2], G_TYPE_ULONG);
+      g_value_set_ulong (&params[2], size);
+
+      g_object_ref (self);
+      g_closure_invoke (self->priv->on_packet, NULL, 3, params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params[0]);
+      g_value_unset (&params[1]);
+      g_value_unset (&params[2]);
+    }
+}
 
 /* public methods */
 
@@ -542,35 +514,117 @@ evd_json_filter_reset (EvdJsonFilter *self)
   self->priv->depth = MAX_DEPTH;
   self->priv->top = -1;
 
-  self->priv->content = FALSE;
+  self->priv->content_start = -1;
 
   evd_json_filter_push (self, MODE_DONE);
 }
 
 gboolean
-evd_json_filter_feed_char (EvdJsonFilter *self, gchar ch)
-{
-  g_return_val_if_fail (EVD_IS_JSON_FILTER (self), FALSE);
-
-  return evd_json_filter_process (self, (gint) ch);
-}
-
-gboolean
-evd_json_filter_feed_buffer (EvdJsonFilter *self, gchar *buffer, gsize size)
+evd_json_filter_feed (EvdJsonFilter *self, const gchar *buffer, gsize size)
 {
   gint i;
 
   g_return_val_if_fail (EVD_IS_JSON_FILTER (self), FALSE);
-  g_return_val_if_fail (buffer == NULL, FALSE);
+  g_return_val_if_fail (buffer != NULL, FALSE);
 
   i = 0;
   while (i < size)
     {
-      if (! evd_json_filter_process (self, (gint) buffer[i]))
-        return FALSE;
+      if (! evd_json_filter_process (self, (gint) buffer[i], i))
+        {
+          return FALSE;
+        }
       else
-        i++;
+        {
+          if ( (self->priv->content_start >= 0) &&
+              self->priv->stack[self->priv->top] == MODE_DONE)
+            {
+              if (self->priv->cache->len > 0)
+                {
+                  g_string_append_len (self->priv->cache, buffer, i+1);
+
+                  evd_json_filter_notify_packet (self,
+                                                 self->priv->cache->str,
+                                                 self->priv->cache->len);
+
+                  g_string_free (self->priv->cache, TRUE);
+                  self->priv->cache = g_string_new ("");
+                }
+              else
+                {
+                  evd_json_filter_notify_packet (self,
+                      (gchar *) ( (void *) buffer + self->priv->content_start),
+                      i - self->priv->content_start);
+                }
+
+              evd_json_filter_reset (self);
+            }
+
+          i++;
+        }
+    }
+
+  if (self->priv->content_start >= 0)
+    {
+      g_string_append_len (self->priv->cache,
+                     (gchar *) ( (void *) (buffer) + self->priv->content_start),
+                     size - self->priv->content_start);
+
+      self->priv->content_start = 0;
     }
 
   return TRUE;
+}
+
+void
+evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
+                                    EvdJsonFilterOnPacketHandler *handler,
+                                    gpointer                      user_data)
+{
+  GClosure *closure;
+
+  g_return_if_fail (EVD_IS_JSON_FILTER (self));
+
+  if (handler == NULL)
+    {
+      evd_json_filter_set_on_packet (self, NULL);
+
+      return;
+    }
+
+  closure = g_cclosure_new (G_CALLBACK (handler),
+			    user_data,
+			    NULL);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    {
+      GClosureMarshal marshal = evd_marshal_VOID__STRING_ULONG;
+
+      g_closure_set_marshal (closure, marshal);
+    }
+
+  evd_json_filter_set_on_packet (self, closure);
+}
+
+void
+evd_json_filter_set_on_packet (EvdJsonFilter *self,
+                               GClosure      *closure)
+{
+  g_return_if_fail (EVD_IS_JSON_FILTER (self));
+
+  if (closure == NULL)
+    {
+      if (self->priv->on_packet != NULL)
+        {
+          g_closure_unref (self->priv->on_packet);
+          self->priv->on_packet = NULL;
+        }
+
+      return;
+    }
+
+  g_closure_ref (closure);
+  g_closure_sink (closure);
+
+  self->priv->on_packet = closure;
 }
