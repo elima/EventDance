@@ -35,6 +35,7 @@ source_c = \
 	evd-stream.c \
 	evd-socket-manager.c \
 	evd-socket.c \
+	evd-json-filter.c \
 	evd-inet-socket.c \
 	evd-socket-group.c \
 	evd-service.c \
@@ -44,6 +45,7 @@ source_c = \
 source_h = \
 	evd-stream.h \
 	evd-socket.h \
+	evd-json-filter.h \
 	evd-inet-socket.h \
 	evd-socket-group.h \
 	evd-service.h \

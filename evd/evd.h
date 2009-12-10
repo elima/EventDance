@@ -28,6 +28,7 @@
 
 #include <evd-stream.h>
 #include <evd-socket.h>
+#include <evd-json-filter.h>
 #include <evd-inet-socket.h>
 #include <evd-socket-group.h>
 #include <evd-service.h>
