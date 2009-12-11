@@ -34,6 +34,11 @@ typedef struct _EvdJsonSocket EvdJsonSocket;
 typedef struct _EvdJsonSocketClass EvdJsonSocketClass;
 typedef struct _EvdJsonSocketPrivate EvdJsonSocketPrivate;
 
+typedef void (* EvdJsonSocketOnPacketHandler) (EvdJsonSocket *self,
+                                               const gchar   *buffer,
+                                               gsize          size,
+                                               gpointer       user_data);
+
 struct _EvdJsonSocket
 {
   EvdSocket parent;
@@ -61,9 +66,17 @@ typedef enum
 #define EVD_JSON_SOCKET_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_JSON_SOCKET, EvdJsonSocketClass))
 
 
-GType             evd_json_socket_get_type         (void) G_GNUC_CONST;
+GType             evd_json_socket_get_type           (void) G_GNUC_CONST;
 
-EvdJsonSocket    *evd_json_socket_new              (void);
+EvdJsonSocket    *evd_json_socket_new                (void);
+
+void              evd_json_socket_set_packet_handler (EvdJsonSocket                *self,
+                                                      EvdJsonSocketOnPacketHandler  handler,
+                                                      gpointer                      user_data);
+void              evd_json_socket_set_on_packet      (EvdJsonSocket *self,
+                                                      GClosure      *closure);
+GClosure *        evd_json_socket_get_on_packet      (EvdJsonSocket *self);
+
 
 G_END_DECLS
 
