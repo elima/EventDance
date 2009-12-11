@@ -34,7 +34,8 @@
 
 /* test initial state */
 static void
-evd_socket_test_initial_state (EvdSocketFixture *f)
+evd_socket_test_initial_state (EvdSocketFixture *f,
+                               gconstpointer     test_data)
 {
   /* EvdStream */
   g_assert (EVD_IS_STREAM (f->socket));
@@ -67,12 +68,13 @@ evd_socket_test_initial_state (EvdSocketFixture *f)
 /* test inet socket */
 
 static void
-evd_socket_inet_ipv4_fixture_setup (EvdSocketFixture *fixture)
+evd_socket_inet_ipv4_fixture_setup (EvdSocketFixture *fixture,
+                                    gconstpointer     test_data)
 {
   gint port;
   GInetAddress *inet_addr;
 
-  evd_socket_fixture_setup (fixture);
+  evd_socket_fixture_setup (fixture, test_data);
 
   inet_addr = g_inet_address_new_from_string ("127.0.0.1");
   port = g_random_int_range (1024, 0xFFFF-1);
@@ -84,12 +86,13 @@ evd_socket_inet_ipv4_fixture_setup (EvdSocketFixture *fixture)
 /* test inet socket */
 
 static void
-evd_socket_inet_ipv6_fixture_setup (EvdSocketFixture *fixture)
+evd_socket_inet_ipv6_fixture_setup (EvdSocketFixture *fixture,
+                                    gconstpointer     test_data)
 {
   gint port;
   GInetAddress *inet_addr;
 
-  evd_socket_fixture_setup (fixture);
+  evd_socket_fixture_setup (fixture, test_data);
 
   inet_addr = g_inet_address_new_from_string ("::1");
   port = g_random_int_range (1024, 0xFFFF-1);
@@ -101,11 +104,12 @@ evd_socket_inet_ipv6_fixture_setup (EvdSocketFixture *fixture)
 /* test unix socket */
 
 static void
-evd_socket_unix_fixture_setup (EvdSocketFixture *fixture)
+evd_socket_unix_fixture_setup (EvdSocketFixture *fixture,
+                               gconstpointer     test_data)
 {
   const gchar *UNIX_FILENAME = "/tmp/evd-test-socket-unix";
 
-  evd_socket_fixture_setup (fixture);
+  evd_socket_fixture_setup (fixture, test_data);
 
   g_unlink (UNIX_FILENAME);
   fixture->socket_addr = G_SOCKET_ADDRESS (g_unix_socket_address_new (UNIX_FILENAME));

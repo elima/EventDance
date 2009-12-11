@@ -33,14 +33,16 @@ typedef struct
 } EvdInetSocketFixture;
 
 static void
-evd_inet_socket_fixture_setup (EvdInetSocketFixture *fixture)
+evd_inet_socket_fixture_setup (EvdInetSocketFixture *fixture,
+                               gconstpointer         test_data)
 {
   fixture->main_loop = g_main_loop_new (NULL, FALSE);
   fixture->socket = evd_inet_socket_new ();
 }
 
 static void
-evd_inet_socket_fixture_teardown (EvdInetSocketFixture *fixture)
+evd_inet_socket_fixture_teardown (EvdInetSocketFixture *fixture,
+                                  gconstpointer         test_data)
 {
   g_object_unref (fixture->socket);
   g_main_loop_quit (fixture->main_loop);
@@ -63,7 +65,8 @@ evd_inet_socket_on_resolve_error (EvdSocket *self,
 }
 
 static void
-evd_inet_socket_test_basic (EvdInetSocketFixture *fixture)
+evd_inet_socket_test_basic (EvdInetSocketFixture *fixture,
+                            gconstpointer         test_data)
 {
   g_assert (EVD_IS_STREAM (fixture->socket));
   g_assert (EVD_IS_SOCKET (fixture->socket));
@@ -73,7 +76,8 @@ evd_inet_socket_test_basic (EvdInetSocketFixture *fixture)
 }
 
 static void
-evd_inet_socket_test_resolver (EvdInetSocketFixture *fixture)
+evd_inet_socket_test_resolver (EvdInetSocketFixture *fixture,
+                               gconstpointer         test_data)
 {
   GError *error = NULL;
 
@@ -103,7 +107,8 @@ evd_inet_socket_test_resolver (EvdInetSocketFixture *fixture)
 }
 
 static void
-evd_inet_socket_test_ports (EvdInetSocketFixture *fixture)
+evd_inet_socket_test_ports (EvdInetSocketFixture *fixture,
+                            gconstpointer         test_data)
 {
   GError *error = NULL;
 
@@ -134,7 +139,8 @@ evd_inet_socket_on_listen (EvdSocket *self, gpointer user_data)
 }
 
 static void
-evd_inet_socket_test_listen (EvdInetSocketFixture *fixture)
+evd_inet_socket_test_listen (EvdInetSocketFixture *fixture,
+                             gconstpointer         test_data)
 {
   GError *error = NULL;
 

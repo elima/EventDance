@@ -23,11 +23,11 @@
  * 02110-1301 USA
  */
 
-#ifndef __TEST_SOCKET_COMMON_H__
-#define __TEST_SOCKET_COMMON_H__
+#ifndef __TEST_SOCKET_COMMON_C__
+#define __TEST_SOCKET_COMMON_C__
 
-#include <gio/gio.h>
 #include <string.h>
+#include <gio/gio.h>
 
 #include <evd.h>
 #include <evd-socket-manager.h>
@@ -57,7 +57,8 @@ typedef struct
 } EvdSocketFixture;
 
 static void
-evd_socket_fixture_setup (EvdSocketFixture *fixture)
+evd_socket_fixture_setup (EvdSocketFixture *fixture,
+                          gconstpointer     test_data)
 {
   fixture->main_loop = g_main_loop_new (NULL, FALSE);
   fixture->break_src_id = 0;
@@ -97,7 +98,8 @@ evd_socket_test_break (gpointer user_data)
 }
 
 static void
-evd_socket_fixture_teardown (EvdSocketFixture *fixture)
+evd_socket_fixture_teardown (EvdSocketFixture *fixture,
+                             gconstpointer     test_data)
 {
   evd_socket_test_break ((gpointer) fixture);
 
@@ -223,7 +225,6 @@ evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
 static void
 evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
 {
-  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
   GError *error = NULL;
 
   g_assert (evd_socket_can_write (self));
@@ -270,7 +271,7 @@ evd_socket_test_on_new_conn (EvdSocket *self,
 
 static void
 evd_socket_test_on_connect (EvdSocket *self,
-                           gpointer   user_data)
+                            gpointer   user_data)
 {
   EvdSocketFixture *f = (EvdSocketFixture *) user_data;
 
@@ -335,7 +336,8 @@ evd_socket_launch_test (gpointer user_data)
 }
 
 static void
-evd_socket_test (EvdSocketFixture *f)
+evd_socket_test (EvdSocketFixture *f,
+                 gconstpointer     test_data)
 {
   f->break_src_id = g_timeout_add (1000,
                                    (GSourceFunc) evd_socket_test_break,
@@ -352,4 +354,4 @@ evd_socket_test (EvdSocketFixture *f)
   g_assert (f->new_conn);
 }
 
-#endif /* __TEST_SOCKET_COMMON_H__ */
+#endif /* __TEST_SOCKET_COMMON_C__ */
