@@ -25,6 +25,7 @@
 
 #include <glib.h>
 
+#include "test-json-filter.c"
 #include "test-socket.c"
 #include "test-inet-socket.c"
 
@@ -34,6 +35,7 @@ main (gint argc, gchar **argv)
   g_type_init ();
   g_test_init (&argc, &argv, NULL);
 
+  test_json_filter ();
   test_socket ();
   test_inet_socket ();
 
