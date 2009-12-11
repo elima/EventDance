@@ -44,6 +44,8 @@ void            evd_socket_set_actual_priority (EvdSocket *self,
                                                 gint       priority);
 gint            evd_socket_get_actual_priority (EvdSocket *self);
 
+void            evd_socket_invoke_on_read      (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_PROTECTED_H__ */
