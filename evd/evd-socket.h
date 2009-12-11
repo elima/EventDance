@@ -218,7 +218,7 @@ gchar         *evd_socket_read            (EvdSocket *self,
  * evd_socket_write_buffer:
  * @self: The #EvdSocket to write to.
  * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
- * @size: (inout): Maximum number of bytes to write. @buffer should be at least @size long.
+ * @size: (in): Maximum number of bytes to write. @buffer should be at least @size long.
  * @error: (out) (transfer full): The #GError to return, or NULL.
  *
  * Writes up to @size bytes of data to the socket.

@@ -480,7 +480,7 @@ evd_json_filter_notify_packet (EvdJsonFilter *self,
       g_value_set_object (&params[0], self);
 
       g_value_init (&params[1], G_TYPE_STRING);
-      g_value_set_string (&params[1], buffer);
+      g_value_set_static_string (&params[1], buffer);
 
       g_value_init (&params[2], G_TYPE_ULONG);
       g_value_set_ulong (&params[2], size);
@@ -556,7 +556,7 @@ evd_json_filter_feed_len (EvdJsonFilter *self, const gchar *buffer, gsize size)
                 {
                   evd_json_filter_notify_packet (self,
                       (gchar *) ( (void *) buffer + self->priv->content_start),
-                      i - self->priv->content_start);
+                      i - self->priv->content_start + 1);
                 }
 
               evd_json_filter_reset (self);
