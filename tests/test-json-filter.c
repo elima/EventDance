@@ -68,6 +68,7 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
                             gconstpointer         test_data)
 {
   gint i;
+  GError *error = NULL;
   const gchar *wrong[] =
     {
       "null",
@@ -104,13 +105,21 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
     {
       g_assert (! evd_json_filter_feed_len (f->filter,
                                             wrong[i],
-                                            strlen (wrong[i])));
+                                            strlen (wrong[i]),
+                                            &error));
+
+      g_assert_error (error,
+                      g_quark_from_static_string (EVD_JSON_SOCKET_DOMAIN_QUARK_STRING),
+                      EVD_JSON_SOCKET_ERROR_INVALID);
     }
+
+  error = NULL;
 
   /* good */
   for (i=0; i<sizeof (good) / sizeof (gchar *); i++)
     {
-      g_assert (evd_json_filter_feed (f->filter, good[i]));
+      g_assert (evd_json_filter_feed (f->filter, good[i], &error));
+      g_assert_no_error (error);
     }
 }
 
@@ -136,6 +145,7 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
                               gconstpointer         test_data)
 {
   gint i;
+  GError *error = NULL;
 
   evd_json_filter_set_packet_handler (f->filter,
           (EvdJsonFilterOnPacketHandler) evd_json_filter_test_chunked_on_packet,
@@ -145,7 +155,9 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
     {
       g_assert (evd_json_filter_feed_len (f->filter,
                                           evd_json_filter_chunks[i],
-                                          strlen (evd_json_filter_chunks[i])));
+                                          strlen (evd_json_filter_chunks[i]),
+                                          &error));
+      g_assert_no_error (error);
     }
 }
 

@@ -305,8 +305,6 @@ evd_json_filter_pop (EvdJsonFilter *self, gint mode)
 static gboolean
 evd_json_filter_error (EvdJsonFilter *self)
 {
-  /* TODO: handle parsing error */
-
   evd_json_filter_reset (self);
 
   return FALSE;
@@ -522,7 +520,10 @@ evd_json_filter_reset (EvdJsonFilter *self)
 }
 
 gboolean
-evd_json_filter_feed_len (EvdJsonFilter *self, const gchar *buffer, gsize size)
+evd_json_filter_feed_len (EvdJsonFilter  *self,
+                          const gchar    *buffer,
+                          gsize           size,
+                          GError        **error)
 {
   gint i;
 
@@ -534,6 +535,14 @@ evd_json_filter_feed_len (EvdJsonFilter *self, const gchar *buffer, gsize size)
     {
       if (! evd_json_filter_process (self, (gint) buffer[i], i))
         {
+          if (error != NULL)
+            {
+              *error = g_error_new (g_quark_from_static_string (
+                                          EVD_JSON_SOCKET_DOMAIN_QUARK_STRING),
+                                    EVD_JSON_SOCKET_ERROR_INVALID,
+                                    "Malformed JSON sequence at offset %d", i);
+            }
+
           return FALSE;
         }
       else
@@ -579,9 +588,11 @@ evd_json_filter_feed_len (EvdJsonFilter *self, const gchar *buffer, gsize size)
 }
 
 gboolean
-evd_json_filter_feed (EvdJsonFilter *self, const gchar *buffer)
+evd_json_filter_feed (EvdJsonFilter  *self,
+                      const gchar    *buffer,
+                      GError        **error)
 {
-  return evd_json_filter_feed_len (self, buffer, strlen (buffer));
+  return evd_json_filter_feed_len (self, buffer, strlen (buffer), error);
 }
 
 void

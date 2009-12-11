@@ -30,6 +30,8 @@
 
 G_BEGIN_DECLS
 
+#define EVD_JSON_SOCKET_DOMAIN_QUARK_STRING "org.eventdance.glib.socket.json"
+
 typedef struct _EvdJsonFilter EvdJsonFilter;
 typedef struct _EvdJsonFilterClass EvdJsonFilterClass;
 typedef struct _EvdJsonFilterPrivate EvdJsonFilterPrivate;
@@ -56,6 +58,12 @@ struct _EvdJsonFilterClass
   /* signal prototypes */
 };
 
+typedef enum
+{
+  EVD_JSON_SOCKET_ERROR_INVALID,
+  EVD_JSON_SOCKET_ERROR_LAST
+} EvdJsonFilterErrors;
+
 #define EVD_TYPE_JSON_FILTER           (evd_json_filter_get_type ())
 #define EVD_JSON_FILTER(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_JSON_FILTER, EvdJsonFilter))
 #define EVD_JSON_FILTER_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_JSON_FILTER, EvdJsonFilterClass))
@@ -69,11 +77,13 @@ GType evd_json_filter_get_type (void) G_GNUC_CONST;
 EvdJsonFilter    *evd_json_filter_new                (void);
 
 void              evd_json_filter_reset              (EvdJsonFilter *self);
-gboolean          evd_json_filter_feed_len           (EvdJsonFilter *self,
-                                                      const gchar   *buffer,
-                                                      gsize          size);
-gboolean          evd_json_filter_feed               (EvdJsonFilter *self,
-                                                      const gchar   *buffer);
+gboolean          evd_json_filter_feed_len           (EvdJsonFilter  *self,
+                                                      const gchar    *buffer,
+                                                      gsize           size,
+                                                      GError        **error);
+gboolean          evd_json_filter_feed               (EvdJsonFilter  *self,
+                                                      const gchar    *buffer,
+                                                      GError        **error);
 
 void              evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
                                                       EvdJsonFilterOnPacketHandler  handler,
