@@ -36,7 +36,8 @@ typedef struct _EvdJsonFilterPrivate EvdJsonFilterPrivate;
 
 typedef void (* EvdJsonFilterOnPacketHandler) (EvdJsonFilter *self,
                                                const gchar   *buffer,
-                                               gsize          size);
+                                               gsize          size,
+                                               gpointer       user_data);
 
 struct _EvdJsonFilter
 {
@@ -73,7 +74,7 @@ gboolean          evd_json_filter_feed               (EvdJsonFilter *self,
                                                       gsize          size);
 
 void              evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
-                                                      EvdJsonFilterOnPacketHandler *handler,
+                                                      EvdJsonFilterOnPacketHandler  handler,
                                                       gpointer                      user_data);
 void              evd_json_filter_set_on_packet      (EvdJsonFilter *self,
                                                       GClosure      *closure);
