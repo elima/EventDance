@@ -1337,7 +1337,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
 
   if ( (client_socket = g_socket_accept (self->priv->socket, NULL, error)) != NULL)
     {
-      client = evd_socket_new ();
+      client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
       evd_socket_set_socket (client, client_socket);
 
       if (evd_socket_watch (client, error))
