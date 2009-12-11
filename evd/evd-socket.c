@@ -155,6 +155,7 @@ evd_socket_class_init (EvdSocketClass *class)
   obj_class->set_property = evd_socket_set_property;
 
   class->event_handler = NULL;
+  class->invoke_on_read = evd_socket_invoke_on_read;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -600,24 +601,12 @@ evd_socket_unwatch (EvdSocket *self, GError **error)
 }
 
 static void
-evd_socket_invoke_on_read (EvdSocket *self)
+evd_socket_invoke_on_read_internal (EvdSocket *self)
 {
-  GClosure *closure = NULL;
+  EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
 
-  closure = evd_stream_get_on_read (EVD_STREAM (self));
-  if (closure != NULL)
-    {
-      GValue params = { 0, };
-
-      g_value_init (&params, EVD_TYPE_SOCKET);
-      g_value_set_object (&params, self);
-
-      g_object_ref (self);
-      g_closure_invoke (closure, NULL, 1, &params, NULL);
-      g_object_unref (self);
-
-      g_value_unset (&params);
-    }
+  if (class->invoke_on_read != NULL)
+    class->invoke_on_read (self);
 }
 
 static void
@@ -914,7 +903,7 @@ evd_socket_read_wait_timeout (gpointer user_data)
   EvdSocket *self = EVD_SOCKET (user_data);
 
   self->priv->read_src_id = 0;
-  evd_socket_invoke_on_read (self);
+  evd_socket_invoke_on_read_internal (self);
 
   return FALSE;
 }
@@ -1097,7 +1086,7 @@ evd_socket_event_handler (gpointer data)
               if (condition & G_IO_IN)
                 {
                   socket->priv->cond |= G_IO_IN;
-                  evd_socket_invoke_on_read (socket);
+                  evd_socket_invoke_on_read_internal (socket);
                 }
             }
         }
@@ -1146,7 +1135,7 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
   if (group != NULL)
     {
       if (self->priv->read_buffer->len > 0)
-        evd_socket_invoke_on_read (self);
+        evd_socket_invoke_on_read_internal (self);
 
       if (evd_socket_can_write (self))
         evd_socket_invoke_on_write (self);
@@ -1163,6 +1152,27 @@ gint
 evd_socket_get_actual_priority (EvdSocket *self)
 {
   return self->priv->actual_priority;
+}
+
+void
+evd_socket_invoke_on_read (EvdSocket *self)
+{
+  GClosure *closure = NULL;
+
+  closure = evd_stream_get_on_read (EVD_STREAM (self));
+  if (closure != NULL)
+    {
+      GValue params = { 0, };
+
+      g_value_init (&params, EVD_TYPE_SOCKET);
+      g_value_set_object (&params, self);
+
+      g_object_ref (self);
+      g_closure_invoke (closure, NULL, 1, &params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params);
+    }
 }
 
 /* public methods */
