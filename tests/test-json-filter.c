@@ -102,17 +102,15 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
   /* wrong */
   for (i=0; i<sizeof (wrong) / sizeof (gchar *); i++)
     {
-      g_assert (! evd_json_filter_feed (f->filter,
-                                        wrong[i],
-                                        strlen (wrong[i])));
+      g_assert (! evd_json_filter_feed_len (f->filter,
+                                            wrong[i],
+                                            strlen (wrong[i])));
     }
 
   /* good */
   for (i=0; i<sizeof (good) / sizeof (gchar *); i++)
     {
-      g_assert (evd_json_filter_feed (f->filter,
-                                      good[i],
-                                      strlen (good[i])));
+      g_assert (evd_json_filter_feed (f->filter, good[i]));
     }
 }
 
@@ -145,9 +143,9 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
 
   for (i=0; i<sizeof (evd_json_filter_chunks) / sizeof (gchar *); i++)
     {
-      g_assert (evd_json_filter_feed (f->filter,
-                                      evd_json_filter_chunks[i],
-                                      strlen (evd_json_filter_chunks[i])));
+      g_assert (evd_json_filter_feed_len (f->filter,
+                                          evd_json_filter_chunks[i],
+                                          strlen (evd_json_filter_chunks[i])));
     }
 }
 

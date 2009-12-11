@@ -23,6 +23,8 @@
  * 02110-1301 USA
  */
 
+#include <string.h>
+
 #include "evd-json-filter.h"
 #include "evd-marshal.h"
 
@@ -520,7 +522,7 @@ evd_json_filter_reset (EvdJsonFilter *self)
 }
 
 gboolean
-evd_json_filter_feed (EvdJsonFilter *self, const gchar *buffer, gsize size)
+evd_json_filter_feed_len (EvdJsonFilter *self, const gchar *buffer, gsize size)
 {
   gint i;
 
@@ -574,6 +576,12 @@ evd_json_filter_feed (EvdJsonFilter *self, const gchar *buffer, gsize size)
     }
 
   return TRUE;
+}
+
+gboolean
+evd_json_filter_feed (EvdJsonFilter *self, const gchar *buffer)
+{
+  return evd_json_filter_feed_len (self, buffer, strlen (buffer));
 }
 
 void

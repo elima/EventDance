@@ -69,9 +69,11 @@ GType evd_json_filter_get_type (void) G_GNUC_CONST;
 EvdJsonFilter    *evd_json_filter_new                (void);
 
 void              evd_json_filter_reset              (EvdJsonFilter *self);
-gboolean          evd_json_filter_feed               (EvdJsonFilter *self,
+gboolean          evd_json_filter_feed_len           (EvdJsonFilter *self,
                                                       const gchar   *buffer,
                                                       gsize          size);
+gboolean          evd_json_filter_feed               (EvdJsonFilter *self,
+                                                      const gchar   *buffer);
 
 void              evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
                                                       EvdJsonFilterOnPacketHandler  handler,
