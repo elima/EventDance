@@ -1367,6 +1367,7 @@ evd_socket_connect_to (EvdSocket        *self,
 
   /* if socket not closed, close it first */
   if ( (self->priv->status == EVD_SOCKET_STATE_CONNECTED) ||
+       (self->priv->status == EVD_SOCKET_STATE_CONNECTING) ||
        (self->priv->status == EVD_SOCKET_STATE_LISTENING) )
     if (! evd_socket_close (self, error))
       return FALSE;
