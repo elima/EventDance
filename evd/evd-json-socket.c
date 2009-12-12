@@ -58,6 +58,9 @@ static void     evd_json_socket_on_filter_packet   (EvdJsonFilter *filter,
                                                     gsize          size,
                                                     gpointer       user_data);
 
+static gboolean evd_json_socket_cleanup            (EvdSocket  *socket,
+                                                    GError    **error);
+
 static void
 evd_json_socket_class_init (EvdJsonSocketClass *class)
 {
@@ -71,6 +74,7 @@ evd_json_socket_class_init (EvdJsonSocketClass *class)
   socket_class = EVD_SOCKET_CLASS (class);
 
   socket_class->invoke_on_read = evd_json_socket_on_read;
+  socket_class->cleanup = evd_json_socket_cleanup;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdJsonSocketPrivate));
@@ -178,6 +182,16 @@ evd_json_socket_on_read (EvdSocket *socket)
           evd_socket_throw_error (EVD_SOCKET (self), error);
         }
     }
+}
+
+static gboolean
+evd_json_socket_cleanup (EvdSocket *socket, GError **error)
+{
+  EvdJsonSocket *self = EVD_JSON_SOCKET (socket);
+
+  evd_json_filter_reset (self->priv->json_filter);
+
+  return evd_socket_cleanup_protected (socket, error);
 }
 
 /* public methods */
