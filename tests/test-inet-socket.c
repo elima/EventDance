@@ -140,14 +140,20 @@ evd_inet_socket_test_ports (EvdInetSocketFixture *fixture,
 }
 
 static void
-evd_inet_socket_on_listen (EvdSocket *self, gpointer user_data)
+evd_inet_socket_on_state_changed (EvdSocket      *self,
+                                  EvdSocketState  new_state,
+                                  EvdSocketState  old_state,
+                                  gpointer        user_data)
 {
-  g_assert_cmpint (evd_socket_get_status (self),
-                   ==,
-                   EVD_SOCKET_STATE_LISTENING);
-  g_assert_cmpint ((guintptr) evd_socket_get_socket (self),
-                   !=,
-                   (guintptr) NULL);
+  if (new_state == EVD_SOCKET_STATE_LISTENING)
+    {
+      g_assert_cmpint (evd_socket_get_status (self),
+                       ==,
+                       EVD_SOCKET_STATE_LISTENING);
+      g_assert_cmpint ((guintptr) evd_socket_get_socket (self),
+                       !=,
+                       (guintptr) NULL);
+    }
 }
 
 static void
@@ -157,15 +163,14 @@ evd_inet_socket_test_listen (EvdInetSocketFixture *fixture,
   GError *error = NULL;
 
   g_signal_connect (fixture->socket,
-                    "listen",
-                    G_CALLBACK (evd_inet_socket_on_listen),
+                    "state-changed",
+                    G_CALLBACK (evd_inet_socket_on_state_changed),
                     (gpointer) fixture->main_loop);
 
   evd_inet_socket_listen (fixture->socket,
                           "127.0.0.1",
                           g_test_rand_int_range (1024, G_MAXUINT16-1),
                           &error);
-
   g_assert_no_error (error);
 }
 

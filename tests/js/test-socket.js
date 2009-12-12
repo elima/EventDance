@@ -72,10 +72,9 @@ socket1.connect ('state-changed', function (socket, new_state, old_state) {
         log ("socket bound to " + address.address.to_string () + ":" +
 	     address.get_port ());
     }
-});
-
-socket1.connect ('listen', function (socket) {
-    log ("socket listening");
+    else if (new_state == Evd.SocketState.LISTENING) {
+        log ("socket listening");
+    }
 });
 
 socket1.listen ("*", 6666);

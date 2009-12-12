@@ -145,41 +145,6 @@ evd_socket_test_on_error (EvdSocket *self,
 }
 
 static void
-evd_socket_test_on_bound (EvdSocket      *self,
-                          GSocketAddress *address,
-                          gpointer        user_data)
-{
-  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
-
-  f->bind = TRUE;
-
-  g_assert (EVD_IS_SOCKET (f->socket));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_BOUND);
-  g_assert (evd_socket_get_socket (self) != NULL);
-
-  g_assert (G_IS_SOCKET_ADDRESS (address));
-  g_assert (address == f->socket_addr);
-
-  evd_socket_test_config (self,
-                          g_socket_address_get_family (G_SOCKET_ADDRESS (f->socket_addr)),
-                          G_SOCKET_TYPE_STREAM,
-                          G_SOCKET_PROTOCOL_DEFAULT);
-}
-
-static void
-evd_socket_test_on_listen (EvdSocket *self,
-                           gpointer   user_data)
-{
-  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
-
-  f->listen = TRUE;
-
-  g_assert (EVD_IS_SOCKET (self));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_LISTENING);
-  g_assert (evd_socket_get_socket (self) != NULL);
-}
-
-static void
 evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
 {
   EvdSocketFixture *f = (EvdSocketFixture *) user_data;
@@ -315,6 +280,19 @@ evd_socket_test_on_state_changed (EvdSocket      *self,
         break;
       }
 
+    case EVD_SOCKET_STATE_LISTENING:
+      {
+        f->listen = TRUE;
+
+        g_assert (EVD_IS_SOCKET (self));
+        g_assert_cmpint (evd_socket_get_status (self),
+                         ==,
+                         EVD_SOCKET_STATE_LISTENING);
+        g_assert (evd_socket_get_socket (self) != NULL);
+
+        break;
+      }
+
     default:
       break;
     }
@@ -348,11 +326,6 @@ evd_socket_launch_test (gpointer user_data)
   evd_socket_bind (f->socket, f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
 
-  /* listen */
-  g_signal_connect (f->socket,
-                    "listen",
-                    G_CALLBACK (evd_socket_test_on_listen),
-                    (gpointer) f);
   evd_socket_listen (f->socket, &error);
   g_assert_no_error (error);
 
