@@ -1721,3 +1721,23 @@ evd_socket_can_write (EvdSocket *self)
 {
   return ( (self->priv->cond & G_IO_OUT) > 0);
 }
+
+GSocketAddress *
+evd_socket_get_remote_address (EvdSocket  *self,
+                               GError    **error)
+{
+  if (self->priv->socket == NULL)
+    return NULL;
+  else
+    return g_socket_get_remote_address (self->priv->socket, error);
+}
+
+GSocketAddress *
+evd_socket_get_local_address (EvdSocket  *self,
+                              GError    **error)
+{
+  if (self->priv->socket == NULL)
+    return NULL;
+  else
+    return g_socket_get_local_address (self->priv->socket, error);
+}

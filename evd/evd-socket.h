@@ -297,6 +297,11 @@ gboolean      evd_socket_has_write_data_pending (EvdSocket *self);
 gboolean      evd_socket_can_read               (EvdSocket *self);
 gboolean      evd_socket_can_write              (EvdSocket *self);
 
+GSocketAddress *evd_socket_get_remote_address   (EvdSocket  *self,
+                                                 GError    **error);
+GSocketAddress *evd_socket_get_local_address    (EvdSocket  *self,
+                                                 GError    **error);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */
