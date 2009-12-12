@@ -86,9 +86,7 @@ enum
   SIGNAL_ERROR,
   SIGNAL_STATE_CHANGED,
   SIGNAL_CLOSE,
-  SIGNAL_CONNECT,
   SIGNAL_NEW_CONNECTION,
-  SIGNAL_CONNECT_TIMEOUT,
   SIGNAL_LAST
 };
 
@@ -184,15 +182,6 @@ evd_socket_class_init (EvdSocketClass *class)
                   G_TYPE_FROM_CLASS (obj_class),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdSocketClass, close),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-
-  evd_socket_signals[SIGNAL_CONNECT] =
-    g_signal_new ("connect",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdSocketClass, connect),
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
@@ -1066,9 +1055,6 @@ evd_socket_event_handler (gpointer data)
                         g_source_remove (socket->priv->connect_timeout_src_id);
 
                       evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
-
-                      /* emit 'connected' signal */
-                      g_signal_emit (socket, evd_socket_signals[SIGNAL_CONNECT], 0, NULL);
                     }
 
                   if ( (socket->priv->cond & G_IO_OUT) == 0)
