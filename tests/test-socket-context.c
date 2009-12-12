@@ -78,12 +78,6 @@ client_on_connect (EvdSocket *socket,
 }
 
 static void
-client_on_connect_timeout (EvdSocket *socket, gpointer user_data)
-{
-  g_debug ("client connection timed-out");
-}
-
-static void
 client_on_close (EvdSocket *socket, gpointer user_data)
 {
   G_LOCK (sockets_closed);
@@ -237,10 +231,6 @@ thread_handler (gpointer user_data)
 
       g_signal_connect (client, "connect",
 			G_CALLBACK (client_on_connect),
-			NULL);
-
-      g_signal_connect (client, "connect-timeout",
-			G_CALLBACK (client_on_connect_timeout),
 			NULL);
 
       g_signal_connect (client, "close",

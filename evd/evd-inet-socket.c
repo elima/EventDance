@@ -90,9 +90,6 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
   self = data->socket;
   status = evd_socket_get_status (EVD_SOCKET (self));
 
-  if (status == EVD_SOCKET_STATE_CLOSED)
-    return;
-
   if ((result = g_resolver_lookup_by_name_finish (resolver,
 						  res,
 						  &error)) != NULL)
@@ -118,8 +115,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 
 	      sock_addr = g_inet_socket_address_new (addr, data->port);
 
-	      if ( (data->action == ACTION_CONNECT) &&
-		   (status == EVD_SOCKET_STATE_CONNECTING) )
+	      if (data->action == ACTION_CONNECT)
 		{
 		  if (! evd_socket_connect_to (EVD_SOCKET (self),
 					       sock_addr,
@@ -129,8 +125,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 		    }
 		}
 	      else
-		if ( (data->action == ACTION_BIND) &&
-		     (status == EVD_SOCKET_STATE_BINDING) )
+		if (data->action == ACTION_BIND)
 		{
 		  if (! evd_socket_bind (EVD_SOCKET (self),
 					 sock_addr,
@@ -217,11 +212,6 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
       data->port = port;
       data->action = action;
       data->allow_reuse = allow_reuse;
-
-      if (action == ACTION_CONNECT)
-	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_STATE_CONNECTING);
-      else
-	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_STATE_BINDING);
 
       resolver = g_resolver_get_default ();
       g_resolver_lookup_by_name_async (resolver,

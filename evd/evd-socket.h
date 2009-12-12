@@ -91,7 +91,6 @@ struct _EvdSocketClass
   void (* listen)          (EvdSocket *self);
   void (* new_connection)  (EvdSocket *self,
                             EvdSocket *socket);
-  void (* connect_timeout) (EvdSocket *self);
 };
 
 /* event message to pass to sockets objects*/
@@ -122,6 +121,7 @@ typedef enum
   EVD_SOCKET_ERROR_CLOSE,
   EVD_SOCKET_ERROR_ACCEPT,
   EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
+  EVD_SOCKET_ERROR_CONNECT_TIMEOUT,
   EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
 

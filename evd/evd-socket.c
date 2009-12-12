@@ -216,15 +216,6 @@ evd_socket_class_init (EvdSocketClass *class)
                   G_TYPE_NONE, 1,
                   EVD_TYPE_SOCKET);
 
-  evd_socket_signals[SIGNAL_CONNECT_TIMEOUT] =
-    g_signal_new ("connect-timeout",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdSocketClass, connect_timeout),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-
   /* install properties */
   g_object_class_install_property (obj_class, PROP_SOCKET,
                                    g_param_spec_object ("socket",
@@ -654,13 +645,16 @@ evd_socket_connect_timeout (gpointer user_data)
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
 
-  /* emit 'connect-timeout' signal */
-  g_signal_emit (self, evd_socket_signals[SIGNAL_CONNECT_TIMEOUT], 0, NULL);
+  /* emit 'connect-timeout' error */
+  error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                       EVD_SOCKET_ERROR_CONNECT_TIMEOUT,
+                       "Connect timeout");
+  evd_socket_throw_error (self, error);
 
   self->priv->connect_timeout_src_id = 0;
   if (! evd_socket_close (self, &error))
     {
-      /* emit 'error' signal */
+      /* emit 'close' error signal */
       error->code = EVD_SOCKET_ERROR_CLOSE;
       evd_socket_throw_error (self, error);
 

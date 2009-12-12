@@ -38,7 +38,7 @@ function on_socket_closed (socket) {
 
   sockets_closed ++;
 
-  socket.set_read_closure (NULL);
+  socket.set_on_read (NULL);
 }
 
 /* Socket group =================================== */
@@ -93,10 +93,6 @@ socket2.connect ('error', function (socket, code, message) {
     log ("ERROR on socket: " + code + "('" + message + "')");
   });
 
-socket2.connect ('connect-timeout', function (socket) {
-      log ("connection timeout");
-    });
-
 socket2.connect ('connect', function (socket) {
     log ("client socket connected");
 
@@ -111,4 +107,3 @@ MainLoop.timeout_add (1000, function () {
   });
 
 MainLoop.run ("main");
-
