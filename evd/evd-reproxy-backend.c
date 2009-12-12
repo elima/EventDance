@@ -312,6 +312,16 @@ evd_reproxy_backend_connect_bridge (EvdReproxyBackend *self,
 }
 
 static void
+evd_reproxy_backend_bridge_on_state_changed (EvdSocket      *self,
+                                             EvdSocketState  new_state,
+                                             EvdSocketState  old_state,
+                                             gpointer        user_data)
+{
+  if (new_state == EVD_SOCKET_STATE_CONNECTED)
+    evd_reproxy_backend_bridge_on_connect (self, user_data);
+}
+
+static void
 evd_reproxy_backend_new_bridge (EvdReproxyBackend *self)
 {
   EvdSocket *bridge;
@@ -330,8 +340,8 @@ evd_reproxy_backend_new_bridge (EvdReproxyBackend *self)
                 NULL);
 
   g_signal_connect (bridge,
-                    "connect",
-                    G_CALLBACK (evd_reproxy_backend_bridge_on_connect),
+                    "state-changed",
+                    G_CALLBACK (evd_reproxy_backend_bridge_on_state_changed),
                     (gpointer) self);
 
   g_signal_connect (bridge,

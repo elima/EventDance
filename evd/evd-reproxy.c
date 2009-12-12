@@ -32,7 +32,7 @@ G_DEFINE_TYPE (EvdReproxy, evd_reproxy, EVD_TYPE_SERVICE)
                                       EvdReproxyPrivate))
 
 #define DEFAULT_BACKEND_MAX_BRIDGES      5
-#define BLOCK_SIZE                   65000
+#define BLOCK_SIZE                  0xFFFF
 
 #define SOCKET_DATA_KEY "socket-data"
 
@@ -311,6 +311,7 @@ evd_reproxy_redirect_data (EvdSocket *from)
   GError *error = NULL;
   EvdSocket *to;
   EvdReproxySocketData *data;
+  gsize max_writable;
 
   to = evd_reproxy_socket_get_bridge (from);
   if (to == NULL)
@@ -318,12 +319,13 @@ evd_reproxy_redirect_data (EvdSocket *from)
 
   data = evd_reproxy_socket_get_data (from);
 
-  if (! evd_socket_can_write (to))
+  max_writable = evd_socket_get_max_writable (to);
+  if (max_writable == 0)
     return FALSE;
 
   if ( (read_size = evd_socket_read_buffer (from,
                                             buf,
-                                            BLOCK_SIZE,
+                                            max_writable,
                                             &error)) >= 0)
     {
       if (read_size > 0)
