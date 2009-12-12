@@ -65,6 +65,17 @@ typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
 typedef void (* EvdSocketWriteHandler) (EvdSocket *socket,
                                         gpointer   user_data);
 
+/* socket states */
+typedef enum
+{
+  EVD_SOCKET_STATE_CLOSED,
+  EVD_SOCKET_STATE_CONNECTING,
+  EVD_SOCKET_STATE_CONNECTED,
+  EVD_SOCKET_STATE_BINDING,
+  EVD_SOCKET_STATE_BOUND,
+  EVD_SOCKET_STATE_LISTENING
+} EvdSocketState;
+
 struct _EvdSocket
 {
   EvdStream parent;
@@ -84,6 +95,9 @@ struct _EvdSocketClass
   /* signal prototypes */
   void (* error)           (EvdSocket *self,
                             GError    *error);
+  void (* state_changed)   (EvdSocket      *self,
+                            EvdSocketState  new_state,
+                            EvdSocketState  old_state);
   void (* close)           (EvdSocket *self);
   void (* connect)         (EvdSocket *self);
   void (* bind)            (EvdSocket      *self,
@@ -99,17 +113,6 @@ struct _EvdSocketEvent
   GIOCondition  condition;
   EvdSocket    *socket;
 };
-
-/* socket states */
-typedef enum
-{
-  EVD_SOCKET_STATE_CLOSED,
-  EVD_SOCKET_STATE_CONNECTING,
-  EVD_SOCKET_STATE_CONNECTED,
-  EVD_SOCKET_STATE_BINDING,
-  EVD_SOCKET_STATE_BOUND,
-  EVD_SOCKET_STATE_LISTENING
-} EvdSocketState;
 
 /* error codes */
 typedef enum
