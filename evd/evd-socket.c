@@ -1277,6 +1277,10 @@ evd_socket_bind (EvdSocket       *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
+    if (! evd_socket_close (self, error))
+      return FALSE;
+
   evd_socket_figureout_from_address (self, address);
 
   if (! evd_socket_check (self, error))
