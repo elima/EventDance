@@ -325,7 +325,7 @@ evd_socket_init (EvdSocket *self)
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
   priv->connect_cancellable = NULL;
 
-  priv->status = EVD_SOCKET_CLOSED;
+  priv->status = EVD_SOCKET_STATE_CLOSED;
 
   priv->auto_write   = FALSE;
   priv->read_buffer  = g_string_new ("");
@@ -400,7 +400,7 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
 
-      self->priv->status = EVD_SOCKET_CLOSED;
+      self->priv->status = EVD_SOCKET_STATE_CLOSED;
     }
 
   return result;
@@ -1004,11 +1004,11 @@ evd_socket_event_handler (gpointer data)
     class->event_handler (socket, condition);
   else
     {
-      if (socket->priv->status == EVD_SOCKET_LISTENING)
+      if (socket->priv->status == EVD_SOCKET_STATE_LISTENING)
         {
           EvdSocket *client;
 
-          while ( (socket->priv->status == EVD_SOCKET_LISTENING) &&
+          while ( (socket->priv->status == EVD_SOCKET_STATE_LISTENING) &&
                   ((client = evd_socket_accept (socket, &error)) != NULL) )
             {
               /* TODO: allow external function to decide whether to
@@ -1057,13 +1057,13 @@ evd_socket_event_handler (gpointer data)
             {
               evd_socket_close (socket, &error);
             }
-          else if (socket->priv->status != EVD_SOCKET_CLOSED)
+          else if (socket->priv->status != EVD_SOCKET_STATE_CLOSED)
             {
               if (condition & G_IO_OUT)
                 {
-                  if (socket->priv->status == EVD_SOCKET_CONNECTING)
+                  if (socket->priv->status == EVD_SOCKET_STATE_CONNECTING)
                     {
-                      evd_socket_set_status (socket, EVD_SOCKET_CONNECTED);
+                      evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
 
                       /* restore priority */
                       socket->priv->actual_priority = socket->priv->priority;
@@ -1251,7 +1251,7 @@ evd_socket_close (EvdSocket *self, GError **error)
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  fire_on_close = (self->priv->status != EVD_SOCKET_CLOSED);
+  fire_on_close = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
   result = evd_socket_cleanup (self, error);
 
   self->priv->read_buffer = g_string_new ("");
@@ -1287,7 +1287,7 @@ evd_socket_bind (EvdSocket       *self,
                      allow_reuse,
                      error))
     {
-      evd_socket_set_status (self, EVD_SOCKET_BOUND);
+      evd_socket_set_status (self, EVD_SOCKET_STATE_BOUND);
 
       g_signal_emit (self, evd_socket_signals[SIGNAL_BIND], 0, address, NULL);
 
@@ -1305,7 +1305,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
   if (! evd_socket_check (self, error))
     return FALSE;
 
-  if (self->priv->status != EVD_SOCKET_BOUND)
+  if (self->priv->status != EVD_SOCKET_STATE_BOUND)
     {
       *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
                             EVD_SOCKET_ERROR_NOT_BOUND,
@@ -1318,7 +1318,7 @@ evd_socket_listen (EvdSocket *self, GError **error)
   if (g_socket_listen (self->priv->socket, error))
     if (evd_socket_watch (self, error))
       {
-        self->priv->status = EVD_SOCKET_LISTENING;
+        self->priv->status = EVD_SOCKET_STATE_LISTENING;
         self->priv->actual_priority = G_PRIORITY_HIGH + 1;
         g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
         return TRUE;
@@ -1342,7 +1342,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
 
       if (evd_socket_watch (client, error))
         {
-          evd_socket_set_status (client, EVD_SOCKET_CONNECTED);
+          evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
           return client;
         }
     }
@@ -1366,8 +1366,8 @@ evd_socket_connect_to (EvdSocket        *self,
     return FALSE;
 
   /* if socket not closed, close it first */
-  if ( (self->priv->status == EVD_SOCKET_CONNECTED) ||
-       (self->priv->status == EVD_SOCKET_LISTENING) )
+  if ( (self->priv->status == EVD_SOCKET_STATE_CONNECTED) ||
+       (self->priv->status == EVD_SOCKET_STATE_LISTENING) )
     if (! evd_socket_close (self, error))
       return FALSE;
 
@@ -1417,7 +1417,7 @@ evd_socket_connect_to (EvdSocket        *self,
     }
   else
     {
-      self->priv->status = EVD_SOCKET_CONNECTING;
+      self->priv->status = EVD_SOCKET_STATE_CONNECTING;
       self->priv->actual_priority = G_PRIORITY_HIGH + 2;
       return TRUE;
     }
@@ -1428,7 +1428,7 @@ evd_socket_cancel_connect (EvdSocket *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (self->priv->status == EVD_SOCKET_CONNECTING)
+  if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
     {
       if (self->priv->connect_timeout_src_id > 0)
         g_source_remove (self->priv->connect_timeout_src_id);

@@ -140,7 +140,7 @@ group_socket_on_read (EvdSocketGroup *self,
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
 
-  if (evd_socket_get_status (socket) != EVD_SOCKET_CONNECTED)
+  if (evd_socket_get_status (socket) != EVD_SOCKET_STATE_CONNECTED)
     return;
 
   if ( (size = evd_socket_read_buffer (socket,

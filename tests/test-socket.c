@@ -52,8 +52,12 @@ evd_socket_test_initial_state (EvdSocketFixture *f,
   g_assert (evd_socket_get_context (f->socket) == NULL);
   g_assert (evd_socket_get_group (f->socket) == NULL);
 
-  g_assert_cmpint (evd_socket_get_status (f->socket), ==, EVD_SOCKET_CLOSED);
-  g_assert_cmpint (evd_socket_get_priority (f->socket), ==, G_PRIORITY_DEFAULT);
+  g_assert_cmpint (evd_socket_get_status (f->socket),
+                   ==,
+                   EVD_SOCKET_STATE_CLOSED);
+  g_assert_cmpint (evd_socket_get_priority (f->socket),
+                   ==,
+                   G_PRIORITY_DEFAULT);
 
   evd_socket_test_config (f->socket,
                           G_SOCKET_FAMILY_INVALID,

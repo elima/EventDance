@@ -154,7 +154,7 @@ evd_socket_test_on_bound (EvdSocket      *self,
   f->bind = TRUE;
 
   g_assert (EVD_IS_SOCKET (f->socket));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_BOUND);
+  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_BOUND);
   g_assert (evd_socket_get_socket (self) != NULL);
 
   g_assert (G_IS_SOCKET_ADDRESS (address));
@@ -175,7 +175,7 @@ evd_socket_test_on_listen (EvdSocket *self,
   f->listen = TRUE;
 
   g_assert (EVD_IS_SOCKET (self));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_LISTENING);
+  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_LISTENING);
   g_assert (evd_socket_get_socket (self) != NULL);
 }
 
@@ -256,7 +256,7 @@ evd_socket_test_on_new_conn (EvdSocket *self,
 
   g_assert (EVD_IS_SOCKET (self));
   g_assert (EVD_IS_SOCKET (client));
-  g_assert_cmpint (evd_socket_get_status (client), ==, EVD_SOCKET_CONNECTED);
+  g_assert_cmpint (evd_socket_get_status (client), ==, EVD_SOCKET_STATE_CONNECTED);
   g_assert (evd_socket_get_socket (client) != NULL);
 
   evd_socket_set_read_handler (client, evd_socket_test_on_read, f);
@@ -278,7 +278,7 @@ evd_socket_test_on_connect (EvdSocket *self,
   f->connect = TRUE;
 
   g_assert (EVD_IS_SOCKET (self));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_CONNECTED);
+  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_CONNECTED);
   g_assert (evd_socket_get_socket (self) != NULL);
 }
 
@@ -330,7 +330,9 @@ evd_socket_launch_test (gpointer user_data)
                     (gpointer) f);
   evd_socket_connect_to (f->socket1, f->socket_addr, &error);
   g_assert_no_error (error);
-  g_assert_cmpint (evd_socket_get_status (f->socket1), ==, EVD_SOCKET_CONNECTING);
+  g_assert_cmpint (evd_socket_get_status (f->socket1),
+                   ==,
+                   EVD_SOCKET_STATE_CONNECTING);
 
   return FALSE;
 }

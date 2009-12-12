@@ -245,7 +245,7 @@ evd_service_add_listener (EvdService  *self,
                        (gpointer) socket,
                        (gpointer) socket);
 
-  if (evd_socket_get_status (socket) == EVD_SOCKET_LISTENING)
+  if (evd_socket_get_status (socket) == EVD_SOCKET_STATE_LISTENING)
     g_signal_connect (socket,
                       "new-connection",
                       G_CALLBACK (evd_service_on_new_connection),

@@ -90,7 +90,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
   self = data->socket;
   status = evd_socket_get_status (EVD_SOCKET (self));
 
-  if (status == EVD_SOCKET_CLOSED)
+  if (status == EVD_SOCKET_STATE_CLOSED)
     return;
 
   if ((result = g_resolver_lookup_by_name_finish (resolver,
@@ -119,7 +119,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 	      sock_addr = g_inet_socket_address_new (addr, data->port);
 
 	      if ( (data->action == ACTION_CONNECT) &&
-		   (status == EVD_SOCKET_CONNECTING) )
+		   (status == EVD_SOCKET_STATE_CONNECTING) )
 		{
 		  if (! evd_socket_connect_to (EVD_SOCKET (self),
 					       sock_addr,
@@ -130,7 +130,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 		}
 	      else
 		if ( (data->action == ACTION_BIND) &&
-		     (status == EVD_SOCKET_BINDING) )
+		     (status == EVD_SOCKET_STATE_BINDING) )
 		{
 		  if (! evd_socket_bind (EVD_SOCKET (self),
 					 sock_addr,
@@ -152,7 +152,7 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
   else
     {
       /* address resolution failed, emit 'error' signal */
-      evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_CLOSED);
+      evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_STATE_CLOSED);
 
       error->code = EVD_INET_SOCKET_ERROR_RESOLVE;
       evd_socket_throw_error (EVD_SOCKET (self), error);
@@ -219,9 +219,9 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
       data->allow_reuse = allow_reuse;
 
       if (action == ACTION_CONNECT)
-	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_CONNECTING);
+	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_STATE_CONNECTING);
       else
-	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_BINDING);
+	evd_socket_set_status (EVD_SOCKET (self), EVD_SOCKET_STATE_BINDING);
 
       resolver = g_resolver_get_default ();
       g_resolver_lookup_by_name_async (resolver,

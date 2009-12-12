@@ -58,8 +58,12 @@ evd_inet_socket_on_resolve_error (EvdSocket *self,
                                   gpointer user_data)
 {
   g_assert_cmpint (code, ==, EVD_INET_SOCKET_ERROR_RESOLVE);
-  g_assert_cmpint (evd_socket_get_status (EVD_SOCKET (self)), ==, EVD_SOCKET_CLOSED);
-  g_assert_cmpint ((guintptr) evd_socket_get_socket (EVD_SOCKET (self)), ==, (guintptr) NULL);
+  g_assert_cmpint (evd_socket_get_status (EVD_SOCKET (self)),
+                   ==,
+                   EVD_SOCKET_STATE_CLOSED);
+  g_assert_cmpint ((guintptr) evd_socket_get_socket (EVD_SOCKET (self)),
+                   ==,
+                   (guintptr) NULL);
 
   g_main_loop_quit ((GMainLoop *) user_data);
 }
@@ -71,8 +75,12 @@ evd_inet_socket_test_basic (EvdInetSocketFixture *fixture,
   g_assert (EVD_IS_STREAM (fixture->socket));
   g_assert (EVD_IS_SOCKET (fixture->socket));
   g_assert (EVD_IS_INET_SOCKET (fixture->socket));
-  g_assert_cmpint (evd_socket_get_status (EVD_SOCKET (fixture->socket)), ==, EVD_SOCKET_CLOSED);
-  g_assert_cmpint ((guintptr) evd_socket_get_socket (EVD_SOCKET (fixture->socket)), ==, (guintptr) NULL);
+  g_assert_cmpint (evd_socket_get_status (EVD_SOCKET (fixture->socket)),
+                   ==,
+                   EVD_SOCKET_STATE_CLOSED);
+  g_assert_cmpint ((guintptr) evd_socket_get_socket (EVD_SOCKET (fixture->socket)),
+                   ==,
+                   (guintptr) NULL);
 }
 
 static void
@@ -134,8 +142,12 @@ evd_inet_socket_test_ports (EvdInetSocketFixture *fixture,
 static void
 evd_inet_socket_on_listen (EvdSocket *self, gpointer user_data)
 {
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_LISTENING);
-  g_assert_cmpint ((guintptr) evd_socket_get_socket (self), !=, (guintptr) NULL);
+  g_assert_cmpint (evd_socket_get_status (self),
+                   ==,
+                   EVD_SOCKET_STATE_LISTENING);
+  g_assert_cmpint ((guintptr) evd_socket_get_socket (self),
+                   !=,
+                   (guintptr) NULL);
 }
 
 static void
