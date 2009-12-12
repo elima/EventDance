@@ -301,6 +301,9 @@ GSocketAddress *evd_socket_get_remote_address   (EvdSocket  *self,
 GSocketAddress *evd_socket_get_local_address    (EvdSocket  *self,
                                                  GError    **error);
 
+gsize           evd_socket_get_max_readable     (EvdSocket *self);
+gsize           evd_socket_get_max_writable     (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */

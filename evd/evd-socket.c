@@ -745,7 +745,7 @@ evd_socket_write_internal (EvdSocket    *self,
 
   if ( (limited_size > 0) && (self->priv->group != NULL) )
     limited_size = evd_stream_request_write (EVD_STREAM (self->priv->group),
-                                             size,
+                                             limited_size,
                                              &_retry_wait);
 
   if (limited_size > 0)
@@ -1697,6 +1697,42 @@ gboolean
 evd_socket_has_write_data_pending (EvdSocket *self)
 {
   return (self->priv->write_buffer->len > 0);
+}
+
+gsize
+evd_socket_get_max_readable (EvdSocket *self)
+{
+  gsize size = MAX_BLOCK_SIZE;
+  gsize limited_size;
+
+  limited_size = evd_stream_request_read (EVD_STREAM (self),
+                                          size,
+                                          NULL);
+
+  if ( (limited_size > 0) && (self->priv->group != NULL) )
+    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
+                                            limited_size,
+                                            NULL);
+
+  return limited_size;
+}
+
+gsize
+evd_socket_get_max_writable (EvdSocket *self)
+{
+  gsize size = MAX_BLOCK_SIZE;
+  gsize limited_size;
+
+  limited_size = evd_stream_request_write (EVD_STREAM (self),
+                                           size,
+                                           NULL);
+
+  if ( (limited_size > 0) && (self->priv->group != NULL) )
+    limited_size = evd_stream_request_write (EVD_STREAM (self->priv->group),
+                                             limited_size,
+                                             NULL);
+
+  return limited_size;
 }
 
 gboolean
