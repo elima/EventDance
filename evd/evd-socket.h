@@ -100,7 +100,6 @@ struct _EvdSocketClass
                             EvdSocketState  old_state);
   void (* close)           (EvdSocket *self);
   void (* connect)         (EvdSocket *self);
-  void (* listen)          (EvdSocket *self);
   void (* new_connection)  (EvdSocket *self,
                             EvdSocket *socket);
 };

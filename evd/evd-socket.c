@@ -87,7 +87,6 @@ enum
   SIGNAL_STATE_CHANGED,
   SIGNAL_CLOSE,
   SIGNAL_CONNECT,
-  SIGNAL_LISTEN,
   SIGNAL_NEW_CONNECTION,
   SIGNAL_CONNECT_TIMEOUT,
   SIGNAL_LAST
@@ -194,15 +193,6 @@ evd_socket_class_init (EvdSocketClass *class)
                   G_TYPE_FROM_CLASS (obj_class),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdSocketClass, connect),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-
-  evd_socket_signals[SIGNAL_LISTEN] =
-    g_signal_new ("listen",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdSocketClass, listen),
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
@@ -1327,7 +1317,6 @@ evd_socket_listen (EvdSocket *self, GError **error)
       {
         self->priv->actual_priority = G_PRIORITY_HIGH + 1;
         evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
-        g_signal_emit (self, evd_socket_signals[SIGNAL_LISTEN], 0, NULL);
 
         return TRUE;
       }
