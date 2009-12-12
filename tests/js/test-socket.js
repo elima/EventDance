@@ -66,10 +66,13 @@ socket1.connect ('new-connection', function (socket, client) {
     client.write_buffer (greeting, greeting.length);
 });
 
-socket1.connect ('bind', function (socket, address) {
-    log ("socket bound to " + address.address.to_string () + ":" +
-	 address.get_port ());
-  });
+socket1.connect ('state-changed', function (socket, new_state, old_state) {
+    if (new_state == Evd.SocketState.BOUND) {
+        let address = socket.get_local_address ();
+        log ("socket bound to " + address.address.to_string () + ":" +
+	     address.get_port ());
+    }
+});
 
 socket1.connect ('listen', function (socket) {
     log ("socket listening");

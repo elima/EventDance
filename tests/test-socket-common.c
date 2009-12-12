@@ -282,6 +282,44 @@ evd_socket_test_on_connect (EvdSocket *self,
   g_assert (evd_socket_get_socket (self) != NULL);
 }
 
+static void
+evd_socket_test_on_state_changed (EvdSocket      *self,
+                                  EvdSocketState  new_state,
+                                  EvdSocketState  old_state,
+                                  gpointer        user_data)
+{
+  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
+  GSocketAddress *address;
+  GError *error = NULL;
+
+  switch (new_state)
+    {
+    case EVD_SOCKET_STATE_BOUND:
+      {
+        f->bind = TRUE;
+
+        address = evd_socket_get_local_address (self, &error);
+        g_assert_no_error (error);
+
+        g_assert (EVD_IS_SOCKET (f->socket));
+        g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_BOUND);
+        g_assert (evd_socket_get_socket (self) != NULL);
+
+        g_assert (G_IS_SOCKET_ADDRESS (address));
+
+        evd_socket_test_config (self,
+                                g_socket_address_get_family (
+                                            G_SOCKET_ADDRESS (f->socket_addr)),
+                                G_SOCKET_TYPE_STREAM,
+                                G_SOCKET_PROTOCOL_DEFAULT);
+        break;
+      }
+
+    default:
+      break;
+    }
+}
+
 static gboolean
 evd_socket_launch_test (gpointer user_data)
 {
@@ -303,10 +341,9 @@ evd_socket_launch_test (gpointer user_data)
   evd_socket_set_write_handler (f->socket1, evd_socket_test_on_write, f);
   g_assert (evd_stream_get_on_write (EVD_STREAM (f->socket1)) != NULL);
 
-  /* bind */
   g_signal_connect (f->socket,
-                    "bind",
-                    G_CALLBACK (evd_socket_test_on_bound),
+                    "state-changed",
+                    G_CALLBACK (evd_socket_test_on_state_changed),
                     (gpointer) f);
   evd_socket_bind (f->socket, f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
