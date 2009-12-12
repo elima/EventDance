@@ -124,11 +124,13 @@ server.listen ("*", 6666);
 for (let i=0; i<CLIENT_SOCKETS; i++) {
     let socket = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
 
-    socket.connect ('connect', function (self) {
-	//	log ("client connected!");
-        self.auto_write = true;
-	Lang.bind (self, client_write) ();
-      });
+    socket.connect ('state-changed', function (self, new_state, old_state) {
+        if (new_state == Evd.SocketState.CONNECTED) {
+            //	log ("client connected!");
+            self.auto_write = true;
+            Lang.bind (self, client_write) ();
+        }
+    });
 
     socket.data_read = 0;
     socket.data_written = 0;

@@ -66,15 +66,19 @@ G_LOCK_DEFINE_STATIC (sockets_closed);
 G_LOCK_DEFINE_STATIC (total_read);
 
 static void
-client_on_connect (EvdSocket *socket,
-		   GSocketAddress *addr,
-		   gpointer user_data)
+client_on_state_changed (EvdSocket *socket,
+                         EvdSocketState new_state,
+                         EvdSocketState old_state,
+                         gpointer user_data)
 {
-  g_object_set (socket,
-		"bandwidth-in", SOCKET_BANDWIDTH_IN,
-		"latency-in", SOCKET_LATENCY_IN,
-                "auto_write", FALSE,
-		NULL);
+  if (new_state == EVD_SOCKET_STATE_CONNECTED)
+    {
+      g_object_set (socket,
+                    "bandwidth-in", SOCKET_BANDWIDTH_IN,
+                    "latency-in", SOCKET_LATENCY_IN,
+                    "auto_write", FALSE,
+                    NULL);
+    }
 }
 
 static void
@@ -229,8 +233,8 @@ thread_handler (gpointer user_data)
 		    "group", group_receivers,
 		    NULL);
 
-      g_signal_connect (client, "connect",
-			G_CALLBACK (client_on_connect),
+      g_signal_connect (client, "state-changed",
+			G_CALLBACK (client_on_state_changed),
 			NULL);
 
       g_signal_connect (client, "close",

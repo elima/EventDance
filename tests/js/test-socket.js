@@ -95,11 +95,13 @@ socket2.connect ('error', function (socket, code, message) {
     log ("ERROR on socket: " + code + "('" + message + "')");
   });
 
-socket2.connect ('connect', function (socket) {
-    log ("client socket connected");
+socket2.connect ('state-changed', function (socket, new_state, old_state) {
+    if (new_state == Evd.SocketState.CONNECTED) {
+        log ("client socket connected");
 
-    socket.write (greeting, greeting.length);
-  });
+        socket.write (greeting, greeting.length);
+    }
+});
 
 socket2.connect_to ("localhost", 6666);
 

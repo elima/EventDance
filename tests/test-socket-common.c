@@ -235,19 +235,6 @@ evd_socket_test_on_new_conn (EvdSocket *self,
 }
 
 static void
-evd_socket_test_on_connect (EvdSocket *self,
-                            gpointer   user_data)
-{
-  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
-
-  f->connect = TRUE;
-
-  g_assert (EVD_IS_SOCKET (self));
-  g_assert_cmpint (evd_socket_get_status (self), ==, EVD_SOCKET_STATE_CONNECTED);
-  g_assert (evd_socket_get_socket (self) != NULL);
-}
-
-static void
 evd_socket_test_on_state_changed (EvdSocket      *self,
                                   EvdSocketState  new_state,
                                   EvdSocketState  old_state,
@@ -293,6 +280,19 @@ evd_socket_test_on_state_changed (EvdSocket      *self,
         break;
       }
 
+    case EVD_SOCKET_STATE_CONNECTED:
+      {
+        f->connect = TRUE;
+
+        g_assert (EVD_IS_SOCKET (self));
+        g_assert_cmpint (evd_socket_get_status (self),
+                         ==,
+                         EVD_SOCKET_STATE_CONNECTED);
+        g_assert (evd_socket_get_socket (self) != NULL);
+
+        break;
+      }
+
     default:
       break;
     }
@@ -323,6 +323,11 @@ evd_socket_launch_test (gpointer user_data)
                     "state-changed",
                     G_CALLBACK (evd_socket_test_on_state_changed),
                     (gpointer) f);
+  g_signal_connect (f->socket1,
+                    "state-changed",
+                    G_CALLBACK (evd_socket_test_on_state_changed),
+                    (gpointer) f);
+
   evd_socket_bind (f->socket, f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
 
@@ -334,10 +339,7 @@ evd_socket_launch_test (gpointer user_data)
                     "new-connection",
                     G_CALLBACK (evd_socket_test_on_new_conn),
                     (gpointer) f);
-  g_signal_connect (f->socket1,
-                    "connect",
-                    G_CALLBACK (evd_socket_test_on_connect),
-                    (gpointer) f);
+
   evd_socket_connect_to (f->socket1, f->socket_addr, &error);
   g_assert_no_error (error);
   g_assert_cmpint (evd_socket_get_status (f->socket1),
