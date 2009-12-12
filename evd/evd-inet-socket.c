@@ -48,6 +48,11 @@ static void     evd_inet_socket_init               (EvdInetSocket *self);
 static void     evd_inet_socket_finalize           (GObject *obj);
 static void     evd_inet_socket_dispose            (GObject *obj);
 
+static void     evd_inet_socket_on_state_changed   (EvdInetSocket  *self,
+                                                    EvdSocketState  new_state,
+                                                    EvdSocketState  old_state,
+                                                    gpointer        user_data);
+
 static void
 evd_inet_socket_class_init (EvdInetSocketClass *class)
 {
@@ -62,6 +67,10 @@ evd_inet_socket_class_init (EvdInetSocketClass *class)
 static void
 evd_inet_socket_init (EvdInetSocket *self)
 {
+  g_signal_connect (self,
+                    "state-changed",
+                    G_CALLBACK (evd_inet_socket_on_state_changed),
+                    self);
 }
 
 static void
@@ -225,16 +234,18 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
 }
 
 static void
-evd_inet_socket_on_bind (EvdInetSocket *self, gpointer user_data)
+evd_inet_socket_on_state_changed (EvdInetSocket  *self,
+                                  EvdSocketState  new_state,
+                                  EvdSocketState  old_state,
+                                  gpointer        user_data)
 {
   GError *error;
 
-  g_signal_handlers_disconnect_by_func (self,
-					G_CALLBACK (evd_inet_socket_on_bind),
-					user_data);
-
-  if (! evd_socket_listen (EVD_SOCKET (self), &error))
-    evd_socket_throw_error (EVD_SOCKET (self), error);
+  if (new_state == EVD_SOCKET_STATE_BOUND)
+    {
+      if (! evd_socket_listen (EVD_SOCKET (self), &error))
+        evd_socket_throw_error (EVD_SOCKET (self), error);
+    }
 }
 
 /* public methods */
@@ -288,7 +299,5 @@ evd_inet_socket_listen (EvdInetSocket  *self,
 			guint           port,
 			GError        **error)
 {
-  g_signal_connect (self, "bind", G_CALLBACK (evd_inet_socket_on_bind), self);
-
   return evd_inet_socket_bind (self, address, port, TRUE, error);
 }
