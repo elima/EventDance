@@ -139,6 +139,9 @@ static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                gsize         size,
                                                GError      **error);
 
+static gboolean evd_socket_cleanup            (EvdSocket  *self,
+                                               GError    **error);
+
 static void
 evd_socket_class_init (EvdSocketClass *class)
 {
@@ -314,67 +317,6 @@ evd_socket_init (EvdSocket *self)
   priv->actual_priority = G_PRIORITY_DEFAULT;
 
   evd_socket_manager_ref ();
-}
-
-static gboolean
-evd_socket_cleanup (EvdSocket *self, GError **error)
-{
-  gboolean result = TRUE;
-
-  evd_socket_remove_from_event_cache (self);
-
-  if (self->priv->connect_cancellable != NULL)
-    {
-      g_object_unref (self->priv->connect_cancellable);
-      self->priv->connect_cancellable = NULL;
-    }
-
-  if (self->priv->connect_timeout_src_id != 0)
-    {
-      g_source_remove (self->priv->connect_timeout_src_id);
-      self->priv->connect_timeout_src_id = 0;
-    }
-
-  if (self->priv->read_src_id != 0)
-    {
-      g_source_remove (self->priv->read_src_id);
-      self->priv->read_src_id = 0;
-    }
-
-  if (self->priv->write_src_id != 0)
-    {
-      g_source_remove (self->priv->write_src_id);
-      self->priv->write_src_id = 0;
-    }
-
-  if (self->priv->read_buffer != NULL)
-    {
-      g_string_free (self->priv->read_buffer, TRUE);
-      self->priv->read_buffer = NULL;
-    }
-
-  if (self->priv->write_buffer != NULL)
-    {
-      g_string_free (self->priv->write_buffer, TRUE);
-      self->priv->write_buffer = NULL;
-    }
-
-  if (self->priv->socket != NULL)
-    {
-      if (! g_socket_is_closed (self->priv->socket))
-        {
-          if ( (! evd_socket_unwatch (self, error)) ||
-               (! g_socket_close (self->priv->socket, error)) )
-            result = FALSE;
-        }
-
-      g_object_unref (self->priv->socket);
-      self->priv->socket = NULL;
-
-      self->priv->status = EVD_SOCKET_STATE_CLOSED;
-    }
-
-  return result;
 }
 
 static void
@@ -932,6 +874,17 @@ evd_socket_write_buffer_add_data (EvdSocket    *self,
     }
 }
 
+static gboolean
+evd_socket_cleanup (EvdSocket *self, GError **error)
+{
+  EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
+
+  if (class->cleanup != NULL)
+    return class->cleanup (self, error);
+  else
+    return evd_socket_cleanup_protected (self, error);
+}
+
 /* protected methods */
 
 void
@@ -1154,6 +1107,67 @@ evd_socket_invoke_on_read (EvdSocket *self)
 
       g_value_unset (&params);
     }
+}
+
+gboolean
+evd_socket_cleanup_protected (EvdSocket *self, GError **error)
+{
+  gboolean result = TRUE;
+
+  evd_socket_remove_from_event_cache (self);
+
+  if (self->priv->connect_cancellable != NULL)
+    {
+      g_object_unref (self->priv->connect_cancellable);
+      self->priv->connect_cancellable = NULL;
+    }
+
+  if (self->priv->connect_timeout_src_id != 0)
+    {
+      g_source_remove (self->priv->connect_timeout_src_id);
+      self->priv->connect_timeout_src_id = 0;
+    }
+
+  if (self->priv->read_src_id != 0)
+    {
+      g_source_remove (self->priv->read_src_id);
+      self->priv->read_src_id = 0;
+    }
+
+  if (self->priv->write_src_id != 0)
+    {
+      g_source_remove (self->priv->write_src_id);
+      self->priv->write_src_id = 0;
+    }
+
+  if (self->priv->read_buffer != NULL)
+    {
+      g_string_free (self->priv->read_buffer, TRUE);
+      self->priv->read_buffer = NULL;
+    }
+
+  if (self->priv->write_buffer != NULL)
+    {
+      g_string_free (self->priv->write_buffer, TRUE);
+      self->priv->write_buffer = NULL;
+    }
+
+  if (self->priv->socket != NULL)
+    {
+      if (! g_socket_is_closed (self->priv->socket))
+        {
+          if ( (! evd_socket_unwatch (self, error)) ||
+               (! g_socket_close (self->priv->socket, error)) )
+            result = FALSE;
+        }
+
+      g_object_unref (self->priv->socket);
+      self->priv->socket = NULL;
+
+      self->priv->status = EVD_SOCKET_STATE_CLOSED;
+    }
+
+  return result;
 }
 
 /* public methods */
