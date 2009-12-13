@@ -183,7 +183,7 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
                                             gpointer               user_data);
 
 /**
- * evd_socket_read_buffer:
+ * evd_socket_read_len:
  * @self: The #EvdSocket to read from.
  * @buffer: (out) (transfer full): The buffer to store the data.
  * @size: (in): Maximum number of bytes to read.
@@ -216,7 +216,7 @@ gchar         *evd_socket_read            (EvdSocket *self,
                                            GError   **error);
 
 /**
- * evd_socket_write_buffer:
+ * evd_socket_write_len:
  * @self: The #EvdSocket to write to.
  * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
  * @size: (in): Maximum number of bytes to write. @buffer should be at least @size long.
@@ -253,7 +253,7 @@ gssize        evd_socket_write            (EvdSocket    *self,
                                            GError      **error);
 
 /**
- * evd_socket_unread_buffer:
+ * evd_socket_unread_len:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
  * @size: (inout): Number of bytes to unread.
@@ -272,10 +272,10 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * Return value: The actual number of bytes unread.
  */
 
-gssize        evd_socket_unread_buffer    (EvdSocket    *self,
-                                           const gchar  *buffer,
-                                           gsize         size,
-                                           GError      **error);
+gssize        evd_socket_unread_len    (EvdSocket    *self,
+                                        const gchar  *buffer,
+                                        gsize         size,
+                                        GError      **error);
 
 /**
  * evd_socket_unread:

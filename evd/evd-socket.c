@@ -1657,10 +1657,10 @@ evd_socket_write (EvdSocket    *self,
 }
 
 gssize
-evd_socket_unread_buffer (EvdSocket    *self,
-                          const gchar  *buffer,
-                          gsize         size,
-                          GError      **error)
+evd_socket_unread_len (EvdSocket    *self,
+                       const gchar  *buffer,
+                       gsize         size,
+                       GError      **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);
@@ -1690,7 +1690,7 @@ evd_socket_unread (EvdSocket    *self,
 {
   g_return_val_if_fail (buffer != NULL, -1);
 
-  return evd_socket_unread_buffer (self, buffer, strlen (buffer), error);
+  return evd_socket_unread_len (self, buffer, strlen (buffer), error);
 }
 
 gboolean
