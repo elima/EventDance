@@ -1507,10 +1507,10 @@ evd_socket_set_write_handler (EvdSocket             *self,
 }
 
 gssize
-evd_socket_read_buffer (EvdSocket *self,
-                        gchar     *buffer,
-                        gsize      size,
-                        GError   **error)
+evd_socket_read_len (EvdSocket *self,
+                     gchar     *buffer,
+                     gsize      size,
+                     GError   **error)
 {
   gssize actual_size = -1;
   gsize limited_size;
@@ -1585,10 +1585,10 @@ evd_socket_read (EvdSocket *self,
   buf = g_new0 (gchar, *size);
   buf[0] = 0;
 
-  if ( (*size = evd_socket_read_buffer (self,
-                                        buf,
-                                        *size,
-                                        error)) > 0)
+  if ( (*size = evd_socket_read_len (self,
+                                     buf,
+                                     *size,
+                                     error)) > 0)
     return buf;
   else
     g_free (buf);

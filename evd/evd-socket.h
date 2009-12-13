@@ -194,7 +194,7 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
  *
  * Return value: The actual number of bytes read.
  */
-gssize        evd_socket_read_buffer      (EvdSocket *self,
+gssize        evd_socket_read_len         (EvdSocket *self,
                                            gchar     *buffer,
                                            gsize      size,
                                            GError   **error);

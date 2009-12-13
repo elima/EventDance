@@ -327,10 +327,10 @@ evd_reproxy_redirect_data (EvdSocket *from)
       return FALSE;
     }
 
-  if ( (read_size = evd_socket_read_buffer (from,
-                                            buf,
-                                            max_writable + 2,
-                                            &error)) >= 0)
+  if ( (read_size = evd_socket_read_len (from,
+                                         buf,
+                                         max_writable + 2,
+                                         &error)) >= 0)
     {
       if (read_size > 0)
         {

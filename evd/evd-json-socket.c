@@ -165,10 +165,10 @@ evd_json_socket_on_read (EvdSocket *socket)
 
   self->priv->buffer = buffer;
 
-  if ( (size = evd_socket_read_buffer (socket,
-                                       self->priv->buffer,
-                                       MAX_BLOCK_SIZE,
-                                       &error)) < 0)
+  if ( (size = evd_socket_read_len (socket,
+                                    self->priv->buffer,
+                                    MAX_BLOCK_SIZE,
+                                    &error)) < 0)
     {
       evd_socket_throw_error (EVD_SOCKET (self), error);
     }

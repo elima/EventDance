@@ -156,7 +156,7 @@ evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
 
   g_assert (evd_socket_can_read (self));
 
-  size = evd_socket_read_buffer (self, buf, 1023, &error);
+  size = evd_socket_read_len (self, buf, 1023, &error);
   g_assert_no_error (error);
 
   if (size == 0)

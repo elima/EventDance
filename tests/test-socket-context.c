@@ -141,10 +141,10 @@ group_socket_on_read (EvdSocketGroup *self,
   if (evd_socket_get_status (socket) != EVD_SOCKET_STATE_CONNECTED)
     return;
 
-  if ( (size = evd_socket_read_buffer (socket,
-				       buf,
-				       BLOCK_SIZE,
-				       &error)) < 0)
+  if ( (size = evd_socket_read_len (socket,
+                                    buf,
+                                    BLOCK_SIZE,
+                                    &error)) < 0)
     {
       g_debug ("ERROR reading data: %s", error->message);
     }
