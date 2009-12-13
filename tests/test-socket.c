@@ -116,7 +116,8 @@ evd_socket_unix_fixture_setup (EvdSocketFixture *fixture,
   evd_socket_fixture_setup (fixture, test_data);
 
   g_unlink (UNIX_FILENAME);
-  fixture->socket_addr = G_SOCKET_ADDRESS (g_unix_socket_address_new (UNIX_FILENAME));
+  fixture->socket_addr =
+    G_SOCKET_ADDRESS (g_unix_socket_address_new (UNIX_FILENAME));
 }
 
 static void

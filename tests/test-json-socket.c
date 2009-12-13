@@ -220,11 +220,13 @@ evd_json_socket_launch_test (gpointer user_data)
   g_assert (evd_json_socket_get_on_packet (f->socket1) != NULL);
 
   /* bind */
+  /*
   evd_socket_bind (EVD_SOCKET (f->socket), f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
+  */
 
   /* listen */
-  evd_socket_listen (EVD_SOCKET (f->socket), &error);
+  evd_socket_listen (EVD_SOCKET (f->socket), f->socket_addr, &error);
   g_assert_no_error (error);
 
   /* connect */

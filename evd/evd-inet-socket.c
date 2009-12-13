@@ -243,7 +243,7 @@ evd_inet_socket_on_state_changed (EvdInetSocket  *self,
 
   if (new_state == EVD_SOCKET_STATE_BOUND)
     {
-      if (! evd_socket_listen (EVD_SOCKET (self), &error))
+      if (! evd_socket_listen (EVD_SOCKET (self), NULL, &error))
         evd_socket_throw_error (EVD_SOCKET (self), error);
     }
 }

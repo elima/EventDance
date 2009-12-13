@@ -1295,20 +1295,25 @@ evd_socket_bind (EvdSocket       *self,
 }
 
 gboolean
-evd_socket_listen (EvdSocket *self, GError **error)
+evd_socket_listen (EvdSocket *self, GSocketAddress *address, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (! evd_socket_check (self, error))
-    return FALSE;
-
   if (self->priv->status != EVD_SOCKET_STATE_BOUND)
     {
-      *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-                            EVD_SOCKET_ERROR_NOT_BOUND,
-                            "Socket is not bound to an address");
+      if (address == NULL)
+        {
+          *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                                EVD_SOCKET_ERROR_NOT_BOUND,
+                                "Socket is not bound, and no address provided");
 
-      return FALSE;
+          return FALSE;
+        }
+      else
+        {
+          if (! evd_socket_bind (self, address, TRUE, error))
+            return FALSE;
+        }
     }
 
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
