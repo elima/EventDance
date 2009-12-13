@@ -79,7 +79,7 @@ function client_write () {
   if (DATA_SIZE - this.data_written < size)
     size = DATA_SIZE - this.data_written;
 
-  let [len] = this.write_buffer (this.data, size);
+  let [len] = this.write_len (this.data, size);
 
   if (len > 0) {
     this.data_written += len;

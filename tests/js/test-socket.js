@@ -63,7 +63,7 @@ socket1.connect ('new-connection', function (socket, client) {
 	 client.socket.remote_address.address.to_string () +
 	 " and port " + client.socket.remote_address.port);
 
-    client.write_buffer (greeting, greeting.length);
+    client.write_len (greeting, greeting.length);
 });
 
 socket1.connect ('state-changed', function (socket, new_state, old_state) {

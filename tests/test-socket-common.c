@@ -198,10 +198,10 @@ evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
   g_assert_no_error (error);
   g_assert (evd_socket_can_read (self) == TRUE);
 
-  evd_socket_write_buffer (self,
-                           EVD_SOCKET_TEST_TEXT1,
-                           strlen (EVD_SOCKET_TEST_TEXT1),
-                           &error);
+  evd_socket_write_len (self,
+                        EVD_SOCKET_TEST_TEXT1,
+                        strlen (EVD_SOCKET_TEST_TEXT1),
+                        &error);
   g_assert_no_error (error);
 
   evd_socket_write (self,

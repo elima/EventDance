@@ -334,10 +334,10 @@ evd_reproxy_redirect_data (EvdSocket *from)
     {
       if (read_size > 0)
         {
-          if ( (write_size = evd_socket_write_buffer (to,
-                                                      buf,
-                                                      read_size,
-                                                      &error)) >= 0)
+          if ( (write_size = evd_socket_write_len (to,
+                                                   buf,
+                                                   read_size,
+                                                   &error)) >= 0)
             {
               /* keep back read data that wasn't written */
               if (read_size > write_size)

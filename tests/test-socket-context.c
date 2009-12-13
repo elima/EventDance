@@ -193,10 +193,10 @@ group_socket_on_write (EvdSocketGroup *self,
   total_sent = evd_stream_get_total_written (EVD_STREAM (socket));
   if (total_sent < DATA_SIZE)
     {
-      if (evd_socket_write_buffer (socket,
-                                   (gchar *) (((guintptr) data) + total_sent),
-                                   DATA_SIZE - total_sent,
-                                   &error) < 0)
+      if (evd_socket_write_len (socket,
+                                (gchar *) (((guintptr) data) + total_sent),
+                                DATA_SIZE - total_sent,
+                                &error) < 0)
         {
           g_debug ("ERROR sending data: %s", error->message);
           g_free (error);

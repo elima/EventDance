@@ -229,7 +229,7 @@ gchar         *evd_socket_read            (EvdSocket *self,
  *
  * Return value: The actual number of bytes written.
  */
-gssize        evd_socket_write_buffer     (EvdSocket    *self,
+gssize        evd_socket_write_len        (EvdSocket    *self,
                                            const gchar  *buffer,
                                            gsize         size,
                                            GError      **error);
