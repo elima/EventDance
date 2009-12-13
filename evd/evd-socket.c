@@ -769,9 +769,7 @@ evd_socket_write_internal (EvdSocket    *self,
             }
 
           if (actual_size < limited_size)
-            {
-              self->priv->cond &= (~ G_IO_OUT);
-            }
+            self->priv->cond &= (~ G_IO_OUT);
         }
     }
 
@@ -1013,7 +1011,9 @@ evd_socket_event_handler (gpointer data)
                   if ( (socket->priv->cond & G_IO_OUT) == 0)
                     {
                       socket->priv->cond |= G_IO_OUT;
-                      evd_socket_invoke_on_write (socket);
+
+                      if (socket->priv->write_src_id == 0)
+                        evd_socket_invoke_on_write (socket);
                     }
                 }
 
@@ -1738,13 +1738,15 @@ evd_socket_get_max_writable (EvdSocket *self)
 gboolean
 evd_socket_can_read (EvdSocket *self)
 {
-  return ( (self->priv->cond & G_IO_IN) > 0);
+  return ( (self->priv->cond & G_IO_IN) > 0) &&
+    (self->priv->read_src_id == 0);
 }
 
 gboolean
 evd_socket_can_write (EvdSocket *self)
 {
-  return ( (self->priv->cond & G_IO_OUT) > 0);
+  return ( (self->priv->cond & G_IO_OUT) > 0) &&
+    (self->priv->write_src_id == 0);
 }
 
 GSocketAddress *
