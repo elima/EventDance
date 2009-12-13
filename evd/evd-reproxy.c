@@ -320,12 +320,16 @@ evd_reproxy_redirect_data (EvdSocket *from)
   data = evd_reproxy_socket_get_data (from);
 
   max_writable = evd_socket_get_max_writable (to);
+  //  g_debug ("max writable: %d", max_writable);
+
   if (max_writable == 0)
-    return FALSE;
+    {
+      return FALSE;
+    }
 
   if ( (read_size = evd_socket_read_buffer (from,
                                             buf,
-                                            max_writable,
+                                            max_writable + 2,
                                             &error)) >= 0)
     {
       if (read_size > 0)
@@ -490,6 +494,8 @@ evd_reproxy_socket_on_write (EvdSocketGroup *socket_group,
                              EvdSocket      *socket)
 {
   EvdSocket *bridge;
+
+  //  g_debug ("write!");
 
   bridge = evd_reproxy_socket_get_bridge (socket);
   if ( (bridge != NULL) && (evd_socket_can_read (bridge)) )
