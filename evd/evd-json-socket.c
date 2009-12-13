@@ -179,6 +179,7 @@ evd_json_socket_on_read (EvdSocket *socket)
                                       size,
                                       &error))
         {
+          error->code = EVD_JSON_SOCKET_ERROR_INVALID;
           evd_socket_throw_error (EVD_SOCKET (self), error);
         }
     }

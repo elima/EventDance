@@ -30,7 +30,7 @@
 
 G_BEGIN_DECLS
 
-#define EVD_JSON_SOCKET_DOMAIN_QUARK_STRING "org.eventdance.glib.socket.json"
+#define EVD_JSON_FILTER_DOMAIN_QUARK_STRING "org.eventdance.glib.filter.json"
 
 typedef struct _EvdJsonFilter EvdJsonFilter;
 typedef struct _EvdJsonFilterClass EvdJsonFilterClass;
@@ -60,8 +60,8 @@ struct _EvdJsonFilterClass
 
 typedef enum
 {
-  EVD_JSON_SOCKET_ERROR_INVALID,
-  EVD_JSON_SOCKET_ERROR_LAST
+  EVD_JSON_FILTER_ERROR_INVALID,
+  EVD_JSON_FILTER_ERROR_LAST
 } EvdJsonFilterErrors;
 
 #define EVD_TYPE_JSON_FILTER           (evd_json_filter_get_type ())

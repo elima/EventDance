@@ -538,8 +538,8 @@ evd_json_filter_feed_len (EvdJsonFilter  *self,
           if (error != NULL)
             {
               *error = g_error_new (g_quark_from_static_string (
-                                          EVD_JSON_SOCKET_DOMAIN_QUARK_STRING),
-                                    EVD_JSON_SOCKET_ERROR_INVALID,
+                                          EVD_JSON_FILTER_DOMAIN_QUARK_STRING),
+                                    EVD_JSON_FILTER_ERROR_INVALID,
                                     "Malformed JSON sequence at offset %d", i);
             }
 

@@ -30,6 +30,8 @@
 
 G_BEGIN_DECLS
 
+#define EVD_JSON_SOCKET_DOMAIN_QUARK_STRING "org.eventdance.glib.socket.json"
+
 typedef struct _EvdJsonSocket EvdJsonSocket;
 typedef struct _EvdJsonSocketClass EvdJsonSocketClass;
 typedef struct _EvdJsonSocketPrivate EvdJsonSocketPrivate;
@@ -55,7 +57,7 @@ struct _EvdJsonSocketClass
 typedef enum
 {
   EVD_JSON_SOCKET_ERROR_FIRST = EVD_SOCKET_ERROR_LAST,
-  EVD_JSON_SOCKET_ERROR_RESOLVE
+  EVD_JSON_SOCKET_ERROR_INVALID
 } EvdJsonSocketError;
 
 #define EVD_TYPE_JSON_SOCKET           (evd_json_socket_get_type ())
