@@ -27,6 +27,10 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 
+#ifdef HAVE_GIO_UNIX
+#include <gio/gunixsocketaddress.h>
+#endif
+
 #include <evd.h>
 #include <evd-socket-manager.h>
 
@@ -130,12 +134,14 @@ test_socket (void)
               evd_socket_test_initial_state,
               evd_socket_fixture_teardown);
 
+#ifdef HAVE_GIO_UNIX
   g_test_add ("/evd/socket/unix",
               EvdSocketFixture,
               NULL,
               evd_socket_unix_fixture_setup,
               evd_socket_test,
               evd_socket_fixture_teardown);
+#endif
 
   g_test_add ("/evd/socket/inet/ipv4",
               EvdSocketFixture,

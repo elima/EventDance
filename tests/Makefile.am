@@ -7,6 +7,19 @@ AM_CFLAGS = \
 	-DPKGDATADIR="\"$(pkgdatadir)\"" \
 	-I$(top_srcdir)/evd
 
+AM_LIBS = \
+	$(GLIB_LIBS) \
+	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
+
+if HAVE_GIO_UNIX
+AM_LIBS += \
+	$(GIO_UNIX_LIBS)
+
+AM_CFLAGS += \
+	$(GIO_UNIX_CFLAGS) \
+	-DHAVE_GIO_UNIX
+endif
+
 TEST_PROGS =
 
 noinst_PROGRAMS = \
