@@ -34,10 +34,17 @@ AM_PROG_CC_C_O
 PKG_PROG_PKG_CONFIG
 
 # Required libraries
-PKG_CHECK_MODULES(GLIB, gio-2.0 >= 2.22.0
+GIO_REQUIRED=2.23.1
+
+PKG_CHECK_MODULES(GLIB, gio-2.0 >= $GIO_REQUIRED
 		        glib-2.0 >= 2.22.0
 		        gthread-2.0 >= 2.22.0
 		        gobject-2.0 >= 2.22.0)
+
+PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= $GIO_REQUIRED],
+        [HAVE_GIO_UNIX=yes],
+        [HAVE_GIO_UNIX=no])
+AM_CONDITIONAL(HAVE_GIO_UNIX, test x"$HAVE_GIO_UNIX" = x"yes")
 
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.4])

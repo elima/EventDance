@@ -68,6 +68,15 @@ libevd_@EVD_API_VERSION@_la_LIBADD = \
 libevd_@EVD_API_VERSION@_la_CFLAGS  = \
 	$(AM_CFLAGS)
 
+if HAVE_GIO_UNIX
+libevd_@EVD_API_VERSION@_la_LIBADD += \
+	$(GIO_UNIX_LIBS)
+
+libevd_@EVD_API_VERSION@_la_CFLAGS += \
+	$(GIO_UNIX_CFLAGS) \
+	-DHAVE_GIO_UNIX
+endif
+
 libevd_@EVD_API_VERSION@_la_LDFLAGS = \
 	-version-info 0:1:0 \
 	-no-undefined
