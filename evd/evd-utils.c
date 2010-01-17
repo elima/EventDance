@@ -23,7 +23,7 @@
  * 02110-1301 USA
  */
 
-#include <glib.h>
+#include "evd-utils.h"
 
 guint
 evd_timeout_add (GMainContext *context,

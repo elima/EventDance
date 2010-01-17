@@ -26,6 +26,8 @@
 #ifndef __EVD_UTILS_H__
 #define __EVD_UTILS_H__
 
+#include <glib.h>
+
 guint evd_timeout_add (GMainContext *context,
                        guint         timeout,
                        GSourceFunc   callback,

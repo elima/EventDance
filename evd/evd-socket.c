@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <string.h>
 
+#include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-socket-manager.h"
 #include "evd-stream-protected.h"
@@ -128,11 +129,6 @@ static gboolean evd_socket_unwatch            (EvdSocket  *self,
                                                GError    **error);
 
 static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
-
-static guint    evd_socket_timeout_add        (EvdSocket   *self,
-                                               guint        timeout,
-                                               GSourceFunc  callback,
-                                               gpointer     user_data);
 
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                const gchar  *buf,
@@ -778,37 +774,13 @@ evd_socket_write_internal (EvdSocket    *self,
       /* wait and re-schedule a write-event */
       if (self->priv->write_src_id == 0)
         self->priv->write_src_id =
-          evd_socket_timeout_add (self,
-                                  _retry_wait,
-                                  (GSourceFunc) evd_socket_write_wait_timeout,
-                                  (gpointer) self);
+          evd_timeout_add (self->priv->context,
+                           _retry_wait,
+                           (GSourceFunc) evd_socket_write_wait_timeout,
+                           (gpointer) self);
     }
 
   return actual_size;
-}
-
-static guint
-evd_socket_timeout_add (EvdSocket   *self,
-                        guint        timeout,
-                        GSourceFunc  callback,
-                        gpointer     user_data)
-{
-  guint src_id;
-  GSource *src;
-
-  if (timeout == 0)
-    src = g_idle_source_new ();
-  else
-    src = g_timeout_source_new (timeout);
-
-  g_source_set_callback (src,
-                         callback,
-                         user_data,
-                         NULL);
-  src_id = g_source_attach (src, self->priv->context);
-  g_source_unref (src);
-
-  return src_id;
 }
 
 static gboolean
@@ -965,10 +937,10 @@ evd_socket_event_handler (gpointer data)
                   error->code = EVD_SOCKET_ERROR_ACCEPT;
                   evd_socket_throw_error (socket, error);
 
-                  evd_socket_timeout_add (socket,
-                                          0,
-                                          evd_socket_event_handler,
-                                          event);
+                  evd_timeout_add (socket->priv->context,
+                                   0,
+                                   evd_socket_event_handler,
+                                   event);
                   dont_free = TRUE;
                 }
 
@@ -1542,10 +1514,10 @@ evd_socket_read_len (EvdSocket *self,
     {
       if (self->priv->read_src_id == 0)
         self->priv->read_src_id =
-          evd_socket_timeout_add (self,
-                                  _retry_wait,
-                                  (GSourceFunc) evd_socket_read_wait_timeout,
-                                  (gpointer) self);
+          evd_timeout_add (self->priv->context,
+                           _retry_wait,
+                           (GSourceFunc) evd_socket_read_wait_timeout,
+                           (gpointer) self);
 
       self->priv->cond &= (~ G_IO_IN);
       return 0;
@@ -1567,10 +1539,10 @@ evd_socket_read_len (EvdSocket *self,
       if ( (self->priv->read_src_id == 0) && (actual_size == limited_size) )
         {
           self->priv->read_src_id =
-            evd_socket_timeout_add (self,
-                                    _retry_wait,
-                                    (GSourceFunc) evd_socket_read_wait_timeout,
-                                    (gpointer) self);
+            evd_timeout_add (self->priv->context,
+                             _retry_wait,
+                             (GSourceFunc) evd_socket_read_wait_timeout,
+                             (gpointer) self);
         }
     }
 
