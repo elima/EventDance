@@ -23,6 +23,8 @@
  * 02110-1301 USA
  */
 
+#include <time.h>
+
 #include "evd-utils.h"
 
 guint
@@ -50,4 +52,15 @@ evd_timeout_add (GMainContext *context,
   g_source_unref (src);
 
   return src_id;
+}
+
+void
+evd_nanosleep (gulong nanoseconds)
+{
+  struct timespec delay;
+
+  delay.tv_sec = 0;
+  delay.tv_nsec = nanoseconds;
+
+  nanosleep (&delay, NULL);
 }

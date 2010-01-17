@@ -25,7 +25,6 @@
 
 #include <unistd.h>
 #include <sys/epoll.h>
-#include <time.h>
 
 #include "evd-socket-manager.h"
 #include "evd-socket-protected.h"
@@ -254,18 +253,6 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
     }
 }
 
-/* TODO: eventuallly remove this from here */
-static void
-g_nanosleep (gulong nanoseconds)
-{
-  struct timespec delay;
-
-  delay.tv_sec = 0;
-  delay.tv_nsec = nanoseconds;
-
-  nanosleep (&delay, NULL);
-}
-
 static gpointer
 evd_socket_manager_thread_loop (gpointer data)
 {
@@ -273,7 +260,7 @@ evd_socket_manager_thread_loop (gpointer data)
 
   while (self->priv->started)
     {
-      g_nanosleep (self->priv->min_latency);
+      evd_nanosleep (self->priv->min_latency);
       evd_socket_manager_dispatch (self);
     }
 

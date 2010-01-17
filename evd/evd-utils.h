@@ -33,4 +33,6 @@ guint evd_timeout_add (GMainContext *context,
                        GSourceFunc   callback,
                        gpointer      user_data);
 
+void evd_nanosleep    (gulong nanoseconds);
+
 #endif /* __EVD_UTILS_H__ */
