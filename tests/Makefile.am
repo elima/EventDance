@@ -24,7 +24,8 @@ TEST_PROGS =
 
 noinst_PROGRAMS = \
 	evd-tester \
-	test-socket-context
+	test-socket-context \
+	test-resolver
 
 # evd-tester
 evd_tester_CFLAGS = \
@@ -49,6 +50,12 @@ test_socket_context_LDADD = \
 test_socket_context_SOURCES = \
 	test-socket-context.c
 
+# test-resolver
+test_resolver_CFLAGS = $(AM_CFLAGS)
+test_resolver_LDADD = $(AM_LIBS)
+test_resolver_SOURCES = test-resolver.c
+
 test: evd-tester
 	./evd-tester
 #	./test-socket-context
+	./test-resolver
