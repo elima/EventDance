@@ -1,5 +1,5 @@
 /*
- * evd.h
+ * evd-utils.c
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -23,16 +23,12 @@
  * 02110-1301 USA
  */
 
-#ifndef __EVD_H__
-#define __EVD_H__
+#ifndef __EVD_UTILS_H__
+#define __EVD_UTILS_H__
 
-#include <evd-utils.h>
-#include <evd-stream.h>
-#include <evd-socket.h>
-#include <evd-json-filter.h>
-#include <evd-json-socket.h>
-#include <evd-inet-socket.h>
-#include <evd-socket-group.h>
-#include <evd-service.h>
+guint evd_timeout_add (GMainContext *context,
+                       guint         timeout,
+                       GSourceFunc   callback,
+                       gpointer      user_data);
 
-#endif /* __EVD_H__ */
+#endif /* __EVD_UTILS_H__ */

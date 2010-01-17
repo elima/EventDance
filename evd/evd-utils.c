@@ -1,5 +1,5 @@
 /*
- * evd.h
+ * evd-utils.c
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -23,16 +23,31 @@
  * 02110-1301 USA
  */
 
-#ifndef __EVD_H__
-#define __EVD_H__
+#include <glib.h>
 
-#include <evd-utils.h>
-#include <evd-stream.h>
-#include <evd-socket.h>
-#include <evd-json-filter.h>
-#include <evd-json-socket.h>
-#include <evd-inet-socket.h>
-#include <evd-socket-group.h>
-#include <evd-service.h>
+guint
+evd_timeout_add (GMainContext *context,
+                 guint         timeout,
+                 GSourceFunc   callback,
+                 gpointer      user_data)
+{
+  guint src_id;
+  GSource *src;
 
-#endif /* __EVD_H__ */
+  if (context == NULL)
+    context = g_main_context_get_thread_default ();
+
+  if (timeout == 0)
+    src = g_idle_source_new ();
+  else
+    src = g_timeout_source_new (timeout);
+
+  g_source_set_callback (src,
+                         callback,
+                         user_data,
+                         NULL);
+  src_id = g_source_attach (src, context);
+  g_source_unref (src);
+
+  return src_id;
+}
