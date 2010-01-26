@@ -35,6 +35,7 @@ source_c = \
 	evd-marshal.c \
 	evd-stream.c \
 	evd-socket-manager.c \
+	evd-resolver-request.c \
 	evd-resolver.c \
 	evd-socket.c \
 	evd-json-filter.c \
@@ -48,6 +49,7 @@ source_c = \
 source_h = \
 	evd-utils.h \
 	evd-stream.h \
+	evd-resolver-request.h \
 	evd-resolver.h \
 	evd-socket.h \
 	evd-json-filter.h \

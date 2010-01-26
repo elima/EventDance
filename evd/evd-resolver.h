@@ -29,15 +29,15 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include <evd-resolver-request.h>
+
 G_BEGIN_DECLS
 
 typedef struct _EvdResolver EvdResolver;
 typedef struct _EvdResolverClass EvdResolverClass;
-
-typedef void (* EvdResolverOnResolveHandler) (EvdResolver *self,
-                                              GList       *addresses,
-                                              GError      *error,
-                                              gpointer     user_data);
+typedef void (* EvdResolverOnResolveHandler) (EvdResolver         *self,
+                                              EvdResolverRequest  *request,
+                                              gpointer             user_data);
 
 struct _EvdResolver
 {
@@ -57,18 +57,39 @@ struct _EvdResolverClass
 #define EVD_RESOLVER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_RESOLVER, EvdResolverClass))
 
 
-EvdResolver *     evd_resolver_get_default      (void);
+EvdResolver        *evd_resolver_get_default          (void);
 
-GType             evd_resolver_get_type         (void) G_GNUC_CONST;
+GType               evd_resolver_get_type             (void) G_GNUC_CONST;
 
-EvdResolver      *evd_resolver_new              (void);
+EvdResolver        *evd_resolver_new                  (void);
 
-gboolean          evd_resolver_resolve          (EvdResolver                 *self,
-                                                 const gchar                 *address,
-                                                 EvdResolverOnResolveHandler  callback,
-                                                 gpointer                     user_data);
+/**
+ * evd_resolver_resolve:
+ *
+ * Returns: (transfer none): A newly created #EvdResolverRequest.
+ */
+EvdResolverRequest *evd_resolver_resolve              (EvdResolver                  *self,
+                                                       const gchar                  *address,
+                                                       EvdResolverOnResolveHandler   callback,
+                                                       gpointer                      user_data,
+                                                       GError                      **error);
 
-void              evd_resolver_free_addresses   (GList *addresses);
+/**
+ * evd_resolver_resolve_with_closure:
+ *
+ * Returns: (transfer none): A newly created #EvdResolverRequest.
+ */
+EvdResolverRequest *evd_resolver_resolve_with_closure (EvdResolver  *self,
+                                                       const gchar  *address,
+                                                       GClosure     *closure,
+                                                       GError      **error);
+
+gboolean            evd_resolver_resolve_request      (EvdResolver         *self,
+                                                       EvdResolverRequest  *request,
+                                                       GError             **error);
+
+
+void                evd_resolver_free_addresses       (GList *addresses);
 
 G_END_DECLS
 
