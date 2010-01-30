@@ -56,13 +56,7 @@ struct _EvdResolverRequestClass
 
 GType                 evd_resolver_request_get_type               (void) G_GNUC_CONST;
 
-void                  evd_resolver_request_set_resolver           (EvdResolverRequest *self,
-                                                                   gpointer           *resolver);
-
-void                  evd_resolver_request_reset                  (EvdResolverRequest *self);
-
-gboolean              evd_resolver_request_resolve                (EvdResolverRequest  *self,
-                                                                   GError             **error);
+void                  evd_resolver_request_resolve                (EvdResolverRequest  *self);
 
 /**
  * evd_resolver_request_get_result:
@@ -70,8 +64,10 @@ gboolean              evd_resolver_request_resolve                (EvdResolverRe
  * Returns: (transfer full) (element-type Gio.SocketAddress): The list of addresses resolved,
  *          or NULL on error, in which case @error is set accordingly.
  */
-GList *               evd_resolver_request_get_result             (EvdResolverRequest  *self,
+GList                *evd_resolver_request_get_result             (EvdResolverRequest  *self,
                                                                    GError             **error);
+
+void                  evd_resolver_request_cancel                 (EvdResolverRequest *self);
 
 G_END_DECLS
 

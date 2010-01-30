@@ -34,6 +34,10 @@ static void     evd_resolver_init               (EvdResolver *self);
 static void     evd_resolver_finalize           (GObject *obj);
 static void     evd_resolver_dispose            (GObject *obj);
 
+void            evd_resolver_request_set_resolver (EvdResolverRequest *self,
+                                                   gpointer           *resolver);
+
+
 static EvdResolver *evd_resolver_default = NULL;
 
 EvdResolver *
@@ -111,21 +115,22 @@ evd_resolver_new (void)
   return self;
 }
 
-gboolean
+void
 evd_resolver_resolve_request (EvdResolver         *self,
-                              EvdResolverRequest  *request,
-                              GError             **error)
+                              EvdResolverRequest  *request)
 {
+  g_return_if_fail (EVD_IS_RESOLVER (self));
+  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (request));
+
   evd_resolver_request_set_resolver (request, (gpointer) self);
 
-  return evd_resolver_request_resolve (request, error);
+  evd_resolver_request_resolve (request);
 }
 
 EvdResolverRequest *
 evd_resolver_resolve_with_closure (EvdResolver  *self,
                                    const gchar  *address,
-                                   GClosure     *closure,
-                                   GError      **error)
+                                   GClosure     *closure)
 {
   EvdResolverRequest *request;
 
@@ -138,24 +143,16 @@ evd_resolver_resolve_with_closure (EvdResolver  *self,
                           "closure", closure,
                           NULL);
 
-  if (evd_resolver_resolve_request (self, request, error))
-    {
-      return request;
-    }
-  else
-    {
-      g_object_unref (request);
+  evd_resolver_resolve_request (self, request);
 
-      return NULL;
-    }
+  return request;
 }
 
 EvdResolverRequest *
 evd_resolver_resolve (EvdResolver                  *self,
                       const gchar                  *address,
                       EvdResolverOnResolveHandler   callback,
-                      gpointer                      user_data,
-                      GError                      **error)
+                      gpointer                      user_data)
 {
   GClosure *closure;
 
@@ -167,8 +164,13 @@ evd_resolver_resolve (EvdResolver                  *self,
 
   return evd_resolver_resolve_with_closure (self,
                                             address,
-                                            closure,
-                                            error);
+                                            closure);
+}
+
+void
+evd_resolver_cancel (EvdResolverRequest *request)
+{
+  evd_resolver_request_cancel (request);
 }
 
 void

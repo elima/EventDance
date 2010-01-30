@@ -46,8 +46,9 @@ struct _EvdResolverRequestPrivate
   GClosure    *closure;
   EvdResolver *resolver;
 
-  guint  port;
-  GList *socket_addresses;
+  guint   port;
+  GList  *socket_addresses;
+  GError *error;
 
   GCancellable *cancellable;
   guint         src_id;
@@ -133,6 +134,10 @@ evd_resolver_request_init (EvdResolverRequest *self)
 
   priv->port = 0;
   priv->socket_addresses = NULL;
+  priv->error = NULL;
+
+  priv->cancellable = NULL;
+  priv->src_id = 0;
 }
 
 static void
@@ -154,7 +159,7 @@ evd_resolver_request_finalize (GObject *obj)
 {
   EvdResolverRequest *self = EVD_RESOLVER_REQUEST (obj);
 
-  evd_resolver_request_reset (self);
+  evd_resolver_request_cancel (self);
 
   if (self->priv->address != NULL)
     g_free (self->priv->address);
@@ -179,10 +184,7 @@ evd_resolver_request_set_property (GObject      *obj,
     {
     case PROP_ADDRESS:
       if (self->priv->address != NULL)
-        {
-          g_free (self->priv->address);
-          self->priv->port = 0;
-        }
+        g_free (self->priv->address);
       self->priv->address = g_strdup (g_value_get_string (value));
       break;
 
@@ -278,15 +280,10 @@ evd_resolver_request_queue_response (EvdResolverRequest *self)
 {
   g_object_ref (self);
 
-  /*
-  self->priv->src_id = evd_timeout_add (g_main_context_default (),
+  self->priv->src_id = evd_timeout_add (g_main_context_get_thread_default (),
                                         1,
                                         (GSourceFunc) evd_resolver_request_on_deliver,
                                         (gpointer) self);
-  */
-
-  self->priv->src_id = g_idle_add ((GSourceFunc) evd_resolver_request_on_deliver,
-                                   (gpointer) self);
 }
 
 static void
@@ -299,10 +296,7 @@ evd_resolver_request_on_resolver_result (GResolver    *resolver,
   GError *error = NULL;
 
   self = EVD_RESOLVER_REQUEST (user_data);
-
   g_object_unref (self);
-  g_object_unref (self->priv->cancellable);
-  self->priv->cancellable = NULL;
 
   if ((result = g_resolver_lookup_by_name_finish (resolver,
 						  res,
@@ -326,9 +320,13 @@ evd_resolver_request_on_resolver_result (GResolver    *resolver,
 
       g_resolver_free_addresses (result);
     }
+  else if (error->code == G_IO_ERROR_CANCELLED)
+    {
+      return;
+    }
   else
     {
-      // TODO: reliver error response
+      self->priv->error = error;
     }
 
   evd_resolver_request_invoke_closure (self);
@@ -353,53 +351,24 @@ evd_resolver_request_set_resolver (EvdResolverRequest *self,
 }
 
 void
-evd_resolver_request_reset (EvdResolverRequest *self)
-{
-  evd_resolver_free_addresses (self->priv->socket_addresses);
-  self->priv->socket_addresses = NULL;
-  self->priv->port = 0;
-
-  if (self->priv->cancellable != NULL)
-    {
-      /* TODO: cancel current request */
-      g_object_unref (self->priv->cancellable);
-      self->priv->cancellable = NULL;
-    }
-
-  if (self->priv->src_id != 0)
-    {
-      g_source_remove (self->priv->src_id);
-      self->priv->src_id = 0;
-    }
-}
-
-gboolean
-evd_resolver_request_resolve (EvdResolverRequest  *self,
-                              GError             **error)
+evd_resolver_request_resolve (EvdResolverRequest  *self)
 {
   gchar *address;
   GInetAddress *inet_addr;
   GSocketAddress *addr;
-  GError *_error = NULL;
-  gboolean result = FALSE;
 
   gchar *split;
   gchar *host;
   gchar *port_str;
   gint port;
 
-  g_return_val_if_fail (EVD_IS_RESOLVER_REQUEST (self), FALSE);
+  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (self));
+  g_return_if_fail (self->priv->address != NULL);
 
-  /* check if a valid address has been set */
+  /* clean-up any previous resolution data  */
+  evd_resolver_request_cancel (self);
+
   address = self->priv->address;
-  if (address == NULL)
-    {
-      /* TODO: return error */
-      return FALSE;
-    }
-
-  /* clean-up any previously resolved addresses */
-  evd_resolver_request_reset (self);
 
 #ifdef HAVE_GIO_UNIX
   if (address[0] == '/')
@@ -411,7 +380,7 @@ evd_resolver_request_resolve (EvdResolverRequest  *self,
       self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
       evd_resolver_request_queue_response (self);
 
-      return TRUE;
+      return;
     }
 #endif
 
@@ -424,75 +393,101 @@ evd_resolver_request_resolve (EvdResolverRequest  *self,
       split[0] = '\0';
       port_str = (char *) ((void *) split) + 1;
 
-      if (sscanf (port_str, "%d", &port) == 0)
+      if (strlen (port_str) == 0 || (sscanf (port_str, "%d", &port) == 0) )
         {
-          g_debug ("error1");
+          g_free (host);
+          host = g_strdup (address);
         }
       else
         {
           self->priv->port = port;
         }
     }
+
+  /* at this point we have a valid port, and a host to validate,
+     so let's build the request */
+  inet_addr = g_inet_address_new_from_string (host);
+  if (inet_addr != NULL)
+    {
+      addr = g_inet_socket_address_new (inet_addr, port);
+
+      self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
+      evd_resolver_request_queue_response (self);
+    }
   else
     {
-      g_debug ("error2");
-    }
+      GCancellable *cancellable;
 
-  if (_error != NULL)
-    {
-      /* TODO: deliver error response */
-      g_debug ("error3");
-    }
-  else
-    {
-      /* at this point we have a valid port, and a host to validate,
-         so let's build the request */
-      inet_addr = g_inet_address_new_from_string (host);
-      if (inet_addr != NULL)
-        {
-          addr = g_inet_socket_address_new (inet_addr, port);
+      cancellable = g_cancellable_new ();
+      self->priv->cancellable = cancellable;
 
-          self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
-          evd_resolver_request_queue_response (self);
-        }
-      else
-        {
-          /* TODO */
-          self->priv->cancellable = g_cancellable_new ();
-          g_object_ref (self);
+      g_object_ref (self);
 
-          g_resolver_lookup_by_name_async (g_resolver_get_default (),
+      g_resolver_lookup_by_name_async (g_resolver_get_default (),
                  host,
-                 self->priv->cancellable,
+                 cancellable,
                  (GAsyncReadyCallback) evd_resolver_request_on_resolver_result,
                  (gpointer) self);
-        }
-
-      result = TRUE;
     }
 
   g_free (host);
-
-  return result;
 }
 
 GList *
 evd_resolver_request_get_result (EvdResolverRequest  *self,
                                  GError             **error)
 {
-  GList *list = NULL;
-  GList *node;
-
-  g_return_val_if_fail (self != NULL, NULL);
-
-  node = self->priv->socket_addresses;
-  while (node != NULL)
+  if (self->priv->error != NULL)
     {
-      list = g_list_append (list, node->data);
-      g_object_ref (G_OBJECT (node->data));
+      if (error != NULL)
+        *error = g_error_copy (self->priv->error);
 
-      node = node->next;
+      return NULL;
+    }
+  else
+    {
+      GList *list = NULL;
+      GList *node;
+
+      g_return_val_if_fail (EVD_IS_RESOLVER_REQUEST (self), NULL);
+
+      node = self->priv->socket_addresses;
+      while (node != NULL)
+        {
+          list = g_list_append (list, node->data);
+          g_object_ref (G_OBJECT (node->data));
+
+          node = node->next;
+        }
+
+      return list;
+    }
+}
+
+void
+evd_resolver_request_cancel (EvdResolverRequest *self)
+{
+  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (self));
+
+  if (self->priv->cancellable != NULL)
+    {
+      g_cancellable_cancel (self->priv->cancellable);
+      g_object_unref (self->priv->cancellable);
+      self->priv->cancellable = NULL;
+    }
+  else if (self->priv->src_id != 0)
+    {
+      g_object_unref (self);
+      g_source_remove (self->priv->src_id);
+      self->priv->src_id = 0;
     }
 
-  return list;
+  evd_resolver_free_addresses (self->priv->socket_addresses);
+  self->priv->socket_addresses = NULL;
+
+  if (self->priv->error != NULL)
+    {
+      g_error_free (self->priv->error);
+      self->priv->error = NULL;
+    }
 }

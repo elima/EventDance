@@ -26,12 +26,13 @@
 #ifndef __EVD_RESOLVER_H__
 #define __EVD_RESOLVER_H__
 
-#include <glib-object.h>
-#include <gio/gio.h>
+#include <glib.h>
 
 #include <evd-resolver-request.h>
 
 G_BEGIN_DECLS
+
+#define EVD_RESDOLVER_DOMAIN_QUARK_STRING "org.eventdance.glib.resolver"
 
 typedef struct _EvdResolver EvdResolver;
 typedef struct _EvdResolverClass EvdResolverClass;
@@ -48,6 +49,13 @@ struct _EvdResolverClass
 {
   GObjectClass parent_class;
 };
+
+typedef enum
+{
+  EVD_RESOLVER_ERROR_INVALID_ADDR,
+
+  EVD_RESOLVER_ERROR_LAST
+} EvdResolverError;
 
 #define EVD_TYPE_RESOLVER           (evd_resolver_get_type ())
 #define EVD_RESOLVER(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_RESOLVER, EvdResolver))
@@ -71,8 +79,7 @@ EvdResolver        *evd_resolver_new                  (void);
 EvdResolverRequest *evd_resolver_resolve              (EvdResolver                  *self,
                                                        const gchar                  *address,
                                                        EvdResolverOnResolveHandler   callback,
-                                                       gpointer                      user_data,
-                                                       GError                      **error);
+                                                       gpointer                      user_data);
 
 /**
  * evd_resolver_resolve_with_closure:
@@ -81,15 +88,16 @@ EvdResolverRequest *evd_resolver_resolve              (EvdResolver              
  */
 EvdResolverRequest *evd_resolver_resolve_with_closure (EvdResolver  *self,
                                                        const gchar  *address,
-                                                       GClosure     *closure,
-                                                       GError      **error);
+                                                       GClosure     *closure);
 
-gboolean            evd_resolver_resolve_request      (EvdResolver         *self,
-                                                       EvdResolverRequest  *request,
-                                                       GError             **error);
+void                evd_resolver_resolve_request      (EvdResolver         *self,
+                                                       EvdResolverRequest  *request);
+
+void                evd_resolver_cancel               (EvdResolverRequest *request);
 
 
 void                evd_resolver_free_addresses       (GList *addresses);
+
 
 G_END_DECLS
 
