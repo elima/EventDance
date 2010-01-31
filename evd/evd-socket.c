@@ -1361,10 +1361,10 @@ evd_socket_close (EvdSocket *self, GError **error)
 }
 
 gboolean
-evd_socket_bind (EvdSocket       *self,
-                 GSocketAddress  *address,
-                 gboolean         allow_reuse,
-                 GError         **error)
+evd_socket_bind_addr (EvdSocket       *self,
+                      GSocketAddress  *address,
+                      gboolean         allow_reuse,
+                      GError         **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
@@ -1388,6 +1388,10 @@ evd_socket_bind (EvdSocket       *self,
 
       return TRUE;
     }
+  else
+    {
+      evd_socket_cleanup (self, NULL);
+    }
 
   return FALSE;
 }
@@ -1410,7 +1414,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
         }
       else
         {
-          if (! evd_socket_bind (self, address, TRUE, error))
+          if (! evd_socket_bind_addr (self, address, TRUE, error))
             return FALSE;
         }
     }
@@ -1427,7 +1431,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
         }
       else
         {
-          evd_socket_close (self, NULL);
+          evd_socket_cleanup (self, NULL);
         }
     }
 

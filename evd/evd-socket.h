@@ -150,7 +150,7 @@ void          evd_socket_set_priority     (EvdSocket *self, gint priority);
 
 gboolean      evd_socket_close            (EvdSocket *self, GError **error);
 
-gboolean      evd_socket_bind             (EvdSocket       *self,
+gboolean      evd_socket_bind_addr        (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            gboolean         allow_reuse,
                                            GError         **error);

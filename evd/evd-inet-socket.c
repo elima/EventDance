@@ -136,10 +136,10 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 	      else
 		if (data->action == ACTION_BIND)
 		{
-		  if (! evd_socket_bind (EVD_SOCKET (self),
-					 sock_addr,
-					 data->allow_reuse,
-					 &error))
+		  if (! evd_socket_bind_addr (EVD_SOCKET (self),
+                                              sock_addr,
+                                              data->allow_reuse,
+                                              &error))
 		    {
 		      evd_socket_throw_error (EVD_SOCKET (self), error);
 		    }
@@ -201,10 +201,10 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
 					error);
       else
 	if (action == ACTION_BIND)
-	result = evd_socket_bind (EVD_SOCKET (self),
-				  sock_addr,
-				  allow_reuse,
-				  error);
+	result = evd_socket_bind_addr (EVD_SOCKET (self),
+                                       sock_addr,
+                                       allow_reuse,
+                                       error);
 
       g_object_unref (sock_addr);
       g_object_unref (addr);

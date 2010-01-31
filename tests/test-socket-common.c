@@ -328,7 +328,7 @@ evd_socket_launch_test (gpointer user_data)
                     G_CALLBACK (evd_socket_test_on_state_changed),
                     (gpointer) f);
 
-  evd_socket_bind (f->socket, f->socket_addr, TRUE, &error);
+  evd_socket_bind_addr (f->socket, f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
 
   evd_socket_listen_addr (f->socket, NULL, &error);
