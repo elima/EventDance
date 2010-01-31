@@ -167,7 +167,7 @@ gboolean      evd_socket_listen           (EvdSocket    *self,
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 
 /**
- * evd_socket_connect_to:
+ * evd_socket_connect_addr:
  * @self: The #EvdSocket to connect.
  * @address: The #GSocketAddress to connect to.
  * @error: (out) (transfer full): The #GError to return, or NULL.
@@ -181,7 +181,7 @@ EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
  *
  * Rename to: connect_toto
  */
-gboolean      evd_socket_connect_to       (EvdSocket       *self,
+gboolean      evd_socket_connect_addr     (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            GError         **error);
 gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);

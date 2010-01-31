@@ -340,7 +340,7 @@ evd_socket_launch_test (gpointer user_data)
                     G_CALLBACK (evd_socket_test_on_new_conn),
                     (gpointer) f);
 
-  evd_socket_connect_to (f->socket1, f->socket_addr, &error);
+  evd_socket_connect_addr (f->socket1, f->socket_addr, &error);
   g_assert_no_error (error);
   g_assert_cmpint (evd_socket_get_status (f->socket1),
                    ==,

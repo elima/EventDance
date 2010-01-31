@@ -296,9 +296,9 @@ evd_reproxy_backend_connect_bridge (EvdReproxyBackend *self,
 {
   GError *error = NULL;
 
-  if (! evd_socket_connect_to (bridge,
-                               self->priv->address,
-                               &error))
+  if (! evd_socket_connect_addr (bridge,
+                                 self->priv->address,
+                                 &error))
     {
       /* TODO: what to do exactly? better error handling required! */
       g_warning ("Failed to connect to backend: %s", error->message);

@@ -206,7 +206,7 @@ evd_json_socket_test_on_state_changed (EvdSocket      *self,
   if (new_state == EVD_SOCKET_STATE_LISTENING)
     {
       /* connect */
-      evd_socket_connect_to (EVD_SOCKET (f->socket1), f->socket_addr, &error);
+      evd_socket_connect_addr (EVD_SOCKET (f->socket1), f->socket_addr, &error);
       g_assert_no_error (error);
     }
 }

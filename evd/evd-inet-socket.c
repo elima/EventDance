@@ -126,9 +126,9 @@ evd_inet_socket_on_resolver_result (GResolver    *resolver,
 
 	      if (data->action == ACTION_CONNECT)
 		{
-		  if (! evd_socket_connect_to (EVD_SOCKET (self),
-					       sock_addr,
-					       &error))
+		  if (! evd_socket_connect_addr (EVD_SOCKET (self),
+                                                 sock_addr,
+                                                 &error))
 		    {
 		      evd_socket_throw_error (EVD_SOCKET (self), error);
 		    }
@@ -196,9 +196,9 @@ evd_inet_socket_resolve_and_do (EvdInetSocket    *self,
       sock_addr = g_inet_socket_address_new (addr, port);
 
       if (action == ACTION_CONNECT)
-	result = evd_socket_connect_to (EVD_SOCKET (self),
-					sock_addr,
-					error);
+	result = evd_socket_connect_addr (EVD_SOCKET (self),
+                                          sock_addr,
+                                          error);
       else
 	if (action == ACTION_BIND)
 	result = evd_socket_bind_addr (EVD_SOCKET (self),

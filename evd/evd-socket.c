@@ -1516,9 +1516,9 @@ evd_socket_accept (EvdSocket *self, GError **error)
 }
 
 gboolean
-evd_socket_connect_to (EvdSocket        *self,
-                       GSocketAddress   *address,
-                       GError          **error)
+evd_socket_connect_addr (EvdSocket        *self,
+                         GSocketAddress   *address,
+                         GError          **error)
 {
   GError *_error = NULL;
 
