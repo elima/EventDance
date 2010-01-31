@@ -31,6 +31,7 @@
 #include "evd-marshal.h"
 #include "evd-socket-manager.h"
 #include "evd-stream-protected.h"
+#include "evd-resolver.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -57,6 +58,7 @@ struct _EvdSocketPrivate
   GSocketProtocol  protocol;
 
   EvdSocketState   status;
+  EvdSocketState   sub_status;
   GMainContext    *context;
 
   guint         connect_timeout;
@@ -79,6 +81,8 @@ struct _EvdSocketPrivate
 
   gint actual_priority;
   gint priority;
+
+  EvdResolverRequest *resolve_request;
 };
 
 /* signals */
@@ -295,7 +299,8 @@ evd_socket_init (EvdSocket *self)
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
   priv->connect_cancellable = NULL;
 
-  priv->status = EVD_SOCKET_STATE_CLOSED;
+  priv->status     = EVD_SOCKET_STATE_CLOSED;
+  priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
   priv->auto_write   = FALSE;
   priv->read_buffer  = g_string_new ("");
@@ -312,6 +317,8 @@ evd_socket_init (EvdSocket *self)
   priv->priority        = G_PRIORITY_DEFAULT;
   priv->actual_priority = G_PRIORITY_DEFAULT;
 
+  priv->resolve_request = NULL;
+
   evd_socket_manager_ref ();
 }
 
@@ -323,6 +330,12 @@ evd_socket_dispose (GObject *obj)
   evd_socket_cleanup (self, NULL);
 
   evd_socket_set_group (self, NULL);
+
+  if (self->priv->resolve_request != NULL)
+    {
+      g_object_unref (self->priv->resolve_request);
+      self->priv->resolve_request = NULL;
+    }
 
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
 }
@@ -539,11 +552,22 @@ evd_socket_invoke_on_write (EvdSocket *self)
     }
 }
 
-static void
-evd_socket_figureout_from_address (EvdSocket *self,
-                                   GSocketAddress *address)
+static gboolean
+evd_socket_check_address (EvdSocket       *self,
+                          GSocketAddress  *address,
+                          GError         **error)
 {
-  self->priv->family = g_socket_address_get_family (address);
+  if (self->priv->family == G_SOCKET_FAMILY_INVALID)
+    self->priv->family = g_socket_address_get_family (address);
+  else if (self->priv->family != g_socket_address_get_family (address))
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_INVALID_ADDRESS,
+                              "Socket family and address family mismatch");
+
+      return FALSE;
+    }
 
   if (self->priv->type == G_SOCKET_TYPE_INVALID)
     {
@@ -555,6 +579,8 @@ evd_socket_figureout_from_address (EvdSocket *self,
 
   if (self->priv->protocol == G_SOCKET_PROTOCOL_UNKNOWN)
     self->priv->protocol = G_SOCKET_PROTOCOL_DEFAULT;
+
+  return TRUE;
 }
 
 static gboolean
@@ -855,6 +881,98 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
     return evd_socket_cleanup_protected (self, error);
 }
 
+static void
+evd_socket_on_resolve (EvdResolver         *resolver,
+                       EvdResolverRequest  *request,
+                       gpointer             user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+  GList *addresses;
+  GError *error = NULL;
+
+  g_object_ref (request);
+
+  if ( (addresses = evd_resolver_request_get_result (request, &error)) != NULL)
+    {
+      GSocketAddress *socket_address;
+      GList *node = addresses;
+      gboolean match = FALSE;
+
+      /* TODO: by now only the first matching address will be used */
+      while (node != NULL)
+        {
+          socket_address = G_SOCKET_ADDRESS (node->data);
+          if (evd_socket_check_address (self, socket_address, NULL))
+            {
+              match = TRUE;
+              break;
+            }
+          else
+            node = node->next;
+        }
+
+      if (match)
+        {
+          switch (self->priv->sub_status)
+            {
+            case EVD_SOCKET_STATE_LISTENING:
+              {
+                if (! evd_socket_listen_addr (self, socket_address, &error))
+                  evd_socket_throw_error (self, error);
+                break;
+              }
+            default:
+              {
+              }
+            }
+
+          self->priv->sub_status = EVD_SOCKET_STATE_CLOSED;
+        }
+      else
+        {
+          error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                               EVD_SOCKET_ERROR_RESOLVE,
+                               "None of the resolved addresses match socket family");
+          evd_socket_throw_error (self, error);
+          evd_socket_close (self, NULL);
+        }
+
+      evd_resolver_free_addresses (addresses);
+    }
+  else
+    {
+      error->code = EVD_SOCKET_ERROR_RESOLVE;
+      evd_socket_throw_error (self, error);
+    }
+}
+
+static void
+evd_socket_resolve_address (EvdSocket      *self,
+                            const gchar    *address,
+                            EvdSocketState  action)
+{
+  EvdResolver *resolver;
+
+  self->priv->sub_status = action;
+
+  if (self->priv->resolve_request == NULL)
+    {
+      resolver = evd_resolver_get_default ();
+      self->priv->resolve_request = evd_resolver_resolve (resolver,
+                                                          address,
+                                                          evd_socket_on_resolve,
+                                                          self);
+      g_object_unref (resolver);
+    }
+  else
+    {
+      g_object_set (self->priv->resolve_request,
+                    "address", address,
+                    NULL);
+      evd_resolver_request_resolve (self->priv->resolve_request);
+    }
+}
+
 /* protected methods */
 
 void
@@ -882,6 +1000,7 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
                  error->code,
                  error->message,
                  NULL);
+  g_error_free (error);
 }
 
 gboolean
@@ -1139,6 +1258,12 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       self->priv->status = EVD_SOCKET_STATE_CLOSED;
     }
 
+  if (self->priv->resolve_request != NULL &&
+      evd_resolver_request_is_active (self->priv->resolve_request))
+    evd_resolver_cancel (self->priv->resolve_request);
+
+  self->priv->family = G_SOCKET_FAMILY_INVALID;
+
   return result;
 }
 
@@ -1248,7 +1373,8 @@ evd_socket_bind (EvdSocket       *self,
     if (! evd_socket_close (self, error))
       return FALSE;
 
-  evd_socket_figureout_from_address (self, address);
+  if (! evd_socket_check_address (self, address, error))
+    return FALSE;
 
   if (! evd_socket_check (self, error))
     return FALSE;
@@ -1267,7 +1393,7 @@ evd_socket_bind (EvdSocket       *self,
 }
 
 gboolean
-evd_socket_listen (EvdSocket *self, GSocketAddress *address, GError **error)
+evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
@@ -1275,9 +1401,10 @@ evd_socket_listen (EvdSocket *self, GSocketAddress *address, GError **error)
     {
       if (address == NULL)
         {
-          *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-                                EVD_SOCKET_ERROR_NOT_BOUND,
-                                "Socket is not bound, and no address provided");
+          if (error != NULL)
+            *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                                  EVD_SOCKET_ERROR_NOT_BOUND,
+                                  "Socket is not bound, and no address provided");
 
           return FALSE;
         }
@@ -1290,15 +1417,39 @@ evd_socket_listen (EvdSocket *self, GSocketAddress *address, GError **error)
 
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
-    if (evd_socket_watch (self, error))
-      {
-        self->priv->actual_priority = G_PRIORITY_HIGH + 1;
-        evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
+    {
+      if (evd_socket_watch (self, error))
+        {
+          self->priv->actual_priority = G_PRIORITY_HIGH + 1;
+          evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
 
-        return TRUE;
-      }
+          return TRUE;
+        }
+      else
+        {
+          evd_socket_close (self, NULL);
+        }
+    }
 
   return FALSE;
+}
+
+gboolean
+evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (address != NULL, FALSE);
+
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
+      self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
+    {
+      if (! evd_socket_close (self, error))
+        return FALSE;
+    }
+
+  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
+
+  return TRUE;
 }
 
 EvdSocket *
@@ -1335,7 +1486,8 @@ evd_socket_connect_to (EvdSocket        *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
-  evd_socket_figureout_from_address (self, address);
+  if (! evd_socket_check_address (self, address, error))
+    return FALSE;
 
   if (! evd_socket_check (self, error))
     return FALSE;

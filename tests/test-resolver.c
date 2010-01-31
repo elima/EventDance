@@ -38,7 +38,7 @@
 #define CANCEL                 "172.16.1.1:22"
 #define RESOLVE_CANCEL         "localhost:80"
 #define NONEXISTANT_1          "127.0.0.0.1"
-#define NONEXISTANT_2          "nonexistantdomain.xxx"
+#define NONEXISTANT_2          "nonexistentdomain"
 
 typedef struct
 {
@@ -430,7 +430,7 @@ main (gint argc, gchar **argv)
               ipv6,
               fixture_teardown);
 
-  g_test_add ("/evd/resolver/resolve/good/localhost",
+  g_test_add ("/evd/resolver/resolve",
               Fixture,
               NULL,
               fixture_setup,

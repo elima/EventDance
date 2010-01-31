@@ -71,7 +71,7 @@ evd_json_socket_fixture_setup (EvdJsonSocketFixture *f,
 
   inet_addr = g_inet_address_new_from_string ("127.0.0.1");
   port = g_random_int_range (1024, 0xFFFF-1);
-  f->socket_addr = g_inet_socket_address_new (inet_addr, port);
+  f->socket_addr = g_inet_socket_address_new (inet_addr, 5453);
   g_object_unref (inet_addr);
 
   f->packet_index = 0;
@@ -194,6 +194,23 @@ evd_json_socket_test_on_new_conn (EvdJsonSocket *self,
   g_object_ref (f->socket2);
 }
 
+static void
+evd_json_socket_test_on_state_changed (EvdSocket      *self,
+                                       EvdSocketState  new_state,
+                                       EvdSocketState  old_state,
+                                       gpointer        user_data)
+{
+  EvdJsonSocketFixture *f = (EvdJsonSocketFixture *) user_data;
+  GError *error = NULL;
+
+  if (new_state == EVD_SOCKET_STATE_LISTENING)
+    {
+      /* connect */
+      evd_socket_connect_to (EVD_SOCKET (f->socket1), f->socket_addr, &error);
+      g_assert_no_error (error);
+    }
+}
+
 static gboolean
 evd_json_socket_launch_test (gpointer user_data)
 {
@@ -204,6 +221,15 @@ evd_json_socket_launch_test (gpointer user_data)
                     "error",
                     G_CALLBACK (evd_json_socket_test_on_error),
                     (gpointer) f);
+  g_signal_connect (f->socket,
+                    "state-changed",
+                    G_CALLBACK (evd_json_socket_test_on_state_changed),
+                    (gpointer) f);
+  g_signal_connect (f->socket,
+                    "new-connection",
+                    G_CALLBACK (evd_json_socket_test_on_new_conn),
+                    (gpointer) f);
+
   g_signal_connect (f->socket1,
                     "error",
                     G_CALLBACK (evd_json_socket_test_on_error),
@@ -219,22 +245,8 @@ evd_json_socket_launch_test (gpointer user_data)
                                       f);
   g_assert (evd_json_socket_get_on_packet (f->socket1) != NULL);
 
-  /* bind */
-  /*
-  evd_socket_bind (EVD_SOCKET (f->socket), f->socket_addr, TRUE, &error);
-  g_assert_no_error (error);
-  */
-
   /* listen */
-  evd_socket_listen (EVD_SOCKET (f->socket), f->socket_addr, &error);
-  g_assert_no_error (error);
-
-  /* connect */
-  g_signal_connect (f->socket,
-                    "new-connection",
-                    G_CALLBACK (evd_json_socket_test_on_new_conn),
-                    (gpointer) f);
-  evd_socket_connect_to (EVD_SOCKET (f->socket1), f->socket_addr, &error);
+  evd_socket_listen (EVD_SOCKET (f->socket), "127.0.0.1:5453", &error);
   g_assert_no_error (error);
 
   return FALSE;

@@ -49,7 +49,7 @@ group.set_on_read (read_handler_group);
 
 /* ============ socket1 =================== */
 
-socket1 = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
+socket1 = new Evd.Socket ({"family": Gio.SocketFamily.IPV4});
 
 socket1.connect ('close', on_socket_closed);
 
@@ -77,7 +77,7 @@ socket1.connect ('state-changed', function (socket, new_state, old_state) {
     }
 });
 
-socket1.listen ("*", 6666);
+socket1.listen ("0.0.0.0:6666");
 
 
 /* ============ socket2 =================== */

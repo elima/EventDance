@@ -331,7 +331,7 @@ evd_socket_launch_test (gpointer user_data)
   evd_socket_bind (f->socket, f->socket_addr, TRUE, &error);
   g_assert_no_error (error);
 
-  evd_socket_listen (f->socket, NULL, &error);
+  evd_socket_listen_addr (f->socket, NULL, &error);
   g_assert_no_error (error);
 
   /* connect */

@@ -122,6 +122,9 @@ typedef enum
   EVD_SOCKET_ERROR_ACCEPT,
   EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
   EVD_SOCKET_ERROR_CONNECT_TIMEOUT,
+  EVD_SOCKET_ERROR_INVALID_ADDRESS,
+  EVD_SOCKET_ERROR_RESOLVE,
+
   EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
 
@@ -151,9 +154,12 @@ gboolean      evd_socket_bind             (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            gboolean         allow_reuse,
                                            GError         **error);
-gboolean      evd_socket_listen           (EvdSocket       *self,
+gboolean      evd_socket_listen_addr      (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            GError         **error);
+gboolean      evd_socket_listen           (EvdSocket    *self,
+                                           const gchar  *address,
+                                           GError      **error);
 EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 
 /**
