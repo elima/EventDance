@@ -83,6 +83,8 @@ struct _EvdSocketPrivate
   gint priority;
 
   EvdResolverRequest *resolve_request;
+
+  gboolean bind_allow_reuse;
 };
 
 /* signals */
@@ -921,6 +923,15 @@ evd_socket_on_resolve (EvdResolver         *resolver,
                   evd_socket_throw_error (self, error);
                 break;
               }
+            case EVD_SOCKET_STATE_BOUND:
+              {
+                if (! evd_socket_bind_addr (self,
+                                            socket_address,
+                                            self->priv->bind_allow_reuse,
+                                            &error))
+                  evd_socket_throw_error (self, error);
+                break;
+              }
             default:
               {
               }
@@ -1394,6 +1405,30 @@ evd_socket_bind_addr (EvdSocket       *self,
     }
 
   return FALSE;
+}
+
+gboolean
+evd_socket_bind (EvdSocket    *self,
+                 const gchar  *address,
+                 gboolean      allow_reuse,
+                 GError      **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (address != NULL, FALSE);
+
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
+      self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
+    {
+      if (! evd_socket_close (self, error))
+        return FALSE;
+    }
+
+  /* we need to cache the allow_reuse flag as this op will complete async */
+  self->priv->bind_allow_reuse = allow_reuse;
+
+  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_BOUND);
+
+  return TRUE;
 }
 
 gboolean

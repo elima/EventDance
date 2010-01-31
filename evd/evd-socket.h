@@ -154,6 +154,10 @@ gboolean      evd_socket_bind_addr        (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            gboolean         allow_reuse,
                                            GError         **error);
+gboolean      evd_socket_bind             (EvdSocket    *self,
+                                           const gchar  *address,
+                                           gboolean      allow_reuse,
+                                           GError      **error);
 gboolean      evd_socket_listen_addr      (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            GError         **error);
