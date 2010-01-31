@@ -82,7 +82,7 @@ socket1.listen ("0.0.0.0:6666");
 
 /* ============ socket2 =================== */
 
-socket2 = new Evd.InetSocket ({family: Gio.SocketFamily.IPV4});
+socket2 = new Evd.Socket ({family: Gio.SocketFamily.IPV4});
 
 socket2.connect_timeout = 3;
 socket2.bandwidth_in = 3;
@@ -103,7 +103,7 @@ socket2.connect ('state-changed', function (socket, new_state, old_state) {
     }
 });
 
-socket2.connect_to ("localhost", 6666);
+socket2.connect_to ("localhost:6666");
 
 MainLoop.timeout_add (1000, function () {
     MainLoop.quit ("main");
