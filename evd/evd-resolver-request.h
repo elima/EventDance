@@ -69,6 +69,8 @@ GList                *evd_resolver_request_get_result             (EvdResolverRe
 
 void                  evd_resolver_request_cancel                 (EvdResolverRequest *self);
 
+gboolean              evd_resolver_request_is_active              (EvdResolverRequest *self);
+
 G_END_DECLS
 
 #endif /* __EVD_RESOLVER_REQUEST_H__ */

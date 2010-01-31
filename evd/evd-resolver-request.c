@@ -52,6 +52,8 @@ struct _EvdResolverRequestPrivate
 
   GCancellable *cancellable;
   guint         src_id;
+
+  gboolean active;
 };
 
 /* properties */
@@ -138,6 +140,7 @@ evd_resolver_request_init (EvdResolverRequest *self)
 
   priv->cancellable = NULL;
   priv->src_id = 0;
+  priv->active = FALSE;
 }
 
 static void
@@ -270,6 +273,8 @@ evd_resolver_request_on_deliver (gpointer user_data)
   g_object_unref (self);
   self->priv->src_id = 0;
 
+  self->priv->active = FALSE;
+
   evd_resolver_request_invoke_closure (self);
 
   return FALSE;
@@ -297,6 +302,8 @@ evd_resolver_request_on_resolver_result (GResolver    *resolver,
 
   self = EVD_RESOLVER_REQUEST (user_data);
   g_object_unref (self);
+
+  self->priv->active = FALSE;
 
   if ((result = g_resolver_lookup_by_name_finish (resolver,
 						  res,
@@ -367,6 +374,8 @@ evd_resolver_request_resolve (EvdResolverRequest  *self)
 
   /* clean-up any previous resolution data  */
   evd_resolver_request_cancel (self);
+
+  self->priv->active = TRUE;
 
   address = self->priv->address;
 
@@ -482,6 +491,8 @@ evd_resolver_request_cancel (EvdResolverRequest *self)
       self->priv->src_id = 0;
     }
 
+  self->priv->active = FALSE;
+
   evd_resolver_free_addresses (self->priv->socket_addresses);
   self->priv->socket_addresses = NULL;
 
@@ -490,4 +501,10 @@ evd_resolver_request_cancel (EvdResolverRequest *self)
       g_error_free (self->priv->error);
       self->priv->error = NULL;
     }
+}
+
+gboolean
+evd_resolver_request_is_active (EvdResolverRequest *self)
+{
+  return self->priv->active;
 }
