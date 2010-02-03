@@ -25,7 +25,7 @@
 
 #include "evd-service.h"
 #include "evd-service-protected.h"
-#include "evd-inet-socket.h"
+#include "evd-socket.h"
 #include "evd-socket-group-protected.h"
 
 G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_SOCKET_GROUP)
@@ -260,25 +260,24 @@ evd_service_add_listener (EvdService  *self,
 }
 
 EvdSocket *
-evd_service_listen_inet (EvdService   *self,
-                         const gchar  *address,
-                         guint         port,
-                         GError      **error)
+evd_service_listen (EvdService   *self,
+                    const gchar  *address,
+                    GError      **error)
 {
-  EvdInetSocket *socket = NULL;
+  EvdSocket *socket = NULL;
 
   g_return_val_if_fail (EVD_IS_SERVICE (self), NULL);
 
-  socket = evd_inet_socket_new ();
+  socket = evd_socket_new ();
 
-  if (! evd_inet_socket_listen (socket, address, port, error))
+  if (! evd_socket_listen (socket, address, error))
     {
       g_object_unref (socket);
       return NULL;
     }
   else
     {
-      evd_service_add_listener (self, EVD_SOCKET (socket));
+      evd_service_add_listener (self, socket);
 
       return EVD_SOCKET (socket);
     }

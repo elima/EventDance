@@ -91,9 +91,8 @@ void            evd_service_add_listener      (EvdService  *self,
 gboolean        evd_service_remove_listener   (EvdService *self,
                                                EvdSocket  *socket);
 
-EvdSocket      *evd_service_listen_inet       (EvdService   *self,
+EvdSocket      *evd_service_listen            (EvdService   *self,
                                                const gchar  *address,
-                                               guint         port,
                                                GError      **error);
 
 G_END_DECLS

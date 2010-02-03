@@ -51,7 +51,7 @@
 
 
 GMainLoop      *main_loop_server;
-EvdInetSocket  *server;
+EvdSocket      *server;
 EvdSocketGroup *group_senders;
 EvdSocketGroup *group_receivers;
 
@@ -61,6 +61,7 @@ static guint clients_done = 0;
 static guint sockets_closed = 0;
 
 static GMainLoop *main_loops[THREADS];
+static GThread *threads[THREADS];
 
 G_LOCK_DEFINE_STATIC (sockets_closed);
 G_LOCK_DEFINE_STATIC (total_read);
@@ -209,9 +210,10 @@ thread_handler (gpointer user_data)
 {
   GMainContext *main_context;
   GMainLoop *main_loop;
-  EvdInetSocket *sockets[SOCKETS_PER_THREAD];
+  EvdSocket *sockets[SOCKETS_PER_THREAD];
   gint *thread_id = (gint *) user_data;
   gint i;
+  gchar *client_addr;
 
   main_context = g_main_context_new ();
   g_main_context_push_thread_default (main_context);
@@ -221,13 +223,15 @@ thread_handler (gpointer user_data)
   main_loops[*thread_id] = main_loop;
   G_UNLOCK (sockets_closed);
 
+  client_addr = g_strdup_printf ("%s:%d", "127.0.0.1", INET_PORT);
+
   /* create client sockets for this context */
   for (i=0; i<SOCKETS_PER_THREAD; i++)
     {
-      EvdInetSocket *client;
+      EvdSocket *client;
       GError *error = NULL;
 
-      client = evd_inet_socket_new ();
+      client = evd_socket_new ();
       g_object_set (client,
 		    "connect-timeout", 3000,
 		    "group", group_receivers,
@@ -244,7 +248,7 @@ thread_handler (gpointer user_data)
       g_object_set_data (G_OBJECT (client),
 			 "main_loop", (gpointer) main_loop);
 
-      if (! evd_inet_socket_connect_to (client, "127.0.0.1", INET_PORT, &error))
+      if (! evd_socket_connect_to (client, client_addr, &error))
 	{
 	  g_error ("ERROR connecting client socket: %s", error->message);
 	  break;
@@ -258,6 +262,8 @@ thread_handler (gpointer user_data)
 
   g_main_loop_run (main_loop);
 
+  g_free (client_addr);
+
   g_main_loop_unref (main_loop);
   g_main_context_unref (main_context);
 
@@ -269,11 +275,44 @@ thread_handler (gpointer user_data)
   return NULL;
 }
 
+static void
+server_on_state_changed (EvdSocket *socket,
+                         EvdSocketState new_state,
+                         EvdSocketState old_state,
+                         gpointer user_data)
+{
+  if (new_state == EVD_SOCKET_STATE_LISTENING)
+    {
+      gint i;
+
+      g_debug ("yeah");
+
+      /*
+      for (j=0; j<RUNS; j++)
+        {
+          g_print ("\nRUN #%d:\n", j+1);
+      */
+          total_read = 0;
+          clients_done = 0;
+          sockets_closed = 0;
+
+          /* create thread for each context */
+          for (i=0; i<THREADS; i++)
+            {
+              gint *thread_id = g_new0 (gint, 1);
+              *thread_id = i;
+              threads[i] = g_thread_create (thread_handler, thread_id, TRUE, NULL);
+            }
+
+          /*        }*/
+    }
+}
+
 gint
 main (gint argc, gchar **argv)
 {
   gint i, j;
-  GThread *threads[THREADS];
+  gchar *server_addr;
 
   g_type_init ();
   g_thread_init (NULL);
@@ -281,11 +320,17 @@ main (gint argc, gchar **argv)
   main_loop_server = g_main_loop_new (NULL, FALSE);
 
   /* server socket */
-  server = evd_inet_socket_new ();
-  evd_inet_socket_listen (server, "0.0.0.0", INET_PORT, NULL);
+  server = evd_socket_new ();
+
+  server_addr = g_strdup_printf ("%s:%d", "0.0.0.0", INET_PORT);
+  evd_socket_listen (server, server_addr, NULL);
   g_signal_connect (server,
 		    "new-connection",
 		    G_CALLBACK (server_on_new_connection),
+		    NULL);
+  g_signal_connect (server,
+		    "state-changed",
+		    G_CALLBACK (server_on_state_changed),
 		    NULL);
 
   /* socket group */
@@ -313,30 +358,14 @@ main (gint argc, gchar **argv)
   for (i=0; i<DATA_SIZE; i++)
     data[i] = g_random_int_range (32, 128);
 
-  for (j=0; j<RUNS; j++)
-    {
-      g_print ("\nRUN #%d:\n", j+1);
+  g_main_loop_run (main_loop_server);
 
-      total_read = 0;
-      clients_done = 0;
-      sockets_closed = 0;
-
-      /* create thread for each context */
-      for (i=0; i<THREADS; i++)
-	{
-	  gint *thread_id = g_new0 (gint, 1);
-	  *thread_id = i;
-	  threads[i] = g_thread_create (thread_handler, thread_id, TRUE, NULL);
-	}
-
-      g_main_loop_run (main_loop_server);
-
-      /* wait for the whorms */
-      for (i=0; i<THREADS; i++)
-	g_thread_join (threads[i]);
-    }
+  /* wait for the whorms */
+  for (i=0; i<THREADS; i++)
+    g_thread_join (threads[i]);
 
   /* free stuff */
+  g_free (server_addr);
   g_object_unref (server);
   g_object_unref (group_senders);
   g_object_unref (group_receivers);

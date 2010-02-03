@@ -22,6 +22,6 @@ service.set_on_read (function (group, socket) {
       MainLoop.quit ("main");
   });
 
-listener = service.listen_inet ("*", 6666);
+listener = service.listen ("0.0.0.0:6666");
 
 MainLoop.run ("main");

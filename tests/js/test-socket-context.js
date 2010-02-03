@@ -3,11 +3,11 @@ const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
 const Lang = imports.lang;
 
-const CLIENT_SOCKETS = 10000;
-const DATA_SIZE = 100;
-const BLOCK_SIZE = 100;
+const CLIENT_SOCKETS = 1000;
+const DATA_SIZE = 1000;
+const BLOCK_SIZE = 1000;
 
-const BANDWIDTH_MIN = 50;
+const BANDWIDTH_MIN = 0;
 const BANDWIDTH_RANGE = 0;
 
 let total_data_read = 0;
@@ -97,7 +97,7 @@ function client_on_read (socket) {
 }
 
 /* server socket */
-window.server = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
+window.server = new Evd.Socket ({"family": Gio.SocketFamily.IPV4});
 
 let sig_id = server.connect ('new-connection', function (socket, client) {
     client.set_on_read (client_on_read);
@@ -108,7 +108,7 @@ let sig_id = server.connect ('new-connection', function (socket, client) {
 
     active_sockets += 2;
     connections++;
-    //    log ("new-connection: " + connections);
+//    log ("new-connection: " + connections);
     client.auto_write = true;
     Lang.bind (client, client_write) ();
 });
@@ -117,27 +117,32 @@ server.connect ('error', function (socket, error) {
     log ("ERROR: in server socket: " + error.message);
   });
 
-server.listen ("*", 6666);
+server.listen ("127.0.0.1:6666");
 
+server.connect ("state-changed",
+    function (socket, new_state, old_state) {
+        if (new_state != Evd.SocketState.LISTENING)
+            return;
 
-/* client sockets */
-for (let i=0; i<CLIENT_SOCKETS; i++) {
-    let socket = new Evd.InetSocket ({"family": Gio.SocketFamily.IPV4});
+        /* client sockets */
+        for (let i=0; i<CLIENT_SOCKETS; i++) {
+            let socket = new Evd.Socket ({"family": Gio.SocketFamily.IPV4});
 
-    socket.connect ('state-changed', function (self, new_state, old_state) {
-        if (new_state == Evd.SocketState.CONNECTED) {
-            //	log ("client connected!");
-            self.auto_write = true;
-            Lang.bind (self, client_write) ();
+            socket.connect ('state-changed', function (self, new_state, old_state) {
+                                if (new_state == Evd.SocketState.CONNECTED) {
+                                    //	log ("client connected!");
+                                    self.auto_write = true;
+                                    Lang.bind (self, client_write) ();
+                                }
+                            });
+
+            socket.data_read = 0;
+            socket.data_written = 0;
+            socket.data = data;
+            socket.set_on_read (client_on_read);
+            socket.bandwidth_in = Math.random () * BANDWIDTH_RANGE + BANDWIDTH_MIN;
+            socket.connect_to ("127.0.0.1:6666");
         }
-    });
-
-    socket.data_read = 0;
-    socket.data_written = 0;
-    socket.data = data;
-    socket.set_on_read (client_on_read);
-    socket.bandwidth_in = Math.random () * BANDWIDTH_RANGE + BANDWIDTH_MIN;
-    socket.connect_to ("127.0.0.1", 6666);
-}
+});
 
 MainLoop.run ("main");
