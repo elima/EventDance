@@ -1,0 +1,51 @@
+<?xml version="1.0"?><!--*- mode: nxml; indent-tabs-mode: nil -*-->
+<!DOCTYPE moduleset SYSTEM "moduleset.dtd">
+<?xml-stylesheet type="text/xsl" href="moduleset.xsl"?>
+<!--
+  JHBuild moduleset to build EventDance project stack.
+
+  Author: Eduardo Lima Mitev <elima@igalia.com>
+-->
+<moduleset>
+  <repository type="git" name="git.gnome.org" default="yes"
+      href="git://git.gnome.org/"/>
+  <repository type="git" name="elima_gitorious"
+      href="ssh://e-lima@e-lima.dyndns.org/codebase/git/"/>
+
+  <autotools id="glib" autogenargs="--enable-gtk-doc=no">
+    <branch repo="git.gnome.org" tag="2.23.1" />
+    <dependencies>
+    </dependencies>
+  </autotools>
+
+  <autotools id="gobject-introspection">
+    <branch repo="git.gnome.org" module="gobject-introspection" tag="GOBJECT_INTROSPECTION_0_6_4" />
+  </autotools>
+
+  <autotools id="gir-repository">
+    <branch repo="git.gnome.org" module="gir-repository" tag="GIR_REPOSITORY_0_6_4"/>
+    <dependencies>
+        <dep package="gobject-introspection"/>
+    </dependencies>
+  </autotools>
+
+  <autotools id="gjs">
+    <branch repo="git.gnome.org" module="gjs" tag="GJS_0_3"/>
+    <dependencies>
+      <dep package="gobject-introspection" />
+    </dependencies>
+    <after>
+      <dep package="gir-repository"/>
+    </after>
+  </autotools>
+
+  <autotools id="evd" autogenargs="--enable-introspection=yes">
+    <branch repo="elima_gitorious"/>
+    <dependencies>
+      <dep package="glib"/>
+      <dep package="gobject-introspection"/>
+      <dep package="gir-repository"/>
+      <dep package="gjs"/>
+    </dependencies>
+  </autotools>
+</moduleset>
