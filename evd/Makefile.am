@@ -40,7 +40,6 @@ source_c = \
 	evd-socket.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
-	evd-inet-socket.c \
 	evd-socket-group.c \
 	evd-service.c \
 	evd-reproxy-backend.c \
@@ -54,7 +53,6 @@ source_h = \
 	evd-socket.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
-	evd-inet-socket.h \
 	evd-socket-group.h \
 	evd-service.h \
 	evd-reproxy.h \

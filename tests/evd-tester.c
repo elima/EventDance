@@ -27,7 +27,6 @@
 
 #include "test-json-filter.c"
 #include "test-socket.c"
-#include "test-inet-socket.c"
 #include "test-json-socket.c"
 
 gint
@@ -39,7 +38,6 @@ main (gint argc, gchar **argv)
   test_socket ();
   test_json_filter ();
   test_json_socket ();
-  test_inet_socket ();
 
   g_test_run ();
 

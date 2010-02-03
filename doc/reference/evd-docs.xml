@@ -50,7 +50,6 @@
     <chapter>
       <title>Base classes</title>
       <xi:include href="xml/evd-socket.xml"/>
-      <xi:include href="xml/evd-inet-socket.xml"/>
       <xi:include href="xml/evd-socket-group.xml"/>
       <xi:include href="xml/evd-service.xml"/>
     </chapter>
