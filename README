@@ -20,6 +20,10 @@ If you are building the Introspection data you will also need:
 
   * GObject-Introspection >= 0.6.3
 
+If you are building the Javascript support you will also need:
+
+  * GJS >= 0.3
+
 The official website is:
    (no official website yet)
 
@@ -56,6 +60,11 @@ in autogen.sh:
         build the introspection data. Requires GObject-Introspection
         present on system.
 
+ --enable-js
+        install the Javascript bindings library. Requires GJS, and
+        GObject-Introspection present on system and enabled in build
+        options.
+
 VERSIONING
 ==========
 
@@ -71,4 +80,4 @@ the newly added API might still change.
 
 The micro version indicates the origin of the release: even micro
 numbers are only used for released archives; odd micro numbers are
-only used on the SVN repository.
+only used on the repository.

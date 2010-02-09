@@ -49,6 +49,9 @@ AM_CONDITIONAL(HAVE_GIO_UNIX, test x"$HAVE_GIO_UNIX" = x"yes")
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.4])
 
+# Javascript support check
+JS_CHECK([0.3])
+
 # GTK Doc
 GTK_DOC_CHECK([1.11])
 AM_CONDITIONAL([BUILD_GTK_DOC], [test "x$enable_gtk_doc" = "xyes" || test ! -f "autogen.sh"])
@@ -71,5 +74,6 @@ echo "   ====================="
 echo ""
 echo "    Build introspection data:   ${enable_introspection}"
 echo "     Build API documentation:   ${enable_gtk_doc}"
+echo "  Build Javascript libraries:   ${enable_js}"
 echo ""
 

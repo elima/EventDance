@@ -78,7 +78,8 @@ libevd_@EVD_API_VERSION@_la_LIBADD += \
 
 libevd_@EVD_API_VERSION@_la_CFLAGS += \
 	$(GIO_UNIX_CFLAGS) \
-	-DHAVE_GIO_UNIX
+	-DHAVE_GIO_UNIX \
+	-DHAVE_JS
 endif
 
 libevd_@EVD_API_VERSION@_la_LDFLAGS = \
