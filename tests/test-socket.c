@@ -124,9 +124,12 @@ evd_socket_unix_fixture_setup (EvdSocketFixture *fixture,
     G_SOCKET_ADDRESS (g_unix_socket_address_new (UNIX_FILENAME));
 }
 
-static void
-test_socket (void)
+gint
+main (gint argc, gchar *argv[])
 {
+  g_type_init ();
+  g_test_init (&argc, &argv, NULL);
+
   g_test_add ("/evd/socket/initial-state",
               EvdSocketFixture,
               NULL,
@@ -156,4 +159,8 @@ test_socket (void)
               evd_socket_inet_ipv6_fixture_setup,
               evd_socket_test,
               evd_socket_fixture_teardown);
+
+  g_test_run ();
+
+  return 0;
 }

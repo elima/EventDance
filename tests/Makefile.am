@@ -20,42 +20,43 @@ AM_CFLAGS += \
 	-DHAVE_GIO_UNIX
 endif
 
-TEST_PROGS =
-
 noinst_PROGRAMS = \
 	evd-tester \
-	test-socket-context \
-	test-resolver
+	test-socket \
+	test-json-filter \
+	test-json-socket \
+	test-resolver \
+	test-socket-context
 
 # evd-tester
-evd_tester_CFLAGS = \
-	$(AM_CFLAGS)
-
-evd_tester_LDADD = \
-	$(GLIB_LIBS) \
-	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
-
-evd_tester_SOURCES = \
-	evd-tester.c \
-	$(TEST_PROGS)
+evd_tester_CFLAGS = $(AM_CFLAGS)
+evd_tester_LDADD = $(AM_LIBS)
+evd_tester_SOURCES = evd-tester.c
 
 # test-socket-context
-test_socket_context_CFLAGS = \
-	$(AM_CFLAGS)
+test_socket_context_CFLAGS = $(AM_CFLAGS)
+test_socket_context_LDADD = $(AM_LIBS)
+test_socket_context_SOURCES = test-socket-context.c
 
-test_socket_context_LDADD = \
-	$(GLIB_LIBS) \
-	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
-
-test_socket_context_SOURCES = \
-	test-socket-context.c
+# test-socket
+test_socket_CFLAGS = $(AM_CFLAGS)
+test_socket_LDADD = $(AM_LIBS)
+test_socket_SOURCES = test-socket.c
 
 # test-resolver
 test_resolver_CFLAGS = $(AM_CFLAGS)
 test_resolver_LDADD = $(AM_LIBS)
 test_resolver_SOURCES = test-resolver.c
 
+# test-json-filter
+test_json_filter_CFLAGS = $(AM_CFLAGS)
+test_json_filter_LDADD = $(AM_LIBS)
+test_json_filter_SOURCES = test-json-filter.c
+
+# test-json-socket
+test_json_socket_CFLAGS = $(AM_CFLAGS)
+test_json_socket_LDADD = $(AM_LIBS)
+test_json_socket_SOURCES = test-json-socket.c
+
 test: evd-tester
 	./evd-tester
-#	./test-socket-context
-	./test-resolver

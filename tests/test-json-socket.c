@@ -270,13 +270,20 @@ evd_json_socket_test (EvdJsonSocketFixture *f,
                    sizeof (evd_json_socket_packets) / sizeof (gchar *));
 }
 
-static void
-test_json_socket (void)
+gint
+main (gint argc, gchar *argv[])
 {
-  g_test_add ("/evd/json-socket/basic",
+  g_type_init ();
+  g_test_init (&argc, &argv, NULL);
+
+  g_test_add ("/evd/json/socket/basic",
               EvdJsonSocketFixture,
               NULL,
               evd_json_socket_fixture_setup,
               evd_json_socket_test,
               evd_json_socket_fixture_teardown);
+
+  g_test_run ();
+
+  return 0;
 }

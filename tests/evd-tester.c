@@ -23,23 +23,99 @@
  * 02110-1301 USA
  */
 
+#include <sys/stat.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 
-#include "test-json-filter.c"
-#include "test-socket.c"
-#include "test-json-socket.c"
+#include <gio/gio.h>
+
+static gint
+run_test (gchar   *filename,
+          gchar   *argv[],
+          GError **error)
+{
+  gint exit_status;
+
+  argv[0] = filename;
+
+  g_spawn_sync (".",
+                argv,
+                NULL,
+                0,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                &exit_status,
+                error);
+
+  return exit_status;
+}
+
+static gboolean
+is_a_test (const gchar *filename)
+{
+  struct stat stat_buf = {0,};
+
+  if (! (g_str_has_prefix (filename, "test-")))
+    return FALSE;
+
+  if (g_stat (filename, &stat_buf) != 0)
+    return FALSE;
+
+  if ( ( (stat_buf.st_mode & S_IFREG) == 0) ||
+       ( (stat_buf.st_mode & S_IXUSR) == 0) )
+    return FALSE;
+
+  return TRUE;
+}
 
 gint
-main (gint argc, gchar **argv)
+main (gint argc, gchar *argv[])
 {
+  GDir *dir;
+  const gchar *name;
+  gboolean abort = FALSE;
+
   g_type_init ();
-  g_test_init (&argc, &argv, NULL);
 
-  test_socket ();
-  test_json_filter ();
-  test_json_socket ();
+  if ( (argc > 1) &&
+       (g_strcmp0 (argv[1], "--help") == 0 ||
+        g_strcmp0 (argv[1], "-?") == 0) )
+    {
+      g_test_init (&argc, &argv, NULL);
 
-  g_test_run ();
+      return 0;
+    }
+
+  dir = g_dir_open (".", 0, NULL);
+  g_assert (dir != NULL);
+
+  while ( (! abort) && (name = g_dir_read_name (dir)) != NULL)
+    {
+      gchar *filename;
+      GError *error = NULL;
+
+      if (! is_a_test (name))
+        continue;
+
+      filename = g_build_filename (".", name, NULL);
+
+      if (run_test (filename, argv, &error) != 0)
+        {
+          /* TODO: decide whether to abort running tests when one fails */
+
+          g_error (error->message);
+          abort = TRUE;
+
+          g_error_free (error);
+          error = NULL;
+        }
+
+      g_free (filename);
+    }
+
+  g_dir_close(dir);
 
   return 0;
 }

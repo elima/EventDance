@@ -28,8 +28,8 @@
 
 #define RUNS                  1
 
-#define THREADS              50
-#define SOCKETS_PER_THREAD   50
+#define THREADS              10
+#define SOCKETS_PER_THREAD   10
 
 #define DATA_SIZE         65535
 #define BLOCK_SIZE        32752
@@ -285,8 +285,6 @@ server_on_state_changed (EvdSocket *socket,
     {
       gint i;
 
-      g_debug ("yeah");
-
       /*
       for (j=0; j<RUNS; j++)
         {
@@ -311,7 +309,7 @@ server_on_state_changed (EvdSocket *socket,
 gint
 main (gint argc, gchar **argv)
 {
-  gint i, j;
+  gint i;
   gchar *server_addr;
 
   g_type_init ();

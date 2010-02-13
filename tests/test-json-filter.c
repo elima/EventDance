@@ -23,6 +23,7 @@
  * 02110-1301 USA
  */
 
+#include <glib.h>
 #include <string.h>
 
 #include <evd.h>
@@ -161,20 +162,27 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
     }
 }
 
-static void
-test_json_filter (void)
+gint
+main (gint argc, gchar *argv[])
 {
-  g_test_add ("/evd/json-filter/basic",
+  g_type_init ();
+  g_test_init (&argc, &argv, NULL);
+
+  g_test_add ("/evd/json/filter/basic",
               EvdJsonFilterFixture,
               NULL,
               evd_json_filter_fixture_setup,
               evd_json_filter_test_basic,
               evd_json_filter_fixture_teardown);
 
-  g_test_add ("/evd/json-filter/chunked",
+  g_test_add ("/evd/json/filter/chunked",
               EvdJsonFilterFixture,
               NULL,
               evd_json_filter_fixture_setup,
               evd_json_filter_test_chunked,
               evd_json_filter_fixture_teardown);
+
+  g_test_run ();
+
+  return 0;
 }
