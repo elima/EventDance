@@ -67,11 +67,14 @@ G_LOCK_DEFINE_STATIC (sockets_closed);
 G_LOCK_DEFINE_STATIC (total_read);
 
 static void
-client_on_state_changed (EvdSocket *socket,
-                         EvdSocketState new_state,
-                         EvdSocketState old_state,
-                         gpointer user_data)
+client_on_state_changed (EvdSocket      *socket,
+                         EvdSocketState  new_state,
+                         EvdSocketState  old_state,
+                         gpointer        user_data)
 {
+  g_assert (EVD_IS_SOCKET (socket));
+  g_assert_cmpint (new_state, !=, old_state);
+
   if (new_state == EVD_SOCKET_STATE_CONNECTED)
     {
       g_object_set (socket,
@@ -85,9 +88,14 @@ client_on_state_changed (EvdSocket *socket,
 static void
 client_on_close (EvdSocket *socket, gpointer user_data)
 {
+  g_assert (EVD_IS_SOCKET (socket));
+  g_assert_cmpint (evd_socket_get_status (socket),
+                   ==,
+                   EVD_SOCKET_STATE_CLOSED);
+
   G_LOCK (sockets_closed);
   sockets_closed ++;
-  //  g_debug ("sockets closed: %d", sockets_closed);
+
   if (sockets_closed == THREADS * SOCKETS_PER_THREAD * 2)
     {
       gint i;
@@ -102,8 +110,6 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 	  g_main_loop_quit (main_loops[i]);
 	}
 
-      g_print ("\nPASSED\n");
-
       g_main_loop_quit (main_loop_server);
       g_main_context_wakeup (g_main_loop_get_context (main_loop_server));
     }
@@ -114,8 +120,21 @@ client_on_close (EvdSocket *socket, gpointer user_data)
 }
 
 static void
-server_on_new_connection (EvdSocket *self, EvdSocket *client, gpointer user_data)
+server_on_new_connection (EvdSocket *self,
+                          EvdSocket *client,
+                          gpointer   user_data)
 {
+  g_assert (EVD_IS_SOCKET (self));
+  g_assert (self == server);
+  g_assert_cmpint (evd_socket_get_status (self),
+                   ==,
+                   EVD_SOCKET_STATE_LISTENING);
+
+  g_assert (EVD_IS_SOCKET (client));
+  g_assert_cmpint (evd_socket_get_status (client),
+                   ==,
+                   EVD_SOCKET_STATE_CONNECTED);
+
   g_signal_connect (client, "close",
 		    G_CALLBACK (client_on_close),
 		    NULL);
@@ -139,47 +158,31 @@ group_socket_on_read (EvdSocketGroup *self,
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
 
+  g_assert (EVD_IS_SOCKET_GROUP (self));
+  g_assert (self == group_receivers);
+  g_assert (EVD_IS_SOCKET (socket));
+
   if (evd_socket_get_status (socket) != EVD_SOCKET_STATE_CONNECTED)
     return;
 
-  if ( (size = evd_socket_read_len (socket,
-                                    buf,
-                                    BLOCK_SIZE,
-                                    &error)) < 0)
+  size = evd_socket_read_len (socket,
+                              buf,
+                              BLOCK_SIZE,
+                              &error);
+
+  g_assert_cmpint (size, >=, 0);
+
+  G_LOCK (total_read);
+  total_read += size;
+  G_UNLOCK (total_read);
+
+  if (evd_stream_get_total_read (EVD_STREAM (socket)) == DATA_SIZE)
     {
-      g_debug ("ERROR reading data: %s", error->message);
-    }
-  else
-    {
-      gchar *total_read_st;
-      gchar *total_size_st;
-
-      G_LOCK (total_read);
-      total_read += size;
-
-      total_read_st = g_format_size_for_display (total_read);
-      total_size_st = g_format_size_for_display (TOTAL_DATA_SIZE);
-
-      g_print ("read %s/%s at %.2f KB/s       \r",
-	       total_read_st,
-	       total_size_st,
-	       evd_stream_get_actual_bandwidth_in (EVD_STREAM (group_receivers)));
-
-      g_free (total_read_st);
-      g_free (total_size_st);
-
-      G_UNLOCK (total_read);
-
-      if (evd_stream_get_total_read (EVD_STREAM (socket)) == DATA_SIZE)
-        {
-          if (! evd_socket_close (socket, &error))
-            {
-              g_debug ("ERROR closing socket: %s", error->message);
-              g_error_free (error);
-            }
-
-          g_object_unref (socket);
-        }
+      g_assert (evd_socket_close (socket, &error));
+      g_assert_cmpint (evd_socket_get_status (socket),
+                       ==,
+                       EVD_SOCKET_STATE_CLOSED);
+      g_object_unref (socket);
     }
 }
 
@@ -191,17 +194,18 @@ group_socket_on_write (EvdSocketGroup *self,
   gulong total_sent;
   GError *error = NULL;
 
+  g_assert (EVD_IS_SOCKET_GROUP (self));
+  g_assert (self == group_senders);
+  g_assert (EVD_IS_SOCKET (socket));
+
   total_sent = evd_stream_get_total_written (EVD_STREAM (socket));
   if (total_sent < DATA_SIZE)
     {
-      if (evd_socket_write_len (socket,
-                                (gchar *) (((guintptr) data) + total_sent),
-                                DATA_SIZE - total_sent,
-                                &error) < 0)
-        {
-          g_debug ("ERROR sending data: %s", error->message);
-          g_free (error);
-        }
+      g_assert_cmpint (evd_socket_write_len (socket,
+                                    (gchar *) (((guintptr) data) + total_sent),
+                                    DATA_SIZE - total_sent,
+                                    &error),
+                       >=, 0);
     }
 }
 
@@ -232,6 +236,8 @@ thread_handler (gpointer user_data)
       GError *error = NULL;
 
       client = evd_socket_new ();
+      g_assert (EVD_IS_SOCKET (client));
+
       g_object_set (client,
 		    "connect-timeout", 3000,
 		    "group", group_receivers,
@@ -248,11 +254,7 @@ thread_handler (gpointer user_data)
       g_object_set_data (G_OBJECT (client),
 			 "main_loop", (gpointer) main_loop);
 
-      if (! evd_socket_connect_to (client, client_addr, &error))
-	{
-	  g_error ("ERROR connecting client socket: %s", error->message);
-	  break;
-	}
+      g_assert (evd_socket_connect_to (client, client_addr, &error));
 
       g_object_ref_sink (client);
       g_object_ref (client);
@@ -276,52 +278,55 @@ thread_handler (gpointer user_data)
 }
 
 static void
-server_on_state_changed (EvdSocket *socket,
-                         EvdSocketState new_state,
-                         EvdSocketState old_state,
-                         gpointer user_data)
+server_on_state_changed (EvdSocket      *socket,
+                         EvdSocketState  new_state,
+                         EvdSocketState  old_state,
+                         gpointer        user_data)
 {
+  g_assert (EVD_IS_SOCKET (socket));
+  g_assert_cmpint (new_state, !=, old_state);
+
   if (new_state == EVD_SOCKET_STATE_LISTENING)
     {
       gint i;
 
-      /*
-      for (j=0; j<RUNS; j++)
+      g_assert_cmpint (evd_socket_get_status (server),
+                       ==,
+                       EVD_SOCKET_STATE_LISTENING);
+
+      total_read = 0;
+      clients_done = 0;
+      sockets_closed = 0;
+
+      /* create thread for each context */
+      for (i=0; i<THREADS; i++)
         {
-          g_print ("\nRUN #%d:\n", j+1);
-      */
-          total_read = 0;
-          clients_done = 0;
-          sockets_closed = 0;
-
-          /* create thread for each context */
-          for (i=0; i<THREADS; i++)
-            {
-              gint *thread_id = g_new0 (gint, 1);
-              *thread_id = i;
-              threads[i] = g_thread_create (thread_handler, thread_id, TRUE, NULL);
-            }
-
-          /*        }*/
+          gint *thread_id = g_new0 (gint, 1);
+          *thread_id = i;
+          threads[i] = g_thread_create (thread_handler, thread_id, TRUE, NULL);
+        }
     }
 }
 
-gint
-main (gint argc, gchar **argv)
+static void
+test_socket_context ()
 {
   gint i;
   gchar *server_addr;
-
-  g_type_init ();
-  g_thread_init (NULL);
 
   main_loop_server = g_main_loop_new (NULL, FALSE);
 
   /* server socket */
   server = evd_socket_new ();
+  g_assert (EVD_IS_SOCKET (server));
 
   server_addr = g_strdup_printf ("%s:%d", "0.0.0.0", INET_PORT);
+
   evd_socket_listen (server, server_addr, NULL);
+  g_assert_cmpint (evd_socket_get_status (server),
+                   ==,
+                   EVD_SOCKET_STATE_CLOSED);
+
   g_signal_connect (server,
 		    "new-connection",
 		    G_CALLBACK (server_on_new_connection),
@@ -369,6 +374,20 @@ main (gint argc, gchar **argv)
   g_object_unref (group_receivers);
 
   g_main_loop_unref (main_loop_server);
+}
+
+gint
+main (gint argc, gchar **argv)
+{
+  g_type_init ();
+  g_test_init (&argc, &argv, NULL);
+
+  g_thread_init (NULL);
+
+  g_test_add_func ("/evd/socket/multi-threaded",
+                   test_socket_context);
+
+  g_test_run ();
 
   return 0;
 }
