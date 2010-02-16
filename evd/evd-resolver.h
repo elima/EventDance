@@ -65,6 +65,11 @@ typedef enum
 #define EVD_RESOLVER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_RESOLVER, EvdResolverClass))
 
 
+/**
+ * evd_resolver_get_default:
+ *
+ * Returns: (transfer full): A #EvdResolver.
+ */
 EvdResolver        *evd_resolver_get_default          (void);
 
 GType               evd_resolver_get_type             (void) G_GNUC_CONST;
@@ -74,7 +79,7 @@ EvdResolver        *evd_resolver_new                  (void);
 /**
  * evd_resolver_resolve:
  *
- * Returns: (transfer none): A newly created #EvdResolverRequest.
+ * Returns: (transfer full): A newly created #EvdResolverRequest.
  */
 EvdResolverRequest *evd_resolver_resolve              (EvdResolver                  *self,
                                                        const gchar                  *address,
@@ -84,7 +89,7 @@ EvdResolverRequest *evd_resolver_resolve              (EvdResolver              
 /**
  * evd_resolver_resolve_with_closure:
  *
- * Returns: (transfer none): A newly created #EvdResolverRequest.
+ * Returns: (transfer full): A newly created #EvdResolverRequest.
  */
 EvdResolverRequest *evd_resolver_resolve_with_closure (EvdResolver  *self,
                                                        const gchar  *address,
