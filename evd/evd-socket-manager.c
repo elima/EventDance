@@ -44,7 +44,6 @@ G_DEFINE_TYPE (EvdSocketManager, evd_socket_manager, G_TYPE_OBJECT)
 /* private data */
 struct _EvdSocketManagerPrivate
 {
-  gint ref_count;
   gint num_fds;
   gulong min_latency;
   gint epoll_fd;
@@ -55,7 +54,7 @@ struct _EvdSocketManagerPrivate
   gint epoll_timeout;
 };
 
-G_LOCK_DEFINE_STATIC (ref_count);
+G_LOCK_DEFINE_STATIC (num_fds);
 
 /* we are a singleton object */
 static EvdSocketManager *evd_socket_manager_singleton = NULL;
@@ -63,7 +62,8 @@ static EvdSocketManager *evd_socket_manager_singleton = NULL;
 static void     evd_socket_manager_class_init   (EvdSocketManagerClass *class);
 static void     evd_socket_manager_init         (EvdSocketManager *self);
 static void     evd_socket_manager_finalize     (GObject *obj);
-static void     evd_socket_manager_dispose      (GObject *obj);
+
+static void     evd_socket_manager_stop         (EvdSocketManager *self);
 
 static void
 evd_socket_manager_class_init (EvdSocketManagerClass *class)
@@ -72,7 +72,6 @@ evd_socket_manager_class_init (EvdSocketManagerClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_socket_manager_dispose;
   obj_class->finalize = evd_socket_manager_finalize;
 
   /* add private structure */
@@ -90,7 +89,6 @@ evd_socket_manager_init (EvdSocketManager *self)
   /* initialize private members */
   priv->min_latency = DEFAULT_MIN_LATENCY;
   priv->started = FALSE;
-  priv->ref_count = 0;
   priv->num_fds = 0;
 
   priv->max_sockets = 1;
@@ -100,27 +98,17 @@ evd_socket_manager_init (EvdSocketManager *self)
 }
 
 static void
-evd_socket_manager_dispose (GObject *obj)
+evd_socket_manager_finalize (GObject *obj)
 {
   EvdSocketManager *self = EVD_SOCKET_MANAGER (obj);
 
-  if (self->priv->epoll_fd != 0)
-    {
-      close (self->priv->epoll_fd);
-      self->priv->epoll_fd--;
-    }
-
-  G_OBJECT_CLASS (evd_socket_manager_parent_class)->dispose (obj);
-}
-
-static void
-evd_socket_manager_finalize (GObject *obj)
-{
-  evd_socket_manager_singleton = NULL;
+  evd_socket_manager_stop (self);
 
   //  g_debug ("[EvdSocketManager 0x%X] Socket manager finalized", (guintptr) obj);
 
   G_OBJECT_CLASS (evd_socket_manager_parent_class)->finalize (obj);
+
+  evd_socket_manager_singleton = NULL;
 }
 
 static EvdSocketManager *
@@ -129,6 +117,8 @@ evd_socket_manager_new (void)
   EvdSocketManager *self;
 
   self = g_object_new (EVD_TYPE_SOCKET_MANAGER, NULL);
+
+  evd_socket_manager_singleton = self;
 
   return self;
 }
@@ -149,10 +139,20 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
                      events,
                      self->priv->max_sockets,
                      self->priv->epoll_timeout);
+
+  G_LOCK (num_fds);
+  if (self->priv->num_fds == 0)
+    {
+      G_UNLOCK (num_fds);
+      return;
+    }
+  G_UNLOCK (num_fds);
+
   if (nfds == -1)
     {
-      /* TODO: Handle error */
-      g_debug ("ERROR: epoll_pwait");
+      /* TODO: handle error */
+      g_warning ("epoll error ocurred");
+
       return;
     }
 
@@ -166,11 +166,6 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       self->priv->max_sockets = 1;
       self->priv->epoll_timeout = -1;
     }
-
-  /*
-  if (nfds > 0)
-    g_debug ("events read: %d", nfds);
-  */
 
   if (self->priv->dispatch_lot)
     contexts = g_hash_table_new (g_direct_hash, g_direct_equal);
@@ -272,7 +267,6 @@ evd_socket_manager_start (EvdSocketManager  *self,
                           GError           **error)
 {
   self->priv->started = TRUE;
-  self->priv->ref_count = 0;
 
   self->priv->epoll_fd = epoll_create (DEFAULT_MAX_SOCKETS);
 
@@ -302,29 +296,22 @@ evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
 static void
 evd_socket_manager_stop (EvdSocketManager *self)
 {
-  GSocket *socket;
-  GError *error = NULL;
+  G_UNLOCK (num_fds);
 
   self->priv->started = FALSE;
 
-  if ( (socket = g_socket_new (G_SOCKET_FAMILY_IPV4,
-                               G_SOCKET_TYPE_DATAGRAM,
-                               G_SOCKET_PROTOCOL_UDP,
-                               &error)) == NULL)
-    {
-      g_warning ("error interrupting epoll_wait: %s", error->message);
-      g_error_free (error);
-    }
-  else
-    evd_socket_manager_add_fd_into_epoll (self,
-                                          g_socket_get_fd (socket),
-                                          NULL);
+  /* the only purpose of this is to interrupt the 'epoll_wait'.
+     FIXME: Adding fd '1' is just a nasty hack that happens to work.
+     Have to figure out a better way to interrupt it. */
+  evd_socket_manager_add_fd_into_epoll (self, 1, NULL);
 
   g_thread_join (self->priv->thread);
   self->priv->thread = NULL;
 
-  g_socket_close (socket, NULL);
-  g_object_unref (socket);
+  close (self->priv->epoll_fd);
+  self->priv->epoll_fd = 0;
+
+  G_LOCK (num_fds);
 }
 
 /* public methods */
@@ -335,46 +322,6 @@ evd_socket_manager_get (void)
   return evd_socket_manager_singleton;
 }
 
-void
-evd_socket_manager_ref (void)
-{
-  EvdSocketManager *self = evd_socket_manager_singleton;
-
-  G_LOCK (ref_count);
-
-  if (self == NULL)
-    evd_socket_manager_singleton = evd_socket_manager_new ();
-  else
-    self->priv->ref_count++;
-
-  G_UNLOCK (ref_count);
-}
-
-void
-evd_socket_manager_unref (void)
-{
-  EvdSocketManager *self = evd_socket_manager_singleton;
-
-  G_LOCK (ref_count);
-
-  if (self != NULL)
-    {
-      self->priv->ref_count--;
-
-      if (self->priv->ref_count < 0)
-        {
-          if (self->priv->started)
-            evd_socket_manager_stop (self);
-
-          g_object_unref (self);
-
-          evd_socket_manager_singleton = NULL;
-        }
-    }
-
-  G_UNLOCK (ref_count);
-}
-
 gboolean
 evd_socket_manager_add_socket (EvdSocket  *socket,
                                GError    **error)
@@ -383,14 +330,16 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
   gint fd;
   gboolean result = TRUE;
 
-  G_LOCK (ref_count);
-
   self = evd_socket_manager_get ();
+  if (self == NULL)
+    self = evd_socket_manager_new ();
 
   if (! self->priv->started)
     evd_socket_manager_start (self, error);
 
   fd = g_socket_get_fd (evd_socket_get_socket (socket));
+
+  G_LOCK (num_fds);
 
   if (! evd_socket_manager_add_fd_into_epoll (self, fd, socket))
     {
@@ -404,7 +353,7 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
   else
     self->priv->num_fds++;
 
-  G_UNLOCK (ref_count);
+  G_UNLOCK (num_fds);
 
   return result;
 }
@@ -416,9 +365,10 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
   EvdSocketManager *self;
   gboolean result = TRUE;
 
-  G_LOCK (ref_count);
-
   self = evd_socket_manager_get ();
+
+  G_LOCK (num_fds);
+
   if ( (self != NULL) && (self->priv->num_fds > 0) )
     {
       gint fd;
@@ -433,13 +383,15 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
                                   "Failed to remove socket file descriptor from epoll set");
           result = FALSE;
         }
-
-      self->priv->num_fds--;
-      if ( (self->priv->started) && (self->priv->num_fds <= 0) )
-        evd_socket_manager_stop (self);
+      else
+        {
+          self->priv->num_fds--;
+          if (self->priv->num_fds == 0)
+            g_object_unref (self);
+        }
     }
 
-  G_UNLOCK (ref_count);
+  G_UNLOCK (num_fds);
 
   return result;
 }

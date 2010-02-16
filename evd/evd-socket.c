@@ -321,7 +321,6 @@ evd_socket_init (EvdSocket *self)
 
   priv->resolve_request = NULL;
 
-  evd_socket_manager_ref ();
 }
 
 static void
@@ -348,8 +347,6 @@ evd_socket_finalize (GObject *obj)
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
   //  g_debug ("[EvdSocket 0x%X] Socket finalized", (guintptr) obj);
-
-  evd_socket_manager_unref ();
 }
 
 static void

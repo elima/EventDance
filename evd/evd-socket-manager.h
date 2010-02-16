@@ -66,9 +66,6 @@ GType             evd_socket_manager_get_type     (void) G_GNUC_CONST;
 
 EvdSocketManager *evd_socket_manager_get          (void);
 
-void              evd_socket_manager_ref          (void);
-void              evd_socket_manager_unref        (void);
-
 gboolean          evd_socket_manager_add_socket   (EvdSocket  *socket,
                                                    GError    **error);
 gboolean          evd_socket_manager_del_socket   (EvdSocket  *socket,
