@@ -60,6 +60,8 @@ fixture_teardown (Fixture       *f,
                   gconstpointer  test_data)
 {
   g_object_unref (f->resolver);
+  if (f->request != NULL)
+    g_object_unref (f->request);
   g_main_loop_unref (f->main_loop);
 }
 
@@ -383,6 +385,7 @@ resolve_error (Fixture       *f,
 
   g_main_loop_run (f->main_loop);
 
+  g_object_unref (f->request);
 
   f->request = evd_resolver_resolve (f->resolver,
                                      NONEXISTANT_2,
