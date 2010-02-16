@@ -85,6 +85,8 @@ struct _EvdSocketPrivate
   EvdResolverRequest *resolve_request;
 
   gboolean bind_allow_reuse;
+
+  gboolean watched;
 };
 
 /* signals */
@@ -321,6 +323,7 @@ evd_socket_init (EvdSocket *self)
 
   priv->resolve_request = NULL;
 
+  priv->watched = FALSE;
 }
 
 static void
@@ -512,13 +515,25 @@ evd_socket_check (EvdSocket  *self,
 static gboolean
 evd_socket_watch (EvdSocket *self, GError **error)
 {
-  return evd_socket_manager_add_socket (self, error);
+  if (evd_socket_manager_add_socket (self, error))
+    {
+      self->priv->watched = TRUE;
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 static gboolean
 evd_socket_unwatch (EvdSocket *self, GError **error)
 {
-  return evd_socket_manager_del_socket (self, error);
+  if (evd_socket_manager_del_socket (self, error))
+    {
+      self->priv->watched = FALSE;
+      return TRUE;
+    }
+  else
+    return FALSE;
 }
 
 static void
@@ -1031,7 +1046,7 @@ evd_socket_event_handler (gpointer data)
 
   socket = event->socket;
 
-  if (! EVD_IS_SOCKET (socket))
+  if ( (! EVD_IS_SOCKET (socket)) || (! socket->priv->watched) )
     {
       g_free (event);
       return FALSE;
