@@ -53,10 +53,14 @@ m4_define([_JS_CHECK_INTERNAL],
 
     AC_MSG_RESULT([$found_js])
 
-   else
-       enable_js="no (requires introspection to be enabled)"
-       found_js=no
-   fi
+    else
+        enable_js="no (requires introspection to be enabled)"
+        found_js=no
+    fi
+
+    if test "x$found_js" = "xyes"; then
+       PKG_CHECK_MODULES([GJS], gjs-1.0 >= 0.3)
+    fi
 
     AM_CONDITIONAL(HAVE_JS, test "x$found_js" = "xyes")
 ])
