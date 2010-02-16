@@ -178,8 +178,6 @@ EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
  * <emphasis>connect-timeout</emphasis> signal will be triggered.
  *
  * Return value: TRUE on success or FALSE on error.
- *
- * Rename to: connect_toto
  */
 gboolean      evd_socket_connect_addr     (EvdSocket       *self,
                                            GSocketAddress  *address,
