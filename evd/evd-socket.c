@@ -904,8 +904,6 @@ evd_socket_on_resolve (EvdResolver         *resolver,
   GList *addresses;
   GError *error = NULL;
 
-  g_object_ref (request);
-
   if ( (addresses = evd_resolver_request_get_result (request, &error)) != NULL)
     {
       GSocketAddress *socket_address;
@@ -1238,6 +1236,12 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 
   evd_socket_remove_from_event_cache (self);
 
+  if (self->priv->resolve_request != NULL &&
+      evd_resolver_request_is_active (self->priv->resolve_request))
+    evd_resolver_cancel (self->priv->resolve_request);
+
+  self->priv->watched = FALSE;
+
   if (self->priv->connect_cancellable != NULL)
     {
       g_object_unref (self->priv->connect_cancellable);
@@ -1288,10 +1292,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 
       self->priv->status = EVD_SOCKET_STATE_CLOSED;
     }
-
-  if (self->priv->resolve_request != NULL &&
-      evd_resolver_request_is_active (self->priv->resolve_request))
-    evd_resolver_cancel (self->priv->resolve_request);
 
   self->priv->family = G_SOCKET_FAMILY_INVALID;
 
