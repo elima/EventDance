@@ -76,8 +76,6 @@ evd_json_socket_fixture_setup (EvdJsonSocketFixture *f,
 
   f->packet_index = 0;
   f->total_packets = 0;
-
-  g_assert (evd_socket_manager_get () != NULL);
 }
 
 static gboolean

@@ -75,7 +75,7 @@ evd_socket_fixture_setup (EvdSocketFixture *fixture,
 
   fixture->total_read = 0;
 
-  g_assert (evd_socket_manager_get () != NULL);
+  g_assert (evd_socket_manager_get () == NULL);
 }
 
 static gboolean
