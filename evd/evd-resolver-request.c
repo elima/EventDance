@@ -46,6 +46,7 @@ struct _EvdResolverRequestPrivate
   GClosure    *closure;
   EvdResolver *resolver;
 
+  gchar  *host;
   guint   port;
   GList  *socket_addresses;
   GError *error;
@@ -167,6 +168,9 @@ evd_resolver_request_finalize (GObject *obj)
   if (self->priv->address != NULL)
     g_free (self->priv->address);
 
+  if (self->priv->host != NULL)
+    g_free (self->priv->host);
+
   if (self->priv->closure != NULL)
     g_closure_unref (self->priv->closure);
 
@@ -247,6 +251,8 @@ evd_resolver_request_invoke_closure (EvdResolverRequest *self)
 {
   GValue params[2] = { {0, } };
 
+  self->priv->active = FALSE;
+
   g_value_init (&params[0], EVD_TYPE_RESOLVER);
   g_value_set_object (&params[0], self->priv->resolver);
 
@@ -259,36 +265,6 @@ evd_resolver_request_invoke_closure (EvdResolverRequest *self)
 
   g_value_unset (&params[0]);
   g_value_unset (&params[1]);
-
-  g_object_unref (self);
-}
-
-static gboolean
-evd_resolver_request_on_deliver (gpointer user_data)
-{
-  EvdResolverRequest *self;
-
-  self = EVD_RESOLVER_REQUEST (user_data);
-
-  g_object_unref (self);
-  self->priv->src_id = 0;
-
-  self->priv->active = FALSE;
-
-  evd_resolver_request_invoke_closure (self);
-
-  return FALSE;
-}
-
-static void
-evd_resolver_request_queue_response (EvdResolverRequest *self)
-{
-  g_object_ref (self);
-
-  self->priv->src_id = evd_timeout_add (g_main_context_get_thread_default (),
-                                        1,
-                                        (GSourceFunc) evd_resolver_request_on_deliver,
-                                        (gpointer) self);
 }
 
 static void
@@ -302,6 +278,9 @@ evd_resolver_request_on_resolver_result (GResolver    *resolver,
 
   self = EVD_RESOLVER_REQUEST (user_data);
   g_object_unref (self);
+
+  if (self->priv->cancellable == NULL)
+    return;
 
   self->priv->active = FALSE;
 
@@ -357,71 +336,40 @@ evd_resolver_request_set_resolver (EvdResolverRequest *self,
     g_object_ref (self->priv->resolver);
 }
 
-void
-evd_resolver_request_resolve (EvdResolverRequest  *self)
+static gboolean
+evd_resolver_request_perform (gpointer user_data)
 {
+  EvdResolverRequest *self = EVD_RESOLVER_REQUEST (user_data);
   gchar *address;
   GInetAddress *inet_addr;
   GSocketAddress *addr;
 
-  gchar *split;
-  gchar *host;
-  gchar *port_str;
-  gint port;
-
-  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (self));
-  g_return_if_fail (self->priv->address != NULL);
-
-  /* clean-up any previous resolution data  */
-  evd_resolver_request_cancel (self);
-
-  self->priv->active = TRUE;
-
   address = self->priv->address;
 
-#ifdef HAVE_GIO_UNIX
   if (address[0] == '/')
     {
+#ifdef HAVE_GIO_UNIX
       /* assume unix address */
       /* TODO: improve this detection, seems very naive */
       addr = (GSocketAddress *) g_unix_socket_address_new (address);
-
       self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
-      evd_resolver_request_queue_response (self);
-
-      return;
-    }
+#else
+      /* TODO: build an error. Unix sockets are not supported */
 #endif
+      evd_resolver_request_invoke_closure (self);
 
-  /* at this point address is expected to be of type inet
-     and in the form host:port, where host can be also a domain name */
-  host = g_strdup (address);
-  split = g_strrstr (host, ":");
-  if (split != NULL)
-    {
-      split[0] = '\0';
-      port_str = (char *) ((void *) split) + 1;
-
-      if (strlen (port_str) == 0 || (sscanf (port_str, "%d", &port) == 0) )
-        {
-          g_free (host);
-          host = g_strdup (address);
-        }
-      else
-        {
-          self->priv->port = port;
-        }
+      return FALSE;
     }
 
   /* at this point we have a valid port, and a host to validate,
      so let's build the request */
-  inet_addr = g_inet_address_new_from_string (host);
+  inet_addr = g_inet_address_new_from_string (self->priv->host);
   if (inet_addr != NULL)
     {
-      addr = g_inet_socket_address_new (inet_addr, port);
-
+      addr = g_inet_socket_address_new (inet_addr, self->priv->port);
       self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
-      evd_resolver_request_queue_response (self);
+
+      evd_resolver_request_invoke_closure (self);
     }
   else
     {
@@ -433,13 +381,64 @@ evd_resolver_request_resolve (EvdResolverRequest  *self)
       g_object_ref (self);
 
       g_resolver_lookup_by_name_async (g_resolver_get_default (),
-                 host,
+                 self->priv->host,
                  cancellable,
                  (GAsyncReadyCallback) evd_resolver_request_on_resolver_result,
                  (gpointer) self);
     }
 
-  g_free (host);
+  return FALSE;
+}
+
+void
+evd_resolver_request_resolve (EvdResolverRequest  *self)
+{
+  gchar *address;
+  gchar *host;
+  gchar *split;
+  gchar *port_str;
+  gint   port;
+
+  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (self));
+  g_return_if_fail (self->priv->address != NULL);
+
+  /* clean-up any previous resolution data  */
+  evd_resolver_request_cancel (self);
+
+  self->priv->active = TRUE;
+
+  address = self->priv->address;
+  host = g_strdup (address);
+
+  if (address[0] != '/')
+    {
+      /* at this point address is expected to be of type inet
+         and in the form host:port, where host can be also a domain name */
+      split = g_strrstr (host, ":");
+      if (split != NULL)
+        {
+          split[0] = '\0';
+          port_str = (char *) ((void *) split) + 1;
+
+          if (strlen (port_str) == 0 || (sscanf (port_str, "%d", &port) == 0) )
+            {
+              g_free (host);
+              host = g_strdup (address);
+            }
+          else
+            {
+              self->priv->port = port;
+            }
+        }
+    }
+
+  self->priv->host = host;
+
+  self->priv->src_id =
+    evd_timeout_add (g_main_context_get_thread_default (),
+                     0,
+                     (GSourceFunc) evd_resolver_request_perform,
+                     (gpointer) self);
 }
 
 GList *
@@ -486,7 +485,6 @@ evd_resolver_request_cancel (EvdResolverRequest *self)
     }
   else if (self->priv->src_id != 0)
     {
-      g_object_unref (self);
       g_source_remove (self->priv->src_id);
       self->priv->src_id = 0;
     }
