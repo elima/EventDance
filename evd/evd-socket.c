@@ -468,7 +468,7 @@ evd_socket_get_property (GObject    *obj,
       break;
 
     case PROP_PRIORITY:
-      g_value_set_uint (value, self->priv->priority);
+      g_value_set_int (value, self->priv->priority);
       break;
 
     default:
