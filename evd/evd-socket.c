@@ -954,8 +954,6 @@ evd_socket_on_resolve (EvdResolver         *resolver,
               {
               }
             }
-
-          self->priv->sub_status = EVD_SOCKET_STATE_CLOSED;
         }
       else
         {
@@ -1623,8 +1621,11 @@ evd_socket_connect_to (EvdSocket    *self,
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
       self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
     {
-      if (! evd_socket_close (self, error))
-        return FALSE;
+      if (self->priv->protocol != G_SOCKET_PROTOCOL_UDP)
+        {
+          if (! evd_socket_close (self, error))
+            return FALSE;
+        }
     }
 
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTED);
