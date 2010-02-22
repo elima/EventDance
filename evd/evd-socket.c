@@ -1293,6 +1293,7 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       self->priv->status = EVD_SOCKET_STATE_CLOSED;
     }
 
+  self->priv->cond = 0;
   self->priv->family = G_SOCKET_FAMILY_INVALID;
 
   return result;
