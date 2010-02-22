@@ -55,27 +55,37 @@ run_test (gchar   *filename,
 static gboolean
 is_a_test (const gchar *filename)
 {
-  struct stat stat_buf = {0,};
+  gboolean is_a_test = FALSE;
+  gchar *name;
 
-  if (! (g_str_has_prefix (filename, "test-")))
-    return FALSE;
+  name = g_path_get_basename (filename);
+  if (g_str_has_prefix (name, "test-"))
+    {
+      struct stat stat_buf = {0,};
 
-  if (g_stat (filename, &stat_buf) != 0)
-    return FALSE;
+      if (g_stat (filename, &stat_buf) == 0)
+        {
+          if ( ( (stat_buf.st_mode & S_IFREG) != 0) &&
+               ( (stat_buf.st_mode & S_IXUSR) != 0) )
+            is_a_test = TRUE;
+        }
+    }
+  g_free (name);
 
-  if ( ( (stat_buf.st_mode & S_IFREG) == 0) ||
-       ( (stat_buf.st_mode & S_IXUSR) == 0) )
-    return FALSE;
-
-  return TRUE;
+  return is_a_test;
 }
 
 gint
 main (gint argc, gchar *argv[])
 {
   GDir *dir;
+  gchar *current_dir;
+  gchar *test_dir;
   const gchar *name;
   gboolean abort = FALSE;
+
+  gchar *filename;
+  GError *error = NULL;
 
   g_type_init ();
 
@@ -88,34 +98,49 @@ main (gint argc, gchar *argv[])
       return 0;
     }
 
-  dir = g_dir_open (".", 0, NULL);
+  current_dir = g_path_get_dirname (argv[0]);
+  test_dir = g_build_filename (current_dir, "../", NULL);
+  g_free (current_dir);
+
+  dir = g_dir_open (test_dir, 0, NULL);
   g_assert (dir != NULL);
 
   while ( (! abort) && (name = g_dir_read_name (dir)) != NULL)
     {
-      gchar *filename;
-      GError *error = NULL;
-
-      if (! is_a_test (name))
+      if (g_str_has_prefix (name, "test-all"))
         continue;
 
-      filename = g_build_filename (".", name, NULL);
+      filename = g_build_filename (test_dir, name, NULL);
 
-      if (run_test (filename, argv, &error) != 0)
+      if (is_a_test (filename))
         {
-          /* TODO: decide whether to abort running tests when one fails */
+          if (run_test (filename, argv, &error) != 0)
+            {
+              /* TODO: decide whether to abort running tests when one fails */
 
-          g_error (error->message);
-          abort = TRUE;
+              g_error (error->message);
+              abort = TRUE;
 
-          g_error_free (error);
-          error = NULL;
+              g_error_free (error);
+              error = NULL;
+            }
         }
 
       g_free (filename);
     }
-
   g_dir_close(dir);
+
+#ifdef HAVE_JS
+  filename = g_build_filename (test_dir, "test-all-js", NULL);
+  if (run_test (filename, argv, &error) != 0)
+    {
+      g_error (error->message);
+      g_error_free (error);
+    }
+  g_free (filename);
+#endif
+
+  g_free (test_dir);
 
   return 0;
 }

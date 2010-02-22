@@ -4,7 +4,6 @@ MAINTAINERCLEANFILES = \
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
 	-Wall -g3 -O0 -ggdb \
-	-DPKGDATADIR="\"$(pkgdatadir)\"" \
 	-I$(top_srcdir)/evd
 
 AM_LIBS = \
@@ -29,7 +28,7 @@ noinst_PROGRAMS = \
 	test-socket-context
 
 # evd-tester
-evd_tester_CFLAGS = $(AM_CFLAGS)
+evd_tester_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
 evd_tester_LDADD = $(AM_LIBS)
 evd_tester_SOURCES = evd-tester.c
 
@@ -57,6 +56,15 @@ test_json_filter_SOURCES = test-json-filter.c
 test_json_socket_CFLAGS = $(AM_CFLAGS)
 test_json_socket_LDADD = $(AM_LIBS)
 test_json_socket_SOURCES = test-json-socket.c
+
+if HAVE_JS
+noinst_PROGRAMS += test-all-js
+
+# test-all-js
+test_all_js_CFLAGS = $(AM_CFLAGS) $(GJS_CFLAGS)
+test_all_js_LDADD = $(AM_LIBS) $(GJS_LIBS)
+test_all_js_SOURCES = test-all-js.c
+endif
 
 test: evd-tester
 	./evd-tester
