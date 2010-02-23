@@ -71,7 +71,7 @@ typedef enum
   EVD_SOCKET_STATE_CLOSED,
   EVD_SOCKET_STATE_CONNECTING,
   EVD_SOCKET_STATE_CONNECTED,
-  EVD_SOCKET_STATE_BINDING,
+  EVD_SOCKET_STATE_RESOLVING,
   EVD_SOCKET_STATE_BOUND,
   EVD_SOCKET_STATE_LISTENING
 } EvdSocketState;
@@ -117,13 +117,13 @@ typedef enum
   EVD_SOCKET_ERROR_UNKNOWN,
   EVD_SOCKET_ERROR_NOT_CONNECTING,
   EVD_SOCKET_ERROR_NOT_CONNECTED,
-  EVD_SOCKET_ERROR_NOT_BOUND,
   EVD_SOCKET_ERROR_CLOSE,
   EVD_SOCKET_ERROR_ACCEPT,
   EVD_SOCKET_ERROR_BUFFER_OVERFLOW,
   EVD_SOCKET_ERROR_CONNECT_TIMEOUT,
   EVD_SOCKET_ERROR_INVALID_ADDRESS,
   EVD_SOCKET_ERROR_RESOLVE,
+  EVD_SOCKET_ERROR_SOCKET_ACTIVE,
 
   EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
@@ -161,6 +161,18 @@ gboolean      evd_socket_bind             (EvdSocket    *self,
 gboolean      evd_socket_listen_addr      (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            GError         **error);
+
+/**
+ * evd_socket_listen:
+ * @self: The #EvdSocket to listen on.
+ * @address: (allow-none): A string representing the socket address to listen on, or NULL if
+ *                         the socket was previously bound to an address using #evd_socket_bind
+ *                         or #evd_socket_bind_addr. Only works for connection-oriented sockets.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Return value: TRUE on success or FALSE on error.
+ *
+ */
 gboolean      evd_socket_listen           (EvdSocket    *self,
                                            const gchar  *address,
                                            GError      **error);

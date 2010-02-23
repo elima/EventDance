@@ -925,6 +925,8 @@ evd_socket_on_resolve (EvdResolver         *resolver,
 
       if (match)
         {
+          self->priv->status = EVD_SOCKET_STATE_CLOSED;
+
           switch (self->priv->sub_status)
             {
             case EVD_SOCKET_STATE_LISTENING:
@@ -1400,8 +1402,14 @@ evd_socket_bind_addr (EvdSocket       *self,
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
-    if (! evd_socket_close (self, error))
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                              "Socket is currently active, should be closed first before requesting to bind");
+
       return FALSE;
+    }
 
   if (! evd_socket_check_address (self, address, error))
     return FALSE;
@@ -1435,15 +1443,20 @@ evd_socket_bind (EvdSocket    *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (address != NULL, FALSE);
 
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
-      self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
     {
-      if (! evd_socket_close (self, error))
-        return FALSE;
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                              "Socket is currently active, should be closed first before requesting to bind");
+
+      return FALSE;
     }
 
   /* we need to cache the allow_reuse flag as this op will complete async */
   self->priv->bind_allow_reuse = allow_reuse;
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_BOUND);
 
@@ -1455,23 +1468,20 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (self->priv->status != EVD_SOCKET_STATE_BOUND)
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
+      (self->priv->status != EVD_SOCKET_STATE_BOUND || address != NULL) )
     {
-      if (address == NULL)
-        {
-          if (error != NULL)
-            *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-                                  EVD_SOCKET_ERROR_NOT_BOUND,
-                                  "Socket is not bound, and no address provided");
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                              "Socket is currently active, should be closed first before requesting to listen");
 
-          return FALSE;
-        }
-      else
-        {
-          if (! evd_socket_bind_addr (self, address, TRUE, error))
-            return FALSE;
-        }
+      return FALSE;
     }
+
+  if (address != NULL)
+    if (! evd_socket_bind_addr (self, address, TRUE, error))
+      return FALSE;
 
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
@@ -1496,14 +1506,21 @@ gboolean
 evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (address != NULL, FALSE);
 
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
-      self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
-    {
-      if (! evd_socket_close (self, error))
+  if (address == NULL)
+    return evd_socket_listen_addr (self, NULL, error);
+  else
+    if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
+      {
+        if (error != NULL)
+          *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                                EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                                "Socket is currently active, should be closed first before requesting to listen");
+
         return FALSE;
-    }
+      }
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
 
@@ -1544,18 +1561,23 @@ evd_socket_connect_addr (EvdSocket        *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
 
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
+      (self->priv->status != EVD_SOCKET_STATE_BOUND ||
+       self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                              "Socket is currently active, should be closed first before requesting to connect");
+
+      return FALSE;
+    }
+
   if (! evd_socket_check_address (self, address, error))
     return FALSE;
 
   if (! evd_socket_check (self, error))
     return FALSE;
-
-  /* if socket not closed, close it first */
-  if ( (self->priv->status == EVD_SOCKET_STATE_CONNECTED) ||
-       (self->priv->status == EVD_SOCKET_STATE_CONNECTING) ||
-       (self->priv->status == EVD_SOCKET_STATE_LISTENING) )
-    if (! evd_socket_close (self, error))
-      return FALSE;
 
   /* launch connect timeout */
   if (self->priv->connect_timeout > 0)
@@ -1618,15 +1640,19 @@ evd_socket_connect_to (EvdSocket    *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (address != NULL, FALSE);
 
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED ||
-      self->priv->sub_status != EVD_SOCKET_STATE_CLOSED)
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
+      (self->priv->status != EVD_SOCKET_STATE_BOUND ||
+       self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
     {
-      if (self->priv->protocol != G_SOCKET_PROTOCOL_UDP)
-        {
-          if (! evd_socket_close (self, error))
-            return FALSE;
-        }
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+                              "Socket is currently active, should be closed first before requesting to connect");
+
+      return FALSE;
     }
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTED);
 
