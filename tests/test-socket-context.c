@@ -325,7 +325,7 @@ test_socket_context ()
   evd_socket_listen (server, server_addr, NULL);
   g_assert_cmpint (evd_socket_get_status (server),
                    ==,
-                   EVD_SOCKET_STATE_CLOSED);
+                   EVD_SOCKET_STATE_RESOLVING);
 
   g_signal_connect (server,
 		    "new-connection",

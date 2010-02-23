@@ -5,6 +5,11 @@ const Evd = imports.gi.Evd;
 const Test = imports.common.test;
 const Assert = imports.common.assert;
 
+const TCP_PORT = 7777;
+const UDP_PORT1 = 7777;
+const UDP_PORT2 = 7778;
+
+let timeout_src_id = 0;
 
 function abort_test_by_timeout () {
     MainLoop.quit ("test");
@@ -50,19 +55,87 @@ function testInitialState (Assert) {
     Assert.equal (socket.get_local_address (), null);
 }
 
+function testBindWhileActive (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.bind ("127.0.0.1:" + TCP_PORT, true);
+
+    let error = null;
+    try {
+        socket.bind ("127.0.0.1:" + TCP_PORT);
+    }
+    catch (e) {
+        error = e;
+    }
+    Assert.ok (error);
+
+    socket.close ();
+}
+
+function testListenWhileActive (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.bind ("127.0.0.1:" + TCP_PORT, true);
+
+    let error = null;
+    try {
+        socket.listen ("127.0.0.1:" + TCP_PORT);
+    }
+    catch (e) {
+        error = e;
+    }
+    Assert.ok (error);
+
+    socket.close ();
+}
+
+function testListenAfterBound (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.connect ("state-changed",
+        function (socket, new_state, old_state) {
+            if (new_state == Evd.SocketState.BOUND) {
+                socket.listen (null);
+            }
+            else if (new_state == Evd.SocketState.LISTENING) {
+                socket.close ();
+
+                MainLoop.source_remove (timeout_src_id);
+                MainLoop.quit ("test");
+            }
+        });
+    socket.bind ("127.0.0.1:" + TCP_PORT, true);
+
+    timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
+    MainLoop.run ("test");
+}
+
+function testConnectWhileActive (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.bind ("127.0.0.1:" + TCP_PORT, true);
+
+    let error = null;
+    try {
+        socket.connect_to ("127.0.0.1:" + TCP_PORT);
+    }
+    catch (e) {
+        error = e;
+    }
+    Assert.ok (error);
+
+    socket.close ();
+}
+
 // common test greeting functions
 
 const GREETING = "Hello world!";
 const READ_BLOCK_SIZE = 1024;
-const TCP_PORT = 7777;
-const UDP_PORT1 = 7777;
-const UDP_PORT2 = 7778;
 
 let socket1, socket2;
 let sockets_closed;
 let expected_sockets_closed;
 let bytes_read;
-let timeout_src_id = 0;
 
 function on_socket_read (socket) {
     Assert.strictEqual (socket.constructor, Evd.Socket);
@@ -110,10 +183,6 @@ function on_socket_close (socket) {
 }
 
 function on_socket_state_changed (socket, new_state, old_state) {
-    if (new_state != Evd.SocketState.CLOSED) {
-        Assert.notEqual (socket.socket, null);
-    }
-
     if (new_state == Evd.SocketState.LISTENING) {
         Assert.equal (socket, socket1);
         Assert.equal (old_state, Evd.SocketState.BOUND);
@@ -157,10 +226,10 @@ function setup_greeting_sockets (socket1, socket2) {
 function on_new_connection (server, client) {
     Assert.ok (server);
     Assert.strictEqual (server, socket1);
-    Assert.strictEqual (server.get_status (), Evd.SocketState.LISTENING);
+    Assert.equal (server.get_status (), Evd.SocketState.LISTENING);
 
     Assert.ok (client);
-    Assert.strictEqual (client.get_status (), Evd.SocketState.CONNECTED);
+    Assert.equal (client.get_status (), Evd.SocketState.CONNECTED);
 
     client.set_on_read (on_socket_read);
     client.set_on_write (on_socket_write);
@@ -175,7 +244,7 @@ function launchTcpTest (addr) {
 
     socket1.connect ("new-connection", on_new_connection);
     socket1.listen (addr);
-    Assert.equal (socket1.get_status (), Evd.SocketState.CLOSED);
+    Assert.equal (socket1.get_status (), Evd.SocketState.RESOLVING);
 
     timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
 
@@ -211,11 +280,11 @@ function launchUdpTest (addr1, addr2) {
 
     socket1.bind (addr1, true);
     socket1.other_addr = addr2;
-    Assert.equal (socket1.get_status (), Evd.SocketState.CLOSED);
+    Assert.equal (socket1.get_status (), Evd.SocketState.RESOLVING);
 
     socket2.bind (addr2, true);
     socket2.other_addr = addr1;
-    Assert.equal (socket2.get_status (), Evd.SocketState.CLOSED);
+    Assert.equal (socket2.get_status (), Evd.SocketState.RESOLVING);
 
     timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
 
