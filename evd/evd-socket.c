@@ -1287,9 +1287,9 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
-
-      self->priv->status = EVD_SOCKET_STATE_CLOSED;
     }
+
+  self->priv->status = EVD_SOCKET_STATE_CLOSED;
 
   self->priv->cond = 0;
   self->priv->family = G_SOCKET_FAMILY_INVALID;
