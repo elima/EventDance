@@ -198,8 +198,6 @@ gboolean      evd_socket_connect_to       (EvdSocket    *self,
                                            const gchar  *address,
                                            GError      **error);
 
-gboolean      evd_socket_cancel_connect   (EvdSocket *self, GError **error);
-
 void          evd_socket_set_read_handler (EvdSocket            *self,
                                            EvdSocketReadHandler  handler,
                                            gpointer              user_data);

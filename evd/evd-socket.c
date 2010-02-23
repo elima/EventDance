@@ -1244,6 +1244,7 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 
   if (self->priv->connect_cancellable != NULL)
     {
+      g_cancellable_cancel (self->priv->connect_cancellable);
       g_object_unref (self->priv->connect_cancellable);
       self->priv->connect_cancellable = NULL;
     }
@@ -1657,31 +1658,6 @@ evd_socket_connect_to (EvdSocket    *self,
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTED);
 
   return TRUE;
-}
-
-gboolean
-evd_socket_cancel_connect (EvdSocket *self, GError **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
-    {
-      if (self->priv->connect_timeout_src_id > 0)
-        g_source_remove (self->priv->connect_timeout_src_id);
-
-      g_cancellable_cancel (self->priv->connect_cancellable);
-
-      return evd_socket_close (self, error);
-    }
-  else
-    {
-      if (error != NULL)
-        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
-                              EVD_SOCKET_ERROR_NOT_CONNECTING,
-                              "Socket is not connecting");
-
-      return FALSE;
-    }
 }
 
 void
