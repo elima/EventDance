@@ -113,7 +113,8 @@ enum
   PROP_CONNECT_TIMEOUT,
   PROP_AUTO_WRITE,
   PROP_GROUP,
-  PROP_PRIORITY
+  PROP_PRIORITY,
+  PROP_STATUS
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -281,6 +282,16 @@ evd_socket_class_init (EvdSocketClass *class)
                                                      G_PRIORITY_DEFAULT,
                                                      G_PARAM_READWRITE |
                                                      G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_STATUS,
+                                   g_param_spec_uint ("status",
+                                                      "Socket status",
+                                                      "The current status of the socket (closed, connected, listening, etc)",
+                                                      0,
+                                                      EVD_SOCKET_STATE_LISTENING,
+                                                      EVD_SOCKET_STATE_CLOSED,
+                                                      G_PARAM_READABLE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
@@ -469,6 +480,10 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_PRIORITY:
       g_value_set_int (value, self->priv->priority);
+      break;
+
+    case PROP_STATUS:
+      g_value_set_uint (value, self->priv->status);
       break;
 
     default:
