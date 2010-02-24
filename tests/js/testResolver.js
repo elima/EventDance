@@ -6,7 +6,7 @@ const Test = imports.common.test;
 function abort_test_by_timeout () {
     MainLoop.quit ("test");
 
-    Assert.fail ("test timeout");
+    Test.Assert.fail ("test timeout");
 }
 
 function testGetDefault (Assert) {
@@ -26,6 +26,8 @@ function testIPv4NoResolve (Assert) {
     let resolver = Evd.Resolver.get_default ();
     let request = resolver.resolve_with_closure (ADDR + ":" + PORT,
         function (res, req) {
+            Assert.equal (req.is_active (), false);
+
             MainLoop.source_remove (timeout_src_id);
             MainLoop.quit ("test");
 
@@ -45,6 +47,7 @@ function testIPv4NoResolve (Assert) {
             let inet_addr = addresses[0].get_address ();
             Assert.strictEqual (inet_addr.to_string (), ADDR);
         });
+    Assert.equal (request.is_active (), true);
 
     MainLoop.run ("test");
 }
@@ -87,6 +90,28 @@ function testResolveLocalhost (Assert) {
         });
     request.port = NEW_PORT;
 
+    MainLoop.run ("test");
+}
+
+function testCancel (Assert) {
+    const ADDR = "localhost:1024";
+
+    let resolver = Evd.Resolver.get_default ();
+    let request = resolver.resolve_with_closure (ADDR,
+        function (res, req) {
+            MainLoop.source_remove (timeout_src_id);
+            MainLoop.quit ("test");
+
+            Assert.fail ("request cancellation failed");
+        });
+    request.cancel ();
+
+    Assert.equal (request.is_active (), false);
+
+    let timeout_src_id = MainLoop.timeout_add (500,
+        function () {
+            MainLoop.quit ("test");
+        });
     MainLoop.run ("test");
 }
 
