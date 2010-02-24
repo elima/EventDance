@@ -30,7 +30,7 @@
   </autotools>
 
   <autotools id="gjs">
-    <branch repo="git.gnome.org" module="gjs" tag="GJS_0_3"/>
+    <branch repo="git.gnome.org" module="gjs"/>
     <dependencies>
       <dep package="gobject-introspection" />
     </dependencies>
