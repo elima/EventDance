@@ -127,6 +127,55 @@ function testConnectWhileActive (Assert) {
     socket.close ();
 }
 
+function testCancelBind (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.connect ("close",
+        function (socket) {
+            MainLoop.source_remove (timeout_src_id);
+            MainLoop.quit ("test");
+        });
+
+    socket.connect ("state-changed",
+        function (socket, new_state, old_state) {
+            if (new_state == Evd.SocketState.BOUND)
+                Assert.fail ("cancel bind failed");
+        });
+
+    timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
+    MainLoop.idle_add (
+        function () {
+            socket.bind ("127.0.0.1:" + TCP_PORT, true);
+            socket.close ();
+        });
+    MainLoop.run ("test");
+}
+
+function testCancelListen (Assert) {
+    let socket = new Evd.Socket ();
+
+    socket.connect ("close",
+        function (socket) {
+            MainLoop.source_remove (timeout_src_id);
+            MainLoop.quit ("test");
+        });
+
+    socket.connect ("state-changed",
+        function (socket, new_state, old_state) {
+            if (new_state == Evd.SocketState.BOUND) {
+                socket.close ();
+            }
+            else if (new_state == Evd.SocketState.LISTENING) {
+                Assert.fail ("cancel listen failed");
+            }
+        });
+
+    socket.listen ("127.0.0.1:" + TCP_PORT);
+
+    timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
+    MainLoop.run ("test");
+}
+
 // common test greeting functions
 
 const GREETING = "Hello world!";
