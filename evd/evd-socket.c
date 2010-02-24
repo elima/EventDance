@@ -851,9 +851,7 @@ evd_socket_read_buffer_add_data (EvdSocket    *self,
     }
   else
     {
-      g_string_append_len (self->priv->read_buffer,
-                           buf,
-                           size);
+      g_string_append_len (self->priv->read_buffer, buf, size);
 
       return TRUE;
     }
@@ -876,9 +874,7 @@ evd_socket_write_buffer_add_data (EvdSocket    *self,
     }
   else
     {
-      g_string_append_len (self->priv->write_buffer,
-                           buf,
-                           size);
+      g_string_append_len (self->priv->write_buffer, buf, size);
 
       return TRUE;
     }
