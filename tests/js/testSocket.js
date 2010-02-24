@@ -38,6 +38,7 @@ function testInitialState (Assert) {
     Assert.equal (socket.bandwidth_out, 0);
     Assert.equal (socket.latency_in, 0);
     Assert.equal (socket.latency_out, 0);
+    Assert.equal (socket.status, Evd.SocketState.CLOSED);
 
     Assert.equal (socket.get_socket (), socket.socket);
     Assert.equal (socket.get_context (), null);
@@ -216,6 +217,7 @@ function on_socket_write (socket) {
 function on_socket_close (socket) {
     Assert.strictEqual (socket.constructor, Evd.Socket);
     Assert.equal (socket.get_status (), Evd.SocketState.CLOSED);
+    Assert.equal (socket.status, Evd.SocketState.CLOSED);
     Assert.equal (socket.socket, null);
 
     Assert.equal (socket.can_read (), false);
@@ -275,10 +277,10 @@ function setup_greeting_sockets (socket1, socket2) {
 function on_new_connection (server, client) {
     Assert.ok (server);
     Assert.strictEqual (server, socket1);
-    Assert.equal (server.get_status (), Evd.SocketState.LISTENING);
+    Assert.equal (server.status, Evd.SocketState.LISTENING);
 
     Assert.ok (client);
-    Assert.equal (client.get_status (), Evd.SocketState.CONNECTED);
+    Assert.equal (client.status, Evd.SocketState.CONNECTED);
 
     client.set_on_read (on_socket_read);
     client.set_on_write (on_socket_write);
@@ -293,7 +295,7 @@ function launchTcpTest (addr) {
 
     socket1.connect ("new-connection", on_new_connection);
     socket1.listen (addr);
-    Assert.equal (socket1.get_status (), Evd.SocketState.RESOLVING);
+    Assert.equal (socket1.status, Evd.SocketState.RESOLVING);
 
     timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
 
@@ -329,11 +331,11 @@ function launchUdpTest (addr1, addr2) {
 
     socket1.bind (addr1, true);
     socket1.other_addr = addr2;
-    Assert.equal (socket1.get_status (), Evd.SocketState.RESOLVING);
+    Assert.equal (socket1.status, Evd.SocketState.RESOLVING);
 
     socket2.bind (addr2, true);
     socket2.other_addr = addr1;
-    Assert.equal (socket2.get_status (), Evd.SocketState.RESOLVING);
+    Assert.equal (socket2.status, Evd.SocketState.RESOLVING);
 
     timeout_src_id = MainLoop.timeout_add (1000, abort_test_by_timeout);
 
