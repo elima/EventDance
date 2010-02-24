@@ -904,6 +904,9 @@ evd_socket_on_resolve (EvdResolver         *resolver,
   GList *addresses;
   GError *error = NULL;
 
+  if (self->priv->status != EVD_SOCKET_STATE_RESOLVING)
+    return;
+
   if ( (addresses = evd_resolver_request_get_result (request, &error)) != NULL)
     {
       GSocketAddress *socket_address;
@@ -925,13 +928,19 @@ evd_socket_on_resolve (EvdResolver         *resolver,
 
       if (match)
         {
+          gint sub_status;
+
           self->priv->status = EVD_SOCKET_STATE_CLOSED;
 
-          switch (self->priv->sub_status)
+          sub_status = self->priv->sub_status;
+          self->priv->sub_status = EVD_SOCKET_STATE_CLOSED;
+
+          switch (sub_status)
             {
             case EVD_SOCKET_STATE_LISTENING:
               {
-                if (! evd_socket_listen_addr (self, socket_address, &error))
+                if (! evd_socket_listen_addr (self, socket_address, &error) &&
+                    error != NULL)
                   evd_socket_throw_error (self, error);
                 break;
               }
@@ -940,7 +949,7 @@ evd_socket_on_resolve (EvdResolver         *resolver,
                 if (! evd_socket_bind_addr (self,
                                             socket_address,
                                             self->priv->bind_allow_reuse,
-                                            &error))
+                                            &error) && error != NULL)
                   evd_socket_throw_error (self, error);
                 break;
               }
@@ -948,7 +957,7 @@ evd_socket_on_resolve (EvdResolver         *resolver,
               {
                 if (! evd_socket_connect_addr (self,
                                                socket_address,
-                                               &error))
+                                               &error) && error != NULL)
                   evd_socket_throw_error (self, error);
                 break;
               }
@@ -1483,6 +1492,13 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   if (address != NULL)
     if (! evd_socket_bind_addr (self, address, TRUE, error))
       return FALSE;
+
+  if (self->priv->status != EVD_SOCKET_STATE_BOUND)
+    {
+      /* this is to consider that socket could have been closed
+         during 'state-changed' signal handler after call to bind */
+      return FALSE;
+    }
 
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
