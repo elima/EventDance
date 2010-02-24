@@ -26,8 +26,10 @@ function testInitialState (Assert) {
     Assert.equal (socket.type, Gio.SocketType.INVALID);
     Assert.equal (socket.protocol, Gio.SocketProtocol.UNKNOWN);
 
-    // TODO: check with GJS team why closures don't work as properties
-    // Assert.equal (socket.read_handler, null);
+    Assert.equal (socket.read_closure, null);
+    Assert.equal (socket.write_closure, null);
+    Assert.equal (socket.get_on_read (), null);
+    Assert.equal (socket.get_on_write (), null);
 
     Assert.equal (socket.connect_timeout, 0);
     Assert.equal (socket.group, null);
@@ -266,7 +268,13 @@ function setup_greeting_sockets (socket1, socket2) {
     socket2.connect ("close", on_socket_close);
 
     socket1.set_on_read (on_socket_read);
+    Assert.ok (socket1.get_on_read ());
+    Assert.ok (socket1.read_closure);
+
     socket1.set_on_write (on_socket_write);
+    Assert.ok (socket1.get_on_write ());
+    Assert.ok (socket1.write_closure);
+
     socket1.connect ("error", on_socket_error);
 
     socket2.set_on_read (on_socket_read);
