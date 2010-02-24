@@ -109,7 +109,6 @@ enum
   PROP_FAMILY,
   PROP_TYPE,
   PROP_PROTOCOL,
-  PROP_READ_CLOSURE,
   PROP_CONNECT_TIMEOUT,
   PROP_AUTO_WRITE,
   PROP_GROUP,
@@ -239,13 +238,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_SOCKET_PROTOCOL_UNKNOWN,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
-                                   g_param_spec_boxed ("read-handler",
-                                                       "Read closure",
-                                                       "The callback closure that will be invoked when data is ready to be read",
-                                                       G_TYPE_CLOSURE,
-                                                       G_PARAM_READWRITE));
 
   g_object_class_install_property (obj_class, PROP_CONNECT_TIMEOUT,
                                    g_param_spec_uint ("connect-timeout",
