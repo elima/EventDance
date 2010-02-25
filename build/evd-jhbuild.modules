@@ -13,17 +13,17 @@
       href="ssh://e-lima@e-lima.dyndns.org/codebase/git/"/>
 
   <autotools id="glib" autogenargs="--enable-gtk-doc=no">
-    <branch repo="git.gnome.org" tag="2.23.1" />
+    <branch repo="git.gnome.org" />
     <dependencies>
     </dependencies>
   </autotools>
 
   <autotools id="gobject-introspection">
-    <branch repo="git.gnome.org" module="gobject-introspection" tag="GOBJECT_INTROSPECTION_0_6_4" />
+    <branch repo="git.gnome.org" module="gobject-introspection"/>
   </autotools>
 
   <autotools id="gir-repository">
-    <branch repo="git.gnome.org" module="gir-repository" tag="GIR_REPOSITORY_0_6_4"/>
+    <branch repo="git.gnome.org" module="gir-repository"/>
     <dependencies>
         <dep package="gobject-introspection"/>
     </dependencies>
