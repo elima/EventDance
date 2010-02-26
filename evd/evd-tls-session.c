@@ -30,7 +30,7 @@
 
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-session"
 
-G_DEFINE_ABSTRACT_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
+G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
 
 #define EVD_TLS_SESSION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                           EVD_TYPE_TLS_SESSION, \
