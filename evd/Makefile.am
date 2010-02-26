@@ -67,10 +67,12 @@ source_h_priv = \
 	evd-service-protected.h
 
 libevd_@EVD_API_VERSION@_la_LIBADD = \
-	$(GLIB_LIBS)
+	$(GLIB_LIBS) \
+	$(TLS_LIBS)
 
 libevd_@EVD_API_VERSION@_la_CFLAGS  = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+	$(TLS_CFLAGS)
 
 if HAVE_GIO_UNIX
 libevd_@EVD_API_VERSION@_la_LIBADD += \

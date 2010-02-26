@@ -46,6 +46,8 @@ PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= $GIO_REQUIRED],
         [HAVE_GIO_UNIX=no])
 AM_CONDITIONAL(HAVE_GIO_UNIX, test x"$HAVE_GIO_UNIX" = x"yes")
 
+PKG_CHECK_MODULES(TLS, gnutls >= 2.8.0)
+
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.4])
 
