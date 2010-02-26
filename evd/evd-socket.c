@@ -87,6 +87,9 @@ struct _EvdSocketPrivate
   gboolean bind_allow_reuse;
 
   gboolean watched;
+
+  gboolean       tls_enabled;
+  EvdTlsSession *tls_session;
 };
 
 /* signals */
@@ -113,7 +116,9 @@ enum
   PROP_AUTO_WRITE,
   PROP_GROUP,
   PROP_PRIORITY,
-  PROP_STATUS
+  PROP_STATUS,
+  PROP_TLS_ENABLED,
+  PROP_TLS_SESSION
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -285,6 +290,22 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_TLS_ENABLED,
+                                   g_param_spec_boolean ("tls-enabled",
+                                                         "Whether SSL/TLS should be enabled or disabled",
+                                                         "Used to enable/disabled SSL/TLS on socket",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_TLS_SESSION,
+                                   g_param_spec_object ("tls-session",
+                                                       "The SSL/TLS session",
+                                                       "The underlaying SSL/TLS session object",
+                                                       EVD_TYPE_TLS_SESSION,
+                                                       G_PARAM_READABLE |
+                                                       G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
 }
@@ -327,6 +348,9 @@ evd_socket_init (EvdSocket *self)
   priv->resolve_request = NULL;
 
   priv->watched = FALSE;
+
+  priv->tls_enabled = FALSE;
+  priv->tls_session = NULL;
 }
 
 static void
@@ -410,6 +434,10 @@ evd_socket_set_property (GObject      *obj,
       evd_socket_set_priority (self, g_value_get_uint (value));
       break;
 
+    case PROP_TLS_ENABLED:
+      evd_socket_set_tls_enabled (self, g_value_get_boolean (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -476,6 +504,14 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_STATUS:
       g_value_set_uint (value, self->priv->status);
+      break;
+
+    case PROP_TLS_ENABLED:
+      g_value_set_boolean (value, evd_socket_get_tls_enabled (self));
+      break;
+
+    case PROP_TLS_SESSION:
+      g_value_set_object (value, self->priv->tls_session);
       break;
 
     default:
@@ -1998,4 +2034,42 @@ evd_socket_get_local_address (EvdSocket  *self,
     return NULL;
   else
     return g_socket_get_local_address (self->priv->socket, error);
+}
+
+void
+evd_socket_set_tls_enabled (EvdSocket *self, gboolean enabled)
+{
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  self->priv->tls_enabled = enabled;
+
+  if (self->priv->tls_enabled)
+    {
+      if (self->priv->tls_session == NULL)
+        self->priv->tls_session = evd_tls_session_new ();
+    }
+  else
+    {
+      if (self->priv->tls_session != NULL)
+        {
+          g_object_unref (self->priv->tls_session);
+          self->priv->tls_session = NULL;
+        }
+    }
+}
+
+gboolean
+evd_socket_get_tls_enabled (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  return self->priv->tls_enabled;
+}
+
+EvdTlsSession *
+evd_socket_get_tls_session (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
+  return self->priv->tls_session;
 }

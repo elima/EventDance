@@ -29,6 +29,7 @@
 #include <gio/gio.h>
 
 #include "evd-stream.h"
+#include "evd-tls-session.h"
 
 G_BEGIN_DECLS
 
@@ -327,6 +328,11 @@ GSocketAddress *evd_socket_get_local_address    (EvdSocket  *self,
 
 gsize           evd_socket_get_max_readable     (EvdSocket *self);
 gsize           evd_socket_get_max_writable     (EvdSocket *self);
+
+void            evd_socket_set_tls_enabled      (EvdSocket *self,
+                                                 gboolean   enabled);
+gboolean        evd_socket_get_tls_enabled      (EvdSocket *self);
+EvdTlsSession  *evd_socket_get_tls_session      (EvdSocket *self);
 
 G_END_DECLS
 
