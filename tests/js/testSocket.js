@@ -26,15 +26,20 @@ function testInitialState (Assert) {
     Assert.equal (socket.type, Gio.SocketType.INVALID);
     Assert.equal (socket.protocol, Gio.SocketProtocol.UNKNOWN);
 
-    Assert.equal (socket.read_closure, null);
-    Assert.equal (socket.write_closure, null);
     Assert.equal (socket.get_on_read (), null);
     Assert.equal (socket.get_on_write (), null);
 
+    Assert.equal (socket.read_closure, null);
+    Assert.equal (socket.write_closure, null);
     Assert.equal (socket.connect_timeout, 0);
     Assert.equal (socket.group, null);
     Assert.equal (socket.auto_write, false);
     Assert.equal (socket.priority, 0);
+
+    Assert.equal (socket.tls_enabled, false);
+    Assert.equal (socket.get_tls_enabled (), false);
+    Assert.equal (socket.tls_session, null);
+    Assert.equal (socket.get_tls_session (), null);
 
     Assert.equal (socket.bandwidth_in, 0);
     Assert.equal (socket.bandwidth_out, 0);
