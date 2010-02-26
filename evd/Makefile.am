@@ -43,9 +43,11 @@ source_c = \
 	evd-socket-group.c \
 	evd-service.c \
 	evd-reproxy-backend.c \
-	evd-reproxy.c
+	evd-reproxy.c \
+	evd-tls-session.c
 
 source_h = \
+	evd.h \
 	evd-utils.h \
 	evd-stream.h \
 	evd-resolver-request.h \
@@ -56,7 +58,7 @@ source_h = \
 	evd-socket-group.h \
 	evd-service.h \
 	evd-reproxy.h \
-	evd.h
+	evd-tls-session.h
 
 source_h_priv = \
 	evd-marshal.h \
