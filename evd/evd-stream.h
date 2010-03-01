@@ -28,6 +28,8 @@
 
 #include <glib-object.h>
 
+#include "evd-tls-session.h"
+
 G_BEGIN_DECLS
 
 typedef struct _EvdStream EvdStream;
@@ -59,9 +61,9 @@ struct _EvdStreamClass
 #define EVD_STREAM_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_STREAM, EvdStreamClass))
 
 
-GType evd_stream_get_type (void) G_GNUC_CONST;
+GType          evd_stream_get_type       (void) G_GNUC_CONST;
 
-EvdStream    *evd_stream_new            (void);
+EvdStream     *evd_stream_new            (void);
 
 /**
  * evd_stream_set_on_read:
@@ -71,8 +73,8 @@ EvdStream    *evd_stream_new            (void);
  * Specifies the closure to be invoked when data is waiting to be read from the
  * stream.
  */
-void          evd_stream_set_on_read    (EvdStream *self,
-                                         GClosure  *closure);
+void           evd_stream_set_on_read    (EvdStream *self,
+                                          GClosure  *closure);
 
 /**
  * evd_stream_get_on_read:
@@ -81,7 +83,7 @@ void          evd_stream_set_on_read    (EvdStream *self,
  * Return value: (transfer none): A #GClosure representing the current read handler,
  * or NULL.
  */
-GClosure     *evd_stream_get_on_read    (EvdStream *self);
+GClosure      *evd_stream_get_on_read    (EvdStream *self);
 
 /**
  * evd_stream_set_on_write:
@@ -91,8 +93,8 @@ GClosure     *evd_stream_get_on_read    (EvdStream *self);
  * Specifies the closure to be invoked when it becomes safe to write data to the
  * stream.
  */
-void          evd_stream_set_on_write   (EvdStream *self,
-                                         GClosure  *closure);
+void           evd_stream_set_on_write   (EvdStream *self,
+                                          GClosure  *closure);
 
 /**
  * evd_stream_get_on_write:
@@ -101,20 +103,25 @@ void          evd_stream_set_on_write   (EvdStream *self,
  * Return value: (transfer none): A #GClosure representing the current write handler,
  * or NULL.
  */
-GClosure     *evd_stream_get_on_write   (EvdStream *self);
+GClosure      *evd_stream_get_on_write   (EvdStream *self);
 
-gsize         evd_stream_request_write  (EvdStream *self,
-                                         gsize      size,
-                                         guint     *wait);
-gsize         evd_stream_request_read   (EvdStream *self,
-                                         gsize      size,
-                                         guint     *wait);
+gsize          evd_stream_request_write  (EvdStream *self,
+                                          gsize      size,
+                                          guint     *wait);
+gsize          evd_stream_request_read   (EvdStream *self,
+                                          gsize      size,
+                                          guint     *wait);
 
-gulong        evd_stream_get_total_read (EvdStream *self);
-gulong        evd_stream_get_total_written (EvdStream *self);
+gulong         evd_stream_get_total_read (EvdStream *self);
+gulong         evd_stream_get_total_written (EvdStream *self);
 
-gfloat        evd_stream_get_actual_bandwidth_in  (EvdStream *self);
-gfloat        evd_stream_get_actual_bandwidth_out (EvdStream *self);
+gfloat         evd_stream_get_actual_bandwidth_in  (EvdStream *self);
+gfloat         evd_stream_get_actual_bandwidth_out (EvdStream *self);
+
+void           evd_stream_set_tls_enabled         (EvdStream *self,
+                                                   gboolean   enabled);
+gboolean       evd_stream_get_tls_enabled         (EvdStream *self);
+EvdTlsSession *evd_stream_get_tls_session         (EvdStream *self);
 
 G_END_DECLS
 

@@ -25,6 +25,7 @@
 
 #include <math.h>
 #include <string.h>
+
 #include "evd-stream.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.glib.stream"
@@ -56,6 +57,9 @@ struct _EvdStreamPrivate
   gsize total_out;
 
   GMutex *mutex;
+
+  gboolean       tls_enabled;
+  EvdTlsSession *tls_session;
 };
 
 
@@ -68,7 +72,9 @@ enum
   PROP_BANDWIDTH_IN,
   PROP_BANDWIDTH_OUT,
   PROP_LATENCY_IN,
-  PROP_LATENCY_OUT
+  PROP_LATENCY_OUT,
+  PROP_TLS_ENABLED,
+  PROP_TLS_SESSION
 };
 
 static void     evd_stream_class_init         (EvdStreamClass *class);
@@ -153,6 +159,22 @@ evd_stream_class_init (EvdStreamClass *class)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_TLS_ENABLED,
+                                   g_param_spec_boolean ("tls-enabled",
+                                                         "Whether SSL/TLS should be enabled or disabled",
+                                                         "Used to enable/disabled SSL/TLS on socket",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_TLS_SESSION,
+                                   g_param_spec_object ("tls",
+                                                        "The SSL/TLS session",
+                                                        "The underlaying SSL/TLS session object",
+                                                        EVD_TYPE_TLS_SESSION,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdStreamPrivate));
 }
@@ -182,6 +204,9 @@ evd_stream_init (EvdStream *self)
   if (! g_thread_get_initialized ())
     g_thread_init (NULL);
   priv->mutex = g_mutex_new ();
+
+  priv->tls_enabled = FALSE;
+  priv->tls_session = NULL;
 }
 
 static void
@@ -206,6 +231,9 @@ evd_stream_finalize (GObject *obj)
 
   if (self->priv->write_closure != NULL)
     g_closure_unref (self->priv->write_closure);
+
+  if (self->priv->tls_session != NULL)
+    g_object_unref (self->priv->tls_session);
 
   G_OBJECT_CLASS (evd_stream_parent_class)->finalize (obj);
 }
@@ -249,6 +277,10 @@ evd_stream_set_property (GObject      *obj,
       self->priv->latency_out = (gulong) (g_value_get_float (value) * 1000.0);
       break;
 
+    case PROP_TLS_ENABLED:
+      evd_stream_set_tls_enabled (self, g_value_get_boolean (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -290,6 +322,14 @@ evd_stream_get_property (GObject    *obj,
 
     case PROP_LATENCY_OUT:
       g_value_set_float (value, self->priv->latency_out / 1000.0);
+      break;
+
+    case PROP_TLS_ENABLED:
+      g_value_set_boolean (value, evd_stream_get_tls_enabled (self));
+      break;
+
+    case PROP_TLS_SESSION:
+      g_value_set_object (value, self->priv->tls_session);
       break;
 
     default:
@@ -535,4 +575,42 @@ gfloat
 evd_stream_get_actual_bandwidth_out (EvdStream *self)
 {
   return self->priv->bytes_out / 1024.0;
+}
+
+void
+evd_stream_set_tls_enabled (EvdStream *self, gboolean enabled)
+{
+  g_return_if_fail (EVD_IS_STREAM (self));
+
+  self->priv->tls_enabled = enabled;
+
+  if (self->priv->tls_enabled)
+    {
+      if (self->priv->tls_session == NULL)
+        self->priv->tls_session = evd_tls_session_new ();
+    }
+  else
+    {
+      if (self->priv->tls_session != NULL)
+        {
+          g_object_unref (self->priv->tls_session);
+          self->priv->tls_session = NULL;
+        }
+    }
+}
+
+gboolean
+evd_stream_get_tls_enabled (EvdStream *self)
+{
+  g_return_val_if_fail (EVD_IS_STREAM (self), FALSE);
+
+  return self->priv->tls_enabled;
+}
+
+EvdTlsSession *
+evd_stream_get_tls_session (EvdStream *self)
+{
+  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+
+  return self->priv->tls_session;
 }
