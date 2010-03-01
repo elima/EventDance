@@ -56,8 +56,6 @@ struct _EvdStreamPrivate
   gsize total_in;
   gsize total_out;
 
-  GMutex *mutex;
-
   gboolean       tls_enabled;
   EvdTlsSession *tls_session;
 };
@@ -76,6 +74,8 @@ enum
   PROP_TLS_ENABLED,
   PROP_TLS_SESSION
 };
+
+G_LOCK_DEFINE_STATIC (counters);
 
 static void     evd_stream_class_init         (EvdStreamClass *class);
 static void     evd_stream_init               (EvdStream *self);
@@ -201,10 +201,6 @@ evd_stream_init (EvdStream *self)
   priv->bytes_in = 0;
   priv->bytes_out = 0;
 
-  if (! g_thread_get_initialized ())
-    g_thread_init (NULL);
-  priv->mutex = g_mutex_new ();
-
   priv->tls_enabled = FALSE;
   priv->tls_session = NULL;
 }
@@ -223,8 +219,6 @@ static void
 evd_stream_finalize (GObject *obj)
 {
   EvdStream *self = EVD_STREAM (obj);
-
-  g_mutex_free (self->priv->mutex);
 
   if (self->priv->read_closure != NULL)
     g_closure_unref (self->priv->read_closure);
@@ -347,12 +341,12 @@ evd_stream_update_current_time (EvdStream *self)
 
   if (time_val.tv_sec != self->priv->current_time.tv_sec)
     {
-      g_mutex_lock (self->priv->mutex);
+      G_LOCK (counters);
 
       self->priv->bytes_in = 0;
       self->priv->bytes_out = 0;
 
-      g_mutex_unlock (self->priv->mutex);
+      G_UNLOCK (counters);
     }
 
   g_memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
@@ -383,7 +377,7 @@ evd_stream_request (EvdStream *self,
   if ( (wait != NULL) && (*wait < 0) )
     *wait = 0;
 
-  g_mutex_lock (self->priv->mutex);
+  G_LOCK (counters);
 
   /*  latency check */
   if (latency > 0)
@@ -414,7 +408,7 @@ evd_stream_request (EvdStream *self,
                        *wait);
     }
 
-  g_mutex_unlock (self->priv->mutex);
+  G_UNLOCK (counters);
 
   return actual_size;
 }
@@ -427,7 +421,7 @@ evd_stream_report_read (EvdStream *self,
 {
   evd_stream_update_current_time (self);
 
-  g_mutex_lock (self->priv->mutex);
+  G_LOCK (counters);
 
   self->priv->bytes_in += size;
   self->priv->total_in += size;
@@ -436,7 +430,7 @@ evd_stream_report_read (EvdStream *self,
              &self->priv->current_time,
              sizeof (GTimeVal));
 
-  g_mutex_unlock (self->priv->mutex);
+  G_UNLOCK (counters);
 }
 
 void
@@ -445,7 +439,7 @@ evd_stream_report_write (EvdStream *self,
 {
   evd_stream_update_current_time (self);
 
-  g_mutex_lock (self->priv->mutex);
+  G_LOCK (counters);
 
   self->priv->bytes_out += size;
   self->priv->total_out += size;
@@ -454,7 +448,7 @@ evd_stream_report_write (EvdStream *self,
              &self->priv->current_time,
              sizeof (GTimeVal));
 
-  g_mutex_unlock (self->priv->mutex);
+  G_UNLOCK (counters);
 }
 
 /* public methods */
