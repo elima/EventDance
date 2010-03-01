@@ -63,7 +63,6 @@ struct _EvdSocketPrivate
 
   guint         connect_timeout;
   guint         connect_timeout_src_id;
-  GCancellable *connect_cancellable;
 
   GQueue *event_queue_cache;
 
@@ -318,7 +317,6 @@ evd_socket_init (EvdSocket *self)
   priv->protocol = G_SOCKET_PROTOCOL_UNKNOWN;
 
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
-  priv->connect_cancellable = NULL;
 
   priv->status     = EVD_SOCKET_STATE_CLOSED;
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
@@ -1291,13 +1289,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 
   self->priv->watched = FALSE;
 
-  if (self->priv->connect_cancellable != NULL)
-    {
-      g_cancellable_cancel (self->priv->connect_cancellable);
-      g_object_unref (self->priv->connect_cancellable);
-      self->priv->connect_cancellable = NULL;
-    }
-
   if (self->priv->connect_timeout_src_id != 0)
     {
       g_source_remove (self->priv->connect_timeout_src_id);
@@ -1643,12 +1634,9 @@ evd_socket_connect_addr (EvdSocket        *self,
                      (GSourceFunc) evd_socket_connect_timeout,
                      (gpointer) self);
 
-  if (self->priv->connect_cancellable == NULL)
-    self->priv->connect_cancellable = g_cancellable_new ();
-
   if (! g_socket_connect (self->priv->socket,
                           address,
-                          self->priv->connect_cancellable,
+                          NULL,
                           &_error))
     {
       /* an error ocurred, but error-pending
