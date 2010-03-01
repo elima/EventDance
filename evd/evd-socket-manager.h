@@ -48,12 +48,6 @@ struct _EvdSocketManagerClass
   GObjectClass parent_class;
 };
 
-/* error codes */
-enum
-{
-  EVD_SOCKET_ERR_EPOLL_ADD
-};
-
 #define EVD_TYPE_SOCKET_MANAGER           (evd_socket_manager_get_type ())
 #define EVD_SOCKET_MANAGER(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_SOCKET_MANAGER, EvdSocketManager))
 #define EVD_SOCKET_MANAGER_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_SOCKET_MANAGER, EvdSocketManagerClass))
@@ -66,10 +60,14 @@ GType             evd_socket_manager_get_type     (void) G_GNUC_CONST;
 
 EvdSocketManager *evd_socket_manager_get          (void);
 
-gboolean          evd_socket_manager_add_socket   (EvdSocket  *socket,
-                                                   GError    **error);
+gboolean          evd_socket_manager_add_socket   (EvdSocket     *socket,
+                                                   GIOCondition   condition,
+                                                   GError       **error);
 gboolean          evd_socket_manager_del_socket   (EvdSocket  *socket,
                                                    GError    **error);
+gboolean          evd_socket_manager_mod_socket   (EvdSocket     *socket,
+                                                   GIOCondition   condition,
+                                                   GError       **error);
 
 G_END_DECLS
 

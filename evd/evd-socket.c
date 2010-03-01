@@ -136,13 +136,6 @@ static void     evd_socket_get_property       (GObject    *obj,
                                                GValue     *value,
                                                GParamSpec *pspec);
 
-static gboolean evd_socket_watch              (EvdSocket  *self,
-                                               GError    **error);
-static gboolean evd_socket_unwatch            (EvdSocket  *self,
-                                               GError    **error);
-
-static void     evd_socket_remove_from_event_cache (EvdSocket *socket);
-
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                const gchar  *buf,
                                                gsize         size,
@@ -556,9 +549,12 @@ evd_socket_check (EvdSocket  *self,
 }
 
 static gboolean
-evd_socket_watch (EvdSocket *self, GError **error)
+evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
 {
-  if (evd_socket_manager_add_socket (self, error))
+  if ( (! self->priv->watched &&
+        evd_socket_manager_add_socket (self, cond, error)) ||
+       (self->priv->watched &&
+        evd_socket_manager_mod_socket (self, cond, error)) )
     {
       self->priv->watched = TRUE;
       return TRUE;
@@ -1542,7 +1538,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
     {
-      if (evd_socket_watch (self, error))
+      if (evd_socket_watch (self, G_IO_IN, error))
         {
           self->priv->actual_priority = G_PRIORITY_HIGH + 1;
           evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
@@ -1596,7 +1592,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
       client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
       evd_socket_set_socket (client, client_socket);
 
-      if (evd_socket_watch (client, error))
+      if (evd_socket_watch (client, G_IO_IN | G_IO_OUT, error))
         {
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
@@ -1674,7 +1670,7 @@ evd_socket_connect_addr (EvdSocket        *self,
       _error = NULL;
     }
 
-  if (! evd_socket_watch (self, error))
+  if (! evd_socket_watch (self, G_IO_IN | G_IO_OUT, error))
     {
       evd_socket_cleanup (self, NULL);
       return FALSE;

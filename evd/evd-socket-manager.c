@@ -282,11 +282,18 @@ evd_socket_manager_start (EvdSocketManager  *self,
 static gboolean
 evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
                                       gint              fd,
+                                      GIOCondition      cond,
                                       gpointer          data)
 {
   struct epoll_event ev = { 0 };
 
-  ev.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLHUP;
+  ev.events = EPOLLET | EPOLLRDHUP;
+
+  if (cond & G_IO_IN)
+    ev.events |= EPOLLIN;
+  if (cond & G_IO_OUT)
+    ev.events |= EPOLLOUT;
+
   ev.data.fd = fd;
   ev.data.ptr = (void *) data;
 
@@ -303,7 +310,7 @@ evd_socket_manager_stop (EvdSocketManager *self)
   /* the only purpose of this is to interrupt the 'epoll_wait'.
      FIXME: Adding fd '1' is just a nasty hack that happens to work.
      Have to figure out a better way to interrupt it. */
-  evd_socket_manager_add_fd_into_epoll (self, 1, NULL);
+  evd_socket_manager_add_fd_into_epoll (self, 1, G_IO_OUT, NULL);
 
   g_thread_join (self->priv->thread);
   self->priv->thread = NULL;
@@ -323,8 +330,9 @@ evd_socket_manager_get (void)
 }
 
 gboolean
-evd_socket_manager_add_socket (EvdSocket  *socket,
-                               GError    **error)
+evd_socket_manager_add_socket (EvdSocket     *socket,
+                               GIOCondition   condition,
+                               GError       **error)
 {
   EvdSocketManager *self;
   gint fd;
@@ -341,11 +349,14 @@ evd_socket_manager_add_socket (EvdSocket  *socket,
 
   G_LOCK (num_fds);
 
-  if (! evd_socket_manager_add_fd_into_epoll (self, fd, socket))
+  if (! evd_socket_manager_add_fd_into_epoll (self,
+                                              fd,
+                                              condition,
+                                              socket))
     {
       if (error != NULL)
         *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-                              EVD_SOCKET_ERR_EPOLL_ADD,
+                              EVD_SOCKET_ERROR_EPOLL_ADD,
                               "Failed to add socket file descriptor to epoll set");
 
       result = FALSE;
@@ -379,7 +390,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
         {
           if (error != NULL)
             *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-                                  EVD_SOCKET_ERR_EPOLL_ADD,
+                                  EVD_SOCKET_ERROR_EPOLL_DEL,
                                   "Failed to remove socket file descriptor from epoll set");
           result = FALSE;
         }
@@ -388,6 +399,50 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
           self->priv->num_fds--;
           if (self->priv->num_fds == 0)
             g_object_unref (self);
+        }
+    }
+
+  G_UNLOCK (num_fds);
+
+  return result;
+}
+
+gboolean
+evd_socket_manager_mod_socket (EvdSocket     *socket,
+                               GIOCondition   condition,
+                               GError       **error)
+{
+  EvdSocketManager *self;
+  gboolean result = TRUE;
+
+  self = evd_socket_manager_get ();
+
+  G_LOCK (num_fds);
+
+  if ( (self != NULL) && (self->priv->num_fds > 0) )
+    {
+      gint fd;
+      struct epoll_event ev = { 0 };
+
+      fd = g_socket_get_fd (evd_socket_get_socket (socket));
+
+      ev.events = EPOLLET | EPOLLRDHUP;
+
+      if (condition & G_IO_IN)
+        ev.events |= EPOLLIN;
+      if (condition & G_IO_OUT)
+        ev.events |= EPOLLOUT;
+
+      ev.data.fd = fd;
+      ev.data.ptr = (void *) socket;
+
+      if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
+        {
+          if (error != NULL)
+            *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+                                  EVD_SOCKET_ERROR_EPOLL_MOD,
+                                  "Failed to modify socket conditions in epoll set");
+          result = FALSE;
         }
     }
 
