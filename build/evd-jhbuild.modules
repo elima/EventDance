@@ -9,8 +9,12 @@
 <moduleset>
   <repository type="git" name="git.gnome.org" default="yes"
       href="git://git.gnome.org/"/>
-  <repository type="git" name="elima_gitorious"
-      href="ssh://e-lima@e-lima.dyndns.org/codebase/git/"/>
+  <repository type="git" name="gitorious"
+      href="git://gitorious.org/"/>
+  <repository type="git" name="git.savannah.gnu.org"
+      href="git://git.savannah.gnu.org/"/>
+  <repository type="tarball" name="gnupg.org"
+      href="ftp://ftp.gnupg.org/gcrypt/"/>
 
   <autotools id="glib" autogenargs="--enable-gtk-doc=no">
     <branch repo="git.gnome.org" />
@@ -39,13 +43,47 @@
     </after>
   </autotools>
 
+  <tarball id="libtasn1" version="1.8" supports-non-srcdir-builds="no">
+    <source href="ftp://ftp.gnu.org/gnu/gnutls/libtasn1-1.8.tar.gz"
+            hash="sha256:2c81cd1d5488e6efdc67b1e8a381e70a33dc75d9c439f23220ba730bc405ee07"
+            md5sum="6b87c159e7dcb6e58204cce1edb0fecc" size="1608176" />
+  </tarball>
+
+  <autotools id="libgpg-error" autogen-sh="configure" check-target="false">
+    <branch module="libgpg-error/libgpg-error-1.6.tar.bz2"
+            repo="gnupg.org" version="1.6"
+            hash="sha256:aa7df632134dfd3d4e65f5a98edd6bb9a97b498db911f4287bbaeb5ae83a1bad"
+            md5sum="f3e9870e213518b407a959f8d29cd554" size="382110" />
+  </autotools>
+
+  <autotools id="libgcrypt" autogen-sh="configure" check-target="false">
+    <branch module="libgcrypt/libgcrypt-1.4.4.tar.bz2"
+            repo="gnupg.org" version="1.4.4"
+            hash="sha256:3212b88080cf8fa006164d38fc176fafa5c29591c8384f284ab880db0dbf306f"
+            md5sum="34105aa927e23c217741966496b97e67" size="1143139" />
+    <dependencies>
+      <dep package="libgpg-error" />
+    </dependencies>
+  </autotools>
+
+  <tarball id="gnutls" version="2.6.5">
+    <source href="ftp://ftp.gnu.org/pub/gnu/gnutls/gnutls-2.6.5.tar.bz2"
+            hash="sha256:e78be636072c0ab748ccf1742c4b41fc7aaff98b43166cfbc8df91c7185501cb"
+            md5sum="92b92c36b616aa8bd69a9a0fb2b8eb24" size="5112923" />
+    <dependencies>
+      <dep package="libgcrypt" />
+      <dep package="libtasn1" />
+    </dependencies>
+  </tarball>
+
   <autotools id="evd" autogenargs="--enable-introspection=yes">
-    <branch repo="elima_gitorious"/>
+    <branch repo="gitorious" checkoutdir="evd" module="eventdance/eventdance"/>
     <dependencies>
       <dep package="glib"/>
       <dep package="gobject-introspection"/>
       <dep package="gir-repository"/>
       <dep package="gjs"/>
+      <dep package="gnutls"/>
     </dependencies>
   </autotools>
 </moduleset>
