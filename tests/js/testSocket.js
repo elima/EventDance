@@ -38,7 +38,7 @@ function testInitialState (Assert) {
 
     Assert.equal (socket.tls_enabled, false);
     Assert.equal (socket.get_tls_enabled (), false);
-    Assert.equal (socket.tls_session, null);
+    Assert.equal (socket.tls, null);
     Assert.equal (socket.get_tls_session (), null);
 
     Assert.equal (socket.bandwidth_in, 0);
