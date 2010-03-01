@@ -44,6 +44,7 @@ source_c = \
 	evd-service.c \
 	evd-reproxy-backend.c \
 	evd-reproxy.c \
+	evd-tls-common.c \
 	evd-tls-session.c
 
 source_h = \
@@ -66,7 +67,8 @@ source_h_priv = \
 	evd-socket-protected.h \
 	evd-socket-group-protected.h \
 	evd-reproxy-backend.h \
-	evd-service-protected.h
+	evd-service-protected.h \
+	evd-tls-common.h
 
 libevd_@EVD_API_VERSION@_la_LIBADD = \
 	$(GLIB_LIBS) \

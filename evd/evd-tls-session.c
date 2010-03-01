@@ -23,9 +23,7 @@
  * 02110-1301 USA
  */
 
-#include <gnutls/gnutls.h>
-#include <gcrypt.h>
-
+#include "evd-tls-common.h"
 #include "evd-tls-session.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-session"
@@ -80,14 +78,14 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
-
-  gnutls_global_init ();
 }
 
 static void
 evd_tls_session_init (EvdTlsSession *self)
 {
   EvdTlsSessionPrivate *priv;
+
+  evd_tls_global_init ();
 
   priv = EVD_TLS_SESSION_GET_PRIVATE (self);
   self->priv = priv;
@@ -108,12 +106,11 @@ evd_tls_session_finalize (GObject *obj)
   EvdTlsSession *self = EVD_TLS_SESSION (obj);
 
   if (self->priv->session != NULL)
-    {
-      gnutls_deinit (self->priv->session);
-      self->priv->session = NULL;
-    }
+    gnutls_deinit (self->priv->session);
 
   G_OBJECT_CLASS (evd_tls_session_parent_class)->finalize (obj);
+
+  evd_tls_global_deinit ();
 }
 
 static void

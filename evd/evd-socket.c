@@ -367,6 +367,11 @@ evd_socket_dispose (GObject *obj)
 static void
 evd_socket_finalize (GObject *obj)
 {
+  EvdSocket *self = EVD_SOCKET (obj);
+
+  if (self->priv->tls_session != NULL)
+    g_object_unref (self->priv->tls_session);
+
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
   //  g_debug ("[EvdSocket 0x%X] Socket finalized", (guintptr) obj);
