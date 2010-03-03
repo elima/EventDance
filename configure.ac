@@ -1,28 +1,42 @@
 AC_PREREQ(2.61)
 
+m4_define([prj_name],       [EventDance])
+m4_define([prj_short_name], [evd])
+m4_define([prj_home],       [http://eventdance.org])
+
 # package version number (not shared library version)
 # odd micro numbers indicate in-progress development
 # even micro numbers indicate released versions
-m4_define(evd_version_major, 0)
-m4_define(evd_version_minor, 1)
-m4_define(evd_version_micro, 0)
+m4_define([prj_version_major], [0])
+m4_define([prj_version_minor], [1])
+m4_define([prj_version_micro], [0])
 
-m4_define([evd_version],
-          [evd_version_major.evd_version_minor.evd_version_micro])
-m4_define([evd_api_version],
-          [evd_version_major.evd_version_minor])
+m4_define([prj_version],
+          [prj_version_major.prj_version_minor.prj_version_micro])
+m4_define([prj_api_version],
+          [prj_version_major.prj_version_minor])
 
-AC_INIT([EventDance],
-	[evd_version],
-	[http://eventdance.org])
+AC_INIT([prj_name],
+	[prj_version],
+	[prj_home])
+
 AC_CONFIG_MACRO_DIR([build/autotools])
 AC_CONFIG_HEADERS(config.h)
 
-AM_INIT_AUTOMAKE([1.9])
+AM_INIT_AUTOMAKE
 
-EVD_API_VERSION=evd_api_version
+# EventDance specific definitions
+m4_define([prj_gir_namespace], [Evd])
+m4_define([prj_gir_api_name],  [prj_gir_namespace-prj_api_version])
 
+EVD_VERSION="prj_version"
+AC_SUBST(EVD_VERSION)
+
+EVD_API_VERSION="prj_api_version"
 AC_SUBST(EVD_API_VERSION)
+
+EVD_API_NAME="prj_short_name-prj_api_version"
+AC_SUBST(EVD_API_NAME)
 
 # Check for programs
 AC_PROG_LIBTOOL
@@ -50,6 +64,14 @@ PKG_CHECK_MODULES(TLS, gnutls >= 2.8.0)
 
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.4])
+
+if test "x$found_introspection" = "xyes"; then
+   EVD_GIR_NAMESPACE="prj_gir_namespace"
+   AC_SUBST(EVD_GIR_NAMESPACE)
+
+   EVD_GIR_API_NAME="prj_gir_api_name"
+   AC_SUBST(EVD_GIR_API_NAME)
+fi
 
 # Javascript support check
 JS_CHECK([0.3])

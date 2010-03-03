@@ -4,13 +4,13 @@ MAINTAINERCLEANFILES = \
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = evd.pc
 
-library_includedir=$(includedir)/evd-@EVD_API_VERSION@
+library_includedir=$(includedir)/@EVD_API_NAME@
 library_include_HEADERS = evd.h
 
 CLEANFILES = *~ evd.pc
 
-#see gcc man page for description: http://www.google.com/search?q=man+gcc
-AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb -DPKGDATADIR="\"$(pkgdatadir)\""
+AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
+	-DPKGDATADIR="\"$(pkgdatadir)\""
 
 evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \
@@ -22,12 +22,8 @@ evd-marshal.c: evd-marshal.list
 
 BUILT_SOURCES = evd-marshal.c evd-marshal.h
 
-INCLUDES = \
-	-I$(top_srcdir) \
-	-I$(top_srcdir)/evd-@EVD_API_VERSION@
-
 # libraries
-lib_LTLIBRARIES = libevd-@EVD_API_VERSION@.la
+lib_LTLIBRARIES = lib@EVD_API_NAME@.la
 
 # libevd
 source_c = \
@@ -70,56 +66,54 @@ source_h_priv = \
 	evd-service-protected.h \
 	evd-tls-common.h
 
-libevd_@EVD_API_VERSION@_la_LIBADD = \
+lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
 	$(TLS_LIBS)
 
-libevd_@EVD_API_VERSION@_la_CFLAGS  = \
+lib@EVD_API_NAME@_la_CFLAGS  = \
 	$(AM_CFLAGS) \
 	$(TLS_CFLAGS)
 
 if HAVE_GIO_UNIX
-libevd_@EVD_API_VERSION@_la_LIBADD += \
+lib@EVD_API_NAME@_la_LIBADD += \
 	$(GIO_UNIX_LIBS)
 
-libevd_@EVD_API_VERSION@_la_CFLAGS += \
+lib@EVD_API_NAME@_la_CFLAGS += \
 	$(GIO_UNIX_CFLAGS) \
 	-DHAVE_GIO_UNIX \
 	-DHAVE_JS
 endif
 
-libevd_@EVD_API_VERSION@_la_LDFLAGS = \
+lib@EVD_API_NAME@_la_LDFLAGS = \
 	-version-info 0:1:0 \
 	-no-undefined
 
-libevd_@EVD_API_VERSION@_la_SOURCES = \
+lib@EVD_API_NAME@_la_SOURCES = \
 	$(source_c) \
 	$(source_h) \
 	$(source_h_priv)
 
-evddir = $(includedir)/evd-@EVD_API_VERSION@
+evddir = $(includedir)/@EVD_API_NAME@
 evd_HEADERS = \
 	$(source_h) \
 	$(source_h_priv)
 
 # introspection support
 if HAVE_INTROSPECTION
+
 BUILT_GIRSOURCES =
 
-Evd-@EVD_API_VERSION@.gir: $(INTROSPECTION_SCANNER) libevd-@EVD_API_VERSION@.la
+@EVD_GIR_API_NAME@.gir: $(INTROSPECTION_SCANNER) lib@EVD_API_NAME@.la
 	$(INTROSPECTION_SCANNER) -v \
-		--namespace Evd --nsversion=0.1.0 \
-		$(INCLUDES) \
-		--c-include='evd-@EVD_API_VERSION@/evd.h' \
+		--namespace @EVD_GIR_NAMESPACE@ --nsversion=@EVD_VERSION@ \
+		--c-include='@EVD_API_NAME@/evd.h' \
 		--include=GObject-2.0 \
 		--include=Gio-2.0 \
-		--library=libevd-@EVD_API_VERSION@.la \
-		--libtool="$(top_builddir)/libtool" \
-	        --pkg gobject-2.0 \
+		--library=lib@EVD_API_NAME@.la \
 	        --output $@ \
 		$(evd_HEADERS)
 
-BUILT_GIRSOURCES += Evd-@EVD_API_VERSION@.gir
+BUILT_GIRSOURCES += @EVD_GIR_API_NAME@.gir
 
 # INTROSPECTION_GIRDIR/INTROSPECTION_TYPELIBDIR aren't the right place to
 # install anything - we need to install inside our prefix.

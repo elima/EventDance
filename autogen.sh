@@ -3,12 +3,10 @@
 srcdir=`dirname $0`
 test -z "$srcdir" && srcdir=.
 
-PROJECT=evd
-TEST_TYPE=-d
-FILE=evd
+PROJECT="EventDance"
 
-test $TEST_TYPE $FILE || {
-        echo "You must run this script in the top-level $PROJECT directory"
+test "$srcdir" = "." || {
+        echo "You must run this script in the top-level directory"
         exit 1
 }
 
