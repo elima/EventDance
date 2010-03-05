@@ -42,6 +42,7 @@ source_c = \
 	evd-reproxy.c \
 	evd-tls-common.c \
 	evd-tls-session.c \
+	evd-tls-certificate.c \
 	evd-tls-credentials.c
 
 source_h = \
@@ -57,6 +58,7 @@ source_h = \
 	evd-service.h \
 	evd-reproxy.h \
 	evd-tls-session.h \
+	evd-tls-certificate.h \
 	evd-tls-credentials.h
 
 source_h_priv = \
