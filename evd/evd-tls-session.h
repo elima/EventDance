@@ -28,6 +28,8 @@
 
 #include <glib-object.h>
 
+#include "evd-tls-credentials.h"
+
 G_BEGIN_DECLS
 
 typedef struct _EvdTlsSession EvdTlsSession;
@@ -55,10 +57,13 @@ struct _EvdTlsSessionClass
 #define EVD_TLS_SESSION_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSessionClass))
 
 
-GType             evd_tls_session_get_type       (void) G_GNUC_CONST;
+GType              evd_tls_session_get_type        (void) G_GNUC_CONST;
 
-EvdTlsSession    *evd_tls_session_new            (void);
+EvdTlsSession     *evd_tls_session_new             (void);
 
+void               evd_tls_session_set_credentials (EvdTlsSession     *self,
+                                                    EvdTlsCredentials *credentials);
+EvdTlsCredentials *evd_tls_session_get_credentials (EvdTlsSession *self);
 
 G_END_DECLS
 

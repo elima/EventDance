@@ -38,6 +38,8 @@ G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
 struct _EvdTlsSessionPrivate
 {
   gnutls_session_t session;
+
+  EvdTlsCredentials *cred;
 };
 
 
@@ -45,6 +47,7 @@ struct _EvdTlsSessionPrivate
 enum
 {
   PROP_0,
+  PROP_CREDENTIALS
 };
 
 static void     evd_tls_session_class_init         (EvdTlsSessionClass *class);
@@ -75,6 +78,13 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
   obj_class->set_property = evd_tls_session_set_property;
 
   /* install properties */
+  g_object_class_install_property (obj_class, PROP_CREDENTIALS,
+                                   g_param_spec_object ("credentials",
+                                                        "The SSL/TLS session's credentials",
+                                                        "The certificate credentials object to use by this SSL/TLS session",
+                                                        EVD_TYPE_TLS_CREDENTIALS,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
@@ -92,6 +102,7 @@ evd_tls_session_init (EvdTlsSession *self)
 
   /* initialize private members */
   priv->session = NULL;
+  priv->cred = NULL;
 }
 
 static void
@@ -107,6 +118,9 @@ evd_tls_session_finalize (GObject *obj)
 
   if (self->priv->session != NULL)
     gnutls_deinit (self->priv->session);
+
+  if (self->priv->cred != NULL)
+    g_object_unref (self->priv->cred);
 
   G_OBJECT_CLASS (evd_tls_session_parent_class)->finalize (obj);
 
@@ -125,6 +139,10 @@ evd_tls_session_set_property (GObject      *obj,
 
   switch (prop_id)
     {
+    case PROP_CREDENTIALS:
+      evd_tls_session_set_credentials (self, g_value_get_object (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -143,6 +161,10 @@ evd_tls_session_get_property (GObject    *obj,
 
   switch (prop_id)
     {
+    case PROP_CREDENTIALS:
+      g_value_set_object (value, evd_tls_session_get_credentials (self));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -159,4 +181,35 @@ evd_tls_session_new (void)
   self = g_object_new (EVD_TYPE_TLS_SESSION, NULL);
 
   return self;
+}
+
+void
+evd_tls_session_set_credentials (EvdTlsSession     *self,
+                                 EvdTlsCredentials *credentials)
+{
+  g_return_if_fail (EVD_IS_TLS_SESSION (self));
+  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (credentials) ||
+                    credentials == NULL);
+
+  if (self->priv->cred != NULL)
+    g_object_unref (self->priv->cred);
+
+  self->priv->cred = credentials;
+
+  if (self->priv->cred != NULL)
+    g_object_ref (self->priv->cred);
+}
+
+EvdTlsCredentials *
+evd_tls_session_get_credentials (EvdTlsSession *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), NULL);
+
+  if (self->priv->cred == NULL)
+    {
+      self->priv->cred = evd_tls_credentials_new ();
+      g_object_ref_sink (self->priv->cred);
+    }
+
+  return self->priv->cred;
 }
