@@ -581,7 +581,10 @@ evd_stream_set_tls_enabled (EvdStream *self, gboolean enabled)
   if (self->priv->tls_enabled)
     {
       if (self->priv->tls_session == NULL)
-        self->priv->tls_session = evd_tls_session_new ();
+        {
+          self->priv->tls_session = evd_tls_session_new ();
+          g_object_ref_sink (self->priv->tls_session);
+        }
     }
   else
     {
