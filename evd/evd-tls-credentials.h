@@ -56,6 +56,13 @@ GType              evd_tls_credentials_get_type       (void) G_GNUC_CONST;
 EvdTlsCredentials *evd_tls_credentials_new            (void);
 
 
+void               evd_tls_credentials_set_cert_file  (EvdTlsCredentials *self,
+                                                       const gchar       *cert_file);
+
+void               evd_tls_credentials_set_key_file   (EvdTlsCredentials *self,
+                                                       const gchar       *key_file);
+
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_CREDENTIALS_H__ */
