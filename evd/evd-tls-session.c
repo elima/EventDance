@@ -38,8 +38,9 @@ G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
 struct _EvdTlsSessionPrivate
 {
   gnutls_session_t session;
-
   EvdTlsCredentials *cred;
+
+  EvdTlsMode mode;
 };
 
 
@@ -47,7 +48,8 @@ struct _EvdTlsSessionPrivate
 enum
 {
   PROP_0,
-  PROP_CREDENTIALS
+  PROP_CREDENTIALS,
+  PROP_MODE
 };
 
 static void     evd_tls_session_class_init         (EvdTlsSessionClass *class);
@@ -86,6 +88,16 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_MODE,
+                                   g_param_spec_uint ("mode",
+                                                      "SSL/TLS session mode",
+                                                      "The SSL/TLS session's mode of operation: client or server",
+                                                      EVD_TLS_MODE_SERVER,
+                                                      EVD_TLS_MODE_CLIENT,
+                                                      EVD_TLS_MODE_SERVER,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
 }
@@ -103,6 +115,8 @@ evd_tls_session_init (EvdTlsSession *self)
   /* initialize private members */
   priv->session = NULL;
   priv->cred = NULL;
+
+  priv->mode = EVD_TLS_MODE_SERVER;
 }
 
 static void
@@ -143,6 +157,10 @@ evd_tls_session_set_property (GObject      *obj,
       evd_tls_session_set_credentials (self, g_value_get_object (value));
       break;
 
+    case PROP_MODE:
+      self->priv->mode = g_value_get_uint (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -163,6 +181,10 @@ evd_tls_session_get_property (GObject    *obj,
     {
     case PROP_CREDENTIALS:
       g_value_set_object (value, evd_tls_session_get_credentials (self));
+      break;
+
+    case PROP_MODE:
+      g_value_set_uint (value, self->priv->mode);
       break;
 
     default:
