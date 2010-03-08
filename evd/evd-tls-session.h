@@ -71,6 +71,12 @@ EvdTlsSession     *evd_tls_session_new             (void);
 
 void               evd_tls_session_set_credentials (EvdTlsSession     *self,
                                                     EvdTlsCredentials *credentials);
+
+/**
+ * evd_tls_session_get_credentials:
+ *
+ * Returns: (transfer none): The #EvdTlsCredentials object of this session
+ */
 EvdTlsCredentials *evd_tls_session_get_credentials (EvdTlsSession *self);
 
 G_END_DECLS
