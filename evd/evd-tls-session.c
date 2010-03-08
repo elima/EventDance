@@ -210,8 +210,6 @@ evd_tls_session_set_credentials (EvdTlsSession     *self,
                                  EvdTlsCredentials *credentials)
 {
   g_return_if_fail (EVD_IS_TLS_SESSION (self));
-  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (credentials) ||
-                    credentials == NULL);
 
   if (self->priv->cred != NULL)
     g_object_unref (self->priv->cred);
