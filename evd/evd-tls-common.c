@@ -25,34 +25,53 @@
 
 #include "evd-tls-common.h"
 
-G_LOCK_DEFINE_STATIC (evd_tls_global);
-static gint evd_tls_global_ref_count = 0;
+G_LOCK_DEFINE_STATIC (evd_tls_init);
+static gboolean evd_tls_initialized = FALSE;
 
-void
-evd_tls_global_init (void)
+gboolean
+evd_tls_init (GError **error)
 {
-  G_LOCK (evd_tls_global);
+  gboolean result = FALSE;
 
-  if (evd_tls_global_ref_count == 0)
+  G_LOCK (evd_tls_init);
+
+  if (! evd_tls_initialized)
     {
-      /* to disallow usage of the blocking /dev/random */
-      gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
+      gint err_code;
 
-      gnutls_global_init ();
+      err_code = gnutls_global_init ();
+      if (err_code == GNUTLS_E_SUCCESS)
+        {
+          /* to disallow usage of the blocking /dev/random */
+          gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
+
+          result = TRUE;
+        }
+      else
+        {
+          /* TODO: build an return error */
+          result = FALSE;
+        }
+
+      evd_tls_initialized = TRUE;
     }
-  evd_tls_global_ref_count++;
 
-  G_UNLOCK (evd_tls_global);
+  G_UNLOCK (evd_tls_init);
+
+  return result;
 }
 
 void
-evd_tls_global_deinit (void)
+evd_tls_deinit (void)
 {
-  G_LOCK (evd_tls_global);
+  G_LOCK (evd_tls_init);
 
-  evd_tls_global_ref_count--;
-  if (evd_tls_global_ref_count == 0)
-    gnutls_global_deinit ();
+  if (evd_tls_initialized)
+    {
+      gnutls_global_deinit ();
 
-  G_UNLOCK (evd_tls_global);
+      evd_tls_initialized = FALSE;
+    }
+
+  G_UNLOCK (evd_tls_init);
 }

@@ -86,8 +86,6 @@ evd_tls_certificate_init (EvdTlsCertificate *self)
 {
   EvdTlsCertificatePrivate *priv;
 
-  evd_tls_global_init ();
-
   priv = EVD_TLS_CERTIFICATE_GET_PRIVATE (self);
   self->priv = priv;
 
@@ -114,8 +112,6 @@ evd_tls_certificate_finalize (GObject *obj)
     gnutls_openpgp_crt_deinit (self->priv->openpgp_cert);
 
   G_OBJECT_CLASS (evd_tls_certificate_parent_class)->finalize (obj);
-
-  evd_tls_global_deinit ();
 }
 
 static void

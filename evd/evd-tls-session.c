@@ -107,8 +107,6 @@ evd_tls_session_init (EvdTlsSession *self)
 {
   EvdTlsSessionPrivate *priv;
 
-  evd_tls_global_init ();
-
   priv = EVD_TLS_SESSION_GET_PRIVATE (self);
   self->priv = priv;
 
@@ -137,8 +135,6 @@ evd_tls_session_finalize (GObject *obj)
     g_object_unref (self->priv->cred);
 
   G_OBJECT_CLASS (evd_tls_session_parent_class)->finalize (obj);
-
-  evd_tls_global_deinit ();
 }
 
 static void

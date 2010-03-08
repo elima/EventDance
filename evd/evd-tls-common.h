@@ -33,9 +33,8 @@
 
 G_BEGIN_DECLS
 
-void evd_tls_global_init   (void);
-void evd_tls_global_deinit (void);
-
+gboolean evd_tls_init   (GError **error);
+void     evd_tls_deinit (void);
 
 G_END_DECLS
 

@@ -102,8 +102,6 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 {
   EvdTlsCredentialsPrivate *priv;
 
-  evd_tls_global_init ();
-
   priv = EVD_TLS_CREDENTIALS_GET_PRIVATE (self);
   self->priv = priv;
 
@@ -135,8 +133,6 @@ evd_tls_credentials_finalize (GObject *obj)
     g_free (self->priv->key_file);
 
   G_OBJECT_CLASS (evd_tls_credentials_parent_class)->finalize (obj);
-
-  evd_tls_global_deinit ();
 }
 
 static void
