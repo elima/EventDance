@@ -1,4 +1,4 @@
-AC_PREREQ(2.61)
+AC_PREREQ(2.62)
 
 m4_define([prj_name],       [EventDance])
 m4_define([prj_short_name], [evd])
@@ -20,14 +20,15 @@ AC_INIT([prj_name],
 	[prj_version],
 	[prj_home])
 
-AC_CONFIG_MACRO_DIR([build/autotools])
+#AC_CONFIG_MACRO_DIR([build/autotools])
 AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_MACRO_DIR([m4])
 
+#AM_INIT_AUTOMAKE([-Wno-portability])
 AM_INIT_AUTOMAKE
 
 # EventDance specific definitions
 m4_define([prj_gir_namespace], [Evd])
-m4_define([prj_gir_api_name],  [prj_gir_namespace-prj_api_version])
 
 EVD_VERSION="prj_version"
 AC_SUBST(EVD_VERSION)
@@ -63,14 +64,16 @@ AM_CONDITIONAL(HAVE_GIO_UNIX, test x"$HAVE_GIO_UNIX" = x"yes")
 PKG_CHECK_MODULES(TLS, gnutls >= 2.6.5)
 
 # GObject-Introspection check
-GOBJECT_INTROSPECTION_CHECK([0.6.4])
-
+GOBJECT_INTROSPECTION_CHECK([0.6.7])
 if test "x$found_introspection" = "xyes"; then
    EVD_GIR_NAMESPACE="prj_gir_namespace"
    AC_SUBST(EVD_GIR_NAMESPACE)
 
-   EVD_GIR_API_NAME="prj_gir_api_name"
+   EVD_GIR_API_NAME="prj_gir_namespace"-"prj_api_version"
    AC_SUBST(EVD_GIR_API_NAME)
+
+   EVD_GIR_TARGET_NAME="prj_gir_namespace"_"prj_version_major"_"prj_version_minor"_gir
+   AC_SUBST(EVD_GIR_TARGET_NAME)
 fi
 
 # Javascript support check
@@ -83,8 +86,6 @@ AM_CONDITIONAL([BUILD_GTK_DOC], [test "x$enable_gtk_doc" = "xyes" || test ! -f "
 # Output files
 AC_OUTPUT([
 	Makefile
-	build/Makefile
-	build/autotools/Makefile
 	evd/Makefile
 	evd/evd.pc
 	tests/Makefile

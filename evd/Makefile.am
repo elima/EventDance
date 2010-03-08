@@ -98,41 +98,32 @@ evd_HEADERS = \
 	$(source_h) \
 	$(source_h_priv)
 
+
 # introspection support
 if HAVE_INTROSPECTION
 
-BUILT_GIRSOURCES =
+-include $(INTROSPECTION_MAKEFILE)
+INTROSPECTION_GIRS =
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir)
+INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 
-@EVD_GIR_API_NAME@.gir: $(INTROSPECTION_SCANNER) lib@EVD_API_NAME@.la
-	$(INTROSPECTION_SCANNER) -v \
-		--namespace @EVD_GIR_NAMESPACE@ --nsversion=@EVD_VERSION@ \
-		--c-include='@EVD_API_NAME@/evd.h' \
-		--include=GObject-2.0 \
-		--include=Gio-2.0 \
-		--library=lib@EVD_API_NAME@.la \
-	        --output $@ \
-		$(evd_HEADERS)
+introspection_sources = $(evd_HEADERS)
 
-BUILT_GIRSOURCES += @EVD_GIR_API_NAME@.gir
+@EVD_GIR_API_NAME@.gir: lib@EVD_API_NAME@.la Makefile
+@EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0
+@EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES)
+@EVD_GIR_TARGET_NAME@_LIBS = lib@EVD_API_NAME@.la
+@EVD_GIR_TARGET_NAME@_FILES = $(addprefix $(srcdir)/,$(introspection_sources))
 
-# INTROSPECTION_GIRDIR/INTROSPECTION_TYPELIBDIR aren't the right place to
-# install anything - we need to install inside our prefix.
+INTROSPECTION_GIRS += @EVD_GIR_API_NAME@.gir
+
 girdir = $(datadir)/gir-1.0
-gir_DATA = $(BUILT_GIRSOURCES)
+dist_gir_DATA = $(INTROSPECTION_GIRS)
 
-typelibsdir = $(libdir)/girepository-1.0/
+typelibdir = $(libdir)/girepository-1.0
+typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
 
-typelibs_DATA = $(BUILT_GIRSOURCES:.gir=.typelib)
-
-%.typelib: %.gir $(INTROSPECTION_COMPILER)
-	$(QUIET_GEN) \
-	LD_LIBRARY_PATH=.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH} \
-	$(INTROSPECTION_COMPILER) \
-		--includedir=$(srcdir) \
-		--includedir=. \
-		$(INTROSPECTION_COMPILER_OPTS) $< -o $(@F)
-
-CLEANFILES += $(BUILT_GIRSOURCES) $(typelibs_DATA)
+CLEANFILES += $(dist_gir_DATA) $(typelib_DATA)
 endif
 
 maintainer-clean-local:
