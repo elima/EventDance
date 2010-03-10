@@ -23,6 +23,8 @@
  * 02110-1301 USA
  */
 
+#include <glib.h>
+
 #include "evd-tls-common.h"
 
 G_LOCK_DEFINE_STATIC (evd_tls_init);
@@ -74,4 +76,17 @@ evd_tls_deinit (void)
     }
 
   G_UNLOCK (evd_tls_init);
+}
+
+void
+evd_tls_build_error (gint     error_code,
+                     GError **error,
+                     GQuark   domain)
+{
+  if (error != NULL)
+    {
+      *error = g_error_new (domain,
+                            error_code,
+                            gnutls_strerror (error_code));
+    }
 }
