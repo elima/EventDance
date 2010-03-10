@@ -29,6 +29,7 @@
 #include <glib-object.h>
 #include <gnutls/gnutls.h>
 
+#include "evd-tls-common.h"
 #include "evd-tls-credentials.h"
 
 G_BEGIN_DECLS
@@ -50,12 +51,6 @@ struct _EvdTlsSessionClass
   GObjectClass parent_class;
 };
 
-/* TLS session mode (client vs. server) */
-typedef enum
-{
-  EVD_TLS_MODE_CLIENT = GNUTLS_CLIENT,
-  EVD_TLS_MODE_SERVER = GNUTLS_SERVER
-} EvdTlsMode;
 
 #define EVD_TYPE_TLS_SESSION           (evd_tls_session_get_type ())
 #define EVD_TLS_SESSION(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSession))

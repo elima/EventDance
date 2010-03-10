@@ -32,6 +32,13 @@
 
 G_BEGIN_DECLS
 
+/* TLS mode (client vs. server) */
+typedef enum
+{
+  EVD_TLS_MODE_CLIENT = GNUTLS_CLIENT,
+  EVD_TLS_MODE_SERVER = GNUTLS_SERVER
+} EvdTlsMode;
+
 gboolean evd_tls_init        (GError **error);
 void     evd_tls_deinit      (void);
 
