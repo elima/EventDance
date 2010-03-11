@@ -54,16 +54,24 @@ struct _EvdTlsCredentialsClass
 #define EVD_TLS_CREDENTIALS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_CREDENTIALS, EvdTlsCredentialsClass))
 
 
-GType              evd_tls_credentials_get_type       (void) G_GNUC_CONST;
+GType              evd_tls_credentials_get_type        (void) G_GNUC_CONST;
 
-EvdTlsCredentials *evd_tls_credentials_new            (void);
+EvdTlsCredentials *evd_tls_credentials_new             (void);
 
 
-void               evd_tls_credentials_set_cert_file  (EvdTlsCredentials *self,
-                                                       const gchar       *cert_file);
+void               evd_tls_credentials_set_cert_file   (EvdTlsCredentials *self,
+                                                        const gchar       *cert_file);
 
-void               evd_tls_credentials_set_key_file   (EvdTlsCredentials *self,
-                                                       const gchar       *key_file);
+void               evd_tls_credentials_set_key_file    (EvdTlsCredentials *self,
+                                                        const gchar       *key_file);
+
+gboolean           evd_tls_credentials_ready           (EvdTlsCredentials *self);
+gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self,
+                                                        EvdTlsMode          mode,
+                                                        GError            **error);
+
+gboolean           evd_tls_credentials_get_anonymous   (EvdTlsCredentials *self);
+gpointer           evd_tls_credentials_get_credentials (EvdTlsCredentials *self);
 
 
 G_END_DECLS

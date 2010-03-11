@@ -34,10 +34,20 @@ G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
 /* private data */
 struct _EvdTlsCredentialsPrivate
 {
+  GQuark err_domain;
+
   gnutls_certificate_credentials_t cred;
+  gnutls_anon_client_credentials_t anon_client_cred;
+  gnutls_anon_server_credentials_t anon_server_cred;
+  gboolean anonymous;
 
   gchar *cert_file;
   gchar *key_file;
+
+  gboolean ready;
+  gboolean preparing;
+
+  EvdTlsMode mode;
 };
 
 /* signals */
@@ -122,11 +132,16 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
   priv = EVD_TLS_CREDENTIALS_GET_PRIVATE (self);
   self->priv = priv;
 
-  /* initialize private members */
+  priv->err_domain = g_quark_from_static_string (DOMAIN_QUARK_STRING);
+
   priv->cred = NULL;
 
   priv->cert_file = NULL;
   priv->key_file = NULL;
+
+  priv->ready = FALSE;
+  priv->preparing = FALSE;
+  priv->anonymous = TRUE;
 }
 
 static void
@@ -204,6 +219,91 @@ evd_tls_credentials_get_property (GObject    *obj,
     }
 }
 
+static gboolean
+evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
+                                    GError            **error)
+{
+  gint err_code;
+
+  if (self->priv->preparing)
+   return TRUE;
+
+  if (self->priv->cert_file == NULL && self->priv->key_file == NULL)
+    {
+      /* no certificates specified, assume anonynous credentials */
+      if (self->priv->mode == EVD_TLS_MODE_CLIENT)
+        err_code =
+          gnutls_anon_allocate_client_credentials (&self->priv->anon_client_cred);
+      else
+        err_code =
+          gnutls_anon_allocate_server_credentials (&self->priv->anon_server_cred);
+
+      if (err_code != GNUTLS_E_SUCCESS)
+        {
+          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          return FALSE;
+        }
+
+      self->priv->anonymous = TRUE;
+      self->priv->ready = TRUE;
+      self->priv->preparing = FALSE;
+
+      g_signal_emit (self,
+                     evd_tls_credentials_signals[SIGNAL_READY],
+                     0,
+                     NULL);
+    }
+  else if (self->priv->cert_file != NULL && self->priv->key_file != NULL)
+    {
+      /* TODO: Detect type of certificates: X.509 vs. OpenPGP.
+         By now assume just X.509. */
+
+      if (self->priv->cred == NULL)
+        gnutls_certificate_allocate_credentials (&self->priv->cred);
+
+      err_code = gnutls_certificate_set_x509_key_file (self->priv->cred,
+                                                       self->priv->cert_file,
+                                                       self->priv->key_file,
+                                                       GNUTLS_X509_FMT_PEM);
+
+      if (err_code != GNUTLS_E_SUCCESS)
+        {
+          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          return FALSE;
+        }
+
+      self->priv->anonymous = FALSE;
+      self->priv->ready = TRUE;
+      self->priv->preparing = FALSE;
+
+      g_signal_emit (self,
+                     evd_tls_credentials_signals[SIGNAL_READY],
+                     0,
+                     NULL);
+    }
+  else
+    {
+      /* TODO: handle error, key or cert file not specified */
+      if (error != NULL)
+        {
+          if (self->priv->cert_file == NULL)
+            *error = g_error_new (self->priv->err_domain,
+                                  EVD_TLS_ERROR_INVALID_CRED_CERT,
+                                  "Credentials' certificate not specified");
+          else
+            *error = g_error_new (self->priv->err_domain,
+                                  EVD_TLS_ERROR_INVALID_CRED_KEY,
+                                  "Credentials' key not specified");
+        }
+
+      gnutls_certificate_free_credentials (self->priv->cred);
+
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
 /* public methods */
 
 EvdTlsCredentials *
@@ -234,4 +334,50 @@ evd_tls_credentials_set_key_file (EvdTlsCredentials *self,
     g_free (self->priv->key_file);
 
   self->priv->key_file = g_strdup (key_file);
+}
+
+gboolean
+evd_tls_credentials_ready (EvdTlsCredentials *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
+
+  return self->priv->ready;
+}
+
+gboolean
+evd_tls_credentials_prepare (EvdTlsCredentials  *self,
+                             EvdTlsMode          mode,
+                             GError            **error)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
+
+  if (self->priv->preparing)
+   return TRUE;
+
+  /* TODO: if DH params are needed, request them now */
+
+  self->priv->mode = mode;
+
+  return evd_tls_credentials_prepare_finish (self, error);
+}
+
+gboolean
+evd_tls_credentials_get_anonymous (EvdTlsCredentials *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
+
+  return self->priv->anonymous;
+}
+
+gpointer
+evd_tls_credentials_get_credentials (EvdTlsCredentials *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), NULL);
+
+  if (self->priv->cred != NULL)
+    return self->priv->cred;
+  else if (self->priv->anon_server_cred != NULL)
+    return self->priv->anon_server_cred;
+  else
+    return self->priv->anon_client_cred;
 }
