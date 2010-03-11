@@ -43,6 +43,9 @@
 #define MAX_READ_BUFFER_SIZE    0xFFFF
 #define MAX_WRITE_BUFFER_SIZE   0xFFFF
 
+#define TLS_ENABLED(stream) evd_stream_get_tls_enabled (EVD_STREAM (stream))
+#define TLS_SESSION(stream) evd_stream_get_tls_session (EVD_STREAM (stream))
+
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
