@@ -40,6 +40,14 @@ struct _EvdTlsCredentialsPrivate
   gchar *key_file;
 };
 
+/* signals */
+enum
+{
+  SIGNAL_READY,
+  SIGNAL_LAST
+};
+
+static guint evd_tls_credentials_signals[SIGNAL_LAST] = { 0 };
 
 /* properties */
 enum
@@ -75,6 +83,15 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
   obj_class->finalize = evd_tls_credentials_finalize;
   obj_class->get_property = evd_tls_credentials_get_property;
   obj_class->set_property = evd_tls_credentials_set_property;
+
+  evd_tls_credentials_signals[SIGNAL_READY] =
+    g_signal_new ("ready",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdTlsCredentialsClass, ready),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_CERT_FILE,

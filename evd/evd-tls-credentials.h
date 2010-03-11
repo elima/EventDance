@@ -41,6 +41,9 @@ struct _EvdTlsCredentials
 struct _EvdTlsCredentialsClass
 {
   GObjectClass parent_class;
+
+  /* signal prototypes */
+  void (* ready) (EvdTlsCredentials *self);
 };
 
 #define EVD_TYPE_TLS_CREDENTIALS           (evd_tls_credentials_get_type ())
