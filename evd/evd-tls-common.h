@@ -39,6 +39,17 @@ typedef enum
   EVD_TLS_MODE_SERVER = GNUTLS_SERVER
 } EvdTlsMode;
 
+/* TLS error codes*/
+typedef enum
+{
+  EVD_TLS_ERROR_SUCCESS           = GNUTLS_E_SUCCESS,
+  EVD_TLS_ERROR_AGAIN             = GNUTLS_E_AGAIN,
+  EVD_TLS_ERROR_INTERRUPTED       = GNUTLS_E_INTERRUPTED,
+  EVD_TLS_ERROR_UNKNOWN           = 1024,
+  EVD_TLS_ERROR_INVALID_CRED_CERT,
+  EVD_TLS_ERROR_INVALID_CRED_KEY
+} EvdTlsError;
+
 gboolean evd_tls_init        (GError **error);
 void     evd_tls_deinit      (void);
 
