@@ -38,6 +38,15 @@ typedef struct _EvdTlsSession EvdTlsSession;
 typedef struct _EvdTlsSessionClass EvdTlsSessionClass;
 typedef struct _EvdTlsSessionPrivate EvdTlsSessionPrivate;
 
+typedef gssize (* EvdTlsSessionPullFunc) (EvdTlsSession *self,
+                                          gchar         *buf,
+                                          gsize          size,
+                                          gpointer       user_data);
+typedef gssize (* EvdTlsSessionPushFunc) (EvdTlsSession *self,
+                                          const gchar   *buf,
+                                          gsize          size,
+                                          gpointer       user_data);
+
 struct _EvdTlsSession
 {
   GObject parent;
@@ -51,7 +60,6 @@ struct _EvdTlsSessionClass
   GObjectClass parent_class;
 };
 
-
 #define EVD_TYPE_TLS_SESSION           (evd_tls_session_get_type ())
 #define EVD_TLS_SESSION(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSession))
 #define EVD_TLS_SESSION_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSessionClass))
@@ -60,19 +68,36 @@ struct _EvdTlsSessionClass
 #define EVD_TLS_SESSION_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSessionClass))
 
 
-GType              evd_tls_session_get_type        (void) G_GNUC_CONST;
+GType              evd_tls_session_get_type            (void) G_GNUC_CONST;
 
-EvdTlsSession     *evd_tls_session_new             (void);
+EvdTlsSession     *evd_tls_session_new                 (void);
 
-void               evd_tls_session_set_credentials (EvdTlsSession     *self,
-                                                    EvdTlsCredentials *credentials);
+void               evd_tls_session_set_credentials     (EvdTlsSession     *self,
+                                                        EvdTlsCredentials *credentials);
 
 /**
  * evd_tls_session_get_credentials:
  *
  * Returns: (transfer none): The #EvdTlsCredentials object of this session
  */
-EvdTlsCredentials *evd_tls_session_get_credentials (EvdTlsSession *self);
+EvdTlsCredentials *evd_tls_session_get_credentials     (EvdTlsSession *self);
+
+void               evd_tls_session_set_transport_funcs (EvdTlsSession         *self,
+                                                        EvdTlsSessionPullFunc  pull_func,
+                                                        EvdTlsSessionPushFunc  push_func,
+                                                        gpointer               user_data);
+
+gboolean           evd_tls_session_handshake           (EvdTlsSession   *self,
+                                                        GError         **error);
+
+gssize             evd_tls_session_read                (EvdTlsSession  *self,
+                                                        gchar          *buffer,
+                                                        gsize           size,
+                                                        GError        **error);
+gssize             evd_tls_session_write               (EvdTlsSession  *self,
+                                                        const gchar    *buffer,
+                                                        gsize           size,
+                                                        GError        **error);
 
 G_END_DECLS
 
