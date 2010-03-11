@@ -86,9 +86,6 @@ struct _EvdSocketPrivate
   gboolean bind_allow_reuse;
 
   gboolean watched;
-
-  gboolean       tls_enabled;
-  EvdTlsSession *tls_session;
 };
 
 /* signals */
