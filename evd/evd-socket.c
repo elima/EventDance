@@ -76,11 +76,13 @@ struct _EvdSocketPrivate
 
   gint read_src_id;
   gint write_src_id;
+  gboolean awaiting_read;
 
   GString *read_buffer;
   GString *write_buffer;
 
   GIOCondition cond;
+  GIOCondition watched_cond;
   gboolean watched;
 
   gint actual_priority;
@@ -91,6 +93,8 @@ struct _EvdSocketPrivate
   gboolean bind_allow_reuse;
 
   gboolean tls_enabled;
+  gboolean tls_read_pending;
+  gboolean delayed_close;
 };
 
 /* signals */
@@ -142,6 +146,8 @@ static gssize   evd_socket_write_internal     (EvdSocket    *self,
 
 static gboolean evd_socket_cleanup            (EvdSocket  *self,
                                                GError    **error);
+
+static gboolean evd_socket_read_wait_timeout  (gpointer user_data);
 
 static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
 
@@ -320,9 +326,12 @@ evd_socket_init (EvdSocket *self)
 
   priv->read_src_id = 0;
   priv->write_src_id = 0;
+  priv->awaiting_read = FALSE;
 
   priv->cond = 0;
+  priv->watched_cond = G_IO_IN | G_IO_OUT;
   priv->watched = FALSE;
+
 
   priv->priority        = G_PRIORITY_DEFAULT;
   priv->actual_priority = G_PRIORITY_DEFAULT;
@@ -330,6 +339,8 @@ evd_socket_init (EvdSocket *self)
   priv->resolve_request = NULL;
 
   priv->tls_enabled = FALSE;
+  priv->tls_read_pending = FALSE;
+  priv->delayed_close = FALSE;
 }
 
 static void
@@ -549,6 +560,46 @@ evd_socket_unwatch (EvdSocket *self, GError **error)
     return FALSE;
 }
 
+static gboolean
+evd_socket_tls_handshake (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+  GError *error = NULL;
+
+  if (evd_tls_session_handshake (TLS_SESSION (self), &error))
+    {
+      self->priv->cond = G_IO_OUT;
+      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
+
+      if (evd_socket_watch (self, self->priv->watched_cond, &error))
+        {
+          evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
+          evd_socket_invoke_on_write_internal (self);
+        }
+      else
+        {
+          evd_socket_throw_error (self, error);
+          evd_socket_close (self, NULL);
+        }
+    }
+  else if (error == NULL)
+    {
+      /* update socket conditions to watch, based on
+         session's record direction */
+      self->priv->watched_cond =
+        evd_tls_session_get_direction (TLS_SESSION (self));
+      evd_socket_watch (self, self->priv->watched_cond, &error);
+    }
+
+  if (error != NULL)
+    {
+      evd_socket_throw_error (self, error);
+      evd_socket_close (self, NULL);
+    }
+
+  return FALSE;
+}
+
 static void
 evd_socket_invoke_on_read_internal (EvdSocket *self)
 {
@@ -695,56 +746,146 @@ evd_socket_read_internal (EvdSocket *self,
                           GError   **error)
 {
   GError *_error = NULL;
-  gssize read_from_buf = 0;
-  gssize read_from_socket = 0;
-  gchar *buf;
+  gssize actual_size = 0;
 
-  if (self->priv->read_buffer->len > 0)
+  if ( (actual_size = g_socket_receive (self->priv->socket,
+                                        buffer,
+                                        size,
+                                        NULL,
+                                        &_error)) < 0)
     {
-      read_from_buf = MIN (self->priv->read_buffer->len, size);
-      g_memmove (buffer, self->priv->read_buffer->str, read_from_buf);
-      size -= read_from_buf;
-    }
-  else
-    buf = buffer;
-
-  if (size > 0)
-    {
-      buf = (gchar *) ( ((guintptr) buffer) + read_from_buf);
-      if ( (read_from_socket = g_socket_receive (self->priv->socket,
-                                                 buf,
-                                                 size,
-                                                 NULL,
-                                                 &_error)) < 0)
+      if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
         {
-          if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
-            {
-              g_error_free (_error);
-              read_from_socket = 0;
-            }
-          else
-            {
-              if (error != NULL)
-                *error = _error;
-              return -1;
-            }
+          g_error_free (_error);
+          actual_size = 0;
         }
       else
         {
-          if ( (read_from_socket > 0) && (read_from_socket < size) )
-            self->priv->cond &= (~ G_IO_IN);
+          if (error != NULL)
+            *error = _error;
+          actual_size = -1;
+        }
+    }
+  else
+    {
+      if (actual_size < size)
+        {
+          self->priv->cond &= ~G_IO_IN;
+
+          if (! TLS_ENABLED (self))
+            {
+              self->priv->watched_cond |= G_IO_IN;
+              if (! evd_socket_watch (self,
+                                      self->priv->watched_cond,
+                                      error))
+                actual_size = -1;
+            }
         }
     }
 
-  if (read_from_buf > 0)
-    {
-      g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+  return actual_size;
+}
 
-      if ( (self->priv->read_buffer->len == 0) && (read_from_socket == 0) )
-        self->priv->cond &= (~ G_IO_IN);
+static gssize
+evd_socket_read_filtered (EvdSocket *self,
+                          gchar     *buffer,
+                          gsize      size,
+                          GError   **error)
+{
+  gssize actual_size = 0;
+  gsize limited_size;
+  guint _retry_wait = 0;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
+  g_return_val_if_fail (buffer != NULL, -1);
+  g_return_val_if_fail (size > 0, -1);
+
+  if (! evd_socket_is_connected (self, error))
+    return -1;
+
+  /* handle latency and bandwidth */
+  limited_size = evd_stream_request_read (EVD_STREAM (self),
+                                          size,
+                                          &_retry_wait);
+
+  if ( (limited_size > 0) && (self->priv->group != NULL) )
+    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
+                                            limited_size,
+                                            &_retry_wait);
+
+  if (limited_size > 0)
+    {
+      if ( (actual_size = evd_socket_read_internal (self,
+                                                    buffer,
+                                                    limited_size,
+                                                    error)) < 0)
+        {
+          return -1;
+        }
+      else if (actual_size > 0)
+        {
+          if (self->priv->group != NULL)
+            evd_stream_report_read (EVD_STREAM (self->priv->group),
+                                    actual_size);
+
+          evd_stream_report_read (EVD_STREAM (self),
+                                  actual_size);
+        }
     }
 
-  return read_from_buf + read_from_socket;
+  if ( ((limited_size == 0 || limited_size < size) && (actual_size == limited_size)) )
+    {
+      if (! self->priv->awaiting_read)
+        {
+          self->priv->awaiting_read = TRUE;
+
+          if (self->priv->read_src_id != 0)
+            {
+              GSource *src;
+
+              src = g_main_context_find_source_by_id (self->priv->context,
+                                                      self->priv->read_src_id);
+              g_source_destroy (src);
+
+              self->priv->read_src_id = 0;
+            }
+        }
+
+      self->priv->read_src_id =
+        evd_timeout_add (self->priv->context,
+                         _retry_wait,
+                         (GSourceFunc) evd_socket_read_wait_timeout,
+                         (gpointer) self);
+    }
+  else
+    {
+      self->priv->awaiting_read = FALSE;
+    }
+
+  return actual_size;
+}
+
+static gboolean
+evd_socket_read_wait_timeout (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  if (self->priv->status == EVD_SOCKET_STATE_CLOSED)
+    return FALSE;
+
+  self->priv->read_src_id = 0;
+
+  if ( (self->priv->cond & G_IO_IN) > 0 ||
+       self->priv->read_buffer->len > 0)
+    {
+      evd_socket_manage_read_condition (self);
+    }
+  else if (self->priv->delayed_close)
+    {
+      evd_socket_close (self, NULL);
+    }
+
+  return FALSE;
 }
 
 static gboolean
@@ -793,7 +934,7 @@ evd_socket_write_internal (EvdSocket    *self,
   guint _retry_wait = 0;
 
   if (! evd_socket_is_connected (self, error))
-    return FALSE;
+    return -1;
 
   /* handle latency and bandwidth */
   limited_size = evd_stream_request_write (EVD_STREAM (self),
@@ -826,33 +967,31 @@ evd_socket_write_internal (EvdSocket    *self,
             }
 
           if (actual_size < limited_size)
-            self->priv->cond &= (~ G_IO_OUT);
+            {
+              self->priv->cond &= (~ G_IO_OUT);
+              if (! TLS_ENABLED (self))
+                {
+                  self->priv->watched_cond |= G_IO_OUT;
+                  if (! evd_socket_watch (self, self->priv->watched_cond, error))
+                    return -1;
+                }
+            }
         }
     }
 
   if (actual_size < size)
     {
-      /* wait and re-schedule a write-event */
-      if (self->priv->write_src_id == 0)
-        self->priv->write_src_id =
-          evd_timeout_add (self->priv->context,
-                           _retry_wait,
-                           (GSourceFunc) evd_socket_write_wait_timeout,
-                           (gpointer) self);
+      if (self->priv->write_src_id == 0 && FALSE)
+        {
+          self->priv->write_src_id =
+            evd_timeout_add (self->priv->context,
+                             _retry_wait,
+                             (GSourceFunc) evd_socket_write_wait_timeout,
+                             (gpointer) self);
+        }
     }
 
   return actual_size;
-}
-
-static gboolean
-evd_socket_read_wait_timeout (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  self->priv->read_src_id = 0;
-  evd_socket_invoke_on_read_internal (self);
-
-  return FALSE;
 }
 
 static gboolean
@@ -898,6 +1037,54 @@ evd_socket_write_buffer_add_data (EvdSocket    *self,
       g_string_append_len (self->priv->write_buffer, buf, size);
 
       return TRUE;
+    }
+}
+
+static gssize
+evd_socket_write_filtered (EvdSocket    *self,
+                           const gchar  *buf,
+                           gsize         size,
+                           GError      **error)
+{
+  gsize orig_size = size;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
+  g_return_val_if_fail (buf != NULL, -1);
+  g_return_val_if_fail (size > 0, -1);
+
+  if (! evd_socket_is_connected (self, error))
+    return -1;
+
+  /* check if there is data pending to be written */
+  if (self->priv->write_buffer->len > 0)
+    {
+      if (! evd_socket_write_buffer_add_data (self, buf, size, error))
+        return -1;
+      else
+        return 0;
+    }
+  else
+    {
+      gsize actual_size;
+
+      actual_size = evd_socket_write_internal (self,
+                                               buf,
+                                               size,
+                                               error);
+
+      if ( (self->priv->auto_write) &&
+           (actual_size < orig_size) && (actual_size >= 0) )
+        {
+          if (! evd_socket_write_buffer_add_data (self,
+                                   (gchar *) (((guintptr) buf) + (actual_size)),
+                                   orig_size - actual_size,
+                                   error))
+            return -1;
+          else
+            return 0;
+        }
+
+      return actual_size;
     }
 }
 
@@ -1028,6 +1215,85 @@ evd_socket_resolve_address (EvdSocket      *self,
     }
 }
 
+static gssize
+evd_socket_tls_pull (EvdTlsSession *session,
+                     gchar         *buffer,
+                     gsize          size,
+                     gpointer       user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+  GError *error = NULL;
+  gssize result = EVD_TLS_ERROR_AGAIN;
+
+  result = evd_socket_read_filtered (self, buffer, size, &error);
+  //  g_debug ("read %d bytes out of (%d)", result, size);
+
+  if (result < 0)
+    {
+      evd_socket_throw_error (self, error);
+      evd_socket_close (self, NULL);
+    }
+  else if (result == 0 && error == NULL)
+    {
+      GIOCondition cond;
+
+      cond = evd_tls_session_get_direction (TLS_SESSION (self));
+      if (self->priv->watched_cond != cond)
+        {
+          self->priv->watched_cond = cond;
+          evd_socket_watch (self, cond, &error);
+        }
+
+      self->priv->cond &= ~G_IO_IN;
+
+      self->priv->tls_read_pending = TRUE;
+
+      result = EVD_TLS_ERROR_AGAIN;
+    }
+  else
+    {
+      self->priv->tls_read_pending = FALSE;
+    }
+
+  return result;
+}
+
+static gssize
+evd_socket_tls_push (EvdTlsSession *session,
+                     const gchar   *buffer,
+                     gsize          size,
+                     gpointer       user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+  GError *error = NULL;
+  gssize result = 0;
+
+  result = evd_socket_write_filtered (self, buffer, size, &error);
+
+  //  g_debug ("wrote %d bytes out of %d", result, size);
+
+  if (result < 0)
+    {
+      evd_socket_throw_error (self, error);
+      evd_socket_close (self, NULL);
+    }
+  else if (result == 0 && error == NULL)
+    {
+      GIOCondition cond;
+
+      cond = evd_tls_session_get_direction (TLS_SESSION (self));
+      if (self->priv->watched_cond != cond)
+        {
+          self->priv->watched_cond = cond;
+          evd_socket_watch (self, cond, &error);
+        }
+
+      self->priv->cond &= ~G_IO_OUT;
+    }
+
+  return result;
+}
+
 static void
 evd_socket_manage_read_condition (EvdSocket *self)
 {
@@ -1112,15 +1378,34 @@ evd_socket_event_handler (gpointer data)
           while ( (socket->priv->status == EVD_SOCKET_STATE_LISTENING) &&
                   ((client = evd_socket_accept (socket, &error)) != NULL) )
             {
+              EvdTlsSession *session;
+              EvdTlsCredentials *cred;
+
               /* TODO: allow external function to decide whether to
                  accept/refuse the new connection */
+
+              /* copy TLS credentials from listener to accepted socket */
+              session = TLS_SESSION (socket);
+              cred = evd_tls_session_get_credentials (session);
+              session = TLS_SESSION (client);
+              evd_tls_session_set_credentials (session, cred);
 
               /* fire 'new-connection' signal */
               g_signal_emit (socket,
                              evd_socket_signals[SIGNAL_NEW_CONNECTION],
                              0,
                              client, NULL);
-              g_object_unref (client);
+
+              if (TLS_AUTOSTART (socket) &&
+                  (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error)) )
+                {
+                  evd_socket_throw_error (socket, error);
+                  evd_socket_close (socket, NULL);
+                }
+              else
+                {
+                  g_object_unref (client);
+                }
             }
 
           if (error != NULL)
@@ -1152,41 +1437,77 @@ evd_socket_event_handler (gpointer data)
                                    "Socket error");
 
               evd_socket_throw_error (socket, error);
-              evd_socket_close (socket, &error);
+              evd_socket_close (socket, NULL);
             }
           else if (condition & G_IO_HUP)
             {
-              evd_socket_close (socket, &error);
+              if (TLS_ENABLED (socket))
+                socket->priv->delayed_close = TRUE;
+              else
+                evd_socket_close (socket, &error);
             }
           else if (socket->priv->status != EVD_SOCKET_STATE_CLOSED)
             {
+              /* write condition */
               if (condition & G_IO_OUT)
                 {
-                  if (socket->priv->status == EVD_SOCKET_STATE_CONNECTING)
+                  socket->priv->watched_cond &= (~G_IO_OUT);
+                  if (evd_socket_watch (socket, socket->priv->watched_cond, &error))
                     {
-                      /* restore priority */
-                      socket->priv->actual_priority = socket->priv->priority;
+                      if (socket->priv->status == EVD_SOCKET_STATE_CONNECTING)
+                        {
+                          /* socket has just connected! */
 
-                      /* remove any connect_timeout src */
-                      if (socket->priv->connect_timeout_src_id > 0)
-                        g_source_remove (socket->priv->connect_timeout_src_id);
+                          /* restore priority */
+                          socket->priv->actual_priority = socket->priv->priority;
 
-                      evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
+                          /* remove any connect_timeout src */
+                          if (socket->priv->connect_timeout_src_id > 0)
+                            g_source_remove (socket->priv->connect_timeout_src_id);
+
+                          evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
+
+                          if (TLS_AUTOSTART (socket))
+                            {
+                              if (! evd_socket_starttls (socket, EVD_TLS_MODE_CLIENT, &error))
+                                {
+                                  evd_socket_throw_error (socket, error);
+                                  evd_socket_close (socket, NULL);
+                                }
+                            }
+                        }
+
+                      if ( (socket->priv->cond & G_IO_OUT) == 0)
+                        {
+                          socket->priv->cond |= G_IO_OUT;
+
+                          evd_socket_manage_write_condition (socket);
+                        }
                     }
-
-                  if ( (socket->priv->cond & G_IO_OUT) == 0)
+                  else
                     {
-                      socket->priv->cond |= G_IO_OUT;
-
-                      if (socket->priv->write_src_id == 0)
-                        evd_socket_invoke_on_write (socket);
+                      evd_socket_throw_error (socket, error);
+                      evd_socket_close (socket, NULL);
                     }
                 }
 
+              /* read condition */
               if (condition & G_IO_IN)
                 {
-                  socket->priv->cond |= G_IO_IN;
-                  evd_socket_invoke_on_read_internal (socket);
+                  socket->priv->watched_cond &= ~G_IO_IN;
+                  if (! evd_socket_watch (socket,
+                                          socket->priv->watched_cond,
+                                          &error))
+                    {
+                      evd_socket_throw_error (socket, error);
+                      evd_socket_close (socket, NULL);
+                    }
+                  else if ( (socket->priv->cond & G_IO_IN) == 0)
+                    {
+                      socket->priv->cond |= G_IO_IN;
+
+                      evd_socket_manage_read_condition (socket);
+                    }
                 }
             }
         }
@@ -1286,7 +1607,21 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       evd_resolver_request_is_active (self->priv->resolve_request))
     evd_resolver_cancel (self->priv->resolve_request);
 
+  self->priv->family = G_SOCKET_FAMILY_INVALID;
+
+  self->priv->status = EVD_SOCKET_STATE_CLOSED;
+
   self->priv->watched = FALSE;
+  self->priv->watched_cond = 0;
+  self->priv->cond = 0;
+
+  if (self->priv->tls_enabled &&
+      (! evd_tls_session_close (TLS_SESSION (self), error)) )
+    result = FALSE;
+
+  self->priv->tls_enabled = FALSE;
+  self->priv->tls_read_pending = FALSE;
+  self->priv->delayed_close = FALSE;
 
   if (self->priv->connect_timeout_src_id != 0)
     {
@@ -1330,11 +1665,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
     }
-
-  self->priv->status = EVD_SOCKET_STATE_CLOSED;
-
-  self->priv->cond = 0;
-  self->priv->family = G_SOCKET_FAMILY_INVALID;
 
   return result;
 }
@@ -1533,7 +1863,8 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
     {
-      if (evd_socket_watch (self, G_IO_IN, error))
+      self->priv->watched_cond = G_IO_IN;
+      if (evd_socket_watch (self, self->priv->watched_cond, error))
         {
           self->priv->actual_priority = G_PRIORITY_HIGH + 1;
           evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
@@ -1587,7 +1918,8 @@ evd_socket_accept (EvdSocket *self, GError **error)
       client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
       evd_socket_set_socket (client, client_socket);
 
-      if (evd_socket_watch (client, G_IO_IN | G_IO_OUT, error))
+      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
+      if (evd_socket_watch (client, self->priv->watched_cond, error))
         {
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
@@ -1762,153 +2094,129 @@ evd_socket_set_write_handler (EvdSocket             *self,
 }
 
 gssize
-evd_socket_read_len (EvdSocket *self,
-                     gchar     *buffer,
-                     gsize      size,
-                     GError   **error)
+evd_socket_read_len (EvdSocket  *self,
+                     gchar      *buffer,
+                     gsize       size,
+                     GError    **error)
 {
-  gssize actual_size = -1;
-  gsize limited_size;
-  guint _retry_wait = 0;
+  gssize read_from_buf = 0;
+  gssize read_from_socket = 0;
+  gchar *buf;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
   g_return_val_if_fail (buffer != NULL, -1);
-  g_return_val_if_fail (size > 0, -1);
 
-  if (! evd_socket_is_connected (self, error))
-    return -1;
-
-  /* handle latency and bandwidth */
-  limited_size = evd_stream_request_read (EVD_STREAM (self),
-                                          size,
-                                          &_retry_wait);
-
-  if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
-                                            limited_size,
-                                            &_retry_wait);
-
-  if (limited_size == 0)
+  if (self->priv->read_buffer->len > 0)
     {
-      if (self->priv->read_src_id == 0)
-        self->priv->read_src_id =
-          evd_timeout_add (self->priv->context,
-                           _retry_wait,
-                           (GSourceFunc) evd_socket_read_wait_timeout,
-                           (gpointer) self);
+      read_from_buf = MIN (self->priv->read_buffer->len, size);
+      g_memmove (buffer, self->priv->read_buffer->str, read_from_buf);
+      size -= read_from_buf;
 
-      self->priv->cond &= (~ G_IO_IN);
-      return 0;
+      buf = (gchar *) ( ((guintptr) buffer) + read_from_buf);
+    }
+  else
+    {
+      buf = buffer;
     }
 
-  if ( (actual_size = evd_socket_read_internal (self,
-                                                buffer,
-                                                limited_size,
-                                                error)) > 0)
+  if (size > 0)
     {
-      if (self->priv->group != NULL)
-        evd_stream_report_read (EVD_STREAM (self->priv->group),
-                                (gsize) actual_size);
-
-      evd_stream_report_read (EVD_STREAM (self),
-                              (gsize) actual_size);
-
-      /* check if we should keep reading after retry_wait miliseconds */
-      if ( (self->priv->read_src_id == 0) && (actual_size == limited_size) )
+      if (TLS_ENABLED (self))
         {
-          self->priv->read_src_id =
-            evd_timeout_add (self->priv->context,
-                             _retry_wait,
-                             (GSourceFunc) evd_socket_read_wait_timeout,
-                             (gpointer) self);
+          read_from_socket = evd_tls_session_read (TLS_SESSION (self),
+                                                   buf,
+                                                   size,
+                                                   error);
+
+          /* TODO: improve this ASAP, too hackish! */
+          if (read_from_socket > 0 && read_from_socket < size &&
+              self->priv->read_src_id == 0)
+            {
+              self->priv->read_src_id =
+                evd_timeout_add (self->priv->context,
+                                 0,
+                                 evd_socket_read_wait_timeout,
+                                 self);
+            }
+          else if (read_from_socket == 0 && self->priv->delayed_close &&
+                   ! self->priv->awaiting_read)
+            {
+              evd_socket_close (self, NULL);
+            }
         }
+      else
+        read_from_socket = evd_socket_read_filtered (self,
+                                                     buf,
+                                                     size,
+                                                     error);
     }
 
-  return actual_size;
+  if (read_from_buf > 0)
+    g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+
+  return read_from_buf + read_from_socket;
 }
 
 gchar *
-evd_socket_read (EvdSocket *self,
-                 gsize     *size,
-                 GError   **error)
+evd_socket_read (EvdSocket  *self,
+                 gsize      *size,
+                 GError    **error)
 {
   gchar *buf;
+  gssize actual_size;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-  g_return_val_if_fail (*size > 0, NULL);
+  g_return_val_if_fail (size != NULL, NULL);
 
-  buf = g_new0 (gchar, *size);
-  buf[0] = 0;
+  buf = g_new0 (gchar, (*size) + 1);
 
-  if ( (*size = evd_socket_read_len (self,
-                                     buf,
-                                     *size,
-                                     error)) > 0)
-    return buf;
+  if ( (actual_size = evd_socket_read_len (self,
+                                           buf,
+                                           *size,
+                                           error)) >= 0)
+    {
+      *size = actual_size;
+      buf[*size] = '\0';
+    }
   else
-    g_free (buf);
+    {
+      g_free (buf);
+      buf = NULL;
+    }
 
-  return NULL;
+  return buf;
 }
 
 gssize
 evd_socket_write_len (EvdSocket    *self,
-                      const gchar  *buf,
+                      const gchar  *buffer,
                       gsize         size,
                       GError      **error)
 {
-  gsize orig_size = size;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-  g_return_val_if_fail (buf != NULL, -1);
-  g_return_val_if_fail (size > 0, -1);
-
-  if (! evd_socket_is_connected (self, error))
-    return FALSE;
-
-  /* check if there is data pending to be written */
-  if (self->priv->write_buffer->len > 0)
-    {
-      if (! evd_socket_write_buffer_add_data (self, buf, size, error))
-        return -1;
-      else
-        return 0;
-    }
+  if (TLS_ENABLED (self))
+    return evd_tls_session_write (TLS_SESSION (self),
+                                  buffer,
+                                  size,
+                                  error);
   else
-    {
-      gsize actual_size;
-
-      actual_size = evd_socket_write_internal (self,
-                                               buf,
-                                               size,
-                                               error);
-
-      if ( (self->priv->auto_write) &&
-           (actual_size < orig_size) && (actual_size >= 0) )
-        {
-          if (! evd_socket_write_buffer_add_data (self,
-                                   (gchar *) (((guintptr) buf) + (actual_size)),
-                                   orig_size - actual_size,
-                                   error))
-            return -1;
-          else
-            return 0;
-        }
-
-      return actual_size;
-    }
+    return evd_socket_write_filtered (self,
+                                      buffer,
+                                      size,
+                                      error);
 }
 
 gssize
 evd_socket_write (EvdSocket    *self,
-                  const gchar  *buf,
+                  const gchar  *buffer,
                   GError      **error)
 {
   gsize size;
 
-  size = strlen (buf);
+  size = strlen (buffer);
+  if (size == 0)
+    return 0;
 
-  return evd_socket_write_len (self, buf, size, error);
+  return evd_socket_write_len (self, buffer, size, error);
 }
 
 gssize
@@ -1930,8 +2238,6 @@ evd_socket_unread_len (EvdSocket    *self,
     }
   else
     {
-      self->priv->cond |= G_IO_IN;
-
       /* TODO: Should we invoke on-read handler here? */
 
       return size;
@@ -2029,4 +2335,33 @@ evd_socket_get_local_address (EvdSocket  *self,
     return NULL;
   else
     return g_socket_get_local_address (self->priv->socket, error);
+}
+
+gboolean
+evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
+{
+  EvdTlsSession *session;
+
+  if (self->priv->tls_enabled)
+    {
+      if (error != NULL)
+        *error = g_error_new (g_quark_from_static_string (DOMAIN_QUARK_STRING),
+                              EVD_SOCKET_ERROR_TLS_ACTIVE,
+                              "SSL/TLS was already started");
+
+      return FALSE;
+    }
+
+  self->priv->tls_enabled = TRUE;
+
+  session = TLS_SESSION (self);
+  evd_tls_session_set_transport_funcs (session,
+                                       evd_socket_tls_pull,
+                                       evd_socket_tls_push,
+                                       (gpointer) self);
+  g_object_set (session, "mode", mode, NULL);
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_TLS_HANDSHAKING);
+
+  return TRUE;
 }

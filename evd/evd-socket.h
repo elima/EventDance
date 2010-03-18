@@ -130,6 +130,7 @@ typedef enum
   EVD_SOCKET_ERROR_INVALID_ADDRESS,
   EVD_SOCKET_ERROR_RESOLVE,
   EVD_SOCKET_ERROR_SOCKET_ACTIVE,
+  EVD_SOCKET_ERROR_TLS_ACTIVE,
 
   EVD_SOCKET_ERROR_LAST
 } EvdSocketError;
@@ -216,8 +217,8 @@ void          evd_socket_set_write_handler (EvdSocket             *self,
  * evd_socket_read_len:
  * @self: The #EvdSocket to read from.
  * @buffer: (out) (transfer full): The buffer to store the data.
- * @size: (in): Maximum number of bytes to read.
- * @error: (out) (transfer full): The #GError to return, or NULL.
+ * @size: Maximum number of bytes to read.
+ * @error: The #GError to return, or NULL.
  *
  * Reads up to @size bytes of data from the socket. The data read will be copied
  * into @buffer.
@@ -232,14 +233,14 @@ gssize        evd_socket_read_len         (EvdSocket *self,
 /**
  * evd_socket_read:
  * @self: The #EvdSocket to read from.
- * @size: (inout): Maximum number of bytes to read.
- * @error: (out) (transfer full): The #GError to return, or NULL.
+ * @size: (inout) (transfer full): Maximum number of bytes to read.
+ * @error: The #GError to return, or NULL.
  *
  * Reads up to @size bytes of data from the socket. This method assumes data will
  * not contain null characters. To read binary data, #evd_socket_read_buffer should be
  * used instead.
  *
- * Return value: (transfer full): A null-terminated string containing the data read, or NULL on error.
+ * Return value: A null-terminated string containing the data read, or NULL on error.
  */
 gchar         *evd_socket_read            (EvdSocket *self,
                                            gsize     *size,
@@ -333,6 +334,10 @@ GSocketAddress *evd_socket_get_local_address    (EvdSocket  *self,
 
 gsize           evd_socket_get_max_readable     (EvdSocket *self);
 gsize           evd_socket_get_max_writable     (EvdSocket *self);
+
+gboolean        evd_socket_starttls             (EvdSocket   *self,
+                                                 EvdTlsMode   mode,
+                                                 GError     **error);
 
 G_END_DECLS
 
