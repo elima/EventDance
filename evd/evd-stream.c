@@ -324,7 +324,7 @@ evd_stream_get_property (GObject    *obj,
       break;
 
     case PROP_TLS_SESSION:
-      g_value_set_object (value, self->priv->tls_session);
+      g_value_set_object (value, evd_stream_get_tls_session (self));
       break;
 
     default:
@@ -592,6 +592,12 @@ EvdTlsSession *
 evd_stream_get_tls_session (EvdStream *self)
 {
   g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+
+  if (self->priv->tls_session == NULL)
+    {
+      self->priv->tls_session = evd_tls_session_new ();
+      g_object_ref_sink (self->priv->tls_session);
+    }
 
   return self->priv->tls_session;
 }
