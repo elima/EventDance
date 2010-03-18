@@ -325,6 +325,28 @@ evd_tls_session_on_credentials_ready (EvdTlsCredentials *cred,
     }
 }
 
+static gboolean
+evd_tls_session_shutdown (EvdTlsSession           *self,
+                          gnutls_close_request_t   how,
+                          GError                 **error)
+{
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), FALSE);
+
+  if (self->priv->session != NULL)
+    {
+      gint err_code;
+
+      err_code = gnutls_bye (self->priv->session, how);
+      if (err_code < 0 && gnutls_error_is_fatal (err_code) != 0)
+        {
+          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
 /* public methods */
 
 EvdTlsSession *
@@ -514,4 +536,16 @@ evd_tls_session_write (EvdTlsSession  *self,
     }
 
   return result;
+}
+
+gboolean
+evd_tls_session_close (EvdTlsSession *self, GError **error)
+{
+  return evd_tls_session_shutdown (self, GNUTLS_SHUT_RDWR, error);
+}
+
+gboolean
+evd_tls_session_shutdown_write (EvdTlsSession *self, GError **error)
+{
+  return evd_tls_session_shutdown (self, GNUTLS_SHUT_WR, error);
 }
