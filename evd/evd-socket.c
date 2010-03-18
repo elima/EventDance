@@ -322,7 +322,8 @@ evd_socket_init (EvdSocket *self)
   priv->write_buffer = g_string_new ("");
 
   priv->context = g_main_context_get_thread_default ();
-  /* TODO: check if we should 'ref' the context */
+  if (priv->context != NULL)
+    g_main_context_ref (priv->context);
 
   priv->read_src_id = 0;
   priv->write_src_id = 0;
@@ -356,6 +357,12 @@ evd_socket_dispose (GObject *obj)
     {
       g_object_unref (self->priv->resolve_request);
       self->priv->resolve_request = NULL;
+    }
+
+  if (self->priv->context != NULL)
+    {
+      g_main_context_unref (self->priv->context);
+      self->priv->context = NULL;
     }
 
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
