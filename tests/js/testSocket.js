@@ -36,10 +36,10 @@ function testInitialState (Assert) {
     Assert.equal (socket.auto_write, false);
     Assert.equal (socket.priority, 0);
 
-    Assert.equal (socket.tls_enabled, false);
-    Assert.equal (socket.get_tls_enabled (), false);
-    Assert.equal (socket.tls, null);
-    Assert.equal (socket.get_tls_session (), null);
+    Assert.equal (socket.tls_autostart, false);
+    Assert.equal (socket.get_tls_autostart (), false);
+    Assert.ok (socket.tls);
+    Assert.ok (socket.get_tls_session ());
 
     Assert.equal (socket.bandwidth_in, 0);
     Assert.equal (socket.bandwidth_out, 0);
@@ -217,8 +217,12 @@ function on_socket_write (socket) {
     Assert.strictEqual (socket.constructor, Evd.Socket);
     Assert.ok (socket.can_write ());
 
-    let len = socket.write (GREETING);
-    Assert.equal (len, GREETING.length);
+    if (! socket.greeting_sent) {
+        let len = socket.write (GREETING);
+        Assert.equal (len, GREETING.length);
+
+        socket.greeting_sent = true;
+    }
 }
 
 function on_socket_close (socket) {
