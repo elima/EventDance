@@ -1956,15 +1956,22 @@ evd_socket_get_max_writable (EvdSocket *self)
 gboolean
 evd_socket_can_read (EvdSocket *self)
 {
-  return ( (self->priv->cond & G_IO_IN) > 0) &&
-    (self->priv->read_src_id == 0);
+  return
+    (self->priv->status == EVD_SOCKET_STATE_CONNECTED) &&
+    (self->priv->read_src_id == 0) &&
+    ( (self->priv->cond & G_IO_IN) > 0 ||
+      self->priv->read_buffer->len > 0);
 }
 
 gboolean
 evd_socket_can_write (EvdSocket *self)
 {
-  return ( (self->priv->cond & G_IO_OUT) > 0) &&
-    (self->priv->write_src_id == 0);
+  return
+    (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
+     self->priv->status == EVD_SOCKET_STATE_BOUND) &&
+    (self->priv->write_src_id == 0) &&
+    ( (self->priv->cond & G_IO_OUT) > 0 ||
+      self->priv->write_buffer->len > 0);
 }
 
 GSocketAddress *
