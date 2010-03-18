@@ -460,9 +460,9 @@ evd_tls_session_read (EvdTlsSession  *self,
 {
   gssize result;
 
-  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), 0);
-  g_return_val_if_fail (size > 0, 0);
-  g_return_val_if_fail (buffer != NULL, 0);
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), -1);
+  g_return_val_if_fail (size > 0, -1);
+  g_return_val_if_fail (buffer != NULL, -1);
 
   result = gnutls_record_recv (self->priv->session, buffer, size);
 
@@ -492,9 +492,9 @@ evd_tls_session_write (EvdTlsSession  *self,
 {
   gssize result;
 
-  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), 0);
-  g_return_val_if_fail (size > 0, 0);
-  g_return_val_if_fail (buffer != NULL, 0);
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), -1);
+  g_return_val_if_fail (size > 0, -1);
+  g_return_val_if_fail (buffer != NULL, -1);
 
   result = gnutls_record_send (self->priv->session, buffer, size);
 
