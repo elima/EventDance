@@ -258,7 +258,7 @@ evd_tls_session_handshake_internal (EvdTlsSession  *self,
   if (err_code == GNUTLS_E_SUCCESS)
     return TRUE;
   else
-    if (gnutls_error_is_fatal (err_code) < 0)
+    if (gnutls_error_is_fatal (err_code) == 1)
       evd_tls_build_error (err_code, error, self->priv->err_domain);
 
   return FALSE;
