@@ -28,8 +28,8 @@
 
 #define RUNS                  1
 
-#define THREADS              10
-#define SOCKETS_PER_THREAD   10
+#define THREADS               10
+#define SOCKETS_PER_THREAD    10
 
 #define DATA_SIZE         65535
 #define BLOCK_SIZE        32752
@@ -149,27 +149,22 @@ server_on_new_connection (EvdSocket *self,
   g_object_ref_sink (client);
 }
 
-static void
-group_socket_on_read (EvdSocketGroup *self,
-                      EvdSocket      *socket,
-                      gpointer        user_data)
+static gboolean
+socket_do_read (gpointer user_data)
 {
+  EvdSocket *socket = EVD_SOCKET (user_data);
   gssize size;
   GError *error = NULL;
   gchar buf[DATA_SIZE+1] = { 0 };
 
-  g_assert (EVD_IS_SOCKET_GROUP (self));
-  g_assert (self == group_receivers);
-  g_assert (EVD_IS_SOCKET (socket));
-
   if (evd_socket_get_status (socket) != EVD_SOCKET_STATE_CONNECTED)
-    return;
+    return FALSE;
 
   size = evd_socket_read_len (socket,
                               buf,
                               BLOCK_SIZE,
                               &error);
-
+  g_assert_no_error (error);
   g_assert_cmpint (size, >=, 0);
 
   G_LOCK (total_read);
@@ -179,11 +174,35 @@ group_socket_on_read (EvdSocketGroup *self,
   if (evd_stream_get_total_read (EVD_STREAM (socket)) == DATA_SIZE)
     {
       g_assert (evd_socket_close (socket, &error));
+      g_assert_no_error (error);
       g_assert_cmpint (evd_socket_get_status (socket),
                        ==,
                        EVD_SOCKET_STATE_CLOSED);
       g_object_unref (socket);
     }
+
+  if (size == BLOCK_SIZE)
+    return TRUE;
+  else
+    return FALSE;
+}
+
+static void
+group_socket_on_read (EvdSocketGroup *self,
+                      EvdSocket      *socket,
+                      gpointer        user_data)
+{
+  g_assert (EVD_IS_SOCKET_GROUP (self));
+  g_assert (self == group_receivers);
+  g_assert (EVD_IS_SOCKET (socket));
+
+  g_assert_cmpint (evd_socket_get_status (socket), ==,
+                   EVD_SOCKET_STATE_CONNECTED);
+
+  evd_timeout_add (g_main_context_get_thread_default (),
+                   0,
+                   socket_do_read,
+                   socket);
 }
 
 static void

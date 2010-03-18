@@ -54,6 +54,7 @@ typedef struct
   gboolean new_conn;
 
   gsize total_read;
+  gboolean completed;
 } EvdSocketFixture;
 
 static void
@@ -74,6 +75,7 @@ evd_socket_fixture_setup (EvdSocketFixture *fixture,
   fixture->new_conn = FALSE;
 
   fixture->total_read = 0;
+  fixture->completed = FALSE;
 
   g_assert (evd_socket_manager_get () == NULL);
 }
@@ -183,6 +185,7 @@ evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
        strlen (EVD_SOCKET_TEST_TEXT1) +
        strlen (EVD_SOCKET_TEST_TEXT2)) * 2)
     {
+      f->completed = TRUE;
       evd_socket_test_break ((gpointer) f);
     }
 }
@@ -191,6 +194,7 @@ static void
 evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
 {
   GError *error = NULL;
+  gssize size;
 
   g_assert (evd_socket_can_write (self));
 
@@ -198,16 +202,18 @@ evd_socket_test_on_write (EvdSocket *self, gpointer user_data)
   g_assert_no_error (error);
   g_assert (evd_socket_can_read (self) == TRUE);
 
-  evd_socket_write_len (self,
-                        EVD_SOCKET_TEST_TEXT1,
-                        strlen (EVD_SOCKET_TEST_TEXT1),
-                        &error);
+  size = evd_socket_write_len (self,
+                               EVD_SOCKET_TEST_TEXT1,
+                               strlen (EVD_SOCKET_TEST_TEXT1),
+                               &error);
   g_assert_no_error (error);
+  g_assert_cmpint (size, ==, strlen (EVD_SOCKET_TEST_TEXT1));
 
-  evd_socket_write (self,
-                    EVD_SOCKET_TEST_TEXT2,
-                    &error);
+  size = evd_socket_write (self,
+                           EVD_SOCKET_TEST_TEXT2,
+                           &error);
   g_assert_no_error (error);
+  g_assert_cmpint (size, ==, strlen (EVD_SOCKET_TEST_TEXT2));
 }
 
 static void
@@ -366,6 +372,8 @@ evd_socket_test (EvdSocketFixture *f,
   g_assert (f->listen);
   g_assert (f->connect);
   g_assert (f->new_conn);
+
+  g_assert (f->completed);
 }
 
 #endif /* __TEST_SOCKET_COMMON_C__ */
