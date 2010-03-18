@@ -99,6 +99,8 @@ gssize             evd_tls_session_write               (EvdTlsSession  *self,
                                                         gsize           size,
                                                         GError        **error);
 
+GIOCondition       evd_tls_session_get_direction       (EvdTlsSession *self);
+
 gboolean           evd_tls_session_close               (EvdTlsSession  *self,
                                                         GError        **error);
 gboolean           evd_tls_session_shutdown_write      (EvdTlsSession  *self,

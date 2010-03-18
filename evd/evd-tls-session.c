@@ -538,6 +538,18 @@ evd_tls_session_write (EvdTlsSession  *self,
   return result;
 }
 
+GIOCondition
+evd_tls_session_get_direction (EvdTlsSession *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), 0);
+  g_return_val_if_fail (self->priv->session != NULL, 0);
+
+  if (gnutls_record_get_direction (self->priv->session) == 0)
+    return G_IO_IN;
+  else
+    return G_IO_OUT;
+}
+
 gboolean
 evd_tls_session_close (EvdTlsSession *self, GError **error)
 {
