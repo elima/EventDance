@@ -143,6 +143,12 @@ static gssize   evd_socket_write_internal     (EvdSocket    *self,
 static gboolean evd_socket_cleanup            (EvdSocket  *self,
                                                GError    **error);
 
+static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
+
+static void     evd_socket_manage_read_condition    (EvdSocket *self);
+static void     evd_socket_manage_write_condition   (EvdSocket *self);
+
+
 static void
 evd_socket_class_init (EvdSocketClass *class)
 {
@@ -573,6 +579,14 @@ evd_socket_invoke_on_write (EvdSocket *self)
     }
 }
 
+static void
+evd_socket_invoke_on_write_internal (EvdSocket *self)
+{
+  /* TODO: add an 'invoke_on_write' virtual method and call it here */
+
+  evd_socket_invoke_on_write (self);
+}
+
 static gboolean
 evd_socket_check_address (EvdSocket       *self,
                           GSocketAddress  *address,
@@ -762,8 +776,8 @@ evd_socket_write_wait_timeout (gpointer user_data)
         }
     }
 
-  if ( (self->priv->cond & G_IO_OUT) > 0)
-    evd_socket_invoke_on_write (self);
+  if ( (self->priv->cond & G_IO_OUT) > 0 && self->priv->write_src_id == 0)
+    evd_socket_manage_write_condition (self);
 
   return FALSE;
 }
@@ -1014,6 +1028,26 @@ evd_socket_resolve_address (EvdSocket      *self,
     }
 }
 
+static void
+evd_socket_manage_read_condition (EvdSocket *self)
+{
+  if (self->priv->status == EVD_SOCKET_STATE_TLS_HANDSHAKING)
+    evd_socket_tls_handshake (self);
+  else
+    if (self->priv->read_src_id == 0)
+      evd_socket_invoke_on_read_internal (self);
+}
+
+static void
+evd_socket_manage_write_condition (EvdSocket *self)
+{
+  if (self->priv->status == EVD_SOCKET_STATE_TLS_HANDSHAKING)
+    evd_socket_tls_handshake (self);
+  else
+    if (self->priv->write_src_id == 0)
+      evd_socket_invoke_on_write_internal (self);
+}
+
 /* protected methods */
 
 void
@@ -1204,7 +1238,7 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
         evd_socket_invoke_on_read_internal (self);
 
       if (evd_socket_can_write (self))
-        evd_socket_invoke_on_write (self);
+        evd_socket_invoke_on_write_internal (self);
     }
 }
 
