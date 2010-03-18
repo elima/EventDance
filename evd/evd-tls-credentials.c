@@ -283,7 +283,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
     }
   else
     {
-      /* TODO: handle error, key or cert file not specified */
+      /* handle error, key or cert file not specified */
       if (error != NULL)
         {
           if (self->priv->cert_file == NULL)
@@ -295,8 +295,6 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
                                   EVD_TLS_ERROR_INVALID_CRED_KEY,
                                   "Credentials' key not specified");
         }
-
-      gnutls_certificate_free_credentials (self->priv->cred);
 
       return FALSE;
     }
