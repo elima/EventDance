@@ -43,8 +43,9 @@
 #define MAX_READ_BUFFER_SIZE    0xFFFF
 #define MAX_WRITE_BUFFER_SIZE   0xFFFF
 
-#define TLS_ENABLED(stream) evd_stream_get_tls_enabled (EVD_STREAM (stream))
-#define TLS_SESSION(stream) evd_stream_get_tls_session (EVD_STREAM (stream))
+#define TLS_ENABLED(socket)   (socket->priv->tls_enabled == TRUE)
+#define TLS_SESSION(socket)   evd_stream_get_tls_session (EVD_STREAM (socket))
+#define TLS_AUTOSTART(socket) evd_stream_get_tls_autostart (EVD_STREAM (socket))
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
@@ -80,6 +81,7 @@ struct _EvdSocketPrivate
   GString *write_buffer;
 
   GIOCondition cond;
+  gboolean watched;
 
   gint actual_priority;
   gint priority;
@@ -88,7 +90,7 @@ struct _EvdSocketPrivate
 
   gboolean bind_allow_reuse;
 
-  gboolean watched;
+  gboolean tls_enabled;
 };
 
 /* signals */
@@ -314,13 +316,14 @@ evd_socket_init (EvdSocket *self)
   priv->write_src_id = 0;
 
   priv->cond = 0;
+  priv->watched = FALSE;
 
   priv->priority        = G_PRIORITY_DEFAULT;
   priv->actual_priority = G_PRIORITY_DEFAULT;
 
   priv->resolve_request = NULL;
 
-  priv->watched = FALSE;
+  priv->tls_enabled = FALSE;
 }
 
 static void
