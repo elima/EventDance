@@ -1719,6 +1719,8 @@ evd_socket_new (void)
 GSocket *
 evd_socket_get_socket (EvdSocket *self)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
   return self->priv->socket;
 }
 
@@ -1749,6 +1751,8 @@ evd_socket_get_status (EvdSocket *self)
 EvdSocketGroup *
 evd_socket_get_group (EvdSocket *self)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
   return self->priv->group;
 }
 
@@ -2113,8 +2117,12 @@ evd_socket_read_len (EvdSocket  *self,
   gssize read_from_socket = 0;
   gchar *buf;
 
-  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-  g_return_val_if_fail (buffer != NULL, -1);
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
+  if (size == 0)
+    return 0;
+
+  g_return_val_if_fail (buffer != NULL, 0);
 
   if (self->priv->read_buffer->len > 0)
     {
@@ -2178,6 +2186,9 @@ evd_socket_read (EvdSocket  *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
   g_return_val_if_fail (size != NULL, NULL);
 
+  if (*size == 0)
+    return NULL;
+
   buf = g_new0 (gchar, (*size) + 1);
 
   if ( (actual_size = evd_socket_read_len (self,
@@ -2203,6 +2214,13 @@ evd_socket_write_len (EvdSocket    *self,
                       gsize         size,
                       GError      **error)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
+  if (size == 0)
+    return 0;
+
+  g_return_val_if_fail (buffer != NULL, 0);
+
   if (TLS_ENABLED (self))
     return evd_tls_session_write (TLS_SESSION (self),
                                   buffer,
@@ -2222,9 +2240,10 @@ evd_socket_write (EvdSocket    *self,
 {
   gsize size;
 
-  size = strlen (buffer);
-  if (size == 0)
+  if (buffer == NULL)
     return 0;
+
+  size = strlen (buffer);
 
   return evd_socket_write_len (self, buffer, size, error);
 }
@@ -2236,8 +2255,11 @@ evd_socket_unread_len (EvdSocket    *self,
                        GError      **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-  g_return_val_if_fail (buffer != NULL, -1);
-  g_return_val_if_fail (size > 0, -1);
+
+  if (size == 0)
+    return 0;
+
+  g_return_val_if_fail (buffer != NULL, 0);
 
   if (! evd_socket_read_buffer_add_data (self,
                                          buffer,
@@ -2259,14 +2281,14 @@ evd_socket_unread (EvdSocket    *self,
                    const gchar  *buffer,
                    GError      **error)
 {
-  g_return_val_if_fail (buffer != NULL, -1);
-
   return evd_socket_unread_len (self, buffer, strlen (buffer), error);
 }
 
 gboolean
 evd_socket_has_write_data_pending (EvdSocket *self)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
   return (self->priv->write_buffer->len > 0);
 }
 
@@ -2275,6 +2297,8 @@ evd_socket_get_max_readable (EvdSocket *self)
 {
   gsize size = MAX_BLOCK_SIZE;
   gsize limited_size;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
   limited_size = evd_stream_request_read (EVD_STREAM (self),
                                           size,
@@ -2294,6 +2318,8 @@ evd_socket_get_max_writable (EvdSocket *self)
   gsize size = MAX_BLOCK_SIZE;
   gsize limited_size;
 
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
   limited_size = evd_stream_request_write (EVD_STREAM (self),
                                            size,
                                            NULL);
@@ -2309,6 +2335,8 @@ evd_socket_get_max_writable (EvdSocket *self)
 gboolean
 evd_socket_can_read (EvdSocket *self)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
   return
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED) &&
     (self->priv->read_src_id == 0) &&
@@ -2319,6 +2347,8 @@ evd_socket_can_read (EvdSocket *self)
 gboolean
 evd_socket_can_write (EvdSocket *self)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
   return
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
      self->priv->status == EVD_SOCKET_STATE_BOUND) &&
@@ -2331,6 +2361,8 @@ GSocketAddress *
 evd_socket_get_remote_address (EvdSocket  *self,
                                GError    **error)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
   if (self->priv->socket == NULL)
     return NULL;
   else
@@ -2341,6 +2373,8 @@ GSocketAddress *
 evd_socket_get_local_address (EvdSocket  *self,
                               GError    **error)
 {
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
   if (self->priv->socket == NULL)
     return NULL;
   else
@@ -2351,6 +2385,11 @@ gboolean
 evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 {
   EvdTlsSession *session;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (mode == EVD_TLS_MODE_CLIENT ||
+                        mode == EVD_TLS_MODE_SERVER,
+                        FALSE);
 
   if (self->priv->tls_enabled)
     {
