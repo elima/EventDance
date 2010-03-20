@@ -52,6 +52,15 @@
       <xi:include href="xml/evd-socket.xml"/>
       <xi:include href="xml/evd-socket-group.xml"/>
       <xi:include href="xml/evd-service.xml"/>
+      <xi:include href="xml/evd-reproxy.xml"/>
+      <xi:include href="xml/evd-reproxy-backend.xml"/>
+      <xi:include href="xml/evd-json-filter.xml"/>
+      <xi:include href="xml/evd-json-socket.xml"/>
+      <xi:include href="xml/evd-resolver.xml"/>
+      <xi:include href="xml/evd-resolver-request.xml"/>
+      <xi:include href="xml/evd-tls-session.xml"/>
+      <xi:include href="xml/evd-tls-credentials.xml"/>
+      <xi:include href="xml/evd-tls-certificate.xml"/>
     </chapter>
   </part>
 
@@ -59,8 +68,13 @@
     <title>Using EventDance in Javascript</title>
 
     <partintro>
-      <para>This section contains useful documentation for
-      developing with EventDance in the Javascript language.</para>
+      <para>This section contains useful documentation for developing with
+        EventDance in the Javascript language, using engine provided by <ulink
+        type="http" url="http://live.gnome.org/Gjs">GJS</ulink> and API reflexion
+        with <ulink type="http" url="http://live.gnome.org/GObjectIntrospection">GObject-Introspection</ulink>.
+      </para>
+
+      <para>@TODO</para>
     </partintro>
 
   </part>
@@ -87,6 +101,7 @@
       <xi:include href="xml/evd-socket-protected.xml"/>
       <xi:include href="xml/evd-socket-group-protected.xml"/>
       <xi:include href="xml/evd-service-protected.xml"/>
+      <xi:include href="xml/evd-reproxy-protected.xml"/>
     </chapter>
   </part>
 
@@ -130,7 +145,7 @@
       This library is free software; you can redistribute it and/or
       modify it under the terms of the <citetitle>GNU Library General
       Public License</citetitle> as published by the Free Software
-      Foundation; either version 2 of the License, or (at your option)
+      Foundation; either version 3 of the License, or (at your option)
       any later version.
     </para>
 

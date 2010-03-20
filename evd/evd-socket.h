@@ -39,8 +39,8 @@ G_BEGIN_DECLS
  * #EvdSocket sockets are Berkeley sockets with finer network control and scalability
  * under high-concurrency scenarios. It's the class that ultimately handles all network
  * access in EventDance framework. #EvdSocket is based on GSocket, and extends it by
- * providing more features together with an efficient mechanism to watch socket
- * condition changes, based on the <ulink type="http"
+ * providing more features like SSL/TLS support, bandwith and latency control, etc; together
+ * with an efficient mechanism to watch socket condition changes, based on the <ulink type="http"
  * url="http://www.kernel.org/doc/man-pages/online/pages/man4/epoll.4.html">
  * epoll event notification facility</ulink> available on Linux, in edge-triggered mode.
  *
@@ -288,6 +288,7 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
  * @size: (inout): Number of bytes to unread.
+ * @error: (out): A pointer to a #GError to return, or NULL.
  *
  * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
  * to read will first get data from the local buffer, before performing the actual read
@@ -312,8 +313,9 @@ gssize        evd_socket_unread_len    (EvdSocket    *self,
  * evd_socket_unread:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Cannot contain nulls.
+ * @error: (out): A pointer to a #GError to return, or NULL.
  *
- * Works exactly like #evd_socket_unread_buffer but buffer is a null-terminated string,
+ * Works exactly like #evd_socket_unread_len but buffer is a null-terminated string,
  * thus @size is calculated internally.
  *
  * Return value: The actual number of bytes unread.

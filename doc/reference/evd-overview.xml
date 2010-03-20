@@ -5,10 +5,12 @@
   <partintro>
 
     <para>
-      EventDance is a framework to build fast, scalable network applications that
-      require interconnecting heterogeneous contexts in an asynchronous, bi-directional
-      and low-latency fashion. EventDance uses a publish/subscribe model to route and
-      deliver events from publishers to subscribers, in a reliable and secure manner.
+      EventDance is a framework to build fast, secure and scalable network applications
+      that require interconnecting heterogeneous contexts in an asynchronous, secure and
+      reliable fashion. EventDance provides a set of easy to use network components together
+      with a high level inter-process communication mechanism (not implemented yet) strongly
+      inspired in <ulink type="http" url="http://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink>
+      but fully decentralized, to ease interaction between remote objects.
     </para>
 
   </partintro>
@@ -31,18 +33,17 @@
       <listitem>
         <emphasis>Asynchronous</emphasis>
         <para>
-          All EventDance activity is driven by a main thread-safe event loop, which no routine
+          All EventDance activity is driven by a main, thread-safe event loop, which no routine
           should block under any circumstance. If some blocking operation is to be
           performed, a separate thread shall be spawned for it. All network and disk IO is
-          expected to be non-blocking, both in the core of EventDance and in programs that use
-          it.
+          expected to be non-blocking, both in the core of EventDance and in programs using it.
         </para>
       </listitem>
 
       <listitem>
         <emphasis>Scalable</emphasis>
         <para>
-          All components in the framework should scale well under high-concurrency situations,
+          All components in the framework should scale reasonably well under high-concurrency situations,
           and support graceful service degradation in case of excessive load. Any mechanism
           available in the platform to optimize responsiveness should be used to guarantee
           scalability. It's expected that clients in the range of 1 to 2 tens of thousands
@@ -52,10 +53,21 @@
       </listitem>
 
       <listitem>
+        <emphasis>Introspection friendly</emphasis>
+        <para>
+          EventDance libraries are designed to work fine with
+          <ulink type="http" url="http://live.gnome.org/GObjectIntrospection">GObject-Introspection</ulink>.
+          APIs are well-thought to be used in high level scripting languages like Javascript and Python.
+          Thus, it's a design requirement to have introspection friendly and easy to use APIs, and to always
+          have updated GIR information.
+        </para>
+      </listitem>
+
+      <listitem>
         <emphasis>Hot-plug configurable</emphasis>
         <para>
           Framework components should provide means to change any configuration option on-the-fly,
-          without restarting any service. For that, a management service is provided, together
+          without restarting the main service. For that, a management service is provided, together
           with a management interface class that all configuration-sensitive objects should
           implement. Examples of this are adding/removing listening interfaces on network services,
           changing URLs to resources, adjusting limits like number of connections, bandwidth
@@ -78,9 +90,9 @@
         <para>
           This is relative to how synchronous operations and idle states are managed.
           Routines in the framework or in programs using it should avoid polling continuously
-          for a condition change, feeding the event loop at intervals. Instead, these operations
-          should be moved to a thread and blocked permanently when possible, until the kernel
-          notifies of the condition change waking up the thread.
+          for a condition change, unnecessarily feeding the event loop at intervals. Instead,
+          these operations should be moved to a thread and blocked permanently when possible,
+          until a notification of a condition change wakes up the thread.
           EventDance services also target mobile environments where resources,
           specially energy, are limited.
         </para>

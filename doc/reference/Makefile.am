@@ -83,9 +83,9 @@ include $(top_srcdir)/gtk-doc.make
 # e.g. EXTRA_DIST += version.xml.in
 EXTRA_DIST +=
 
+MAINTAINERCLEANFILES = \
+	evd-overrides.txt evd-sections.txt evd.types Makefile.in
+
 maintainer-clean-local:
 	rm -rf tmpl
 	rm -rf html
-
-MAINTAINERCLEANFILES = \
-	evd-overrides.txt evd-sections.txt evd.types Makefile.in
