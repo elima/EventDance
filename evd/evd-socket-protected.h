@@ -49,6 +49,9 @@ void            evd_socket_invoke_on_read      (EvdSocket *self);
 gboolean        evd_socket_cleanup_protected   (EvdSocket  *self,
                                                 GError    **error);
 
+EvdSocket      *evd_socket_accept              (EvdSocket  *self,
+                                                GError    **error);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_PROTECTED_H__ */

@@ -1679,6 +1679,31 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
   return result;
 }
 
+EvdSocket *
+evd_socket_accept (EvdSocket *self, GError **error)
+{
+  EvdSocket *client = NULL;
+  GSocket *client_socket;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  if ( (client_socket = g_socket_accept (self->priv->socket, NULL, error)) != NULL)
+    {
+      client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
+      evd_socket_set_socket (client, client_socket);
+
+      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
+      if (evd_socket_watch (client, self->priv->watched_cond, error))
+        {
+          evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
+
+          return client;
+        }
+    }
+
+  return NULL;
+}
+
 /* public methods */
 
 EvdSocket *
@@ -1913,31 +1938,6 @@ evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
   evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
 
   return TRUE;
-}
-
-EvdSocket *
-evd_socket_accept (EvdSocket *self, GError **error)
-{
-  EvdSocket *client = NULL;
-  GSocket *client_socket;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  if ( (client_socket = g_socket_accept (self->priv->socket, NULL, error)) != NULL)
-    {
-      client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
-      evd_socket_set_socket (client, client_socket);
-
-      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (evd_socket_watch (client, self->priv->watched_cond, error))
-        {
-          evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
-
-          return client;
-        }
-    }
-
-  return NULL;
 }
 
 gboolean

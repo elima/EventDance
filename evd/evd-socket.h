@@ -183,7 +183,6 @@ gboolean      evd_socket_listen_addr      (EvdSocket       *self,
 gboolean      evd_socket_listen           (EvdSocket    *self,
                                            const gchar  *address,
                                            GError      **error);
-EvdSocket    *evd_socket_accept           (EvdSocket *socket, GError **error);
 
 /**
  * evd_socket_connect_addr:
