@@ -28,8 +28,6 @@
 
 #include "evd-stream.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.glib.stream"
-
 G_DEFINE_ABSTRACT_TYPE (EvdStream, evd_stream, G_TYPE_OBJECT)
 
 #define EVD_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
