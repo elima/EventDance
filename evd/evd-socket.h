@@ -340,6 +340,11 @@ gboolean        evd_socket_starttls             (EvdSocket   *self,
                                                  EvdTlsMode   mode,
                                                  GError     **error);
 
+gboolean        evd_socket_shutdown             (EvdSocket  *self,
+                                                 gboolean    shutdown_read,
+                                                 gboolean    shutdown_write,
+                                                 GError    **error);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */

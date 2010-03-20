@@ -2375,3 +2375,24 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   return TRUE;
 }
+
+gboolean
+evd_socket_shutdown (EvdSocket  *self,
+                     gboolean    shutdown_read,
+                     gboolean    shutdown_write,
+                     GError    **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  if (! evd_socket_is_connected (self, error))
+    return FALSE;
+
+  if (shutdown_write && TLS_ENABLED (self))
+    if (! evd_tls_session_shutdown_write (TLS_SESSION (self), error))
+      return FALSE;
+
+  return g_socket_shutdown (self->priv->socket,
+                            shutdown_read,
+                            shutdown_write,
+                            error);
+}
