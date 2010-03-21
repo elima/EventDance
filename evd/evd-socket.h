@@ -193,13 +193,34 @@ gboolean      evd_socket_listen           (EvdSocket    *self,
  * Attempts to connect the socket to the specified address. If
  * <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
  * opertation will abort after that time in miliseconds and a
- * <emphasis>connect-timeout</emphasis> signal will be triggered.
+ * <emphasis>connect-timeout</emphasis> error will be signaled.
  *
  * Return value: TRUE on success or FALSE on error.
  */
 gboolean      evd_socket_connect_addr     (EvdSocket       *self,
                                            GSocketAddress  *address,
                                            GError         **error);
+
+/**
+ * evd_socket_connect_to:
+ * @self: The #EvdSocket to connect.
+ * @address: A string representing the socket address to connect to.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Similar to #evd_socket_connect_addr, but address is a string that will
+ * be resolved to a #GSocketAddress internally.
+ *
+ * For unix addresses, a valid filename should be provided since abstract unix
+ * addresses are not supported. For IP addresses, a string in the format "host:port"
+ * is expected. <emphasis>host</emphasis> can be an IP address version 4 or 6 (if
+ * supported by the OS), or any domain name.
+ *
+ * If <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
+ * opertation will abort after that time in miliseconds and a
+ * <emphasis>connect-timeout</emphasis> error will be signaled.
+ *
+ * Return value: TRUE on success or FALSE on error.
+ */
 gboolean      evd_socket_connect_to       (EvdSocket    *self,
                                            const gchar  *address,
                                            GError      **error);
@@ -286,8 +307,8 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * evd_socket_unread_len:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
- * @size: (inout): Number of bytes to unread.
- * @error: (out): A pointer to a #GError to return, or NULL.
+ * @size: Number of bytes to unread.
+ * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
  *
  * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
  * to read will first get data from the local buffer, before performing the actual read
@@ -312,7 +333,7 @@ gssize        evd_socket_unread_len    (EvdSocket    *self,
  * evd_socket_unread:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Cannot contain nulls.
- * @error: (out): A pointer to a #GError to return, or NULL.
+ * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
  *
  * Works exactly like #evd_socket_unread_len but buffer is a null-terminated string,
  * thus @size is calculated internally.
