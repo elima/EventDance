@@ -1,5 +1,5 @@
 /*
- * evd-tester.c
+ * test-all.c
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *

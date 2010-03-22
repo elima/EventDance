@@ -20,17 +20,17 @@ AM_CFLAGS += \
 endif
 
 noinst_PROGRAMS = \
-	evd-tester \
+	test-all \
 	test-socket \
 	test-json-filter \
 	test-json-socket \
 	test-resolver \
 	test-socket-context
 
-# evd-tester
-evd_tester_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
-evd_tester_LDADD = $(AM_LIBS)
-evd_tester_SOURCES = evd-tester.c
+# test-all
+test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
+test_all_LDADD = $(AM_LIBS)
+test_all_SOURCES = test-all.c
 
 # test-socket-context
 test_socket_context_CFLAGS = $(AM_CFLAGS)
@@ -66,5 +66,5 @@ test_all_js_LDADD = $(AM_LIBS) $(GJS_LIBS)
 test_all_js_SOURCES = test-all-js.c
 endif
 
-test: evd-tester
-	./evd-tester
+test: test-all
+	./test-all
