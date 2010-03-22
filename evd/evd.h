@@ -34,5 +34,8 @@
 #include <evd-json-socket.h>
 #include <evd-socket-group.h>
 #include <evd-service.h>
+#include <evd-tls-session.h>
+#include <evd-tls-credentials.h>
+#include <evd-tls-certificate.h>
 
 #endif /* __EVD_H__ */
