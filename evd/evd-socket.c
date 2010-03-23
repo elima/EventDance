@@ -1449,13 +1449,6 @@ evd_socket_event_handler (gpointer data)
               evd_socket_throw_error (socket, error);
               evd_socket_close (socket, NULL);
             }
-          else if (condition & G_IO_HUP)
-            {
-              if (TLS_ENABLED (socket))
-                socket->priv->delayed_close = TRUE;
-              else
-                evd_socket_close (socket, &error);
-            }
           else if (socket->priv->status != EVD_SOCKET_STATE_CLOSED)
             {
               /* write condition */
@@ -1519,6 +1512,14 @@ evd_socket_event_handler (gpointer data)
                       evd_socket_manage_read_condition (socket);
                     }
                 }
+            }
+
+          if (condition & G_IO_HUP)
+            {
+              if (TLS_ENABLED (socket))
+                socket->priv->delayed_close = TRUE;
+              else
+                evd_socket_close (socket, &error);
             }
         }
     }
@@ -2169,8 +2170,28 @@ evd_socket_read_len (EvdSocket  *self,
                                                      error);
     }
 
-  if (read_from_buf > 0)
-    g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+  if (read_from_socket < 0)
+    {
+      /* hack to gracefully recover from peer
+         abruptly closing TLS connection */
+      if (error != NULL && *error != NULL &&
+          (*error)->code == EVD_TLS_ERROR_UNEXPECTED_PACKET_LEN)
+        {
+          g_error_free (*error);
+          *error = NULL;
+
+          read_from_socket = 0;
+
+          evd_socket_close (self, NULL);
+        }
+
+      read_from_buf = 0;
+    }
+  else
+    {
+     if (read_from_buf > 0)
+        g_string_erase (self->priv->read_buffer, 0, read_from_buf);
+    }
 
   return read_from_buf + read_from_socket;
 }
