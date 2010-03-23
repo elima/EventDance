@@ -90,9 +90,9 @@ struct _EvdSocketClass
   EvdStreamClass parent_class;
 
   /* virtual methods */
-  gboolean (* event_handler)  (EvdSocket *self, GIOCondition condition);
-  void     (* invoke_on_read) (EvdSocket *self);
-  gboolean (* cleanup)        (EvdSocket *self, GError **error);
+  gboolean (* handle_condition) (EvdSocket *self, GIOCondition condition);
+  void     (* invoke_on_read)   (EvdSocket *self);
+  gboolean (* cleanup)          (EvdSocket *self, GError **error);
 
   /* signal prototypes */
   void (* error)           (EvdSocket *self,

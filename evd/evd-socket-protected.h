@@ -34,7 +34,8 @@ G_BEGIN_DECLS
 void            evd_socket_set_status          (EvdSocket *self,
                                                 EvdSocketState status);
 void            evd_socket_throw_error         (EvdSocket *self, GError *error);
-gboolean        evd_socket_event_handler       (gpointer data);
+void            evd_socket_handle_condition    (EvdSocket    *self,
+                                                GIOCondition  condition);
 void            evd_socket_set_group           (EvdSocket      *self,
                                                 EvdSocketGroup *group);
 EvdSocketGroup *evd_socket_get_group           (EvdSocket      *self);

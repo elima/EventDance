@@ -171,7 +171,7 @@ evd_socket_class_init (EvdSocketClass *class)
   obj_class->get_property = evd_socket_get_property;
   obj_class->set_property = evd_socket_set_property;
 
-  class->event_handler = NULL;
+  class->handle_condition = NULL;
   class->invoke_on_read = evd_socket_invoke_on_read;
 
   /* install signals */
@@ -1305,6 +1305,38 @@ evd_socket_manage_write_condition (EvdSocket *self)
       evd_socket_invoke_on_write_internal (self);
 }
 
+static void
+evd_socket_handle_condition_internal (EvdSocket *self)
+{
+  EvdSocketClass *class;
+  GIOCondition cond;
+
+  g_mutex_lock (self->priv->mutex);
+
+  self->priv->event_handler_src_id = 0;
+  cond = self->priv->new_cond;
+  self->priv->new_cond = 0;
+
+  g_mutex_unlock (self->priv->mutex);
+
+  class = EVD_SOCKET_GET_CLASS (self);
+  if (class->handle_condition != NULL)
+    class->handle_condition (self, cond);
+  else
+    evd_socket_handle_condition (self, cond);
+}
+
+static gboolean
+evd_socket_handle_condition_cb (gpointer data)
+{
+  EvdSocket *self = EVD_SOCKET (data);
+
+  if (EVD_IS_SOCKET (self) && self->priv->watched)
+    evd_socket_handle_condition_internal (self);
+
+  return FALSE;
+}
+
 /* protected methods */
 
 void
@@ -1352,7 +1384,7 @@ evd_socket_notify_condition (EvdSocket    *self,
       src = g_idle_source_new ();
       g_source_set_priority (src, self->priv->actual_priority);
       g_source_set_callback (src,
-                             evd_socket_event_handler,
+                             evd_socket_handle_condition_cb,
                              (gpointer) self,
                              NULL);
       self->priv->event_handler_src_id =
@@ -1364,185 +1396,162 @@ evd_socket_notify_condition (EvdSocket    *self,
   g_mutex_unlock (self->priv->mutex);
 }
 
-gboolean
-evd_socket_event_handler (gpointer data)
+void
+evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 {
-  EvdSocket *socket = EVD_SOCKET (data);
-  GIOCondition condition;
-  EvdSocketClass *class;
   GError *error = NULL;
-  gboolean dont_free = FALSE;
 
-  if ( (! EVD_IS_SOCKET (socket)) || (! socket->priv->watched) )
-    return FALSE;
+  g_object_ref (self);
 
-  g_object_ref (socket);
-
-  g_mutex_lock (socket->priv->mutex);
-
-  socket->priv->event_handler_src_id = 0;
-  condition = socket->priv->new_cond;
-  socket->priv->new_cond = 0;
-
-  g_mutex_unlock (socket->priv->mutex);
-
-  class = EVD_SOCKET_GET_CLASS (socket);
-  if (class->event_handler != NULL)
-    class->event_handler (socket, condition);
-  else
+  if (self->priv->status == EVD_SOCKET_STATE_LISTENING)
     {
-      if (socket->priv->status == EVD_SOCKET_STATE_LISTENING)
+      EvdSocket *client;
+
+      while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
+              ((client = evd_socket_accept (self, &error)) != NULL) )
         {
-          EvdSocket *client;
+          EvdTlsSession *session;
+          EvdTlsCredentials *cred;
 
-          while ( (socket->priv->status == EVD_SOCKET_STATE_LISTENING) &&
-                  ((client = evd_socket_accept (socket, &error)) != NULL) )
+          /* TODO: allow external function to decide whether to
+             accept/refuse the new connection */
+
+          /* copy TLS credentials from listener to accepted socket */
+          session = TLS_SESSION (self);
+          cred = evd_tls_session_get_credentials (session);
+          session = TLS_SESSION (client);
+          evd_tls_session_set_credentials (session, cred);
+
+          /* fire 'new-connection' signal */
+          g_signal_emit (self,
+                         evd_socket_signals[SIGNAL_NEW_CONNECTION],
+                         0,
+                         client, NULL);
+
+          if (TLS_AUTOSTART (self) &&
+              (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error)) )
             {
-              EvdTlsSession *session;
-              EvdTlsCredentials *cred;
+              evd_socket_throw_error (client, error);
+              evd_socket_close (client, NULL);
+            }
+          else
+            {
+              g_object_unref (client);
+            }
+        }
 
-              /* TODO: allow external function to decide whether to
-                 accept/refuse the new connection */
+      if (error != NULL)
+        {
+          if (error->code != G_IO_ERROR_WOULD_BLOCK)
+            {
+              /* error accepting connection, emit 'error' signal */
+              error->code = EVD_SOCKET_ERROR_ACCEPT;
+              evd_socket_throw_error (self, error);
 
-              /* copy TLS credentials from listener to accepted socket */
-              session = TLS_SESSION (socket);
-              cred = evd_tls_session_get_credentials (session);
-              session = TLS_SESSION (client);
-              evd_tls_session_set_credentials (session, cred);
-
-              /* fire 'new-connection' signal */
-              g_signal_emit (socket,
-                             evd_socket_signals[SIGNAL_NEW_CONNECTION],
-                             0,
-                             client, NULL);
-
-              if (TLS_AUTOSTART (socket) &&
-                  (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error)) )
-                {
-                  evd_socket_throw_error (socket, error);
-                  evd_socket_close (socket, NULL);
-                }
-              else
-                {
-                  g_object_unref (client);
-                }
+              self->priv->new_cond |= condition;
+              evd_timeout_add (self->priv->context,
+                               0,
+                               evd_socket_handle_condition_cb,
+                               self);
             }
 
           if (error != NULL)
-            {
-              if (error->code != G_IO_ERROR_WOULD_BLOCK)
-                {
-                  /* error accepting connection, emit 'error' signal */
-                  error->code = EVD_SOCKET_ERROR_ACCEPT;
-                  evd_socket_throw_error (socket, error);
-
-                  evd_timeout_add (socket->priv->context,
-                                   0,
-                                   evd_socket_event_handler,
-                                   socket);
-                  dont_free = TRUE;
-                }
-
-              if (error != NULL)
-                g_error_free (error);
-            }
+            g_error_free (error);
         }
-      else
+    }
+  else
+    {
+      if (condition & G_IO_ERR)
         {
-          if (condition & G_IO_ERR)
-            {
-              /* socket error, emit 'error' signal */
-              error = g_error_new (evd_socket_err_domain,
-                                   EVD_SOCKET_ERROR_UNKNOWN,
-                                   "Socket error");
+          /* socket error, emit 'error' signal */
+          error = g_error_new (evd_socket_err_domain,
+                               EVD_SOCKET_ERROR_UNKNOWN,
+                               "Socket error");
 
-              evd_socket_throw_error (socket, error);
-              evd_socket_close (socket, NULL);
-            }
-          else if (socket->priv->status != EVD_SOCKET_STATE_CLOSED)
+          evd_socket_throw_error (self, error);
+          evd_socket_close (self, NULL);
+        }
+      else if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
+        {
+          /* write condition */
+          if (condition & G_IO_OUT)
             {
-              /* write condition */
-              if (condition & G_IO_OUT)
+              self->priv->watched_cond &= (~G_IO_OUT);
+              if (evd_socket_watch (self, self->priv->watched_cond, &error))
                 {
-                  socket->priv->watched_cond &= (~G_IO_OUT);
-                  if (evd_socket_watch (socket, socket->priv->watched_cond, &error))
+                  if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
                     {
-                      if (socket->priv->status == EVD_SOCKET_STATE_CONNECTING)
+                      /* socket has just connected! */
+
+                      /* restore priority */
+                      self->priv->actual_priority = self->priv->priority;
+
+                      /* remove any connect_timeout src */
+                      if (self->priv->connect_timeout_src_id > 0)
+                        g_source_remove (self->priv->connect_timeout_src_id);
+
+                      if (TLS_AUTOSTART (self))
                         {
-                          /* socket has just connected! */
+                          evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
 
-                          /* restore priority */
-                          socket->priv->actual_priority = socket->priv->priority;
-
-                          /* remove any connect_timeout src */
-                          if (socket->priv->connect_timeout_src_id > 0)
-                            g_source_remove (socket->priv->connect_timeout_src_id);
-
-                          if (TLS_AUTOSTART (socket))
+                          if (! evd_socket_starttls (self, EVD_TLS_MODE_CLIENT, &error))
                             {
-                              evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
-
-                              if (! evd_socket_starttls (socket, EVD_TLS_MODE_CLIENT, &error))
-                                {
-                                  evd_socket_throw_error (socket, error);
-                                  evd_socket_close (socket, NULL);
-                                }
-                            }
-                          else
-                            {
-                              socket->priv->cond |= G_IO_OUT;
-                              evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
-                              socket->priv->cond &= ~G_IO_OUT;
+                              evd_socket_throw_error (self, error);
+                              evd_socket_close (self, NULL);
                             }
                         }
-
-                      if ( (socket->priv->cond & G_IO_OUT) == 0)
+                      else
                         {
-                          socket->priv->cond |= G_IO_OUT;
-
-                          evd_socket_manage_write_condition (socket);
+                          self->priv->cond |= G_IO_OUT;
+                          evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
+                          self->priv->cond &= ~G_IO_OUT;
                         }
                     }
-                  else
+
+                  if ( (self->priv->cond & G_IO_OUT) == 0)
                     {
-                      evd_socket_throw_error (socket, error);
-                      evd_socket_close (socket, NULL);
+                      self->priv->cond |= G_IO_OUT;
+
+                      evd_socket_manage_write_condition (self);
                     }
                 }
-
-              /* read condition */
-              if (condition & G_IO_IN)
-                {
-                  socket->priv->watched_cond &= ~G_IO_IN;
-                  if (! evd_socket_watch (socket,
-                                          socket->priv->watched_cond,
-                                          &error))
-                    {
-                      evd_socket_throw_error (socket, error);
-                      evd_socket_close (socket, NULL);
-                    }
-                  else if ( (socket->priv->cond & G_IO_IN) == 0)
-                    {
-                      socket->priv->cond |= G_IO_IN;
-
-                      evd_socket_manage_read_condition (socket);
-                    }
-                }
-            }
-
-          if (condition & G_IO_HUP)
-            {
-              if (TLS_ENABLED (socket))
-                socket->priv->delayed_close = TRUE;
               else
-                evd_socket_close (socket, &error);
+                {
+                  evd_socket_throw_error (self, error);
+                  evd_socket_close (self, NULL);
+                }
+            }
+
+          /* read condition */
+          if (condition & G_IO_IN)
+            {
+              self->priv->watched_cond &= ~G_IO_IN;
+              if (! evd_socket_watch (self,
+                                      self->priv->watched_cond,
+                                      &error))
+                {
+                  evd_socket_throw_error (self, error);
+                  evd_socket_close (self, NULL);
+                }
+              else if ( (self->priv->cond & G_IO_IN) == 0)
+                {
+                  self->priv->cond |= G_IO_IN;
+
+                  evd_socket_manage_read_condition (self);
+                }
             }
         }
     }
 
-  g_object_unref (socket);
+  if (condition & G_IO_HUP)
+    {
+      if (TLS_ENABLED (self))
+        self->priv->delayed_close = TRUE;
+      else
+        evd_socket_close (self, &error);
+    }
 
-  return FALSE;
+  g_object_unref (self);
 }
 
 void
