@@ -34,7 +34,6 @@ G_BEGIN_DECLS
 void            evd_socket_set_status          (EvdSocket *self,
                                                 EvdSocketState status);
 void            evd_socket_throw_error         (EvdSocket *self, GError *error);
-gboolean        evd_socket_event_list_handler  (gpointer data);
 gboolean        evd_socket_event_handler       (gpointer data);
 void            evd_socket_set_group           (EvdSocket      *self,
                                                 EvdSocketGroup *group);
@@ -51,6 +50,9 @@ gboolean        evd_socket_cleanup_protected   (EvdSocket  *self,
 
 EvdSocket      *evd_socket_accept              (EvdSocket  *self,
                                                 GError    **error);
+
+void            evd_socket_notify_condition    (EvdSocket    *self,
+                                                GIOCondition  cond);
 
 G_END_DECLS
 

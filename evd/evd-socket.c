@@ -68,8 +68,6 @@ struct _EvdSocketPrivate
   guint         connect_timeout;
   guint         connect_timeout_src_id;
 
-  GQueue *event_queue_cache;
-
   EvdSocketGroup *group;
 
   gboolean auto_write;
@@ -95,6 +93,10 @@ struct _EvdSocketPrivate
   gboolean tls_enabled;
   gboolean tls_read_pending;
   gboolean delayed_close;
+
+  guint         event_handler_src_id;
+  GIOCondition  new_cond;
+  GMutex       *mutex;;
 };
 
 /* signals */
@@ -345,6 +347,11 @@ evd_socket_init (EvdSocket *self)
   priv->tls_enabled = FALSE;
   priv->tls_read_pending = FALSE;
   priv->delayed_close = FALSE;
+
+  priv->event_handler_src_id = 0;
+  priv->new_cond = 0;
+
+  priv->mutex = g_mutex_new ();
 }
 
 static void
@@ -374,6 +381,10 @@ evd_socket_dispose (GObject *obj)
 static void
 evd_socket_finalize (GObject *obj)
 {
+  EvdSocket *self = EVD_SOCKET (obj);
+
+  g_mutex_free (self->priv->mutex);
+
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
   //  g_debug ("[EvdSocket 0x%X] Socket finalized", (guintptr) obj);
@@ -717,36 +728,6 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
     }
 
   return TRUE;
-}
-
-static void
-evd_socket_remove_from_event_cache (EvdSocket *socket)
-{
-  GQueue *queue;
-  EvdSocketEvent *msg;
-  guint i;
-
-  queue = socket->priv->event_queue_cache;
-
-  if (queue == NULL)
-    return;
-
-  i = 0;
-  while (i<g_queue_get_length (queue))
-    {
-      msg = g_queue_peek_nth (queue, i);
-
-      if (msg->socket == socket)
-        {
-          EvdSocketEvent *event = (EvdSocketEvent *) msg;
-
-          g_queue_remove (queue, (gconstpointer) msg);
-          g_object_unref (event->socket);
-          g_free (event);
-        }
-      else
-        i++;
-    }
 }
 
 static gssize
@@ -1354,27 +1335,56 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
   g_error_free (error);
 }
 
+void
+evd_socket_notify_condition (EvdSocket    *self,
+                             GIOCondition  cond)
+{
+  /* ATTENTION! this runs in socket manager's thread */
+
+  g_mutex_lock (self->priv->mutex);
+
+  self->priv->new_cond |= cond;
+
+  if (self->priv->event_handler_src_id == 0)
+    {
+      GSource *src;
+
+      src = g_idle_source_new ();
+      g_source_set_priority (src, self->priv->actual_priority);
+      g_source_set_callback (src,
+                             evd_socket_event_handler,
+                             (gpointer) self,
+                             NULL);
+      self->priv->event_handler_src_id =
+        g_source_attach (src, self->priv->context);
+
+      g_source_unref (src);
+    }
+
+  g_mutex_unlock (self->priv->mutex);
+}
+
 gboolean
 evd_socket_event_handler (gpointer data)
 {
-  EvdSocketEvent *event = (EvdSocketEvent *) data;
-  EvdSocket *socket;
+  EvdSocket *socket = EVD_SOCKET (data);
   GIOCondition condition;
   EvdSocketClass *class;
   GError *error = NULL;
   gboolean dont_free = FALSE;
 
-  socket = event->socket;
-
   if ( (! EVD_IS_SOCKET (socket)) || (! socket->priv->watched) )
-    {
-      g_free (event);
-      return FALSE;
-    }
+    return FALSE;
 
   g_object_ref (socket);
 
-  condition = event->condition;
+  g_mutex_lock (socket->priv->mutex);
+
+  socket->priv->event_handler_src_id = 0;
+  condition = socket->priv->new_cond;
+  socket->priv->new_cond = 0;
+
+  g_mutex_unlock (socket->priv->mutex);
 
   class = EVD_SOCKET_GET_CLASS (socket);
   if (class->event_handler != NULL)
@@ -1429,7 +1439,7 @@ evd_socket_event_handler (gpointer data)
                   evd_timeout_add (socket->priv->context,
                                    0,
                                    evd_socket_event_handler,
-                                   event);
+                                   socket);
                   dont_free = TRUE;
                 }
 
@@ -1530,38 +1540,7 @@ evd_socket_event_handler (gpointer data)
         }
     }
 
-  if (! dont_free)
-    g_free (event);
-
   g_object_unref (socket);
-
-  return FALSE;
-}
-
-gboolean
-evd_socket_event_list_handler (gpointer data)
-{
-  GQueue *queue = data;
-  EvdSocketEvent *msg;
-
-  while ( (msg = (EvdSocketEvent *) g_queue_pop_head (queue)) != NULL)
-    {
-      EvdSocket *socket;
-
-      socket = msg->socket;
-      if (! EVD_IS_SOCKET (socket))
-        {
-          g_free (msg);
-        }
-      else
-        {
-          socket->priv->event_queue_cache = queue;
-          evd_socket_event_handler ((gpointer) msg);
-          socket->priv->event_queue_cache = NULL;
-        }
-    }
-
-  g_queue_free (queue);
 
   return FALSE;
 }
@@ -1617,8 +1596,6 @@ gboolean
 evd_socket_cleanup_protected (EvdSocket *self, GError **error)
 {
   gboolean result = TRUE;
-
-  evd_socket_remove_from_event_cache (self);
 
   if (self->priv->resolve_request != NULL &&
       evd_resolver_request_is_active (self->priv->resolve_request))
@@ -1682,6 +1659,15 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
     }
+
+  g_mutex_lock (self->priv->mutex);
+  if (self->priv->event_handler_src_id != 0)
+    {
+      g_source_remove (self->priv->event_handler_src_id);
+      self->priv->event_handler_src_id = 0;
+      self->priv->new_cond = 0;
+    }
+  g_mutex_unlock (self->priv->mutex);
 
   return result;
 }

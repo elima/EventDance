@@ -105,13 +105,6 @@ struct _EvdSocketClass
                             EvdSocket *socket);
 };
 
-/* event message to pass to sockets objects*/
-struct _EvdSocketEvent
-{
-  GIOCondition  condition;
-  EvdSocket    *socket;
-};
-
 /* error codes */
 typedef enum
 {

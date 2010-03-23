@@ -31,7 +31,6 @@
 
 #define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to poll */
 #define DEFAULT_MIN_LATENCY      1000 /* nanoseconds between dispatch calls */
-#define DEFAULT_DISPATCH_LOT    FALSE /* whether events whall be dispatched by lot or not */
 
 #define DOMAIN_QUARK_STRING "org.eventdance.socket.manager"
 
@@ -49,7 +48,6 @@ struct _EvdSocketManagerPrivate
   gint epoll_fd;
   GThread *thread;
   gboolean started;
-  gboolean dispatch_lot;
   guint max_sockets;
   gint epoll_timeout;
 };
@@ -93,8 +91,6 @@ evd_socket_manager_init (EvdSocketManager *self)
 
   priv->max_sockets = 1;
   priv->epoll_timeout = -1;
-
-  priv->dispatch_lot = DEFAULT_DISPATCH_LOT;
 }
 
 static void
@@ -129,11 +125,6 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
   static struct epoll_event events[DEFAULT_MAX_SOCKETS];
   gint i;
   gint nfds;
-  GHashTable *contexts = NULL;
-  GMainContext *context;
-  GSource *src;
-  GQueue *queue;
-  GHashTableIter iter;
 
   nfds = epoll_wait (self->priv->epoll_fd,
                      events,
@@ -167,84 +158,27 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       self->priv->epoll_timeout = -1;
     }
 
-  if (self->priv->dispatch_lot)
-    contexts = g_hash_table_new (g_direct_hash, g_direct_equal);
-
   for (i=0; i < nfds; i++)
     {
-      EvdSocketEvent *msg;
       EvdSocket *socket;
-      gint priority;
+      GIOCondition cond = 0;
 
       socket = (EvdSocket *) events[i].data.ptr;
       if (! EVD_IS_SOCKET (socket))
         continue;
 
-      priority = evd_socket_get_actual_priority (socket);
-
-      /* create the event message */
-      msg = g_new0 (EvdSocketEvent, 1);
-      msg->socket = socket;
       if (events[i].events & EPOLLIN)
-        msg->condition |= G_IO_IN;
+        cond |= G_IO_IN;
       if (events[i].events & EPOLLOUT)
-        msg->condition |= G_IO_OUT;
+        cond |= G_IO_OUT;
       if (events[i].events & EPOLLRDHUP)
-        msg->condition |= G_IO_HUP;
+        cond |= G_IO_HUP;
       if (events[i].events & EPOLLHUP)
-        msg->condition |= G_IO_HUP;
+        cond |= G_IO_HUP;
       if (events[i].events & EPOLLERR)
-        msg->condition |= G_IO_ERR;
+        cond |= G_IO_ERR;
 
-      /* obtain the context for this event */
-      context = evd_socket_get_context (socket);
-      if (context == NULL)
-        context = g_main_context_default ();
-
-      if (! self->priv->dispatch_lot)
-        {
-          /* dispatch a single event */
-          src = g_idle_source_new ();
-          g_source_set_priority (src, priority);
-          g_source_set_callback (src,
-                                 evd_socket_event_handler,
-                                 (gpointer) msg,
-                                 NULL);
-          g_source_attach (src, context);
-          g_source_unref (src);
-        }
-      else
-        {
-          /* group events by context */
-          queue = g_hash_table_lookup (contexts, context);
-          if (queue == NULL)
-            {
-              queue = g_queue_new ();
-              g_hash_table_insert (contexts,
-                                   (gpointer) context,
-                                   (gpointer) queue);
-            }
-          g_queue_push_tail (queue, (gpointer) msg);
-        }
-    }
-
-  if (self->priv->dispatch_lot)
-    {
-      /* dispatch the lot of events to each context */
-      g_hash_table_iter_init (&iter, contexts);
-      while (g_hash_table_iter_next (&iter,
-                                     (gpointer *) &context,
-                                     (gpointer *) &queue))
-        {
-          src = g_idle_source_new ();
-          g_source_set_callback (src,
-                                 evd_socket_event_list_handler,
-                                 (gpointer) queue,
-                                 NULL);
-          g_source_attach (src, context);
-          g_source_unref (src);
-        }
-      g_hash_table_unref (contexts);
+      evd_socket_notify_condition (socket, cond);
     }
 }
 
