@@ -1468,15 +1468,21 @@ evd_socket_event_handler (gpointer data)
                           if (socket->priv->connect_timeout_src_id > 0)
                             g_source_remove (socket->priv->connect_timeout_src_id);
 
-                          evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
-
                           if (TLS_AUTOSTART (socket))
                             {
+                              evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
+
                               if (! evd_socket_starttls (socket, EVD_TLS_MODE_CLIENT, &error))
                                 {
                                   evd_socket_throw_error (socket, error);
                                   evd_socket_close (socket, NULL);
                                 }
+                            }
+                          else
+                            {
+                              socket->priv->cond |= G_IO_OUT;
+                              evd_socket_set_status (socket, EVD_SOCKET_STATE_CONNECTED);
+                              socket->priv->cond &= ~G_IO_OUT;
                             }
                         }
 
