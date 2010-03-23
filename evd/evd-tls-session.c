@@ -63,7 +63,8 @@ enum
 {
   PROP_0,
   PROP_CREDENTIALS,
-  PROP_MODE
+  PROP_MODE,
+  PROP_PRIORITY
 };
 
 static void     evd_tls_session_class_init         (EvdTlsSessionClass *class);
@@ -111,6 +112,14 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
                                                       EVD_TLS_MODE_SERVER,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_PRIORITY,
+                                   g_param_spec_string ("priority",
+                                                        "Priority string to use in this session",
+                                                        "Gets/sets the priorities to use on the ciphers, key exchange methods, macs and compression methods",
+                                                        EVD_TLS_SESSION_DEFAULT_PRIORITY,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
@@ -190,6 +199,12 @@ evd_tls_session_set_property (GObject      *obj,
       self->priv->mode = g_value_get_uint (value);
       break;
 
+    case PROP_PRIORITY:
+      if (self->priv->priority != NULL)
+        g_free (self->priv->priority);
+      self->priv->priority = g_strdup (g_value_get_string (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -214,6 +229,10 @@ evd_tls_session_get_property (GObject    *obj,
 
     case PROP_MODE:
       g_value_set_uint (value, self->priv->mode);
+      break;
+
+    case PROP_PRIORITY:
+      g_value_set_string (value, self->priv->priority);
       break;
 
     default:
