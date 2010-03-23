@@ -39,10 +39,6 @@ void            evd_socket_set_group           (EvdSocket      *self,
                                                 EvdSocketGroup *group);
 EvdSocketGroup *evd_socket_get_group           (EvdSocket      *self);
 
-void            evd_socket_set_actual_priority (EvdSocket *self,
-                                                gint       priority);
-gint            evd_socket_get_actual_priority (EvdSocket *self);
-
 void            evd_socket_invoke_on_read      (EvdSocket *self);
 
 gboolean        evd_socket_cleanup_protected   (EvdSocket  *self,

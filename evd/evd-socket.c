@@ -1560,18 +1560,6 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 }
 
 void
-evd_socket_set_actual_priority (EvdSocket *self, gint priority)
-{
-  self->priv->actual_priority = priority;
-}
-
-gint
-evd_socket_get_actual_priority (EvdSocket *self)
-{
-  return self->priv->actual_priority;
-}
-
-void
 evd_socket_invoke_on_read (EvdSocket *self)
 {
   GClosure *closure = NULL;
