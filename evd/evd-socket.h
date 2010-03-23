@@ -359,6 +359,8 @@ gboolean        evd_socket_shutdown             (EvdSocket  *self,
                                                  gboolean    shutdown_write,
                                                  GError    **error);
 
+gboolean        evd_socket_get_tls_active       (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */

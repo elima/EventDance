@@ -123,7 +123,8 @@ enum
   PROP_AUTO_WRITE,
   PROP_GROUP,
   PROP_PRIORITY,
-  PROP_STATUS
+  PROP_STATUS,
+  PROP_TLS_ACTIVE
 };
 
 static GQuark evd_socket_err_domain;
@@ -297,6 +298,14 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       EVD_SOCKET_STATE_CLOSED,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_TLS_ACTIVE,
+                                   g_param_spec_boolean ("tls-active",
+                                                         "Tells whether SSL/TLS is active",
+                                                         "Returns TRUE if socket has SSL/TLS active, FALSE otherwise. SSL/TLS is activated by calling 'starttls' on a socket",
+                                                         FALSE,
+                                                         G_PARAM_READABLE |
+                                                         G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
@@ -511,6 +520,10 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_STATUS:
       g_value_set_uint (value, self->priv->status);
+      break;
+
+    case PROP_TLS_ACTIVE:
+      g_value_set_boolean (value, self->priv->tls_enabled);
       break;
 
     default:
@@ -1490,22 +1503,16 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                       if (self->priv->connect_timeout_src_id > 0)
                         g_source_remove (self->priv->connect_timeout_src_id);
 
-                      if (TLS_AUTOSTART (self))
-                        {
-                          evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
+                      self->priv->cond |= G_IO_OUT;
+                      evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
+                      self->priv->cond &= ~G_IO_OUT;
 
-                          if (! evd_socket_starttls (self, EVD_TLS_MODE_CLIENT, &error))
-                            {
-                              evd_socket_throw_error (self, error);
-                              evd_socket_close (self, NULL);
-                            }
-                        }
-                      else
-                        {
-                          self->priv->cond |= G_IO_OUT;
-                          evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
-                          self->priv->cond &= ~G_IO_OUT;
-                        }
+                      if (TLS_AUTOSTART (self) && (! self->priv->tls_enabled))
+                        if (! evd_socket_starttls (self, EVD_TLS_MODE_CLIENT, &error))
+                          {
+                            evd_socket_throw_error (self, error);
+                            evd_socket_close (self, NULL);
+                          }
                     }
 
                   if ( (self->priv->cond & G_IO_OUT) == 0)
@@ -2444,4 +2451,12 @@ evd_socket_shutdown (EvdSocket  *self,
                             shutdown_read,
                             shutdown_write,
                             error);
+}
+
+gboolean
+evd_socket_get_tls_active (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  return self->priv->tls_enabled;
 }
