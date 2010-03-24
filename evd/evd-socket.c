@@ -837,7 +837,7 @@ evd_socket_read_filtered (EvdSocket *self,
         }
     }
 
-  if ( ((limited_size == 0 || limited_size < size) && (actual_size == limited_size)) )
+  if (limited_size < size && actual_size == limited_size)
     {
       if (! self->priv->awaiting_read)
         {
@@ -1230,6 +1230,7 @@ evd_socket_tls_pull (EvdTlsSession *session,
   gssize result = EVD_TLS_ERROR_AGAIN;
 
   result = evd_socket_read_filtered (self, buffer, size, &error);
+
   //  g_debug ("read %d bytes out of (%d)", result, size);
 
   if (result < 0)
@@ -1378,6 +1379,20 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
                  error->message,
                  NULL);
   g_error_free (error);
+}
+
+static gboolean
+evd_socket_confirm_read_condition (EvdSocket *self)
+{
+  gchar buf[1] = { 0, };
+
+  if (evd_socket_read_len (self, buf, 1, NULL) == 1)
+    {
+      evd_socket_unread_len (self, buf, 1, NULL);
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 void
@@ -1542,21 +1557,41 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                 }
               else if ( (self->priv->cond & G_IO_IN) == 0)
                 {
-                  self->priv->cond |= G_IO_IN;
+                  if ( TLS_ENABLED (self) ||
+                       (condition & G_IO_HUP) == 0 ||
+                       evd_socket_confirm_read_condition (self) )
+                    {
+                      self->priv->cond |= G_IO_IN;
 
-                  evd_socket_manage_read_condition (self);
+                      evd_socket_manage_read_condition (self);
+                    }
                 }
             }
         }
-    }
 
-  if (condition & G_IO_HUP)
-    {
-      if (TLS_ENABLED (self))
-        self->priv->delayed_close = TRUE;
-      else
-        evd_socket_close (self, &error);
     }
+      if (condition & G_IO_HUP)
+        {
+          if (self->priv->awaiting_read ||
+              self->priv->tls_read_pending ||
+              self->priv->cond & G_IO_IN)
+            {
+              self->priv->delayed_close = TRUE;
+
+              if (! TLS_ENABLED (self) && self->priv->read_src_id == 0)
+                {
+                  self->priv->read_src_id =
+                    evd_timeout_add (self->priv->context,
+                                     0,
+                                     (GSourceFunc) evd_socket_read_wait_timeout,
+                                     (gpointer) self);
+                }
+            }
+          else
+            {
+              evd_socket_close (self, &error);
+            }
+        }
 
   g_object_unref (self);
 }
@@ -1902,6 +1937,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
       self->priv->watched_cond = G_IO_IN;
       if (evd_socket_watch (self, self->priv->watched_cond, error))
         {
+          self->priv->cond = 0;
           self->priv->actual_priority = G_PRIORITY_HIGH + 1;
           evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
 
@@ -2153,11 +2189,6 @@ evd_socket_read_len (EvdSocket  *self,
                                  evd_socket_read_wait_timeout,
                                  self);
             }
-          else if (read_from_socket == 0 && self->priv->delayed_close &&
-                   ! self->priv->awaiting_read)
-            {
-              evd_socket_close (self, NULL);
-            }
         }
       else
         read_from_socket = evd_socket_read_filtered (self,
@@ -2166,7 +2197,12 @@ evd_socket_read_len (EvdSocket  *self,
                                                      error);
     }
 
-  if (read_from_socket < 0)
+  if (read_from_socket == 0)
+    {
+      if (self->priv->delayed_close && ! self->priv->awaiting_read)
+        evd_socket_close (self, NULL);
+    }
+  else if (read_from_socket < 0)
     {
       /* hack to gracefully recover from peer
          abruptly closing TLS connection */
@@ -2185,7 +2221,7 @@ evd_socket_read_len (EvdSocket  *self,
     }
   else
     {
-     if (read_from_buf > 0)
+      if (read_from_buf > 0)
         g_string_erase (self->priv->read_buffer, 0, read_from_buf);
     }
 
