@@ -167,14 +167,17 @@ evd_socket_manager_dispatch (EvdSocketManager *self)
       if (! EVD_IS_SOCKET (socket))
         continue;
 
-      if (events[i].events & EPOLLIN)
+      if ( (events[i].events & EPOLLIN) > 0 ||
+           (events[i].events & EPOLLPRI) > 0)
         cond |= G_IO_IN;
+
       if (events[i].events & EPOLLOUT)
         cond |= G_IO_OUT;
-      if (events[i].events & EPOLLRDHUP)
+
+      if ( (events[i].events & EPOLLHUP) > 0 ||
+           (events[i].events & EPOLLRDHUP) > 0)
         cond |= G_IO_HUP;
-      if (events[i].events & EPOLLHUP)
-        cond |= G_IO_HUP;
+
       if (events[i].events & EPOLLERR)
         cond |= G_IO_ERR;
 
@@ -224,7 +227,7 @@ evd_socket_manager_add_fd_into_epoll (EvdSocketManager *self,
   ev.events = EPOLLET | EPOLLRDHUP;
 
   if (cond & G_IO_IN)
-    ev.events |= EPOLLIN;
+    ev.events |= EPOLLIN | EPOLLPRI;
   if (cond & G_IO_OUT)
     ev.events |= EPOLLOUT;
 
@@ -363,7 +366,7 @@ evd_socket_manager_mod_socket (EvdSocket     *socket,
       ev.events = EPOLLET | EPOLLRDHUP;
 
       if (condition & G_IO_IN)
-        ev.events |= EPOLLIN;
+        ev.events |= EPOLLIN | EPOLLPRI;
       if (condition & G_IO_OUT)
         ev.events |= EPOLLOUT;
 
