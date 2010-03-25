@@ -39,9 +39,9 @@
 #define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.lib.socket"
 
-#define MAX_BLOCK_SIZE          0xFFFF
-#define MAX_READ_BUFFER_SIZE    0xFFFF
-#define MAX_WRITE_BUFFER_SIZE   0xFFFF
+#define MAX_BLOCK_SIZE          G_MAXUINT16
+#define MAX_READ_BUFFER_SIZE    G_MAXUINT16
+#define MAX_WRITE_BUFFER_SIZE   G_MAXUINT16
 
 #define TLS_ENABLED(socket)   (socket->priv->tls_enabled == TRUE)
 #define TLS_SESSION(socket)   evd_stream_get_tls_session (EVD_STREAM (socket))
@@ -2233,8 +2233,9 @@ evd_socket_read (EvdSocket  *self,
                  gsize      *size,
                  GError    **error)
 {
-  gchar *buf;
+  gchar buf[MAX_BLOCK_SIZE + 1] = { 0, };
   gssize actual_size;
+  gchar *data = NULL;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
   g_return_val_if_fail (size != NULL, NULL);
@@ -2242,23 +2243,26 @@ evd_socket_read (EvdSocket  *self,
   if (*size == 0)
     return NULL;
 
-  buf = g_new0 (gchar, (*size) + 1);
-
   if ( (actual_size = evd_socket_read_len (self,
                                            buf,
                                            *size,
                                            error)) >= 0)
     {
       *size = actual_size;
-      buf[*size] = '\0';
+
+      if (actual_size > 0)
+        {
+          data = g_new (gchar, actual_size + 1);
+          g_memmove (data, buf, actual_size);
+          data[actual_size] = '\0';
+        }
     }
   else
     {
-      g_free (buf);
-      buf = NULL;
+      (*size) = 0;
     }
 
-  return buf;
+  return data;
 }
 
 gssize
