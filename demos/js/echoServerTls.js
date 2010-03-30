@@ -27,6 +27,8 @@ let socket = new Evd.Socket ();
 socket.tls_autostart = true;
 socket.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
 socket.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
+socket.tls.credentials.trust_file = "../../tests/certs/x509-ca.pem";
+socket.tls.require_peer_cert = true;
 
 // hook-up new-connection event
 socket.connect ("new-connection",
