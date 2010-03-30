@@ -1438,17 +1438,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
         {
-          EvdTlsSession *session;
-          EvdTlsCredentials *cred;
-
           /* TODO: allow external function to decide whether to
              accept/refuse the new connection */
-
-          /* copy TLS credentials from listener to accepted socket */
-          session = TLS_SESSION (self);
-          cred = evd_tls_session_get_credentials (session);
-          session = TLS_SESSION (client);
-          evd_tls_session_set_credentials (session, cred);
 
           /* fire 'new-connection' signal */
           g_signal_emit (self,
@@ -1456,11 +1447,16 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                          0,
                          client, NULL);
 
-          if (TLS_AUTOSTART (self) &&
-              (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error)) )
+          if (TLS_AUTOSTART (self))
             {
-              evd_socket_throw_error (client, error);
-              evd_socket_close (client, NULL);
+              /* copy TLS session properties from listener to accepted socket */
+              evd_tls_session_copy_properties (TLS_SESSION (self), TLS_SESSION (client));
+
+              if (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error))
+                {
+                  evd_socket_throw_error (client, error);
+                  evd_socket_close (client, NULL);
+                }
             }
           else
             {
