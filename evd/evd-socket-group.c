@@ -168,7 +168,6 @@ evd_socket_group_remove_internal (EvdSocketGroup *self,
 {
   if (evd_socket_get_group (socket) == self)
     {
-      evd_socket_set_read_handler (socket, NULL, NULL);
       evd_socket_set_group (socket, NULL);
 
       return TRUE;

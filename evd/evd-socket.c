@@ -1595,9 +1595,20 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 void
 evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 {
+  if (self->priv->group != NULL)
+    {
+      evd_stream_set_on_read (EVD_STREAM (self), NULL);
+      evd_stream_set_on_write (EVD_STREAM (self), NULL);
+
+      g_object_unref (self->priv->group);
+    }
+
   self->priv->group = group;
+
   if (group != NULL)
     {
+      g_object_ref (self->priv->group);
+
       if (self->priv->read_buffer->len > 0)
         evd_socket_invoke_on_read_internal (self);
 
@@ -2087,6 +2098,8 @@ evd_socket_set_read_handler (EvdSocket            *self,
 
   g_return_if_fail (EVD_IS_SOCKET (self));
 
+  evd_socket_set_group (self, NULL);
+
   if (handler == NULL)
     {
       evd_stream_set_on_read (EVD_STREAM (self), NULL);
@@ -2115,6 +2128,8 @@ evd_socket_set_write_handler (EvdSocket             *self,
   GClosure *closure;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
+
+  evd_socket_set_group (self, NULL);
 
   if (handler == NULL)
     {
