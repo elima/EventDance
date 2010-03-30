@@ -65,6 +65,9 @@ void               evd_tls_credentials_set_cert_file   (EvdTlsCredentials *self,
 void               evd_tls_credentials_set_key_file    (EvdTlsCredentials *self,
                                                         const gchar       *key_file);
 
+void               evd_tls_credentials_set_trust_file  (EvdTlsCredentials *self,
+                                                        const gchar       *trust_file);
+
 gboolean           evd_tls_credentials_ready           (EvdTlsCredentials *self);
 gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self,
                                                         EvdTlsMode          mode,
