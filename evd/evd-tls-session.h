@@ -106,6 +106,9 @@ gboolean           evd_tls_session_close               (EvdTlsSession  *self,
 gboolean           evd_tls_session_shutdown_write      (EvdTlsSession  *self,
                                                         GError         **error);
 
+void               evd_tls_session_copy_properties     (EvdTlsSession *self,
+                                                        EvdTlsSession *target);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_SESSION_H__ */
