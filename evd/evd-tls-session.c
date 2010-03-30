@@ -55,6 +55,8 @@ struct _EvdTlsSessionPrivate
   gint cred_ready_sig_id;
 
   gboolean cred_bound;
+
+  gboolean require_peer_cert;
 };
 
 
@@ -64,7 +66,8 @@ enum
   PROP_0,
   PROP_CREDENTIALS,
   PROP_MODE,
-  PROP_PRIORITY
+  PROP_PRIORITY,
+  PROP_REQUIRE_PEER_CERT
 };
 
 static void     evd_tls_session_class_init         (EvdTlsSessionClass *class);
@@ -121,6 +124,14 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_REQUIRE_PEER_CERT,
+                                   g_param_spec_boolean ("require-peer-cert",
+                                                         "Require peer certificate",
+                                                         "Controls whether a peer certificate will be requested during handshake",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
 }
@@ -149,6 +160,8 @@ evd_tls_session_init (EvdTlsSession *self)
   priv->cred_ready_sig_id = 0;
 
   priv->cred_bound = FALSE;
+
+  priv->require_peer_cert = FALSE;
 }
 
 static void
@@ -205,6 +218,10 @@ evd_tls_session_set_property (GObject      *obj,
       self->priv->priority = g_strdup (g_value_get_string (value));
       break;
 
+    case PROP_REQUIRE_PEER_CERT:
+      self->priv->require_peer_cert = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -233,6 +250,10 @@ evd_tls_session_get_property (GObject    *obj,
 
     case PROP_PRIORITY:
       g_value_set_string (value, self->priv->priority);
+      break;
+
+    case PROP_REQUIRE_PEER_CERT:
+      g_value_set_boolean (value, self->priv->require_peer_cert);
       break;
 
     default:
@@ -453,10 +474,18 @@ evd_tls_session_handshake (EvdTlsSession  *self,
           err_code = gnutls_priority_set_direct (self->priv->session,
                                                  self->priv->priority,
                                                  NULL);
+
           if (err_code != GNUTLS_E_SUCCESS)
             {
               evd_tls_build_error (err_code, error, self->priv->err_domain);
               return FALSE;
+            }
+
+          if (self->priv->require_peer_cert &&
+              self->priv->mode == EVD_TLS_MODE_SERVER)
+            {
+              gnutls_certificate_server_set_request (self->priv->session,
+                                                     GNUTLS_CERT_REQUEST);
             }
 
           gnutls_transport_set_ptr2 (self->priv->session, self, self);
