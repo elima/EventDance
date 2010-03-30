@@ -358,13 +358,13 @@ test_socket_context ()
   /* socket group */
   group_senders = evd_socket_group_new ();
   group_receivers = evd_socket_group_new ();
-  evd_socket_group_set_read_handler (group_receivers,
-		     (EvdSocketGroupReadHandler) group_socket_on_read,
-		     NULL);
+  evd_stream_set_read_handler (EVD_STREAM (group_receivers),
+                               G_CALLBACK (group_socket_on_read),
+                               NULL);
 
-  evd_socket_group_set_write_handler (group_senders,
-                     (EvdSocketGroupReadHandler) group_socket_on_write,
-		     NULL);
+  evd_stream_set_write_handler (EVD_STREAM (group_senders),
+                                G_CALLBACK (group_socket_on_write),
+                                NULL);
 
   g_object_set (group_senders,
 		"bandwidth-out", GROUP_BANDWIDTH_OUT,

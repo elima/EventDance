@@ -102,6 +102,9 @@ evd_stream_class_init (EvdStreamClass *class)
   obj_class->get_property = evd_stream_get_property;
   obj_class->set_property = evd_stream_set_property;
 
+  class->read_handler_marshal = g_cclosure_marshal_VOID__VOID;
+  class->write_handler_marshal = g_cclosure_marshal_VOID__VOID;
+
   /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
                                    g_param_spec_boxed ("read-closure",
@@ -597,4 +600,54 @@ evd_stream_get_tls_session (EvdStream *self)
     }
 
   return self->priv->tls_session;
+}
+
+void
+evd_stream_set_read_handler (EvdStream *self,
+                             GCallback  callback,
+                             gpointer   user_data)
+{
+  GClosure *closure = NULL;
+
+  g_return_if_fail (EVD_IS_STREAM (self));
+
+  if (callback != NULL)
+    {
+      EvdStreamClass *class;
+
+      class = EVD_STREAM_GET_CLASS (self);
+
+      g_return_if_fail (class->read_handler_marshal != NULL);
+
+      closure = g_cclosure_new (callback, user_data, NULL);
+      if (class->read_handler_marshal != NULL)
+        g_closure_set_marshal (closure, class->read_handler_marshal);
+    }
+
+  evd_stream_set_on_read (EVD_STREAM (self), closure);
+}
+
+void
+evd_stream_set_write_handler (EvdStream *self,
+                              GCallback  callback,
+                              gpointer   user_data)
+{
+  GClosure *closure = NULL;
+
+  g_return_if_fail (EVD_IS_STREAM (self));
+
+  if (callback != NULL)
+    {
+      EvdStreamClass *class;
+
+      class = EVD_STREAM_GET_CLASS (self);
+
+      g_return_if_fail (class->write_handler_marshal != NULL);
+
+      closure = g_cclosure_new (callback, user_data, NULL);
+      if (class->write_handler_marshal != NULL)
+        g_closure_set_marshal (closure, class->write_handler_marshal);
+    }
+
+  evd_stream_set_on_write (EVD_STREAM (self), closure);
 }

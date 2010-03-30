@@ -85,14 +85,6 @@ void            evd_socket_group_add              (EvdSocketGroup *self,
 gboolean        evd_socket_group_remove           (EvdSocketGroup *self,
 						   EvdSocket      *socket);
 
-void            evd_socket_group_set_read_handler (EvdSocketGroup            *self,
-						   EvdSocketGroupReadHandler  handler,
-						   gpointer                   user_data);
-
-void            evd_socket_group_set_write_handler (EvdSocketGroup             *self,
-                                                    EvdSocketGroupWriteHandler  handler,
-                                                    gpointer                    user_data);
-
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_GROUP_H__ */

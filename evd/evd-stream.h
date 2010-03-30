@@ -48,6 +48,9 @@ struct _EvdStreamClass
 {
   GObjectClass parent_class;
 
+  GClosureMarshal read_handler_marshal;
+  GClosureMarshal write_handler_marshal;
+
   /* virtual methods */
 
   /* signal prototypes */
@@ -64,6 +67,19 @@ struct _EvdStreamClass
 GType          evd_stream_get_type       (void) G_GNUC_CONST;
 
 EvdStream     *evd_stream_new            (void);
+
+/**
+ * evd_stream_set_read_handler:
+ * @self: The #EvdStream.
+ * @callback: (allow-none): The #GCallback to call upon read condition.
+ * @user_data: Pointer to arbitrary data to pass in @callback.
+ *
+ * Specifies a pointer to the function to be invoked when data is waiting
+ * to be read from the stream.
+ */
+void           evd_stream_set_read_handler        (EvdStream *self,
+                                                   GCallback  callback,
+                                                   gpointer   user_data);
 
 /**
  * evd_stream_set_on_read:
@@ -84,6 +100,19 @@ void           evd_stream_set_on_read    (EvdStream *self,
  * or NULL.
  */
 GClosure      *evd_stream_get_on_read    (EvdStream *self);
+
+/**
+ * evd_stream_set_write_handler:
+ * @self: The #EvdStream.
+ * @callback: (allow-none): The #GCallback to call upon write condition.
+ * @user_data: Pointer to arbitrary data to pass in @callback.
+ *
+ * Specifies a pointer to the function to be invoked when it becomes safe to
+ * write data to the stream.
+ */
+void           evd_stream_set_write_handler (EvdStream *self,
+                                             GCallback  callback,
+                                             gpointer   user_data);
 
 /**
  * evd_stream_set_on_write:

@@ -52,19 +52,6 @@ typedef struct _EvdSocketClass EvdSocketClass;
 typedef struct _EvdSocketPrivate EvdSocketPrivate;
 typedef struct _EvdSocketEvent EvdSocketEvent;
 
-/**
- * EvdSocketReadHandler:
- * @socket: The #EvdSocket
- * @user_data: (allow-none): A #gpointer to user defined data to pass in callback.
- *
- * Prototype for a callback to be executed when 'read' event is received on a socket.
- */
-typedef void (* EvdSocketReadHandler) (EvdSocket *socket,
-                                       gpointer   user_data);
-
-typedef void (* EvdSocketWriteHandler) (EvdSocket *socket,
-                                        gpointer   user_data);
-
 /* socket states */
 typedef enum
 {
@@ -217,14 +204,6 @@ gboolean      evd_socket_connect_addr     (EvdSocket       *self,
 gboolean      evd_socket_connect_to       (EvdSocket    *self,
                                            const gchar  *address,
                                            GError      **error);
-
-void          evd_socket_set_read_handler (EvdSocket            *self,
-                                           EvdSocketReadHandler  handler,
-                                           gpointer              user_data);
-
-void          evd_socket_set_write_handler (EvdSocket             *self,
-                                            EvdSocketWriteHandler  handler,
-                                            gpointer               user_data);
 
 /**
  * evd_socket_read_len:

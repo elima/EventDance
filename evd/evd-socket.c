@@ -2089,68 +2089,6 @@ evd_socket_connect_to (EvdSocket    *self,
   return TRUE;
 }
 
-void
-evd_socket_set_read_handler (EvdSocket            *self,
-                             EvdSocketReadHandler  handler,
-                             gpointer              user_data)
-{
-  GClosure *closure;
-
-  g_return_if_fail (EVD_IS_SOCKET (self));
-
-  evd_socket_set_group (self, NULL);
-
-  if (handler == NULL)
-    {
-      evd_stream_set_on_read (EVD_STREAM (self), NULL);
-      return;
-    }
-
-  closure = g_cclosure_new (G_CALLBACK (handler),
-                            user_data,
-                            NULL);
-
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__VOID;
-
-      g_closure_set_marshal (closure, marshal);
-    }
-
-  evd_stream_set_on_read (EVD_STREAM (self), closure);
-}
-
-void
-evd_socket_set_write_handler (EvdSocket             *self,
-                              EvdSocketWriteHandler  handler,
-                              gpointer               user_data)
-{
-  GClosure *closure;
-
-  g_return_if_fail (EVD_IS_SOCKET (self));
-
-  evd_socket_set_group (self, NULL);
-
-  if (handler == NULL)
-    {
-      evd_stream_set_on_write (EVD_STREAM (self), NULL);
-      return;
-    }
-
-  closure = g_cclosure_new (G_CALLBACK (handler),
-                            user_data,
-                            NULL);
-
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__VOID;
-
-      g_closure_set_marshal (closure, marshal);
-    }
-
-  evd_stream_set_on_write (EVD_STREAM (self), closure);
-}
-
 gssize
 evd_socket_read_len (EvdSocket  *self,
                      gchar      *buffer,

@@ -230,10 +230,14 @@ evd_socket_test_on_new_conn (EvdSocket *self,
   g_assert_cmpint (evd_socket_get_status (client), ==, EVD_SOCKET_STATE_CONNECTED);
   g_assert (evd_socket_get_socket (client) != NULL);
 
-  evd_socket_set_read_handler (client, evd_socket_test_on_read, f);
+  evd_stream_set_read_handler (EVD_STREAM (client),
+                               G_CALLBACK (evd_socket_test_on_read),
+                               f);
   g_assert (evd_stream_get_on_read (EVD_STREAM (client)) != NULL);
 
-  evd_socket_set_write_handler (client, evd_socket_test_on_write, f);
+  evd_stream_set_write_handler (EVD_STREAM (client),
+                                G_CALLBACK (evd_socket_test_on_write),
+                                f);
   g_assert (evd_stream_get_on_write (EVD_STREAM (client)) != NULL);
 
   f->socket2 = client;
@@ -319,10 +323,14 @@ evd_socket_launch_test (gpointer user_data)
                     G_CALLBACK (evd_socket_test_on_error),
                     (gpointer) f);
 
-  evd_socket_set_read_handler (f->socket1, evd_socket_test_on_read, f);
+  evd_stream_set_read_handler (EVD_STREAM (f->socket1),
+                               G_CALLBACK (evd_socket_test_on_read),
+                               f);
   g_assert (evd_stream_get_on_read (EVD_STREAM (f->socket1)) != NULL);
 
-  evd_socket_set_write_handler (f->socket1, evd_socket_test_on_write, f);
+  evd_stream_set_write_handler (EVD_STREAM (f->socket1),
+                                G_CALLBACK (evd_socket_test_on_write),
+                                f);
   g_assert (evd_stream_get_on_write (EVD_STREAM (f->socket1)) != NULL);
 
   g_signal_connect (f->socket,

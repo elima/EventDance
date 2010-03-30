@@ -39,11 +39,16 @@ static void
 evd_socket_group_class_init (EvdSocketGroupClass *class)
 {
   GObjectClass *obj_class;
+  EvdStreamClass *stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->dispose = evd_socket_group_dispose;
   obj_class->finalize = evd_socket_group_finalize;
+
+  stream_class = EVD_STREAM_CLASS (class);
+  stream_class->read_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
+  stream_class->write_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
 
   class->socket_on_read = evd_socket_group_socket_on_read_internal;
   class->socket_on_write = evd_socket_group_socket_on_write_internal;
@@ -152,11 +157,11 @@ void
 evd_socket_group_add_internal (EvdSocketGroup *self,
 			       EvdSocket      *socket)
 {
-  evd_socket_set_read_handler (socket,
-			       evd_socket_group_socket_on_read,
+  evd_stream_set_read_handler (EVD_STREAM (socket),
+			       G_CALLBACK (evd_socket_group_socket_on_read),
 			       self);
-  evd_socket_set_write_handler (socket,
-                                evd_socket_group_socket_on_write,
+  evd_stream_set_write_handler (EVD_STREAM (socket),
+                                G_CALLBACK (evd_socket_group_socket_on_write),
                                 self);
 
   evd_socket_set_group (socket, self);
@@ -216,50 +221,4 @@ evd_socket_group_remove (EvdSocketGroup *self, EvdSocket *socket)
     return class->remove (self, socket);
   else
     return evd_socket_group_remove_internal (self, socket);
-}
-
-void
-evd_socket_group_set_read_handler (EvdSocketGroup            *self,
-				   EvdSocketGroupReadHandler  handler,
-				   gpointer                   user_data)
-{
-  GClosure *closure;
-
-  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
-
-  closure = g_cclosure_new (G_CALLBACK (handler),
-			    user_data,
-			    NULL);
-
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__OBJECT;
-
-      g_closure_set_marshal (closure, marshal);
-    }
-
-  evd_stream_set_on_read (EVD_STREAM (self), closure);
-}
-
-void
-evd_socket_group_set_write_handler (EvdSocketGroup             *self,
-                                    EvdSocketGroupWriteHandler  handler,
-                                    gpointer                    user_data)
-{
-  GClosure *closure;
-
-  g_return_if_fail (EVD_IS_SOCKET_GROUP (self));
-
-  closure = g_cclosure_new (G_CALLBACK (handler),
-			    user_data,
-			    NULL);
-
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__OBJECT;
-
-      g_closure_set_marshal (closure, marshal);
-    }
-
-  evd_stream_set_on_write (EVD_STREAM (self), closure);
 }
