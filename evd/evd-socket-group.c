@@ -32,9 +32,6 @@ G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_STREAM)
 static void     evd_socket_group_class_init         (EvdSocketGroupClass *class);
 static void     evd_socket_group_init               (EvdSocketGroup *self);
 
-static void     evd_socket_group_finalize           (GObject *obj);
-static void     evd_socket_group_dispose            (GObject *obj);
-
 static void
 evd_socket_group_class_init (EvdSocketGroupClass *class)
 {
@@ -42,9 +39,6 @@ evd_socket_group_class_init (EvdSocketGroupClass *class)
   EvdStreamClass *stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
-
-  obj_class->dispose = evd_socket_group_dispose;
-  obj_class->finalize = evd_socket_group_finalize;
 
   stream_class = EVD_STREAM_CLASS (class);
   stream_class->read_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
@@ -59,18 +53,6 @@ evd_socket_group_class_init (EvdSocketGroupClass *class)
 static void
 evd_socket_group_init (EvdSocketGroup *self)
 {
-}
-
-static void
-evd_socket_group_dispose (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_socket_group_parent_class)->dispose (obj);
-}
-
-static void
-evd_socket_group_finalize (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_socket_group_parent_class)->finalize (obj);
 }
 
 static void
@@ -93,6 +75,30 @@ evd_socket_group_socket_on_write (EvdSocket *socket, gpointer user_data)
     class->socket_on_write (self, socket);
 }
 
+static void
+evd_socket_group_invoke_closure (EvdSocketGroup *self,
+                                 GClosure       *closure,
+                                 EvdSocket      *socket)
+{
+  GValue params[2] = { {0, } };
+
+  g_value_init (&params[0], EVD_TYPE_SOCKET_GROUP);
+  g_value_set_object (&params[0], self);
+
+  g_object_ref (socket);
+  g_value_init (&params[1], EVD_TYPE_SOCKET);
+  g_value_set_object (&params[1], socket);
+
+  g_object_ref (self);
+  g_closure_invoke (closure, NULL, 2, params, NULL);
+  g_object_unref (self);
+
+  g_object_unref (socket);
+
+  g_value_unset (&params[0]);
+  g_value_unset (&params[1]);
+}
+
 /* protected methods */
 
 void
@@ -103,25 +109,7 @@ evd_socket_group_socket_on_read_internal (EvdSocketGroup *self,
 
   closure = evd_stream_get_on_read (EVD_STREAM (self));
   if (closure != NULL)
-    {
-      GValue params[2] = { {0, } };
-
-      g_value_init (&params[0], EVD_TYPE_SOCKET_GROUP);
-      g_value_set_object (&params[0], self);
-
-      g_object_ref (socket);
-      g_value_init (&params[1], EVD_TYPE_SOCKET);
-      g_value_set_object (&params[1], socket);
-
-      g_object_ref (self);
-      g_closure_invoke (closure, NULL, 2, params, NULL);
-      g_object_unref (self);
-
-      g_object_unref (socket);
-
-      g_value_unset (&params[0]);
-      g_value_unset (&params[1]);
-    }
+    evd_socket_group_invoke_closure (self, closure, socket);
 }
 
 void
@@ -132,25 +120,7 @@ evd_socket_group_socket_on_write_internal (EvdSocketGroup *self,
 
   closure = evd_stream_get_on_write (EVD_STREAM (self));
   if (closure != NULL)
-    {
-      GValue params[2] = { {0, } };
-
-      g_value_init (&params[0], EVD_TYPE_SOCKET_GROUP);
-      g_value_set_object (&params[0], self);
-
-      g_object_ref (socket);
-      g_value_init (&params[1], EVD_TYPE_SOCKET);
-      g_value_set_object (&params[1], socket);
-
-      g_object_ref (self);
-      g_closure_invoke (closure, NULL, 2, params, NULL);
-      g_object_unref (self);
-
-      g_object_unref (socket);
-
-      g_value_unset (&params[0]);
-      g_value_unset (&params[1]);
-    }
+    evd_socket_group_invoke_closure (self, closure, socket);
 }
 
 void
@@ -178,7 +148,9 @@ evd_socket_group_remove_internal (EvdSocketGroup *self,
       return TRUE;
     }
   else
-    return FALSE;
+    {
+      return FALSE;
+    }
 }
 
 /* public methods */

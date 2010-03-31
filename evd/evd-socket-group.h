@@ -34,23 +34,6 @@ G_BEGIN_DECLS
 typedef struct _EvdSocketGroup EvdSocketGroup;
 typedef struct _EvdSocketGroupClass EvdSocketGroupClass;
 
-/**
- * EvdSocketGroupReadHandler:
- * @group: (in): The #EvdSocketGroup.
- * @socket: (in): The #EvdSocket.
- * @user_data: (in) (allow-none): A #gpointer to user defined data to pass in callback.
- *
- * Prototype for callback to be executed when 'read' event is received
- * on any socket within the group.
- */
-typedef void (* EvdSocketGroupReadHandler) (EvdSocket *group,
-				            EvdSocket *socket,
-					    gpointer   user_data);
-
-typedef void (* EvdSocketGroupWriteHandler) (EvdSocket *group,
-                                             EvdSocket *socket,
-                                             gpointer   user_data);
-
 struct _EvdSocketGroup
 {
   EvdStream parent;
