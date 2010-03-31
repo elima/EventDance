@@ -74,7 +74,6 @@ static void     evd_stream_class_init         (EvdStreamClass *class);
 static void     evd_stream_init               (EvdStream *self);
 
 static void     evd_stream_finalize           (GObject *obj);
-static void     evd_stream_dispose            (GObject *obj);
 
 static void     evd_stream_set_property       (GObject      *obj,
                                                guint         prop_id,
@@ -92,7 +91,6 @@ evd_stream_class_init (EvdStreamClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_stream_dispose;
   obj_class->finalize = evd_stream_finalize;
   obj_class->get_property = evd_stream_get_property;
   obj_class->set_property = evd_stream_set_property;
@@ -182,16 +180,6 @@ evd_stream_init (EvdStream *self)
 
   priv->bytes_in = 0;
   priv->bytes_out = 0;
-}
-
-static void
-evd_stream_dispose (GObject *obj)
-{
-  EvdStream *self = EVD_STREAM (obj);
-
-  evd_stream_set_on_read (self, NULL);
-
-  G_OBJECT_CLASS (evd_stream_parent_class)->dispose (obj);
 }
 
 static void
