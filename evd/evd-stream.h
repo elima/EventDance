@@ -147,12 +147,6 @@ gulong         evd_stream_get_total_written (EvdStream *self);
 gfloat         evd_stream_get_actual_bandwidth_in  (EvdStream *self);
 gfloat         evd_stream_get_actual_bandwidth_out (EvdStream *self);
 
-void           evd_stream_set_tls_autostart       (EvdStream *self,
-                                                   gboolean   autostart);
-gboolean       evd_stream_get_tls_autostart       (EvdStream *self);
-
-EvdTlsSession *evd_stream_get_tls_session         (EvdStream *self);
-
 G_END_DECLS
 
 #endif /* __EVD_STREAM_H__ */

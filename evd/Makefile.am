@@ -30,6 +30,7 @@ source_c = \
 	evd-utils.c \
 	evd-marshal.c \
 	evd-stream.c \
+	evd-socket-stream.c \
 	evd-socket-manager.c \
 	evd-resolver-request.c \
 	evd-resolver.c \
@@ -49,6 +50,7 @@ source_h = \
 	evd.h \
 	evd-utils.h \
 	evd-stream.h \
+	evd-socket-stream.h \
 	evd-resolver-request.h \
 	evd-resolver.h \
 	evd-socket.h \

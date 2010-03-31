@@ -53,9 +53,6 @@ struct _EvdStreamPrivate
 
   gsize total_in;
   gsize total_out;
-
-  gboolean       tls_autostart;
-  EvdTlsSession *tls_session;
 };
 
 
@@ -68,9 +65,7 @@ enum
   PROP_BANDWIDTH_IN,
   PROP_BANDWIDTH_OUT,
   PROP_LATENCY_IN,
-  PROP_LATENCY_OUT,
-  PROP_TLS_AUTOSTART,
-  PROP_TLS_SESSION
+  PROP_LATENCY_OUT
 };
 
 G_LOCK_DEFINE_STATIC (counters);
@@ -162,22 +157,6 @@ evd_stream_class_init (EvdStreamClass *class)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
-                                   g_param_spec_boolean ("tls-autostart",
-                                                         "Enable/disable automatic TLS upgrade",
-                                                         "Whether SSL/TLS should be started automatically upon connected",
-                                                         FALSE,
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_TLS_SESSION,
-                                   g_param_spec_object ("tls",
-                                                        "The SSL/TLS session",
-                                                        "The underlaying SSL/TLS session object",
-                                                        EVD_TYPE_TLS_SESSION,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdStreamPrivate));
 }
@@ -203,9 +182,6 @@ evd_stream_init (EvdStream *self)
 
   priv->bytes_in = 0;
   priv->bytes_out = 0;
-
-  priv->tls_autostart = FALSE;
-  priv->tls_session = NULL;
 }
 
 static void
@@ -228,9 +204,6 @@ evd_stream_finalize (GObject *obj)
 
   if (self->priv->write_closure != NULL)
     g_closure_unref (self->priv->write_closure);
-
-  if (self->priv->tls_session != NULL)
-    g_object_unref (self->priv->tls_session);
 
   G_OBJECT_CLASS (evd_stream_parent_class)->finalize (obj);
 }
@@ -274,10 +247,6 @@ evd_stream_set_property (GObject      *obj,
       self->priv->latency_out = (gulong) (g_value_get_float (value) * 1000.0);
       break;
 
-    case PROP_TLS_AUTOSTART:
-      evd_stream_set_tls_autostart (self, g_value_get_boolean (value));
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -319,14 +288,6 @@ evd_stream_get_property (GObject    *obj,
 
     case PROP_LATENCY_OUT:
       g_value_set_float (value, self->priv->latency_out / 1000.0);
-      break;
-
-    case PROP_TLS_AUTOSTART:
-      g_value_set_boolean (value, evd_stream_get_tls_autostart (self));
-      break;
-
-    case PROP_TLS_SESSION:
-      g_value_set_object (value, evd_stream_get_tls_session (self));
       break;
 
     default:
@@ -590,36 +551,6 @@ gfloat
 evd_stream_get_actual_bandwidth_out (EvdStream *self)
 {
   return self->priv->bytes_out / 1024.0;
-}
-
-void
-evd_stream_set_tls_autostart (EvdStream *self, gboolean autostart)
-{
-  g_return_if_fail (EVD_IS_STREAM (self));
-
-  self->priv->tls_autostart = autostart;
-}
-
-gboolean
-evd_stream_get_tls_autostart (EvdStream *self)
-{
-  g_return_val_if_fail (EVD_IS_STREAM (self), FALSE);
-
-  return self->priv->tls_autostart;
-}
-
-EvdTlsSession *
-evd_stream_get_tls_session (EvdStream *self)
-{
-  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
-
-  if (self->priv->tls_session == NULL)
-    {
-      self->priv->tls_session = evd_tls_session_new ();
-      g_object_ref_sink (self->priv->tls_session);
-    }
-
-  return self->priv->tls_session;
 }
 
 void

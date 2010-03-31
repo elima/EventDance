@@ -27,7 +27,7 @@
 #include "evd-socket-group.h"
 #include "evd-socket-group-protected.h"
 
-G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_STREAM)
+G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_SOCKET_STREAM)
 
 static void     evd_socket_group_class_init         (EvdSocketGroupClass *class);
 static void     evd_socket_group_init               (EvdSocketGroup *self);

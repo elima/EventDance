@@ -44,10 +44,10 @@
 #define MAX_WRITE_BUFFER_SIZE   G_MAXUINT16
 
 #define TLS_ENABLED(socket)   (socket->priv->tls_enabled == TRUE)
-#define TLS_SESSION(socket)   evd_stream_get_tls_session (EVD_STREAM (socket))
-#define TLS_AUTOSTART(socket) evd_stream_get_tls_autostart (EVD_STREAM (socket))
+#define TLS_SESSION(socket)   evd_socket_stream_get_tls_session (EVD_SOCKET_STREAM (socket))
+#define TLS_AUTOSTART(socket) evd_socket_stream_get_tls_autostart (EVD_SOCKET_STREAM (socket))
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
+G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_STREAM)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                      EVD_TYPE_SOCKET, \
