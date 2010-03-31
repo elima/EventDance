@@ -52,8 +52,8 @@ struct _EvdStreamClass
   GClosureMarshal write_handler_marshal;
 
   /* virtual methods */
-
-  /* signal prototypes */
+  void (* read_closure_changed) (EvdStream *self);
+  void (* write_closure_changed) (EvdStream *self);
 };
 
 #define EVD_TYPE_STREAM           (evd_stream_get_type ())

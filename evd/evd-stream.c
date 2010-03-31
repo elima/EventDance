@@ -104,6 +104,8 @@ evd_stream_class_init (EvdStreamClass *class)
 
   class->read_handler_marshal = g_cclosure_marshal_VOID__VOID;
   class->write_handler_marshal = g_cclosure_marshal_VOID__VOID;
+  class->read_closure_changed = NULL;
+  class->write_closure_changed = NULL;
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
@@ -468,7 +470,12 @@ void
 evd_stream_set_on_read (EvdStream *self,
                         GClosure  *closure)
 {
+  EvdStreamClass *class;
+
   g_return_if_fail (EVD_IS_STREAM (self));
+
+  if (closure == self->priv->read_closure)
+    return;
 
   if (self->priv->read_closure != NULL)
     g_closure_unref (self->priv->read_closure);
@@ -480,6 +487,10 @@ evd_stream_set_on_read (EvdStream *self,
     }
 
   self->priv->read_closure = closure;
+
+  class = EVD_STREAM_GET_CLASS (self);
+  if (class->read_closure_changed != NULL)
+    class->read_closure_changed (self);
 }
 
 GClosure *
@@ -494,7 +505,12 @@ void
 evd_stream_set_on_write (EvdStream *self,
                          GClosure  *closure)
 {
+  EvdStreamClass *class;
+
   g_return_if_fail (EVD_IS_STREAM (self));
+
+  if (closure == self->priv->write_closure)
+    return;
 
   if (self->priv->write_closure != NULL)
     g_closure_unref (self->priv->write_closure);
@@ -506,6 +522,10 @@ evd_stream_set_on_write (EvdStream *self,
     }
 
   self->priv->write_closure = closure;
+
+  class = EVD_STREAM_GET_CLASS (self);
+  if (class->write_closure_changed != NULL)
+    class->write_closure_changed (self);
 }
 
 GClosure *

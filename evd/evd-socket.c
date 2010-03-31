@@ -96,7 +96,7 @@ struct _EvdSocketPrivate
 
   guint         event_handler_src_id;
   GIOCondition  new_cond;
-  GMutex       *mutex;;
+  GMutex       *mutex;
 };
 
 /* signals */
@@ -144,6 +144,8 @@ static void     evd_socket_get_property       (GObject    *obj,
                                                GValue     *value,
                                                GParamSpec *pspec);
 
+static void     evd_socket_closure_changed    (EvdStream *stream);
+
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                const gchar  *buf,
                                                gsize         size,
@@ -164,6 +166,7 @@ static void
 evd_socket_class_init (EvdSocketClass *class)
 {
   GObjectClass *obj_class;
+  EvdStreamClass *stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
@@ -174,6 +177,10 @@ evd_socket_class_init (EvdSocketClass *class)
 
   class->handle_condition = NULL;
   class->invoke_on_read = evd_socket_invoke_on_read;
+
+  stream_class = EVD_STREAM_CLASS (class);
+  stream_class->read_closure_changed = evd_socket_closure_changed;
+  stream_class->write_closure_changed = evd_socket_closure_changed;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -327,6 +334,8 @@ evd_socket_init (EvdSocket *self)
   priv->protocol = G_SOCKET_PROTOCOL_UNKNOWN;
 
   priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+
+  priv->group = NULL;
 
   priv->status     = EVD_SOCKET_STATE_CLOSED;
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
@@ -507,7 +516,7 @@ evd_socket_get_property (GObject    *obj,
       break;
 
     case PROP_GROUP:
-      g_value_set_object (value, self->priv->group);
+      g_value_set_object (value, evd_socket_get_group (self));
       break;
 
     case PROP_AUTO_WRITE:
@@ -530,6 +539,15 @@ evd_socket_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_socket_closure_changed (EvdStream *stream)
+{
+  EvdSocket *self = EVD_SOCKET (stream);
+
+  if (self->priv->group != NULL)
+    evd_socket_group_remove (self->priv->group, self);
 }
 
 static void
@@ -1595,12 +1613,20 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 void
 evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 {
+  if (self->priv->group == group)
+    return;
+
   if (self->priv->group != NULL)
     {
+      EvdSocketGroup *current_group;
+
+      current_group = self->priv->group;
+      self->priv->group = NULL;
+
       evd_stream_set_on_read (EVD_STREAM (self), NULL);
       evd_stream_set_on_write (EVD_STREAM (self), NULL);
 
-      g_object_unref (self->priv->group);
+      g_object_unref (current_group);
     }
 
   self->priv->group = group;
