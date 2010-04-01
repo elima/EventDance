@@ -161,6 +161,8 @@ static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
 static void     evd_socket_manage_read_condition    (EvdSocket *self);
 static void     evd_socket_manage_write_condition   (EvdSocket *self);
 
+static void     evd_socket_copy_properties          (EvdStream *self,
+                                                     EvdStream *target);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
@@ -181,6 +183,7 @@ evd_socket_class_init (EvdSocketClass *class)
   stream_class = EVD_STREAM_CLASS (class);
   stream_class->read_closure_changed = evd_socket_closure_changed;
   stream_class->write_closure_changed = evd_socket_closure_changed;
+  stream_class->copy_properties = evd_socket_copy_properties;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -1442,6 +1445,23 @@ evd_socket_notify_condition (EvdSocket    *self,
   g_mutex_unlock (self->priv->mutex);
 }
 
+static void
+evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
+{
+  EvdSocket *self = EVD_SOCKET (_self);
+  EvdSocket *target = EVD_SOCKET (_target);
+
+  evd_socket_set_priority (target, self->priv->priority);
+
+  target->priv->auto_write = self->priv->auto_write;
+
+  if (self->priv->group != NULL)
+    evd_socket_group_add (self->priv->group, target);
+
+  EVD_STREAM_CLASS (evd_socket_parent_class)->
+    copy_properties (_self, _target);
+}
+
 void
 evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 {
@@ -1456,8 +1476,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
         {
-          /* TODO: allow external function to decide whether to
-             accept/refuse the new connection */
+          evd_socket_copy_properties (EVD_STREAM (self), EVD_STREAM (client));
 
           /* fire 'new-connection' signal */
           g_signal_emit (self,
@@ -1465,10 +1484,11 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                          0,
                          client, NULL);
 
-          if (TLS_AUTOSTART (self))
+          if (TLS_AUTOSTART (client))
             {
               /* copy TLS session properties from listener to accepted socket */
-              evd_tls_session_copy_properties (TLS_SESSION (self), TLS_SESSION (client));
+              evd_tls_session_copy_properties (TLS_SESSION (self),
+                                               TLS_SESSION (client));
 
               if (! evd_socket_starttls (client, EVD_TLS_MODE_SERVER, &error))
                 {

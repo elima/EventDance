@@ -61,16 +61,23 @@ static void     evd_socket_stream_get_property       (GObject    *obj,
                                                       GValue     *value,
                                                       GParamSpec *pspec);
 
+static void     evd_socket_stream_copy_properties    (EvdStream *self,
+                                                      EvdStream *target);
+
 static void
 evd_socket_stream_class_init (EvdSocketStreamClass *class)
 {
   GObjectClass *obj_class;
+  EvdStreamClass *stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->dispose = evd_socket_stream_dispose;
   obj_class->get_property = evd_socket_stream_get_property;
   obj_class->set_property = evd_socket_stream_set_property;
+
+  stream_class = EVD_STREAM_CLASS (class);
+  stream_class->copy_properties = evd_socket_stream_copy_properties;
 
   g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
                                    g_param_spec_boolean ("tls-autostart",
@@ -164,6 +171,16 @@ evd_socket_stream_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_socket_stream_copy_properties (EvdStream *self, EvdStream *target)
+{
+  evd_socket_stream_set_tls_autostart (EVD_SOCKET_STREAM (target),
+                                 EVD_SOCKET_STREAM (self)->priv->tls_autostart);
+
+  EVD_STREAM_CLASS (evd_socket_stream_parent_class)->
+    copy_properties (self, target);
 }
 
 /* public methods */

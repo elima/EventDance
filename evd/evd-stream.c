@@ -84,6 +84,9 @@ static void     evd_stream_get_property       (GObject    *obj,
                                                GValue     *value,
                                                GParamSpec *pspec);
 
+static void     evd_stream_copy_properties    (EvdStream *self,
+                                               EvdStream *target);
+
 static void
 evd_stream_class_init (EvdStreamClass *class)
 {
@@ -99,6 +102,7 @@ evd_stream_class_init (EvdStreamClass *class)
   class->write_handler_marshal = g_cclosure_marshal_VOID__VOID;
   class->read_closure_changed = NULL;
   class->write_closure_changed = NULL;
+  class->copy_properties = evd_stream_copy_properties;
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
@@ -363,6 +367,15 @@ evd_stream_request (EvdStream *self,
   G_UNLOCK (counters);
 
   return actual_size;
+}
+
+static void
+evd_stream_copy_properties (EvdStream *self, EvdStream *target)
+{
+  target->priv->bandwidth_in = self->priv->bandwidth_in;
+  target->priv->bandwidth_out = self->priv->bandwidth_out;
+  target->priv->latency_in = self->priv->latency_in;
+  target->priv->latency_out = self->priv->latency_out;
 }
 
 /* protected methods */

@@ -181,6 +181,7 @@ function testDataTransfer (Assert) {
 
     let server = new Evd.Socket ();
 
+    server.group = group;
     server.listen ("0.0.0.0:" + PORT);
 
     server.connect ("state-changed",
@@ -199,6 +200,8 @@ function testDataTransfer (Assert) {
 
     server.connect ("new-connection",
         function (listener, socket) {
+            Assert.strictEqual (listener.group, group);
+            Assert.strictEqual (socket.group, group);
             setup_socket (socket);
         });
 

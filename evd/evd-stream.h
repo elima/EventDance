@@ -52,7 +52,8 @@ struct _EvdStreamClass
   GClosureMarshal write_handler_marshal;
 
   /* virtual methods */
-  void (* read_closure_changed) (EvdStream *self);
+  void (* copy_properties)       (EvdStream *self, EvdStream *target);
+  void (* read_closure_changed)  (EvdStream *self);
   void (* write_closure_changed) (EvdStream *self);
 };
 
