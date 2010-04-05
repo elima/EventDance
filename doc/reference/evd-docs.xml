@@ -45,6 +45,7 @@
     <chapter>
       <title>Abstract classes and interfaces</title>
       <xi:include href="xml/evd-stream.xml"/>
+      <xi:include href="xml/evd-socket-stream.xml"/>
     </chapter>
 
     <chapter>
