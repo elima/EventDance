@@ -185,16 +185,6 @@ evd_socket_stream_copy_properties (EvdStream *self, EvdStream *target)
 
 /* public methods */
 
-EvdSocketStream *
-evd_socket_stream_new (void)
-{
-  EvdSocketStream *self;
-
-  self = g_object_new (EVD_TYPE_SOCKET_STREAM, NULL);
-
-  return self;
-}
-
 void
 evd_socket_stream_set_tls_autostart (EvdSocketStream *self, gboolean autostart)
 {

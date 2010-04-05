@@ -56,8 +56,6 @@ struct _EvdSocketStreamClass
 
 GType            evd_socket_stream_get_type          (void) G_GNUC_CONST;
 
-EvdSocketStream *evd_socket_stream_new               (void);
-
 void             evd_socket_stream_set_tls_autostart (EvdSocketStream *self,
                                                       gboolean   autostart);
 gboolean         evd_socket_stream_get_tls_autostart (EvdSocketStream *self);

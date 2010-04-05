@@ -418,16 +418,6 @@ evd_stream_report_write (EvdStream *self,
 
 /* public methods */
 
-EvdStream *
-evd_stream_new (void)
-{
-  EvdStream *self;
-
-  self = g_object_new (EVD_TYPE_STREAM, NULL);
-
-  return self;
-}
-
 void
 evd_stream_set_on_read (EvdStream *self,
                         GClosure  *closure)

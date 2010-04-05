@@ -67,8 +67,6 @@ struct _EvdStreamClass
 
 GType          evd_stream_get_type       (void) G_GNUC_CONST;
 
-EvdStream     *evd_stream_new            (void);
-
 /**
  * evd_stream_set_read_handler:
  * @self: The #EvdStream.
