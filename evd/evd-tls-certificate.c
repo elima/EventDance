@@ -68,6 +68,8 @@ static void     evd_tls_certificate_get_property       (GObject    *obj,
                                                         GValue     *value,
                                                         GParamSpec *pspec);
 
+static void     evd_tls_certificate_cleanup            (EvdTlsCertificate *self);
+
 static void
 evd_tls_certificate_class_init (EvdTlsCertificateClass *class)
 {
@@ -123,11 +125,7 @@ evd_tls_certificate_finalize (GObject *obj)
 {
   EvdTlsCertificate *self = EVD_TLS_CERTIFICATE (obj);
 
-  if (self->priv->x509_cert != NULL)
-    gnutls_x509_crt_deinit (self->priv->x509_cert);
-
-  if (self->priv->openpgp_cert != NULL)
-    gnutls_openpgp_crt_deinit (self->priv->openpgp_cert);
+  evd_tls_certificate_cleanup (self);
 
   G_OBJECT_CLASS (evd_tls_certificate_parent_class)->finalize (obj);
 }
@@ -170,6 +168,24 @@ evd_tls_certificate_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_tls_certificate_cleanup (EvdTlsCertificate *self)
+{
+  if (self->priv->x509_cert != NULL)
+    {
+      gnutls_x509_crt_deinit (self->priv->x509_cert);
+      self->priv->x509_cert = NULL;
+    }
+
+  if (self->priv->openpgp_cert != NULL)
+    {
+      gnutls_openpgp_crt_deinit (self->priv->openpgp_cert);
+      self->priv->openpgp_cert = NULL;
+    }
+
+  self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
 /* public methods */
