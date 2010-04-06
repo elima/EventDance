@@ -49,6 +49,7 @@ typedef enum
   EVD_TLS_ERROR_UNKNOWN               = 1024,
   EVD_TLS_ERROR_INVALID_CRED_CERT,
   EVD_TLS_ERROR_INVALID_CRED_KEY
+  EVD_TLS_ERROR_CERT_UNKNOWN_TYPE
 } EvdTlsError;
 
 gboolean evd_tls_init        (GError **error);

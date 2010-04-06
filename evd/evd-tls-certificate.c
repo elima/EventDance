@@ -188,6 +188,17 @@ evd_tls_certificate_cleanup (EvdTlsCertificate *self)
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
+static EvdTlsCertificateType
+evd_tls_certificate_detect_type (const gchar *raw_data)
+{
+  if (g_strstr_len (raw_data, 22, "BEGIN CERTIFICATE") != NULL)
+    return EVD_TLS_CERTIFICATE_TYPE_X509;
+  else if (g_strstr_len (raw_data, 22, "BEGIN PGP ") != NULL)
+    return EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
+  else
+    return EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
+}
+
 /* public methods */
 
 EvdTlsCertificate *
@@ -199,3 +210,68 @@ evd_tls_certificate_new (void)
 
   return self;
 }
+
+gboolean
+evd_tls_certificate_import (EvdTlsCertificate  *self,
+                            const gchar        *raw_data,
+                            GError            **error)
+{
+  EvdTlsCertificateType type;
+  gnutls_datum_t datum = { NULL, 0 };
+  gint ret;
+
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), FALSE);
+  g_return_val_if_fail (raw_data != NULL, FALSE);
+
+  type = evd_tls_certificate_detect_type (raw_data);
+  switch (type)
+    {
+    case EVD_TLS_CERTIFICATE_TYPE_X509:
+      {
+        gnutls_x509_crt_t cert;
+
+        ret = gnutls_x509_crt_init (&cert);
+
+        if (ret == GNUTLS_E_SUCCESS)
+          {
+            datum.data = (void *) raw_data;
+            datum.size = (size_t) g_utf8_strlen (raw_data, -1);
+
+            ret = gnutls_x509_crt_import (cert, &datum, GNUTLS_X509_FMT_PEM);
+          }
+
+        if (ret == GNUTLS_E_SUCCESS)
+          {
+            evd_tls_certificate_cleanup (self);
+
+            self->priv->x509_cert = cert;
+            self->priv->type = type;
+
+            return TRUE;
+          }
+        else
+          {
+            evd_tls_build_error (ret, error, self->priv->err_domain);
+          }
+
+        break;
+      }
+
+    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
+      {
+        /* TODO */
+        break;
+      }
+
+    default:
+      if (error != NULL)
+        *error = g_error_new (self->priv->err_domain,
+                              EVD_TLS_ERROR_CERT_UNKNOWN_TYPE,
+                              "Unable to detect certificate type when trying to import");
+
+      break;
+    };
+
+  return FALSE;
+}
+

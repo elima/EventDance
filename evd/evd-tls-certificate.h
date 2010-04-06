@@ -62,6 +62,9 @@ GType              evd_tls_certificate_get_type       (void) G_GNUC_CONST;
 
 EvdTlsCertificate *evd_tls_certificate_new            (void);
 
+gboolean           evd_tls_certificate_import         (EvdTlsCertificate  *self,
+                                                       const gchar        *raw_data,
+                                                       GError            **error);
 
 G_END_DECLS
 
