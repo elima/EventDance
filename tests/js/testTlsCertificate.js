@@ -26,12 +26,12 @@ function testX509Import (Assert) {
 
     let [result, rawPem] = Glib.file_get_contents ("certs/x509-server.pem");
 
-    Assert.ok (cert.import (rawPem));
+    Assert.ok (cert.import (rawPem, rawPem.length));
     Assert.equal (cert.get_dn (), "O=EventDance,CN=eventdance.org");
     Assert.equal (cert.type, Evd.TlsCertificateType.X509);
 
     let [result, rawPem] = Glib.file_get_contents ("certs/x509-jane.pem");
-    Assert.ok (cert.import (rawPem));
+    Assert.ok (cert.import (rawPem, rawPem.length));
     Assert.equal (cert.get_dn (), "CN=Jane");
     Assert.equal (cert.type, Evd.TlsCertificateType.X509);
 }
