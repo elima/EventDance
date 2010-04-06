@@ -45,6 +45,20 @@ socket.connect ("new-connection",
                 log ("socket error: " + msg);
             });
 
+        client.connect ("state-changed",
+            function (socket, newState, oldState) {
+                if (newState == Evd.SocketState.CONNECTED &&
+                    socket.tls_active) {
+                    log ("Handshake completed");
+
+                    let certificates = socket.tls.get_peer_certificates ();
+                    log ("Peer sent " + certificates.length + " certificates:");
+                    for each (let i in certificates) {
+                        log (" * " + i.get_dn ());
+                    }
+                }
+            });
+
         client.set_on_read (
             function (socket) {
                 let [data, len] = socket.read (BLOCK_SIZE);
