@@ -211,14 +211,52 @@ evd_tls_certificate_new (void)
   return self;
 }
 
+static gboolean
+evd_tls_certificate_import_x509 (EvdTlsCertificate      *self,
+                                 const gchar            *raw_data,
+                                 gsize                   size,
+                                 gnutls_x509_crt_fmt_t   format,
+                                 GError                **error)
+{
+  gint err_code;
+  gnutls_x509_crt_t cert;
+
+  err_code = gnutls_x509_crt_init (&cert);
+
+  if (err_code == GNUTLS_E_SUCCESS)
+    {
+      gnutls_datum_t datum = { NULL, 0 };
+
+      datum.data = (void *) raw_data;
+      datum.size = size;
+
+      err_code = gnutls_x509_crt_import (cert, &datum, format);
+    }
+
+  if (err_code == GNUTLS_E_SUCCESS)
+    {
+      evd_tls_certificate_cleanup (self);
+
+      self->priv->x509_cert = cert;
+      self->priv->type = EVD_TLS_CERTIFICATE_TYPE_X509;
+
+      return TRUE;
+    }
+  else
+    {
+      evd_tls_build_error (err_code, error, self->priv->err_domain);
+    }
+
+  return FALSE;
+}
+
 gboolean
 evd_tls_certificate_import (EvdTlsCertificate  *self,
                             const gchar        *raw_data,
+                            gsize               size,
                             GError            **error)
 {
   EvdTlsCertificateType type;
-  gnutls_datum_t datum = { NULL, 0 };
-  gint ret;
 
   g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), FALSE);
   g_return_val_if_fail (raw_data != NULL, FALSE);
@@ -228,30 +266,13 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
     {
     case EVD_TLS_CERTIFICATE_TYPE_X509:
       {
-        gnutls_x509_crt_t cert;
-
-        ret = gnutls_x509_crt_init (&cert);
-
-        if (ret == GNUTLS_E_SUCCESS)
+        if (evd_tls_certificate_import_x509 (self,
+                                             raw_data,
+                                             size,
+                                             GNUTLS_X509_FMT_PEM,
+                                             error))
           {
-            datum.data = (void *) raw_data;
-            datum.size = (size_t) g_utf8_strlen (raw_data, -1);
-
-            ret = gnutls_x509_crt_import (cert, &datum, GNUTLS_X509_FMT_PEM);
-          }
-
-        if (ret == GNUTLS_E_SUCCESS)
-          {
-            evd_tls_certificate_cleanup (self);
-
-            self->priv->x509_cert = cert;
-            self->priv->type = type;
-
             return TRUE;
-          }
-        else
-          {
-            evd_tls_build_error (ret, error, self->priv->err_domain);
           }
 
         break;
@@ -264,12 +285,26 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
       }
 
     default:
-      if (error != NULL)
-        *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_CERT_UNKNOWN_TYPE,
-                              "Unable to detect certificate type when trying to import");
+      {
+        /* probe DER format */
+        if (evd_tls_certificate_import_x509 (self,
+                                             raw_data,
+                                             size,
+                                             GNUTLS_X509_FMT_DER,
+                                             NULL))
+          {
+            return TRUE;
+          }
+        else
+          {
+            if (error != NULL)
+              *error = g_error_new (self->priv->err_domain,
+                                    EVD_TLS_ERROR_CERT_UNKNOWN_TYPE,
+                                    "Unable to detect certificate type when trying to import");
+          }
 
-      break;
+        break;
+      }
     };
 
   return FALSE;

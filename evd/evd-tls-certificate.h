@@ -64,6 +64,7 @@ EvdTlsCertificate *evd_tls_certificate_new            (void);
 
 gboolean           evd_tls_certificate_import         (EvdTlsCertificate  *self,
                                                        const gchar        *raw_data,
+                                                       gsize               len,
                                                        GError            **error);
 
 gchar             *evd_tls_certificate_get_dn         (EvdTlsCertificate  *self,
