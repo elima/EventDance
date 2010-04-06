@@ -27,6 +27,8 @@
 
 #include "evd-tls-common.h"
 
+#define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-global"
+
 G_LOCK_DEFINE_STATIC (evd_tls_init);
 static gboolean evd_tls_initialized = FALSE;
 
@@ -51,7 +53,10 @@ evd_tls_init (GError **error)
         }
       else
         {
-          /* TODO: build an return error */
+          evd_tls_build_error (err_code,
+                               error,
+                               g_quark_from_static_string (DOMAIN_QUARK_STRING));
+
           result = FALSE;
         }
 
