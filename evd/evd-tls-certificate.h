@@ -66,6 +66,9 @@ gboolean           evd_tls_certificate_import         (EvdTlsCertificate  *self,
                                                        const gchar        *raw_data,
                                                        GError            **error);
 
+gchar             *evd_tls_certificate_get_dn         (EvdTlsCertificate  *self,
+                                                       GError            **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_CERTIFICATE_H__ */

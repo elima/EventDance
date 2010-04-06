@@ -275,3 +275,51 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
   return FALSE;
 }
 
+gchar *
+evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
+{
+  gchar *dn = NULL;
+  gint ret;
+
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), NULL);
+
+  switch (self->priv->type)
+    {
+    case EVD_TLS_CERTIFICATE_TYPE_X509:
+      {
+        gchar *buf = NULL;
+        gsize size = 0;
+
+        ret = gnutls_x509_crt_get_dn (self->priv->x509_cert, NULL, &size);
+        if (ret == GNUTLS_E_SHORT_MEMORY_BUFFER)
+          {
+            buf = g_new (gchar, size);
+            ret = gnutls_x509_crt_get_dn (self->priv->x509_cert, buf, &size);
+            if (ret == GNUTLS_E_SUCCESS)
+              dn = buf;
+          }
+        else
+          {
+            g_debug ("ERROR: %s", gnutls_strerror (ret));
+          }
+
+        break;
+      }
+
+    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
+      {
+        /* TODO */
+        break;
+      }
+
+    default:
+      if (error != NULL)
+        *error = g_error_new (self->priv->err_domain,
+                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              "Certificate not initialized when requesting 'dn'");
+
+      break;
+    };
+
+  return dn;
+}
