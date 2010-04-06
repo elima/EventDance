@@ -53,12 +53,14 @@ typedef enum
   EVD_TLS_ERROR_CERT_NOT_INITIALIZED
 } EvdTlsError;
 
-gboolean evd_tls_init        (GError **error);
-void     evd_tls_deinit      (void);
+gboolean evd_tls_init              (GError **error);
+void     evd_tls_deinit            (void);
 
-void     evd_tls_build_error (gint     error_code,
-                              GError **error,
-                              GQuark   domain);
+void     evd_tls_build_error       (gint     error_code,
+                                    GError **error,
+                                    GQuark   domain);
+
+void     evd_tls_free_certificates (GList *certificates);
 
 G_END_DECLS
 

@@ -24,6 +24,7 @@
  */
 
 #include <glib.h>
+#include <glib-object.h>
 
 #include "evd-tls-common.h"
 
@@ -96,4 +97,23 @@ evd_tls_build_error (gint     error_code,
                             error_code,
                             gnutls_strerror (error_code));
     }
+}
+
+void
+evd_tls_free_certificates (GList *certificates)
+{
+  GList *node;
+
+  node = certificates;
+  while (node != NULL)
+    {
+      GObject *cert;
+
+      cert = G_OBJECT (node->data);
+      g_object_unref (cert);
+
+      node = node->next;
+    }
+
+  g_list_free (certificates);
 }
