@@ -109,6 +109,17 @@ gboolean           evd_tls_session_shutdown_write      (EvdTlsSession  *self,
 void               evd_tls_session_copy_properties     (EvdTlsSession *self,
                                                         EvdTlsSession *target);
 
+/**
+ * evd_tls_session_get_peer_certificates:
+ * @self:
+ * @error:
+ *
+ * Returns: (transfer full) (element-type Evd.TlsCertificate): The list of certificates
+ *          as sent by the peer.
+ */
+GList             *evd_tls_session_get_peer_certificates (EvdTlsSession  *self,
+                                                          GError        **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_SESSION_H__ */

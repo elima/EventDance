@@ -25,6 +25,7 @@
 
 #include "evd-tls-common.h"
 #include "evd-tls-session.h"
+#include "evd-tls-certificate.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-session"
 
@@ -615,7 +616,6 @@ evd_tls_session_copy_properties (EvdTlsSession *self,
                                  EvdTlsSession *target)
 {
   g_return_if_fail (EVD_IS_TLS_SESSION (self));
-  g_return_if_fail (EVD_IS_TLS_SESSION (self));
   g_return_if_fail (self != target);
 
   g_object_set (target,
@@ -623,4 +623,46 @@ evd_tls_session_copy_properties (EvdTlsSession *self,
                 "priority", self->priv->priority,
                 "require-peer-cert", self->priv->require_peer_cert,
                 NULL);
+}
+
+GList *
+evd_tls_session_get_peer_certificates (EvdTlsSession *self, GError **error)
+{
+  GList *list = NULL;
+
+  const gnutls_datum_t *raw_certs_list;
+  guint raw_certs_len;
+
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), NULL);
+
+  if (self->priv->session == NULL)
+    return NULL;
+
+  raw_certs_list = gnutls_certificate_get_peers (self->priv->session, &raw_certs_len);
+  if (raw_certs_list != NULL)
+    {
+      guint i;
+      EvdTlsCertificate *cert;
+
+      for (i=0; i<raw_certs_len; i++)
+        {
+          cert = evd_tls_certificate_new ();
+
+          if (! evd_tls_certificate_import (cert,
+                                            (gchar *) raw_certs_list[i].data,
+                                            raw_certs_list[i].size,
+                                            error))
+            {
+              evd_tls_free_certificates (list);
+
+              return NULL;
+            }
+          else
+            {
+              list = g_list_append (list, (gpointer) cert);
+            }
+        }
+    }
+
+  return list;
 }
