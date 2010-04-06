@@ -37,6 +37,8 @@ G_DEFINE_TYPE (EvdTlsCertificate, evd_tls_certificate, G_TYPE_OBJECT)
 /* private data */
 struct _EvdTlsCertificatePrivate
 {
+  GQuark err_domain;
+
   gnutls_x509_crt_t    x509_cert;
   gnutls_openpgp_crt_t openpgp_cert;
 };
@@ -90,6 +92,8 @@ evd_tls_certificate_init (EvdTlsCertificate *self)
   self->priv = priv;
 
   /* initialize private members */
+  priv->err_domain = g_quark_from_static_string (DOMAIN_QUARK_STRING);
+
   priv->x509_cert    = NULL;
   priv->openpgp_cert = NULL;
 }
