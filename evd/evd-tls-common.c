@@ -75,7 +75,9 @@ evd_tls_deinit (void)
 
   if (evd_tls_initialized)
     {
-      gnutls_global_deinit ();
+      /* check why after calling 'gnutls_global_deinit', calling again
+         'gnutls_global_init' throws a segfault */
+      /* gnutls_global_deinit (); */
 
       evd_tls_initialized = FALSE;
     }
