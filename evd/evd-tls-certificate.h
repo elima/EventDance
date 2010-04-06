@@ -43,6 +43,13 @@ struct _EvdTlsCertificateClass
   GObjectClass parent_class;
 };
 
+typedef enum
+{
+  EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
+  EVD_TLS_CERTIFICATE_TYPE_X509    = GNUTLS_CRT_X509,
+  EVD_TLS_CERTIFICATE_TYPE_OPENPGP = GNUTLS_CRT_OPENPGP
+} EvdTlsCertificateType;
+
 #define EVD_TYPE_TLS_CERTIFICATE           (evd_tls_certificate_get_type ())
 #define EVD_TLS_CERTIFICATE(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_TLS_CERTIFICATE, EvdTlsCertificate))
 #define EVD_TLS_CERTIFICATE_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_TLS_CERTIFICATE, EvdTlsCertificateClass))

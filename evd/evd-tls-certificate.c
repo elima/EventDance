@@ -41,6 +41,8 @@ struct _EvdTlsCertificatePrivate
 
   gnutls_x509_crt_t    x509_cert;
   gnutls_openpgp_crt_t openpgp_cert;
+
+  EvdTlsCertificateType type;
 };
 
 
@@ -48,6 +50,7 @@ struct _EvdTlsCertificatePrivate
 enum
 {
   PROP_0,
+  PROP_TYPE
 };
 
 static void     evd_tls_certificate_class_init         (EvdTlsCertificateClass *class);
@@ -78,6 +81,15 @@ evd_tls_certificate_class_init (EvdTlsCertificateClass *class)
   obj_class->set_property = evd_tls_certificate_set_property;
 
   /* install properties */
+  g_object_class_install_property (obj_class, PROP_TYPE,
+                                   g_param_spec_uint ("type",
+                                                      "Certificate type",
+                                                      "The type of certificate (X.509 or OPENPGP)",
+                                                      EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
+                                                      EVD_TLS_CERTIFICATE_TYPE_OPENPGP,
+                                                      EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
+                                                      G_PARAM_READABLE |
+                                                      G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsCertificatePrivate));
@@ -96,6 +108,8 @@ evd_tls_certificate_init (EvdTlsCertificate *self)
 
   priv->x509_cert    = NULL;
   priv->openpgp_cert = NULL;
+
+  self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
 static void
@@ -148,6 +162,10 @@ evd_tls_certificate_get_property (GObject    *obj,
 
   switch (prop_id)
     {
+    case PROP_TYPE:
+      g_value_set_uint (value, self->priv->type);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
