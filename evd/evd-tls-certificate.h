@@ -73,6 +73,8 @@ gchar             *evd_tls_certificate_get_dn              (EvdTlsCertificate  *
 time_t             evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
                                                             GError            **error);
 
+time_t             evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
+                                                            GError            **error);
 
 G_END_DECLS
 
