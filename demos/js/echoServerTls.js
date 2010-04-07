@@ -33,16 +33,16 @@ socket.tls.require_peer_cert = true;
 // hook-up new-connection event
 socket.connect ("new-connection",
     function (listener, client) {
-        log ("client connected");
+        log ("Client connected");
 
         client.connect ("close",
             function (socket) {
-                log ("client closed connection");
+                log ("Client closed connection");
             });
 
         client.connect ("error",
             function (socket, code, msg) {
-                log ("socket error: " + msg);
+                log ("Socket error: " + msg);
             });
 
         client.connect ("state-changed",
@@ -52,9 +52,36 @@ socket.connect ("new-connection",
                     log ("Handshake completed");
 
                     let certificates = socket.tls.get_peer_certificates ();
-                    log ("Peer sent " + certificates.length + " certificates:");
-                    for each (let i in certificates) {
-                        log (" * " + i.get_dn ());
+                    log ("Peer sent " + certificates.length + " certificate(s):");
+                    for (let i=0; i<certificates.length; i++) {
+                        let cert = certificates[i];
+                        log ("  * Certificate (" + i + "):");
+                        log ("     - Subject: " + cert.get_dn ());
+                        log ("     - Activation time: " + cert.get_activation_time ());
+                        log ("     - Expiration time: " + cert.get_expiration_time ());
+                    }
+
+                    let result = socket.tls.verify_peer (0);
+                    if (result == Evd.TlsVerifyState.OK)
+                        log ("Peer verification: OK");
+                    else {
+                        log ("Peer verification: INSECURE");
+                        if (result & Evd.TlsVerifyState.NO_CERT)
+                            log ("  - Peer did not send any certificate");
+                        if (result & Evd.TlsVerifyState.SIGNER_NOT_FOUND)
+                            log ("  - The certificate's issuer is not known");
+                        if (result & Evd.TlsVerifyState.INVALID)
+                            log ("  - One of the peer certificates is not signed by any of the known CAs, or its signature is invalid");
+                        if (result & Evd.TlsVerifyState.REVOKED)
+                            log ("  - One of the peer certificates has been revoked by its CA");
+                        if (result & Evd.TlsVerifyState.SIGNER_NOT_CA)
+                            log ("  - The signer of one of the peer certificates is not a CA");
+                        if (result & Evd.TlsVerifyState.INSECURE_ALG)
+                            log ("  - One of the peer certificates was signed using an insecure algorithm such as MD2 or MD5");
+                        if (result & Evd.TlsVerifyState.EXPIRED)
+                            log ("  - One of the peer certificates has expired");
+                        if (result & Evd.TlsVerifyState.NOT_ACTIVE)
+                            log ("  - One of the peer certificates is not active yet");
                     }
                 }
             });
