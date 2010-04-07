@@ -55,6 +55,19 @@ typedef enum
   EVD_TLS_ERROR_SESS_NOT_INITIALIZED
 } EvdTlsError;
 
+typedef enum
+{
+  EVD_TLS_VERIFY_STATE_OK               = 0,
+  EVD_TLS_VERIFY_STATE_NO_CERT          = 1 << 0,
+  EVD_TLS_VERIFY_STATE_INVALID          = 1 << 1,
+  EVD_TLS_VERIFY_STATE_REVOKED          = 1 << 2,
+  EVD_TLS_VERIFY_STATE_SIGNER_NOT_FOUND = 1 << 3,
+  EVD_TLS_VERIFY_STATE_SIGNER_NOT_CA    = 1 << 4,
+  EVD_TLS_VERIFY_STATE_INSECURE_ALG     = 1 << 5,
+  EVD_TLS_VERIFY_STATE_EXPIRED          = 1 << 6,
+  EVD_TLS_VERIFY_STATE_NOT_ACTIVE       = 1 << 7
+} EvdTlsVerifyState;
+
 gboolean evd_tls_init              (GError **error);
 void     evd_tls_deinit            (void);
 

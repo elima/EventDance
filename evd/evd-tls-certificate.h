@@ -76,6 +76,9 @@ time_t             evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *
 time_t             evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
                                                             GError            **error);
 
+gint               evd_tls_certificate_verify_validity     (EvdTlsCertificate  *self,
+                                                            GError            **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_CERTIFICATE_H__ */

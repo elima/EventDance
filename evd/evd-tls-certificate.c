@@ -436,3 +436,53 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
 
   return time;
 }
+
+gint
+evd_tls_certificate_verify_validity (EvdTlsCertificate  *self,
+                                     GError            **error)
+{
+  gint result = EVD_TLS_VERIFY_STATE_OK;
+  time_t _time;
+  time_t now;
+
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), -1);
+
+  now = time (NULL);
+
+  switch (self->priv->type)
+    {
+    case EVD_TLS_CERTIFICATE_TYPE_X509:
+      {
+        _time = evd_tls_certificate_get_expiration_time (self, error);
+        if (_time == -1)
+          return -1;
+        else if (_time < now)
+          result |= EVD_TLS_VERIFY_STATE_EXPIRED;
+
+        _time = evd_tls_certificate_get_activation_time (self, error);
+        if (_time == -1)
+          result = -1;
+        else if (_time > now)
+          result |= EVD_TLS_VERIFY_STATE_NOT_ACTIVE;
+
+        break;
+      }
+
+    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
+      {
+        /* TODO */
+        break;
+      }
+
+    default:
+      if (error != NULL)
+        *error = g_error_new (self->priv->err_domain,
+                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              "Certificate not initialized when verifying validity");
+
+      result = -1;
+      break;
+    };
+
+  return result;
+}
