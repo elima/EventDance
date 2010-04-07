@@ -58,17 +58,21 @@ typedef enum
 #define EVD_TLS_CERTIFICATE_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_CERTIFICATE, EvdTlsCertificateClass))
 
 
-GType              evd_tls_certificate_get_type       (void) G_GNUC_CONST;
+GType              evd_tls_certificate_get_type            (void) G_GNUC_CONST;
 
-EvdTlsCertificate *evd_tls_certificate_new            (void);
+EvdTlsCertificate *evd_tls_certificate_new                 (void);
 
-gboolean           evd_tls_certificate_import         (EvdTlsCertificate  *self,
-                                                       const gchar        *raw_data,
-                                                       gsize               len,
-                                                       GError            **error);
+gboolean           evd_tls_certificate_import              (EvdTlsCertificate  *self,
+                                                            const gchar        *raw_data,
+                                                            gsize               len,
+                                                            GError            **error);
 
-gchar             *evd_tls_certificate_get_dn         (EvdTlsCertificate  *self,
-                                                       GError            **error);
+gchar             *evd_tls_certificate_get_dn              (EvdTlsCertificate  *self,
+                                                            GError            **error);
+
+time_t             evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
+                                                            GError            **error);
+
 
 G_END_DECLS
 

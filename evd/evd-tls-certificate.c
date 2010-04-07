@@ -358,3 +358,43 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
 
   return dn;
 }
+
+time_t
+evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
+                                         GError            **error)
+{
+  time_t time = -1;
+
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), -1);
+
+  switch (self->priv->type)
+    {
+    case EVD_TLS_CERTIFICATE_TYPE_X509:
+      {
+        time = gnutls_x509_crt_get_expiration_time (self->priv->x509_cert);
+
+        if (time == -1 && error != NULL)
+          *error = g_error_new (self->priv->err_domain,
+                                EVD_TLS_ERROR_CERT_READ_PROPERTY,
+                                "Failed to obtain expiration time from X.509 certificate");
+
+        break;
+      }
+
+    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
+      {
+        /* TODO */
+        break;
+      }
+
+    default:
+      if (error != NULL)
+        *error = g_error_new (self->priv->err_domain,
+                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              "Certificate not initialized when requesting expiration time");
+
+      break;
+    };
+
+  return time;
+}
