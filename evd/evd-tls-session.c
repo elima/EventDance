@@ -666,3 +666,83 @@ evd_tls_session_get_peer_certificates (EvdTlsSession *self, GError **error)
 
   return list;
 }
+
+gint
+evd_tls_session_verify_peer (EvdTlsSession  *self,
+                             guint           flags,
+                             GError        **error)
+{
+  gint result = EVD_TLS_VERIFY_STATE_OK;
+  guint status;
+  gint err_code;
+  GList *peer_certs;
+
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), -1);
+
+  if (self->priv->session == NULL)
+    {
+      if (error != NULL)
+        *error = g_error_new (self->priv->err_domain,
+                              EVD_TLS_ERROR_SESS_NOT_INITIALIZED,
+                              "SSL/TLS session not yet initialized");
+
+      return -1;
+    }
+
+  /* basic verification */
+  err_code = gnutls_certificate_verify_peers2 (self->priv->session, &status);
+  if (err_code != GNUTLS_E_SUCCESS)
+    {
+      if (err_code != GNUTLS_E_NO_CERTIFICATE_FOUND)
+        {
+          evd_tls_build_error (err_code, error, self->priv->err_domain);
+
+          return -1;
+        }
+      else
+        {
+          result |= EVD_TLS_VERIFY_STATE_NO_CERT;
+        }
+    }
+  else
+    {
+      if (status & GNUTLS_CERT_INVALID)
+        result |= EVD_TLS_VERIFY_STATE_INVALID;
+      if (status & GNUTLS_CERT_REVOKED)
+        result |= EVD_TLS_VERIFY_STATE_REVOKED;
+      if (status & GNUTLS_CERT_SIGNER_NOT_FOUND)
+        result |= EVD_TLS_VERIFY_STATE_SIGNER_NOT_FOUND;
+      if (status & GNUTLS_CERT_SIGNER_NOT_CA)
+        result |= EVD_TLS_VERIFY_STATE_SIGNER_NOT_CA;
+      if (status & GNUTLS_CERT_INSECURE_ALGORITHM)
+        result |= EVD_TLS_VERIFY_STATE_INSECURE_ALG;
+    }
+
+  /* check each peer certificate individually */
+  peer_certs = evd_tls_session_get_peer_certificates (self, error);
+  if (peer_certs != NULL)
+    {
+      GList *node;
+      EvdTlsCertificate *cert;
+      gint cert_result;
+
+      node = peer_certs;
+      do
+        {
+          cert = EVD_TLS_CERTIFICATE (node->data);
+
+          cert_result = evd_tls_certificate_verify_validity (cert, error);
+          if (cert_result < 0)
+            break;
+          else
+            result |= cert_result;
+
+          node = node->next;
+        }
+      while (node != NULL);
+
+      evd_tls_free_certificates (peer_certs);
+    }
+
+  return result;
+}

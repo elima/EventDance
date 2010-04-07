@@ -68,46 +68,46 @@ struct _EvdTlsSessionClass
 #define EVD_TLS_SESSION_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_SESSION, EvdTlsSessionClass))
 
 
-GType              evd_tls_session_get_type            (void) G_GNUC_CONST;
+GType              evd_tls_session_get_type              (void) G_GNUC_CONST;
 
-EvdTlsSession     *evd_tls_session_new                 (void);
+EvdTlsSession     *evd_tls_session_new                   (void);
 
-void               evd_tls_session_set_credentials     (EvdTlsSession     *self,
-                                                        EvdTlsCredentials *credentials);
+void               evd_tls_session_set_credentials       (EvdTlsSession     *self,
+                                                          EvdTlsCredentials *credentials);
 
 /**
  * evd_tls_session_get_credentials:
  *
  * Returns: (transfer none): The #EvdTlsCredentials object of this session
  */
-EvdTlsCredentials *evd_tls_session_get_credentials     (EvdTlsSession *self);
+EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
 
-void               evd_tls_session_set_transport_funcs (EvdTlsSession         *self,
-                                                        EvdTlsSessionPullFunc  pull_func,
-                                                        EvdTlsSessionPushFunc  push_func,
-                                                        gpointer               user_data);
+void               evd_tls_session_set_transport_funcs   (EvdTlsSession         *self,
+                                                          EvdTlsSessionPullFunc  pull_func,
+                                                          EvdTlsSessionPushFunc  push_func,
+                                                          gpointer               user_data);
 
-gboolean           evd_tls_session_handshake           (EvdTlsSession   *self,
-                                                        GError         **error);
+gboolean           evd_tls_session_handshake             (EvdTlsSession   *self,
+                                                          GError         **error);
 
-gssize             evd_tls_session_read                (EvdTlsSession  *self,
-                                                        gchar          *buffer,
-                                                        gsize           size,
-                                                        GError        **error);
-gssize             evd_tls_session_write               (EvdTlsSession  *self,
-                                                        const gchar    *buffer,
-                                                        gsize           size,
-                                                        GError        **error);
+gssize             evd_tls_session_read                  (EvdTlsSession  *self,
+                                                          gchar          *buffer,
+                                                          gsize           size,
+                                                          GError        **error);
+gssize             evd_tls_session_write                 (EvdTlsSession  *self,
+                                                          const gchar    *buffer,
+                                                          gsize           size,
+                                                          GError        **error);
 
-GIOCondition       evd_tls_session_get_direction       (EvdTlsSession *self);
+GIOCondition       evd_tls_session_get_direction         (EvdTlsSession *self);
 
-gboolean           evd_tls_session_close               (EvdTlsSession  *self,
-                                                        GError        **error);
-gboolean           evd_tls_session_shutdown_write      (EvdTlsSession  *self,
-                                                        GError         **error);
+gboolean           evd_tls_session_close                 (EvdTlsSession  *self,
+                                                          GError        **error);
+gboolean           evd_tls_session_shutdown_write        (EvdTlsSession  *self,
+                                                          GError         **error);
 
-void               evd_tls_session_copy_properties     (EvdTlsSession *self,
-                                                        EvdTlsSession *target);
+void               evd_tls_session_copy_properties       (EvdTlsSession *self,
+                                                          EvdTlsSession *target);
 
 /**
  * evd_tls_session_get_peer_certificates:
@@ -118,6 +118,10 @@ void               evd_tls_session_copy_properties     (EvdTlsSession *self,
  *          as sent by the peer.
  */
 GList             *evd_tls_session_get_peer_certificates (EvdTlsSession  *self,
+                                                          GError        **error);
+
+gint               evd_tls_session_verify_peer           (EvdTlsSession  *self,
+                                                          guint           flags,
                                                           GError        **error);
 
 G_END_DECLS
