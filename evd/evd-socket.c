@@ -1612,7 +1612,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
             {
               self->priv->delayed_close = TRUE;
 
-              if (! TLS_ENABLED (self) && self->priv->read_src_id == 0)
+              if (self->priv->read_src_id == 0)
                 {
                   self->priv->read_src_id =
                     evd_timeout_add (self->priv->context,
