@@ -1525,10 +1525,19 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
     {
       if (condition & G_IO_ERR)
         {
-          /* socket error, emit 'error' signal */
-          error = g_error_new (evd_socket_err_domain,
-                               EVD_SOCKET_ERROR_UNKNOWN,
-                               "Socket error");
+          if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
+            {
+              /* @TODO: assume connection was refused */
+              error = g_error_new (evd_socket_err_domain,
+                                   EVD_SOCKET_ERROR_UNKNOWN,
+                                   "Connection refused");
+            }
+          else
+            {
+              error = g_error_new (evd_socket_err_domain,
+                                   EVD_SOCKET_ERROR_UNKNOWN,
+                                   "Unknown socket error");
+            }
 
           evd_socket_throw_error (self, error);
           evd_socket_close (self, NULL);
