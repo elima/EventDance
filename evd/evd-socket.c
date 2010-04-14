@@ -36,7 +36,6 @@
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
 
-#define DEFAULT_CONNECT_TIMEOUT 0 /* no timeout */
 #define DOMAIN_QUARK_STRING     "org.eventdance.lib.socket"
 
 #define MAX_BLOCK_SIZE          G_MAXUINT16
@@ -64,9 +63,6 @@ struct _EvdSocketPrivate
   EvdSocketState   status;
   EvdSocketState   sub_status;
   GMainContext    *context;
-
-  guint         connect_timeout;
-  guint         connect_timeout_src_id;
 
   EvdSocketGroup *group;
 
@@ -119,7 +115,6 @@ enum
   PROP_FAMILY,
   PROP_TYPE,
   PROP_PROTOCOL,
-  PROP_CONNECT_TIMEOUT,
   PROP_AUTO_WRITE,
   PROP_GROUP,
   PROP_PRIORITY,
@@ -263,16 +258,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_CONNECT_TIMEOUT,
-                                   g_param_spec_uint ("connect-timeout",
-                                                      "Connect timeout",
-                                                      "The timeout in seconds to wait for a connect operation",
-                                                      0,
-                                                      G_MAXUINT,
-                                                      DEFAULT_CONNECT_TIMEOUT,
-                                                      G_PARAM_READWRITE |
-                                                      G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_GROUP,
                                    g_param_spec_object ("group",
                                                         "Socket group",
@@ -335,8 +320,6 @@ evd_socket_init (EvdSocket *self)
   priv->family   = G_SOCKET_FAMILY_INVALID;
   priv->type     = G_SOCKET_TYPE_INVALID;
   priv->protocol = G_SOCKET_PROTOCOL_UNKNOWN;
-
-  priv->connect_timeout = DEFAULT_CONNECT_TIMEOUT;
 
   priv->group = NULL;
 
@@ -435,10 +418,6 @@ evd_socket_set_property (GObject      *obj,
       self->priv->protocol = g_value_get_enum (value);
       break;
 
-    case PROP_CONNECT_TIMEOUT:
-      self->priv->connect_timeout = g_value_get_uint (value);
-      break;
-
     case PROP_GROUP:
       {
         EvdSocketGroup *group;
@@ -512,10 +491,6 @@ evd_socket_get_property (GObject    *obj,
         g_value_set_enum (value, g_socket_get_protocol (self->priv->socket));
       else
         g_value_set_enum (value, self->priv->protocol);
-      break;
-
-    case PROP_CONNECT_TIMEOUT:
-      g_value_set_uint (value, self->priv->connect_timeout);
       break;
 
     case PROP_GROUP:
@@ -722,31 +697,6 @@ evd_socket_check_address (EvdSocket       *self,
     self->priv->protocol = G_SOCKET_PROTOCOL_DEFAULT;
 
   return TRUE;
-}
-
-static gboolean
-evd_socket_connect_timeout (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-  GError *error = NULL;
-
-  /* emit 'connect-timeout' error */
-  error = g_error_new (evd_socket_err_domain,
-                       EVD_SOCKET_ERROR_CONNECT_TIMEOUT,
-                       "Connect timeout");
-  evd_socket_throw_error (self, error);
-
-  self->priv->connect_timeout_src_id = 0;
-  if (! evd_socket_close (self, &error))
-    {
-      /* emit 'close' error signal */
-      error->code = EVD_SOCKET_ERROR_CLOSE;
-      evd_socket_throw_error (self, error);
-
-      return FALSE;
-    }
-
-  return FALSE;
 }
 
 static gboolean
@@ -1557,10 +1507,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                       /* restore priority */
                       self->priv->actual_priority = self->priv->priority;
 
-                      /* remove any connect_timeout src */
-                      if (self->priv->connect_timeout_src_id > 0)
-                        g_source_remove (self->priv->connect_timeout_src_id);
-
                       self->priv->cond |= G_IO_OUT;
                       evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
                       self->priv->cond &= ~G_IO_OUT;
@@ -1718,12 +1664,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
   self->priv->tls_enabled = FALSE;
   self->priv->tls_read_pending = FALSE;
   self->priv->delayed_close = FALSE;
-
-  if (self->priv->connect_timeout_src_id != 0)
-    {
-      g_source_remove (self->priv->connect_timeout_src_id);
-      self->priv->connect_timeout_src_id = 0;
-    }
 
   if (self->priv->read_src_id != 0)
     {
@@ -2067,13 +2007,6 @@ evd_socket_connect_addr (EvdSocket        *self,
 
   if (! evd_socket_check (self, error))
     return FALSE;
-
-  /* launch connect timeout */
-  if (self->priv->connect_timeout > 0)
-    self->priv->connect_timeout_src_id =
-      g_timeout_add (self->priv->connect_timeout * 1000,
-                     (GSourceFunc) evd_socket_connect_timeout,
-                     (gpointer) self);
 
   if (! g_socket_connect (self->priv->socket,
                           address,

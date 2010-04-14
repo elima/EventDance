@@ -31,7 +31,6 @@ function testInitialState (Assert) {
 
     Assert.equal (socket.read_closure, null);
     Assert.equal (socket.write_closure, null);
-    Assert.equal (socket.connect_timeout, 0);
     Assert.equal (socket.group, null);
     Assert.equal (socket.auto_write, false);
     Assert.equal (socket.priority, 0);

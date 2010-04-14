@@ -258,7 +258,6 @@ thread_handler (gpointer user_data)
       g_assert (EVD_IS_SOCKET (client));
 
       g_object_set (client,
-		    "connect-timeout", 3000,
 		    "group", group_receivers,
 		    NULL);
 
