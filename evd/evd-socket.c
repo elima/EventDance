@@ -1613,28 +1613,29 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
         }
 
     }
-      if (condition & G_IO_HUP)
-        {
-          if (self->priv->awaiting_read ||
-              self->priv->tls_read_pending ||
-              self->priv->cond & G_IO_IN)
-            {
-              self->priv->delayed_close = TRUE;
 
-              if (self->priv->read_src_id == 0)
-                {
-                  self->priv->read_src_id =
-                    evd_timeout_add (self->priv->context,
-                                     0,
-                                     (GSourceFunc) evd_socket_read_wait_timeout,
-                                     (gpointer) self);
-                }
-            }
-          else
+  if (condition & G_IO_HUP)
+    {
+      if (self->priv->awaiting_read ||
+          self->priv->tls_read_pending ||
+          self->priv->cond & G_IO_IN)
+        {
+          self->priv->delayed_close = TRUE;
+
+          if (self->priv->read_src_id == 0)
             {
-              evd_socket_close (self, &error);
+              self->priv->read_src_id =
+                evd_timeout_add (self->priv->context,
+                                 0,
+                                 (GSourceFunc) evd_socket_read_wait_timeout,
+                                 (gpointer) self);
             }
         }
+      else
+        {
+          evd_socket_close (self, &error);
+        }
+    }
 
   g_object_unref (self);
 }
