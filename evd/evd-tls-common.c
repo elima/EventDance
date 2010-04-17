@@ -26,12 +26,18 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <gcrypt.h>
+#include <pthread.h>
+#include <errno.h>
+
 #include "evd-tls-common.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-global"
 
 G_LOCK_DEFINE_STATIC (evd_tls_init);
 static gboolean evd_tls_initialized = FALSE;
+
+GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 gboolean
 evd_tls_init (GError **error)
@@ -44,11 +50,14 @@ evd_tls_init (GError **error)
     {
       gint err_code;
 
+      g_thread_init (NULL);
+
+      gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+      gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
+
       err_code = gnutls_global_init ();
       if (err_code == GNUTLS_E_SUCCESS)
         {
-          /* to disallow usage of the blocking /dev/random */
-          gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
 
           result = TRUE;
         }

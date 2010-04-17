@@ -28,7 +28,6 @@
 
 #include <glib.h>
 #include <gnutls/gnutls.h>
-#include <gcrypt.h>
 
 G_BEGIN_DECLS
 
