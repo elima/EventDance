@@ -42,6 +42,7 @@ source_c = \
 	evd-reproxy-backend.c \
 	evd-reproxy.c \
 	evd-tls-common.c \
+	evd-tls-dh-generator.c \
 	evd-tls-session.c \
 	evd-tls-certificate.c \
 	evd-tls-credentials.c
@@ -70,7 +71,8 @@ source_h_priv = \
 	evd-socket-group-protected.h \
 	evd-reproxy-backend.h \
 	evd-service-protected.h \
-	evd-tls-common.h
+	evd-tls-common.h \
+	evd-tls-dh-generator.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
