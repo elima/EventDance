@@ -25,6 +25,7 @@ let socket = new Evd.Socket ();
 
 // setup TLS on socket
 socket.tls_autostart = true;
+socket.tls.credentials.dh_bits = 1024;
 socket.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
 socket.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
 socket.tls.credentials.trust_file = "../../tests/certs/x509-ca.pem";
