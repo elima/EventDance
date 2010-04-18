@@ -27,6 +27,7 @@
 #define __EVD_TLS_COMMON_H__
 
 #include <glib.h>
+#include <gio/gio.h>
 #include <gnutls/gnutls.h>
 
 G_BEGIN_DECLS
@@ -75,6 +76,19 @@ void     evd_tls_build_error       (gint     error_code,
                                     GQuark   domain);
 
 void     evd_tls_free_certificates (GList *certificates);
+
+/**
+ * evd_tls_generate_dh_params:
+ * @user_data: (allow-none):
+ **/
+void     evd_tls_generate_dh_params        (guint                bit_length,
+                                            gboolean             regenerate,
+                                            GAsyncReadyCallback  callback,
+                                            GCancellable        *cancellable,
+                                            gpointer             user_data);
+
+gpointer evd_tls_generate_dh_params_finish (GAsyncResult  *result,
+                                            GError       **error);
 
 G_END_DECLS
 

@@ -31,11 +31,14 @@
 #include <errno.h>
 
 #include "evd-tls-common.h"
+#include "evd-tls-dh-generator.h"
 
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-global"
 
 G_LOCK_DEFINE_STATIC (evd_tls_init);
 static gboolean evd_tls_initialized = FALSE;
+
+static EvdTlsDhGenerator *evd_tls_dh_gen;
 
 GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
@@ -58,6 +61,7 @@ evd_tls_init (GError **error)
       err_code = gnutls_global_init ();
       if (err_code == GNUTLS_E_SUCCESS)
         {
+          evd_tls_dh_gen = evd_tls_dh_generator_new ();
 
           result = TRUE;
         }
@@ -85,6 +89,8 @@ evd_tls_deinit (void)
 
   if (evd_tls_initialized)
     {
+      g_object_unref (evd_tls_dh_gen);
+
       /* check why after calling 'gnutls_global_deinit', calling again
          'gnutls_global_init' throws a segfault */
       /* gnutls_global_deinit (); */
@@ -125,4 +131,28 @@ evd_tls_free_certificates (GList *certificates)
     }
 
   g_list_free (certificates);
+}
+
+void
+evd_tls_generate_dh_params (guint                bit_length,
+                            gboolean             regenerate,
+                            GAsyncReadyCallback  callback,
+                            GCancellable        *cancellable,
+                            gpointer             user_data)
+{
+  evd_tls_dh_generator_generate (evd_tls_dh_gen,
+                                 bit_length,
+                                 regenerate,
+                                 callback,
+                                 cancellable,
+                                 user_data);
+}
+
+gpointer
+evd_tls_generate_dh_params_finish (GAsyncResult  *result,
+                                   GError       **error)
+{
+  return evd_tls_dh_generator_generate_finish (evd_tls_dh_gen,
+                                               result,
+                                               error);
 }
