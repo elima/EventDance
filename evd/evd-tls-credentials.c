@@ -34,8 +34,6 @@ G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
 /* private data */
 struct _EvdTlsCredentialsPrivate
 {
-  GQuark err_domain;
-
   gnutls_certificate_credentials_t cred;
   gnutls_anon_client_credentials_t anon_client_cred;
   gnutls_anon_server_credentials_t anon_server_cred;
@@ -72,6 +70,8 @@ enum
   PROP_KEY_FILE,
   PROP_TRUST_FILE
 };
+
+static GQuark evd_tls_credentials_err_domain;
 
 static void     evd_tls_credentials_class_init         (EvdTlsCredentialsClass *class);
 static void     evd_tls_credentials_init               (EvdTlsCredentials *self);
@@ -146,6 +146,9 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsCredentialsPrivate));
+
+  evd_tls_credentials_err_domain =
+    g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void
@@ -155,8 +158,6 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv = EVD_TLS_CREDENTIALS_GET_PRIVATE (self);
   self->priv = priv;
-
-  priv->err_domain = g_quark_from_static_string (DOMAIN_QUARK_STRING);
 
   priv->cred = NULL;
 
@@ -300,7 +301,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          evd_tls_build_error (err_code, error, evd_tls_credentials_err_domain);
           return FALSE;
         }
 
@@ -333,7 +334,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          evd_tls_build_error (err_code, error, evd_tls_credentials_err_domain);
           return FALSE;
         }
 
@@ -345,11 +346,11 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
       if (error != NULL)
         {
           if (self->priv->cert_file == NULL)
-            *error = g_error_new (self->priv->err_domain,
+            *error = g_error_new (evd_tls_credentials_err_domain,
                                   EVD_TLS_ERROR_CRED_INVALID_CERT,
                                   "Credentials' certificate not specified");
           else
-            *error = g_error_new (self->priv->err_domain,
+            *error = g_error_new (evd_tls_credentials_err_domain,
                                   EVD_TLS_ERROR_CRED_INVALID_KEY,
                                   "Credentials' key not specified");
         }
