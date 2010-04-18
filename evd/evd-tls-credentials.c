@@ -41,6 +41,9 @@ struct _EvdTlsCredentialsPrivate
   gnutls_anon_server_credentials_t anon_server_cred;
   gboolean anonymous;
 
+  guint              dh_bits;
+  gnutls_dh_params_t dh_params;
+
   gchar *cert_file;
   gchar *key_file;
   gchar *trust_file;
@@ -64,6 +67,7 @@ static guint evd_tls_credentials_signals[SIGNAL_LAST] = { 0 };
 enum
 {
   PROP_0,
+  PROP_DH_BITS,
   PROP_CERT_FILE,
   PROP_KEY_FILE,
   PROP_TRUST_FILE
@@ -106,6 +110,16 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
                   G_TYPE_NONE, 0);
 
   /* install properties */
+  g_object_class_install_property (obj_class, PROP_DH_BITS,
+                                   g_param_spec_uint ("dh-bits",
+                                                      "DH parameters's depth",
+                                                      "Bit depth of the Diffie-Hellman key exchange parameters to use during handshake",
+                                                      0,
+                                                      4096,
+                                                      0,
+                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (obj_class, PROP_CERT_FILE,
                                    g_param_spec_string ("cert-file",
                                                         "Certificate file",
@@ -146,6 +160,9 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv->cred = NULL;
 
+  priv->dh_bits = 0;
+  priv->dh_params = NULL;
+
   priv->cert_file = NULL;
   priv->key_file = NULL;
 
@@ -177,6 +194,9 @@ evd_tls_credentials_finalize (GObject *obj)
   if (self->priv->trust_file != NULL)
     g_free (self->priv->trust_file);
 
+  if (self->priv->dh_params != NULL)
+    gnutls_dh_params_deinit (self->priv->dh_params);
+
   G_OBJECT_CLASS (evd_tls_credentials_parent_class)->finalize (obj);
 }
 
@@ -192,6 +212,21 @@ evd_tls_credentials_set_property (GObject      *obj,
 
   switch (prop_id)
     {
+    case PROP_DH_BITS:
+      if (g_value_get_uint (value) != self->priv->dh_bits)
+        {
+          self->priv->dh_bits = g_value_get_uint (value);
+
+          if (self->priv->dh_params != NULL)
+            {
+              gnutls_dh_params_deinit (self->priv->dh_params);
+              self->priv->dh_params = NULL;
+            }
+
+          self->priv->ready = FALSE;
+        }
+      break;
+
     case PROP_CERT_FILE:
       evd_tls_credentials_set_cert_file (self, g_value_get_string (value));
       break;
@@ -222,6 +257,10 @@ evd_tls_credentials_get_property (GObject    *obj,
 
   switch (prop_id)
     {
+    case PROP_DH_BITS:
+      g_value_set_uint (value, self->priv->dh_bits);
+      break;
+
     case PROP_CERT_FILE:
       g_value_set_string (value, self->priv->cert_file);
       break;
@@ -266,13 +305,6 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
         }
 
       self->priv->anonymous = TRUE;
-      self->priv->ready = TRUE;
-      self->priv->preparing = FALSE;
-
-      g_signal_emit (self,
-                     evd_tls_credentials_signals[SIGNAL_READY],
-                     0,
-                     NULL);
     }
   else if (self->priv->cert_file != NULL && self->priv->key_file != NULL)
     {
@@ -306,13 +338,6 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
         }
 
       self->priv->anonymous = FALSE;
-      self->priv->ready = TRUE;
-      self->priv->preparing = FALSE;
-
-      g_signal_emit (self,
-                     evd_tls_credentials_signals[SIGNAL_READY],
-                     0,
-                     NULL);
     }
   else
     {
@@ -332,7 +357,43 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
       return FALSE;
     }
 
+  if (self->priv->mode == EVD_TLS_MODE_SERVER &&
+      self->priv->dh_bits != 0)
+    {
+      gnutls_certificate_set_dh_params (self->priv->cred,
+                                        self->priv->dh_params);
+    }
+
+  self->priv->ready = TRUE;
+  self->priv->preparing = FALSE;
+
+  g_signal_emit (self,
+                 evd_tls_credentials_signals[SIGNAL_READY],
+                 0,
+                 NULL);
+
   return TRUE;
+}
+
+static void
+evd_tls_credentials_dh_params_ready (GObject      *source_obj,
+                                     GAsyncResult *res,
+                                     gpointer      user_data)
+{
+  EvdTlsCredentials *self = EVD_TLS_CREDENTIALS (user_data);
+  GError *error = NULL;
+
+  if ( (self->priv->dh_params =
+        evd_tls_generate_dh_params_finish (res,
+                                           &error)) != NULL)
+    {
+      evd_tls_credentials_prepare_finish (self, &error);
+    }
+  else
+    {
+      /* @TODO: handle async error */
+      g_debug ("Error generating DH params: %s", error->message);
+    }
 }
 
 /* public methods */
@@ -395,11 +456,23 @@ evd_tls_credentials_prepare (EvdTlsCredentials  *self,
   if (self->priv->preparing)
    return TRUE;
 
-  /* TODO: if DH params are needed, request them now */
-
   self->priv->mode = mode;
 
-  return evd_tls_credentials_prepare_finish (self, error);
+  if (self->priv->mode == EVD_TLS_MODE_SERVER &&
+      self->priv->dh_bits != 0 && self->priv->dh_params == NULL)
+    {
+      evd_tls_generate_dh_params (self->priv->dh_bits,
+                                  0,
+                                  evd_tls_credentials_dh_params_ready,
+                                  NULL, /* @TODO: functions ignores cancellable by now */
+                                  (gpointer) self);
+
+      return TRUE;
+    }
+  else
+    {
+      return evd_tls_credentials_prepare_finish (self, error);
+    }
 }
 
 gboolean
