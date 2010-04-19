@@ -4,7 +4,7 @@ const Evd = imports.gi.Evd;
 const Test = imports.common.test;
 const Assert = imports.common.assert;
 
-function _testInitialState (Assert) {
+function testInitialState (Assert) {
     let group = new Evd.SocketGroup ();
     Assert.ok (group);
     Assert.ok (group instanceof Evd.Stream);
@@ -16,18 +16,13 @@ function _testInitialState (Assert) {
     let read_handler = function () {};
     let write_handler = function () {};
 
-    group.set_read_handler (read_handler, {});
+    group.set_on_read (read_handler);
     Assert.ok (group.get_on_read ());
     Assert.ok (group.read_closure);
 
-    group.set_write_handler (write_handler, null);
+    group.set_on_write (write_handler);
     Assert.ok (group.get_on_write ());
     Assert.ok (group.write_closure);
-
-    group.set_on_read (read_handler);
-    Assert.strictEqual (group.read_closure, read_handler);
-    group.set_on_write (write_handler);
-    Assert.strictEqual (group.write_closure, write_handler);
 }
 
 function testAddRemoveSocket (Assert) {
@@ -72,12 +67,17 @@ function testAddRemoveSocket (Assert) {
     // setting the read/write handler of a socket while in a group,
     // removes the socket from the group.
     socket.group = group;
-    socket.set_read_handler (function () {}, null);
+    // @TODO: using 'set_read_handler' here makes JS object leak. Why?
+    // using 'set_on_read' instead.
+    // socket.set_read_handler (function () {}, null);
+    socket.set_on_read (function () {});
     Assert.strictEqual (socket.group, null);
+    socket.set_read_handler (null, null);
 
     socket.group = group;
     socket.set_on_write (function () {});
     Assert.strictEqual (socket.group, null);
+    socket.set_write_handler (null, null);
 }
 
 function testDataTransfer (Assert) {
