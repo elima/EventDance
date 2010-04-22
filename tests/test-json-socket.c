@@ -53,6 +53,8 @@ typedef struct
 
   gint packet_index;
   gint total_packets;
+
+  gboolean completed;
 } EvdJsonSocketFixture;
 
 static void
@@ -76,6 +78,8 @@ evd_json_socket_fixture_setup (EvdJsonSocketFixture *f,
 
   f->packet_index = 0;
   f->total_packets = 0;
+
+  f->completed = FALSE;
 }
 
 static gboolean
@@ -125,6 +129,16 @@ evd_json_socket_test_on_error (EvdSocket *self,
 }
 
 static void
+evd_json_socket_test_on_close (EvdSocket *self, gpointer user_data)
+{
+  EvdJsonSocketFixture *f = (EvdJsonSocketFixture *) user_data;
+
+  f->completed = TRUE;
+
+  evd_json_socket_test_break (user_data);
+}
+
+static void
 evd_json_socket_test_on_packet (EvdJsonSocket *self,
                                 const gchar   *buffer,
                                 gsize          size,
@@ -139,7 +153,12 @@ evd_json_socket_test_on_packet (EvdJsonSocket *self,
   f->packet_index ++;
 
   if (f->packet_index == sizeof (evd_json_socket_packets) / sizeof (gchar *))
-    evd_json_socket_test_break ((gpointer) f);
+    {
+      GError *error = NULL;
+
+      g_assert (evd_socket_close (EVD_SOCKET (self), &error));
+      g_assert_no_error (error);
+    }
 }
 
 static void
@@ -233,6 +252,11 @@ evd_json_socket_launch_test (gpointer user_data)
                     G_CALLBACK (evd_json_socket_test_on_error),
                     (gpointer) f);
 
+  g_signal_connect (f->socket1,
+                    "close",
+                    G_CALLBACK (evd_json_socket_test_on_close),
+                    (gpointer) f);
+
   evd_stream_set_read_handler (EVD_STREAM (f->socket1),
                                G_CALLBACK (evd_json_socket_test_on_read),
                                f);
@@ -266,6 +290,8 @@ evd_json_socket_test (EvdJsonSocketFixture *f,
   g_assert_cmpint (f->packet_index,
                    ==,
                    sizeof (evd_json_socket_packets) / sizeof (gchar *));
+
+  g_assert (f->completed);
 }
 
 gint
