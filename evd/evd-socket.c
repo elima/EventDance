@@ -32,7 +32,9 @@
 #include "evd-socket-manager.h"
 #include "evd-stream-protected.h"
 #include "evd-resolver.h"
+
 #include "evd-socket-input-stream.h"
+#include "evd-socket-output-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -95,7 +97,8 @@ struct _EvdSocketPrivate
   GIOCondition  new_cond;
   GMutex       *mutex;
 
-  EvdSocketInputStream *socket_input_stream;
+  EvdSocketInputStream  *socket_input_stream;
+  EvdSocketOutputStream *socket_output_stream;
 };
 
 /* signals */
@@ -361,6 +364,7 @@ evd_socket_init (EvdSocket *self)
   priv->mutex = g_mutex_new ();
 
   priv->socket_input_stream = NULL;
+  priv->socket_output_stream = NULL;
 }
 
 static void
@@ -732,9 +736,25 @@ evd_socket_input_stream_drained (EvdSocketInputStream *stream,
       GError *error = NULL;
 
       self->priv->watched_cond |= G_IO_IN;
-      if (! evd_socket_watch (self,
-                              self->priv->watched_cond,
-                              &error))
+      if (! evd_socket_watch (self, self->priv->watched_cond, &error))
+        evd_socket_throw_error (self, error);
+    }
+}
+
+static void
+evd_socket_output_stream_filled (EvdSocketOutputStream *stream,
+                                 gpointer               user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  self->priv->cond &= (~ G_IO_OUT);
+
+  if (! TLS_ENABLED (self))
+    {
+      GError *error = NULL;
+
+      self->priv->watched_cond |= G_IO_OUT;
+      if (! evd_socket_watch (self, self->priv->watched_cond, &error))
         evd_socket_throw_error (self, error);
     }
 }
@@ -750,6 +770,17 @@ evd_socket_setup_streams (EvdSocket *self)
       g_signal_connect (self->priv->socket_input_stream,
                         "drained",
                         G_CALLBACK (evd_socket_input_stream_drained),
+                        self);
+    }
+
+  if (self->priv->socket_output_stream == NULL)
+    {
+      self->priv->socket_output_stream =
+        evd_socket_output_stream_new (self);
+
+      g_signal_connect (self->priv->socket_output_stream,
+                        "filled",
+                        G_CALLBACK (evd_socket_output_stream_filled),
                         self);
     }
 }
@@ -918,40 +949,27 @@ evd_socket_write_internal (EvdSocket    *self,
 
   if (limited_size > 0)
     {
-      actual_size = g_socket_send (self->priv->socket,
-                                   buf,
-                                   limited_size,
-                                   NULL,
-                                   error);
+      actual_size =
+        g_output_stream_write (G_OUTPUT_STREAM (self->priv->socket_output_stream),
+                               buf,
+                               limited_size,
+                               NULL,
+                               error);
 
-      if (actual_size >= 0)
+      if (actual_size > 0)
         {
-          if (actual_size > 0)
-            {
-              if (self->priv->group != NULL)
-                evd_stream_report_write (EVD_STREAM (self->priv->group),
+          if (self->priv->group != NULL)
+            evd_stream_report_write (EVD_STREAM (self->priv->group),
                                      actual_size);
 
-              evd_stream_report_write (EVD_STREAM (self),
-                                       actual_size);
-            }
-
-          if (actual_size < limited_size)
-            {
-              self->priv->cond &= (~ G_IO_OUT);
-              if (! TLS_ENABLED (self))
-                {
-                  self->priv->watched_cond |= G_IO_OUT;
-                  if (! evd_socket_watch (self, self->priv->watched_cond, error))
-                    return -1;
-                }
-            }
+          evd_stream_report_write (EVD_STREAM (self),
+                                   actual_size);
         }
     }
 
-  if (actual_size < size)
+  if (actual_size >= 0 && actual_size < size)
     {
-      if (self->priv->write_src_id == 0 && FALSE)
+      if (self->priv->write_src_id == 0)
         {
           self->priv->write_src_id =
             evd_timeout_add (self->priv->context,
@@ -1708,6 +1726,7 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
     }
   g_mutex_unlock (self->priv->mutex);
 
+  /* cleanup streams */
   if (self->priv->socket_input_stream != NULL)
     {
       g_signal_handlers_disconnect_by_func (self->priv->socket_input_stream,
@@ -1715,6 +1734,15 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
                                             self);
       g_object_unref (self->priv->socket_input_stream);
       self->priv->socket_input_stream = NULL;
+    }
+
+  if (self->priv->socket_output_stream != NULL)
+    {
+      g_signal_handlers_disconnect_by_func (self->priv->socket_output_stream,
+                                            evd_socket_output_stream_filled,
+                                            self);
+      g_object_unref (self->priv->socket_output_stream);
+      self->priv->socket_output_stream = NULL;
     }
 
   return result;
