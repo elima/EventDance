@@ -54,6 +54,7 @@ typedef struct
   gboolean new_conn;
 
   gsize total_read;
+  gint total_closed;
   gboolean completed;
 } EvdSocketFixture;
 
@@ -75,6 +76,7 @@ evd_socket_fixture_setup (EvdSocketFixture *fixture,
   fixture->new_conn = FALSE;
 
   fixture->total_read = 0;
+  fixture->total_closed = 0;
   fixture->completed = FALSE;
 
   g_assert (evd_socket_manager_get () == NULL);
@@ -147,6 +149,21 @@ evd_socket_test_on_error (EvdSocket *self,
 }
 
 static void
+evd_socket_test_on_close (EvdSocket *self, gpointer user_data)
+{
+  EvdSocketFixture *f = (EvdSocketFixture *) user_data;
+
+  f->total_closed ++;
+
+  /* if all socket closed, finish mainloop */
+  if (f->total_closed == 2)
+    {
+      f->completed = TRUE;
+      evd_socket_test_break ((gpointer) f);
+    }
+}
+
+static void
 evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
 {
   EvdSocketFixture *f = (EvdSocketFixture *) user_data;
@@ -178,15 +195,15 @@ evd_socket_test_on_read (EvdSocket *self, gpointer user_data)
   g_assert_cmpstr (buf, ==, expected_st);
   g_free (expected_st);
 
-  /* break mainloop if finished reading */
+  /* close socket if finished reading */
   f->total_read += size;
   if (f->total_read ==
       (strlen (EVD_SOCKET_TEST_UNREAD_TEXT) +
        strlen (EVD_SOCKET_TEST_TEXT1) +
        strlen (EVD_SOCKET_TEST_TEXT2)) * 2)
     {
-      f->completed = TRUE;
-      evd_socket_test_break ((gpointer) f);
+      g_assert (evd_socket_close (self, &error));
+      g_assert_no_error (error);
     }
 }
 
@@ -241,6 +258,17 @@ evd_socket_test_on_new_conn (EvdSocket *self,
   g_assert (evd_stream_get_on_write (EVD_STREAM (client)) != NULL);
 
   f->socket2 = client;
+
+  g_signal_connect (f->socket2,
+                    "error",
+                    G_CALLBACK (evd_socket_test_on_error),
+                    (gpointer) f);
+
+  g_signal_connect (f->socket2,
+                    "close",
+                    G_CALLBACK (evd_socket_test_on_close),
+                    (gpointer) f);
+
   g_object_ref (f->socket2);
 }
 
@@ -321,6 +349,15 @@ evd_socket_launch_test (gpointer user_data)
   g_signal_connect (f->socket1,
                     "error",
                     G_CALLBACK (evd_socket_test_on_error),
+                    (gpointer) f);
+
+  g_signal_connect (f->socket,
+                    "close",
+                    G_CALLBACK (evd_socket_test_on_close),
+                    (gpointer) f);
+  g_signal_connect (f->socket1,
+                    "close",
+                    G_CALLBACK (evd_socket_test_on_close),
                     (gpointer) f);
 
   evd_stream_set_read_handler (EVD_STREAM (f->socket1),
