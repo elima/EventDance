@@ -31,6 +31,7 @@
 #include <evd-socket-stream.h>
 #include <evd-resolver.h>
 #include <evd-socket.h>
+#include <evd-socket-input-stream.h>
 #include <evd-json-filter.h>
 #include <evd-json-socket.h>
 #include <evd-socket-group.h>

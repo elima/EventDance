@@ -35,6 +35,7 @@ source_c = \
 	evd-resolver-request.c \
 	evd-resolver.c \
 	evd-socket.c \
+	evd-socket-input-stream.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
 	evd-socket-group.c \
@@ -55,6 +56,7 @@ source_h = \
 	evd-resolver-request.h \
 	evd-resolver.h \
 	evd-socket.h \
+	evd-socket-input-stream.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
 	evd-socket-group.h \
