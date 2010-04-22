@@ -32,6 +32,7 @@
 #include "evd-socket-manager.h"
 #include "evd-stream-protected.h"
 #include "evd-resolver.h"
+#include "evd-socket-input-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -93,6 +94,8 @@ struct _EvdSocketPrivate
   guint         event_handler_src_id;
   GIOCondition  new_cond;
   GMutex       *mutex;
+
+  EvdSocketInputStream *socket_input_stream;
 };
 
 /* signals */
@@ -356,6 +359,8 @@ evd_socket_init (EvdSocket *self)
   priv->new_cond = 0;
 
   priv->mutex = g_mutex_new ();
+
+  priv->socket_input_stream = NULL;
 }
 
 static void
@@ -714,51 +719,39 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
   return TRUE;
 }
 
-static gssize
-evd_socket_read_internal (EvdSocket *self,
-                          gchar     *buffer,
-                          gsize      size,
-                          GError   **error)
+static void
+evd_socket_input_stream_drained (EvdSocketInputStream *stream,
+                                 gpointer              user_data)
 {
-  GError *_error = NULL;
-  gssize actual_size = 0;
+  EvdSocket *self = EVD_SOCKET (user_data);
 
-  if ( (actual_size = g_socket_receive (self->priv->socket,
-                                        buffer,
-                                        size,
-                                        NULL,
-                                        &_error)) < 0)
+  self->priv->cond &= ~G_IO_IN;
+
+  if (! TLS_ENABLED (self))
     {
-      if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
-        {
-          g_error_free (_error);
-          actual_size = 0;
-        }
-      else
-        {
-          if (error != NULL)
-            *error = _error;
-          actual_size = -1;
-        }
+      GError *error = NULL;
+
+      self->priv->watched_cond |= G_IO_IN;
+      if (! evd_socket_watch (self,
+                              self->priv->watched_cond,
+                              &error))
+        evd_socket_throw_error (self, error);
     }
-  else
+}
+
+static void
+evd_socket_setup_streams (EvdSocket *self)
+{
+  if (self->priv->socket_input_stream == NULL)
     {
-      if (actual_size < size)
-        {
-          self->priv->cond &= ~G_IO_IN;
+      self->priv->socket_input_stream =
+        evd_socket_input_stream_new (self);
 
-          if (! TLS_ENABLED (self))
-            {
-              self->priv->watched_cond |= G_IO_IN;
-              if (! evd_socket_watch (self,
-                                      self->priv->watched_cond,
-                                      error))
-                actual_size = -1;
-            }
-        }
+      g_signal_connect (self->priv->socket_input_stream,
+                        "drained",
+                        G_CALLBACK (evd_socket_input_stream_drained),
+                        self);
     }
-
-  return actual_size;
 }
 
 static gssize
@@ -790,10 +783,12 @@ evd_socket_read_filtered (EvdSocket *self,
 
   if (limited_size > 0)
     {
-      if ( (actual_size = evd_socket_read_internal (self,
-                                                    buffer,
-                                                    limited_size,
-                                                    error)) < 0)
+      if ( (actual_size =
+            g_input_stream_read (G_INPUT_STREAM (self->priv->socket_input_stream),
+                                 buffer,
+                                 limited_size,
+                                 NULL,
+                                 error)) < 0)
         {
           return -1;
         }
@@ -1507,6 +1502,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                       /* restore priority */
                       self->priv->actual_priority = self->priv->priority;
 
+                      evd_socket_setup_streams (self);
+
                       self->priv->cond |= G_IO_OUT;
                       evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
                       self->priv->cond &= ~G_IO_OUT;
@@ -1711,6 +1708,15 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
     }
   g_mutex_unlock (self->priv->mutex);
 
+  if (self->priv->socket_input_stream != NULL)
+    {
+      g_signal_handlers_disconnect_by_func (self->priv->socket_input_stream,
+                                            evd_socket_input_stream_drained,
+                                            self);
+      g_object_unref (self->priv->socket_input_stream);
+      self->priv->socket_input_stream = NULL;
+    }
+
   return result;
 }
 
@@ -1730,6 +1736,8 @@ evd_socket_accept (EvdSocket *self, GError **error)
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
       if (evd_socket_watch (client, self->priv->watched_cond, error))
         {
+          evd_socket_setup_streams (client);
+
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
           return client;
