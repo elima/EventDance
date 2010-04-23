@@ -82,10 +82,13 @@ void               evd_tls_session_set_credentials       (EvdTlsSession     *sel
  */
 EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
 
-void               evd_tls_session_set_transport_funcs   (EvdTlsSession         *self,
-                                                          EvdTlsSessionPullFunc  pull_func,
-                                                          EvdTlsSessionPushFunc  push_func,
-                                                          gpointer               user_data);
+void               evd_tls_session_set_transport_pull_func (EvdTlsSession         *self,
+                                                            EvdTlsSessionPullFunc  func,
+                                                            gpointer               user_data);
+
+void               evd_tls_session_set_transport_push_func (EvdTlsSession         *self,
+                                                            EvdTlsSessionPushFunc  func,
+                                                            gpointer               user_data);
 
 gboolean           evd_tls_session_handshake             (EvdTlsSession   *self,
                                                           GError         **error);

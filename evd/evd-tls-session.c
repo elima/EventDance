@@ -49,7 +49,8 @@ struct _EvdTlsSessionPrivate
 
   EvdTlsSessionPullFunc pull_func;
   EvdTlsSessionPushFunc push_func;
-  gpointer              pull_push_user_data;
+  gpointer              pull_user_data;
+  gpointer              push_user_data;
 
   gchar *priority;
 
@@ -154,7 +155,8 @@ evd_tls_session_init (EvdTlsSession *self)
 
   priv->pull_func = NULL;
   priv->push_func = NULL;
-  priv->pull_push_user_data = NULL;
+  priv->pull_user_data = NULL;
+  priv->push_user_data = NULL;
 
   priv->priority = g_strdup (EVD_TLS_SESSION_DEFAULT_PRIORITY);
 
@@ -273,7 +275,7 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
   return self->priv->push_func (self,
                                 buf,
                                 size,
-                                self->priv->pull_push_user_data);
+                                self->priv->push_user_data);
 }
 
 static gssize
@@ -286,7 +288,7 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
   return self->priv->pull_func (self,
                                 buf,
                                 size,
-                                self->priv->pull_push_user_data);
+                                self->priv->pull_user_data);
 }
 
 static gboolean
@@ -439,18 +441,27 @@ evd_tls_session_get_credentials (EvdTlsSession *self)
 }
 
 void
-evd_tls_session_set_transport_funcs (EvdTlsSession         *self,
-                                     EvdTlsSessionPullFunc  pull_func,
-                                     EvdTlsSessionPushFunc  push_func,
-                                     gpointer               user_data)
+evd_tls_session_set_transport_pull_func (EvdTlsSession         *self,
+                                         EvdTlsSessionPullFunc  func,
+                                         gpointer               user_data)
 {
   g_return_if_fail (EVD_IS_TLS_SESSION (self));
-  g_return_if_fail (pull_func != NULL);
-  g_return_if_fail (push_func != NULL);
+  g_return_if_fail (func != NULL);
 
-  self->priv->pull_func = pull_func;
-  self->priv->push_func = push_func;
-  self->priv->pull_push_user_data = user_data;
+  self->priv->pull_func = func;
+  self->priv->pull_user_data = user_data;
+}
+
+void
+evd_tls_session_set_transport_push_func (EvdTlsSession         *self,
+                                         EvdTlsSessionPushFunc  func,
+                                         gpointer               user_data)
+{
+  g_return_if_fail (EVD_IS_TLS_SESSION (self));
+  g_return_if_fail (func != NULL);
+
+  self->priv->push_func = func;
+  self->priv->push_user_data = user_data;
 }
 
 gboolean
