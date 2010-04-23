@@ -27,6 +27,7 @@
 #define __EVD_TLS_SESSION_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
 #include <gnutls/gnutls.h>
 
 #include "evd-tls-common.h"
@@ -126,6 +127,10 @@ GList             *evd_tls_session_get_peer_certificates (EvdTlsSession  *self,
 gint               evd_tls_session_verify_peer           (EvdTlsSession  *self,
                                                           guint           flags,
                                                           GError        **error);
+
+void               evd_tls_session_set_base_input_stream (EvdTlsSession *self,
+                                                          GInputStream  *stream);
+GInputStream      *evd_tls_session_get_input_stream      (EvdTlsSession *self);
 
 G_END_DECLS
 
