@@ -33,6 +33,7 @@
 #include <evd-socket.h>
 #include <evd-socket-input-stream.h>
 #include <evd-socket-output-stream.h>
+#include <evd-tls-input-stream.h>
 #include <evd-json-filter.h>
 #include <evd-json-socket.h>
 #include <evd-socket-group.h>

@@ -37,6 +37,7 @@ source_c = \
 	evd-socket.c \
 	evd-socket-input-stream.c \
 	evd-socket-output-stream.c \
+	evd-tls-input-stream.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
 	evd-socket-group.c \
@@ -59,6 +60,7 @@ source_h = \
 	evd-socket.h \
 	evd-socket-input-stream.h \
 	evd-socket-output-stream.h \
+	evd-tls-input-stream.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
 	evd-socket-group.h \
