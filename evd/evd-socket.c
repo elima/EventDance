@@ -35,6 +35,7 @@
 
 #include "evd-socket-input-stream.h"
 #include "evd-socket-output-stream.h"
+#include "evd-tls-output-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -45,11 +46,12 @@
 #define MAX_READ_BUFFER_SIZE    G_MAXUINT16
 #define MAX_WRITE_BUFFER_SIZE   G_MAXUINT16
 
-#define TLS_ENABLED(socket)      (socket->priv->tls_enabled == TRUE)
-#define TLS_SESSION(socket)      evd_socket_stream_get_tls_session (EVD_SOCKET_STREAM (socket))
-#define TLS_AUTOSTART(socket)    evd_socket_stream_get_tls_autostart (EVD_SOCKET_STREAM (socket))
-#define TLS_INPUT_STREAM(socket) evd_tls_session_get_input_stream (TLS_SESSION (socket))
-#define TLS_READ_PENDING(socket) g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
+#define TLS_ENABLED(socket)       (socket->priv->tls_enabled == TRUE)
+#define TLS_SESSION(socket)       evd_socket_stream_get_tls_session (EVD_SOCKET_STREAM (socket))
+#define TLS_AUTOSTART(socket)     evd_socket_stream_get_tls_autostart (EVD_SOCKET_STREAM (socket))
+#define TLS_INPUT_STREAM(socket)  evd_tls_session_get_input_stream (TLS_SESSION (socket))
+#define TLS_OUTPUT_STREAM(socket) G_OUTPUT_STREAM (socket->priv->tls_output_stream)
+#define TLS_READ_PENDING(socket)  g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_STREAM)
 
@@ -100,6 +102,7 @@ struct _EvdSocketPrivate
 
   EvdSocketInputStream  *socket_input_stream;
   EvdSocketOutputStream *socket_output_stream;
+  EvdTlsOutputStream    *tls_output_stream;
 };
 
 /* signals */
@@ -365,6 +368,7 @@ evd_socket_init (EvdSocket *self)
 
   priv->socket_input_stream = NULL;
   priv->socket_output_stream = NULL;
+  priv->tls_output_stream = NULL;
 }
 
 static void
@@ -738,21 +742,17 @@ evd_socket_input_stream_drained (GInputStream *stream,
 }
 
 static void
-evd_socket_output_stream_filled (EvdSocketOutputStream *stream,
-                                 gpointer               user_data)
+evd_socket_output_stream_filled (GOutputStream *stream,
+                                 gpointer       user_data)
 {
   EvdSocket *self = EVD_SOCKET (user_data);
+  GError *error = NULL;
 
   self->priv->cond &= (~ G_IO_OUT);
 
-  if (! TLS_ENABLED (self))
-    {
-      GError *error = NULL;
-
-      self->priv->watched_cond |= G_IO_OUT;
-      if (! evd_socket_watch (self, self->priv->watched_cond, &error))
-        evd_socket_throw_error (self, error);
-    }
+  self->priv->watched_cond |= G_IO_OUT;
+  if (! evd_socket_watch (self, self->priv->watched_cond, &error))
+    evd_socket_throw_error (self, error);
 }
 
 static void
@@ -1197,42 +1197,6 @@ evd_socket_resolve_address (EvdSocket      *self,
                     NULL);
       evd_resolver_request_resolve (self->priv->resolve_request);
     }
-}
-
-static gssize
-evd_socket_tls_push (EvdTlsSession *session,
-                     const gchar   *buffer,
-                     gsize          size,
-                     gpointer       user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-  GError *error = NULL;
-  gssize result = 0;
-
-  result = evd_socket_write_filtered (self, buffer, size, &error);
-
-  //  g_debug ("wrote %d bytes out of %d", result, size);
-
-  if (result < 0)
-    {
-      evd_socket_throw_error (self, error);
-      evd_socket_close (self, NULL);
-    }
-  else if (result == 0 && error == NULL)
-    {
-      GIOCondition cond;
-
-      cond = evd_tls_session_get_direction (TLS_SESSION (self));
-      if (self->priv->watched_cond != cond)
-        {
-          self->priv->watched_cond = cond;
-          evd_socket_watch (self, cond, &error);
-        }
-
-      self->priv->cond &= ~G_IO_OUT;
-    }
-
-  return result;
 }
 
 static void
@@ -1694,6 +1658,15 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
                                             self);
       g_object_unref (self->priv->socket_output_stream);
       self->priv->socket_output_stream = NULL;
+    }
+
+  if (self->priv->tls_output_stream != NULL)
+    {
+      g_signal_handlers_disconnect_by_func (self->priv->tls_output_stream,
+                                            evd_socket_output_stream_filled,
+                                            self);
+      g_object_unref (self->priv->tls_output_stream);
+      self->priv->tls_output_stream = NULL;
     }
 
   return result;
@@ -2205,9 +2178,10 @@ evd_socket_write_len (EvdSocket    *self,
   g_return_val_if_fail (buffer != NULL, 0);
 
   if (TLS_ENABLED (self))
-    return evd_tls_session_write (TLS_SESSION (self),
+    return g_output_stream_write (TLS_OUTPUT_STREAM (self),
                                   buffer,
                                   size,
+                                  NULL,
                                   error);
   else
     return evd_socket_write_filtered (self,
@@ -2368,7 +2342,6 @@ gboolean
 evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 {
   EvdTlsSession *session;
-  GInputStream *tls_input_stream;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (mode == EVD_TLS_MODE_CLIENT ||
@@ -2387,22 +2360,26 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   self->priv->tls_enabled = TRUE;
 
-  evd_tls_session_set_base_input_stream (TLS_SESSION (self),
-                                         G_INPUT_STREAM (self->priv->socket_input_stream));
-  tls_input_stream = TLS_INPUT_STREAM (self);
+  session = TLS_SESSION (self);
 
-  g_signal_connect (tls_input_stream,
+  g_object_set (session, "mode", mode, NULL);
+
+  evd_tls_session_set_base_input_stream (session,
+                                         G_INPUT_STREAM (self->priv->socket_input_stream));
+
+  g_signal_connect (TLS_INPUT_STREAM (self),
                     "drained",
                     G_CALLBACK (evd_socket_input_stream_drained),
                     self);
 
-  session = TLS_SESSION (self);
+  self->priv->tls_output_stream =
+    evd_tls_output_stream_new (session,
+                               G_OUTPUT_STREAM (self->priv->socket_output_stream));
 
-  evd_tls_session_set_transport_push_func (session,
-                                           evd_socket_tls_push,
-                                           (gpointer) self);
-
-  g_object_set (session, "mode", mode, NULL);
+  g_signal_connect (TLS_OUTPUT_STREAM (self),
+                    "filled",
+                    G_CALLBACK (evd_socket_output_stream_filled),
+                    self);
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_TLS_HANDSHAKING);
 
