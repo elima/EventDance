@@ -34,6 +34,9 @@ G_DEFINE_TYPE (EvdSocketInputStream, evd_socket_input_stream, G_TYPE_INPUT_STREA
 struct _EvdSocketInputStreamPrivate
 {
   EvdSocket *socket;
+
+  gchar bag;
+  gboolean has_bag;
 };
 
 /* signals */
@@ -114,6 +117,9 @@ evd_socket_input_stream_init (EvdSocketInputStream *self)
 
   priv = EVD_SOCKET_INPUT_STREAM_GET_PRIVATE (self);
   self->priv = priv;
+
+  priv->bag = 0;
+  priv->has_bag = FALSE;
 }
 
 static void
@@ -177,14 +183,29 @@ evd_socket_input_stream_read (GInputStream  *stream,
   GError *_error = NULL;
   GSocket *socket;
   gssize actual_size = 0;
+  gchar *buf;
+  gssize bag_size = 0;
+
+  buf = (gchar *) buffer;
 
   socket = evd_socket_get_socket (self->priv->socket);
 
-  if ( (actual_size = g_socket_receive (socket,
-                                        buffer,
-                                        size,
-                                        cancellable,
-                                        &_error)) < 0)
+  if (self->priv->has_bag)
+    {
+      buf[0] = self->priv->bag;
+      buf = (gchar *) ( ((void *) buf) + 1);
+      bag_size = 1;
+    }
+  else
+    {
+      size++;
+    }
+
+  if ( (actual_size += g_socket_receive (socket,
+                                         buf,
+                                         size,
+                                         cancellable,
+                                         &_error)) < 0)
     {
       if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
         {
@@ -200,6 +221,7 @@ evd_socket_input_stream_read (GInputStream  *stream,
     }
   else if (actual_size < size)
     {
+      self->priv->has_bag = FALSE;
       g_object_ref (self);
       g_signal_emit (self,
                      evd_socket_input_stream_signals[SIGNAL_DRAINED],
@@ -207,8 +229,15 @@ evd_socket_input_stream_read (GInputStream  *stream,
                      NULL);
       g_object_unref (self);
     }
+  else
+    {
+      self->priv->bag = buf[actual_size-1];
+      buf[actual_size-1] = '\0';
+      actual_size--;
+      self->priv->has_bag = TRUE;
+    }
 
-  return actual_size;
+  return actual_size + bag_size;
 }
 
 /* public methods */
