@@ -128,10 +128,6 @@ gint               evd_tls_session_verify_peer           (EvdTlsSession  *self,
                                                           guint           flags,
                                                           GError        **error);
 
-void               evd_tls_session_set_base_input_stream (EvdTlsSession *self,
-                                                          GInputStream  *stream);
-GInputStream      *evd_tls_session_get_input_stream      (EvdTlsSession *self);
-
 G_END_DECLS
 
 #endif /* __EVD_TLS_SESSION_H__ */

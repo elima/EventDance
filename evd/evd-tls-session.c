@@ -27,8 +27,6 @@
 #include "evd-tls-session.h"
 #include "evd-tls-certificate.h"
 
-#include "evd-tls-input-stream.h"
-
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-session"
 
 #define EVD_TLS_SESSION_DEFAULT_PRIORITY "NORMAL"
@@ -61,8 +59,6 @@ struct _EvdTlsSessionPrivate
   gboolean cred_bound;
 
   gboolean require_peer_cert;
-
-  EvdTlsInputStream *input_stream;
 };
 
 
@@ -169,8 +165,6 @@ evd_tls_session_init (EvdTlsSession *self)
   priv->cred_bound = FALSE;
 
   priv->require_peer_cert = FALSE;
-
-  priv->input_stream = NULL;
 }
 
 static void
@@ -182,12 +176,6 @@ evd_tls_session_dispose (GObject *obj)
     {
       g_object_unref (self->priv->cred);
       self->priv->cred = NULL;
-    }
-
-  if (self->priv->input_stream != NULL)
-    {
-      g_object_unref (self->priv->input_stream);
-      self->priv->input_stream = NULL;
     }
 
   G_OBJECT_CLASS (evd_tls_session_parent_class)->dispose (obj);
@@ -768,25 +756,4 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
     }
 
   return result;
-}
-
-void
-evd_tls_session_set_base_input_stream (EvdTlsSession *self,
-                                       GInputStream  *stream)
-{
-  g_return_if_fail (EVD_IS_TLS_SESSION (self));
-  g_return_if_fail (G_IS_INPUT_STREAM (stream));
-
-  if (self->priv->input_stream != NULL)
-    g_object_unref (self->priv->input_stream);
-
-  self->priv->input_stream = evd_tls_input_stream_new (self, stream);
-}
-
-GInputStream *
-evd_tls_session_get_input_stream (EvdTlsSession *self)
-{
-  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), NULL);
-
-  return G_INPUT_STREAM (self->priv->input_stream);
 }
