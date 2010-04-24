@@ -35,6 +35,7 @@
 
 #include "evd-socket-input-stream.h"
 #include "evd-socket-output-stream.h"
+#include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
 #include "evd-socket.h"
@@ -49,7 +50,7 @@
 #define TLS_ENABLED(socket)       (socket->priv->tls_enabled == TRUE)
 #define TLS_SESSION(socket)       evd_socket_stream_get_tls_session (EVD_SOCKET_STREAM (socket))
 #define TLS_AUTOSTART(socket)     evd_socket_stream_get_tls_autostart (EVD_SOCKET_STREAM (socket))
-#define TLS_INPUT_STREAM(socket)  evd_tls_session_get_input_stream (TLS_SESSION (socket))
+#define TLS_INPUT_STREAM(socket)  G_INPUT_STREAM (socket->priv->tls_input_stream)
 #define TLS_OUTPUT_STREAM(socket) G_OUTPUT_STREAM (socket->priv->tls_output_stream)
 #define TLS_READ_PENDING(socket)  g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
 
@@ -102,6 +103,7 @@ struct _EvdSocketPrivate
 
   EvdSocketInputStream  *socket_input_stream;
   EvdSocketOutputStream *socket_output_stream;
+  EvdTlsInputStream     *tls_input_stream;
   EvdTlsOutputStream    *tls_output_stream;
 };
 
@@ -369,6 +371,7 @@ evd_socket_init (EvdSocket *self)
   priv->socket_input_stream = NULL;
   priv->socket_output_stream = NULL;
   priv->tls_output_stream = NULL;
+  priv->tls_input_stream = NULL;
 }
 
 static void
@@ -1660,6 +1663,15 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       self->priv->socket_output_stream = NULL;
     }
 
+  if (self->priv->tls_input_stream != NULL)
+    {
+      g_signal_handlers_disconnect_by_func (self->priv->tls_input_stream,
+                                            evd_socket_input_stream_drained,
+                                            self);
+      g_object_unref (self->priv->tls_input_stream);
+      self->priv->tls_input_stream = NULL;
+    }
+
   if (self->priv->tls_output_stream != NULL)
     {
       g_signal_handlers_disconnect_by_func (self->priv->tls_output_stream,
@@ -2364,8 +2376,9 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   g_object_set (session, "mode", mode, NULL);
 
-  evd_tls_session_set_base_input_stream (session,
-                                         G_INPUT_STREAM (self->priv->socket_input_stream));
+  self->priv->tls_input_stream =
+    evd_tls_input_stream_new (session,
+                              G_INPUT_STREAM (self->priv->socket_input_stream));
 
   g_signal_connect (TLS_INPUT_STREAM (self),
                     "drained",
