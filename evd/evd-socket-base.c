@@ -1,5 +1,5 @@
 /*
- * evd-stream.c
+ * evd-socket-base.c
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -26,16 +26,16 @@
 #include <math.h>
 #include <string.h>
 
-#include "evd-stream.h"
+#include "evd-socket-base.h"
 
-G_DEFINE_ABSTRACT_TYPE (EvdStream, evd_stream, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE (EvdSocketBase, evd_socket_base, G_TYPE_OBJECT)
 
-#define EVD_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                     EVD_TYPE_STREAM, \
-                                     EvdStreamPrivate))
+#define EVD_SOCKET_BASE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+                                          EVD_TYPE_SOCKET_BASE, \
+                                          EvdSocketBasePrivate))
 
 /* private data */
-struct _EvdStreamPrivate
+struct _EvdSocketBasePrivate
 {
   GClosure *read_closure;
   GClosure *write_closure;
@@ -70,39 +70,39 @@ enum
 
 G_LOCK_DEFINE_STATIC (counters);
 
-static void     evd_stream_class_init         (EvdStreamClass *class);
-static void     evd_stream_init               (EvdStream *self);
+static void     evd_socket_base_class_init         (EvdSocketBaseClass *class);
+static void     evd_socket_base_init               (EvdSocketBase *self);
 
-static void     evd_stream_finalize           (GObject *obj);
+static void     evd_socket_base_finalize           (GObject *obj);
 
-static void     evd_stream_set_property       (GObject      *obj,
-                                               guint         prop_id,
-                                               const GValue *value,
-                                               GParamSpec   *pspec);
-static void     evd_stream_get_property       (GObject    *obj,
-                                               guint       prop_id,
-                                               GValue     *value,
-                                               GParamSpec *pspec);
+static void     evd_socket_base_set_property       (GObject      *obj,
+                                                    guint         prop_id,
+                                                    const GValue *value,
+                                                    GParamSpec   *pspec);
+static void     evd_socket_base_get_property       (GObject    *obj,
+                                                    guint       prop_id,
+                                                    GValue     *value,
+                                                    GParamSpec *pspec);
 
-static void     evd_stream_copy_properties    (EvdStream *self,
-                                               EvdStream *target);
+static void     evd_socket_base_copy_properties    (EvdSocketBase *self,
+                                                    EvdSocketBase *target);
 
 static void
-evd_stream_class_init (EvdStreamClass *class)
+evd_socket_base_class_init (EvdSocketBaseClass *class)
 {
   GObjectClass *obj_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->finalize = evd_stream_finalize;
-  obj_class->get_property = evd_stream_get_property;
-  obj_class->set_property = evd_stream_set_property;
+  obj_class->finalize = evd_socket_base_finalize;
+  obj_class->get_property = evd_socket_base_get_property;
+  obj_class->set_property = evd_socket_base_set_property;
 
   class->read_handler_marshal = g_cclosure_marshal_VOID__VOID;
   class->write_handler_marshal = g_cclosure_marshal_VOID__VOID;
   class->read_closure_changed = NULL;
   class->write_closure_changed = NULL;
-  class->copy_properties = evd_stream_copy_properties;
+  class->copy_properties = evd_socket_base_copy_properties;
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
@@ -160,15 +160,15 @@ evd_stream_class_init (EvdStreamClass *class)
                                                        G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdStreamPrivate));
+  g_type_class_add_private (obj_class, sizeof (EvdSocketBasePrivate));
 }
 
 static void
-evd_stream_init (EvdStream *self)
+evd_socket_base_init (EvdSocketBase *self)
 {
-  EvdStreamPrivate *priv;
+  EvdSocketBasePrivate *priv;
 
-  priv = EVD_STREAM_GET_PRIVATE (self);
+  priv = EVD_SOCKET_BASE_GET_PRIVATE (self);
   self->priv = priv;
 
   /* initialize private members */
@@ -187,9 +187,9 @@ evd_stream_init (EvdStream *self)
 }
 
 static void
-evd_stream_finalize (GObject *obj)
+evd_socket_base_finalize (GObject *obj)
 {
-  EvdStream *self = EVD_STREAM (obj);
+  EvdSocketBase *self = EVD_SOCKET_BASE (obj);
 
   if (self->priv->read_closure != NULL)
     g_closure_unref (self->priv->read_closure);
@@ -197,27 +197,27 @@ evd_stream_finalize (GObject *obj)
   if (self->priv->write_closure != NULL)
     g_closure_unref (self->priv->write_closure);
 
-  G_OBJECT_CLASS (evd_stream_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (evd_socket_base_parent_class)->finalize (obj);
 }
 
 static void
-evd_stream_set_property (GObject      *obj,
-                         guint         prop_id,
-                         const GValue *value,
-                         GParamSpec   *pspec)
+evd_socket_base_set_property (GObject      *obj,
+                              guint         prop_id,
+                              const GValue *value,
+                              GParamSpec   *pspec)
 {
-  EvdStream *self;
+  EvdSocketBase *self;
 
-  self = EVD_STREAM (obj);
+  self = EVD_SOCKET_BASE (obj);
 
   switch (prop_id)
     {
     case PROP_READ_CLOSURE:
-      evd_stream_set_on_read (self, g_value_get_boxed (value));
+      evd_socket_base_set_on_read (self, g_value_get_boxed (value));
       break;
 
     case PROP_WRITE_CLOSURE:
-      evd_stream_set_on_write (self, g_value_get_boxed (value));
+      evd_socket_base_set_on_write (self, g_value_get_boxed (value));
       break;
 
     case PROP_BANDWIDTH_IN:
@@ -246,14 +246,14 @@ evd_stream_set_property (GObject      *obj,
 }
 
 static void
-evd_stream_get_property (GObject    *obj,
-                         guint       prop_id,
-                         GValue     *value,
-                         GParamSpec *pspec)
+evd_socket_base_get_property (GObject    *obj,
+                              guint       prop_id,
+                              GValue     *value,
+                              GParamSpec *pspec)
 {
-  EvdStream *self;
+  EvdSocketBase *self;
 
-  self = EVD_STREAM (obj);
+  self = EVD_SOCKET_BASE (obj);
 
   switch (prop_id)
     {
@@ -289,7 +289,7 @@ evd_stream_get_property (GObject    *obj,
 }
 
 static void
-evd_stream_update_current_time (EvdStream *self)
+evd_socket_base_update_current_time (EvdSocketBase *self)
 {
   GTimeVal time_val;
 
@@ -320,13 +320,13 @@ g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
 }
 
 static gsize
-evd_stream_request (EvdStream *self,
-                    gsize      bandwidth,
-                    gulong     latency,
-                    gsize      bytes,
-                    GTimeVal  *last,
-                    gsize      size,
-                    guint     *wait)
+evd_socket_base_request (EvdSocketBase *self,
+                         gsize      bandwidth,
+                         gulong     latency,
+                         gsize      bytes,
+                         GTimeVal  *last,
+                         gsize      size,
+                         guint     *wait)
 {
   gsize actual_size = size;
 
@@ -370,7 +370,7 @@ evd_stream_request (EvdStream *self,
 }
 
 static void
-evd_stream_copy_properties (EvdStream *self, EvdStream *target)
+evd_socket_base_copy_properties (EvdSocketBase *self, EvdSocketBase *target)
 {
   target->priv->bandwidth_in = self->priv->bandwidth_in;
   target->priv->bandwidth_out = self->priv->bandwidth_out;
@@ -381,10 +381,10 @@ evd_stream_copy_properties (EvdStream *self, EvdStream *target)
 /* protected methods */
 
 void
-evd_stream_report_read (EvdStream *self,
+evd_socket_base_report_read (EvdSocketBase *self,
                         gsize     size)
 {
-  evd_stream_update_current_time (self);
+  evd_socket_base_update_current_time (self);
 
   G_LOCK (counters);
 
@@ -399,10 +399,10 @@ evd_stream_report_read (EvdStream *self,
 }
 
 void
-evd_stream_report_write (EvdStream *self,
+evd_socket_base_report_write (EvdSocketBase *self,
                          gsize     size)
 {
-  evd_stream_update_current_time (self);
+  evd_socket_base_update_current_time (self);
 
   G_LOCK (counters);
 
@@ -419,12 +419,12 @@ evd_stream_report_write (EvdStream *self,
 /* public methods */
 
 void
-evd_stream_set_on_read (EvdStream *self,
+evd_socket_base_set_on_read (EvdSocketBase *self,
                         GClosure  *closure)
 {
-  EvdStreamClass *class;
+  EvdSocketBaseClass *class;
 
-  g_return_if_fail (EVD_IS_STREAM (self));
+  g_return_if_fail (EVD_IS_SOCKET_BASE (self));
 
   if (closure == self->priv->read_closure)
     return;
@@ -440,26 +440,26 @@ evd_stream_set_on_read (EvdStream *self,
 
   self->priv->read_closure = closure;
 
-  class = EVD_STREAM_GET_CLASS (self);
+  class = EVD_SOCKET_BASE_GET_CLASS (self);
   if (class->read_closure_changed != NULL)
     class->read_closure_changed (self);
 }
 
 GClosure *
-evd_stream_get_on_read (EvdStream *self)
+evd_socket_base_get_on_read (EvdSocketBase *self)
 {
-  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), NULL);
 
   return self->priv->read_closure;
 }
 
 void
-evd_stream_set_on_write (EvdStream *self,
+evd_socket_base_set_on_write (EvdSocketBase *self,
                          GClosure  *closure)
 {
-  EvdStreamClass *class;
+  EvdSocketBaseClass *class;
 
-  g_return_if_fail (EVD_IS_STREAM (self));
+  g_return_if_fail (EVD_IS_SOCKET_BASE (self));
 
   if (closure == self->priv->write_closure)
     return;
@@ -475,27 +475,27 @@ evd_stream_set_on_write (EvdStream *self,
 
   self->priv->write_closure = closure;
 
-  class = EVD_STREAM_GET_CLASS (self);
+  class = EVD_SOCKET_BASE_GET_CLASS (self);
   if (class->write_closure_changed != NULL)
     class->write_closure_changed (self);
 }
 
 GClosure *
-evd_stream_get_on_write (EvdStream *self)
+evd_socket_base_get_on_write (EvdSocketBase *self)
 {
-  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), NULL);
 
   return self->priv->write_closure;
 }
 
 gsize
-evd_stream_request_read  (EvdStream *self,
+evd_socket_base_request_read  (EvdSocketBase *self,
                           gsize      size,
                           guint     *wait)
 {
-  evd_stream_update_current_time (self);
+  evd_socket_base_update_current_time (self);
 
-  return evd_stream_request (self,
+  return evd_socket_base_request (self,
                              self->priv->bandwidth_in,
                              self->priv->latency_in,
                              self->priv->bytes_in,
@@ -505,13 +505,13 @@ evd_stream_request_read  (EvdStream *self,
 }
 
 gsize
-evd_stream_request_write (EvdStream *self,
+evd_socket_base_request_write (EvdSocketBase *self,
                           gsize      size,
                           guint     *wait)
 {
-  evd_stream_update_current_time (self);
+  evd_socket_base_update_current_time (self);
 
-  return evd_stream_request (self,
+  return evd_socket_base_request (self,
                              self->priv->bandwidth_out,
                              self->priv->latency_out,
                              self->priv->bytes_out,
@@ -521,43 +521,43 @@ evd_stream_request_write (EvdStream *self,
 }
 
 gulong
-evd_stream_get_total_read (EvdStream *self)
+evd_socket_base_get_total_read (EvdSocketBase *self)
 {
   return self->priv->total_in;
 }
 
 gulong
-evd_stream_get_total_written (EvdStream *self)
+evd_socket_base_get_total_written (EvdSocketBase *self)
 {
   return self->priv->total_out;
 }
 
 gfloat
-evd_stream_get_actual_bandwidth_in (EvdStream *self)
+evd_socket_base_get_actual_bandwidth_in (EvdSocketBase *self)
 {
   return self->priv->bytes_in / 1024.0;
 }
 
 gfloat
-evd_stream_get_actual_bandwidth_out (EvdStream *self)
+evd_socket_base_get_actual_bandwidth_out (EvdSocketBase *self)
 {
   return self->priv->bytes_out / 1024.0;
 }
 
 void
-evd_stream_set_read_handler (EvdStream *self,
+evd_socket_base_set_read_handler (EvdSocketBase *self,
                              GCallback  callback,
                              gpointer   user_data)
 {
   GClosure *closure = NULL;
 
-  g_return_if_fail (EVD_IS_STREAM (self));
+  g_return_if_fail (EVD_IS_SOCKET_BASE (self));
 
   if (callback != NULL)
     {
-      EvdStreamClass *class;
+      EvdSocketBaseClass *class;
 
-      class = EVD_STREAM_GET_CLASS (self);
+      class = EVD_SOCKET_BASE_GET_CLASS (self);
 
       g_return_if_fail (class->read_handler_marshal != NULL);
 
@@ -566,23 +566,23 @@ evd_stream_set_read_handler (EvdStream *self,
         g_closure_set_marshal (closure, class->read_handler_marshal);
     }
 
-  evd_stream_set_on_read (EVD_STREAM (self), closure);
+  evd_socket_base_set_on_read (EVD_SOCKET_BASE (self), closure);
 }
 
 void
-evd_stream_set_write_handler (EvdStream *self,
+evd_socket_base_set_write_handler (EvdSocketBase *self,
                               GCallback  callback,
                               gpointer   user_data)
 {
   GClosure *closure = NULL;
 
-  g_return_if_fail (EVD_IS_STREAM (self));
+  g_return_if_fail (EVD_IS_SOCKET_BASE (self));
 
   if (callback != NULL)
     {
-      EvdStreamClass *class;
+      EvdSocketBaseClass *class;
 
-      class = EVD_STREAM_GET_CLASS (self);
+      class = EVD_SOCKET_BASE_GET_CLASS (self);
 
       g_return_if_fail (class->write_handler_marshal != NULL);
 
@@ -591,5 +591,5 @@ evd_stream_set_write_handler (EvdStream *self,
         g_closure_set_marshal (closure, class->write_handler_marshal);
     }
 
-  evd_stream_set_on_write (EVD_STREAM (self), closure);
+  evd_socket_base_set_on_write (EVD_SOCKET_BASE (self), closure);
 }

@@ -29,11 +29,11 @@ lib_LTLIBRARIES = lib@EVD_API_NAME@.la
 source_c = \
 	evd-utils.c \
 	evd-marshal.c \
-	evd-stream.c \
-	evd-socket-manager.c \
 	evd-resolver-request.c \
 	evd-resolver.c \
+	evd-socket-base.c \
 	evd-socket.c \
+	evd-socket-manager.c \
 	evd-socket-input-stream.c \
 	evd-socket-output-stream.c \
 	evd-tls-input-stream.c \
@@ -54,9 +54,9 @@ source_c = \
 source_h = \
 	evd.h \
 	evd-utils.h \
-	evd-stream.h \
 	evd-resolver-request.h \
 	evd-resolver.h \
+	evd-socket-base.h \
 	evd-socket.h \
 	evd-socket-input-stream.h \
 	evd-socket-output-stream.h \

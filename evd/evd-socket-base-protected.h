@@ -1,5 +1,5 @@
 /*
- * evd-stream-protected.h
+ * evd-socket-base-protected.h
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
@@ -26,20 +26,20 @@
 #ifndef __EVD_STREAM_PROTECTED_H__
 #define __EVD_STREAM_PROTECTED_H__
 
-#include "evd-stream.h"
+#include "evd-socket-base.h"
 
 G_BEGIN_DECLS
 
 /**
- * SECTION:evd-stream-protected
- * @short_description: Protected methods of #EvdStream.
+ * SECTION:evd-socket-base-protected
+ * @short_description: Protected methods of #EvdSocketBase.
  *
  */
 
-void          evd_stream_report_read    (EvdStream *self,
-                                         gsize      size);
-void          evd_stream_report_write   (EvdStream *self,
-                                         gsize      size);
+void          evd_socket_base_report_read    (EvdSocketBase *self,
+                                              gsize          size);
+void          evd_socket_base_report_write   (EvdSocketBase *self,
+                                              gsize          size);
 
 G_END_DECLS
 

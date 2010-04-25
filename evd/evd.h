@@ -27,7 +27,6 @@
 #define __EVD_H__
 
 #include <evd-utils.h>
-#include <evd-stream.h>
 #include <evd-resolver.h>
 #include <evd-socket.h>
 #include <evd-socket-input-stream.h>
