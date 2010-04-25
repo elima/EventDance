@@ -339,6 +339,11 @@ gboolean        evd_socket_shutdown             (EvdSocket  *self,
                                                  gboolean    shutdown_write,
                                                  GError    **error);
 
+/**
+ * evd_socket_get_tls_session:
+ *
+ * Returns: (transfer none): The #EvdTlsSession object
+ **/
 EvdTlsSession  *evd_socket_get_tls_session      (EvdSocket *self);
 
 gboolean        evd_socket_get_tls_active       (EvdSocket *self);

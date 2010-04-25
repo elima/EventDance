@@ -2472,10 +2472,7 @@ evd_socket_get_tls_session (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
 
   if (self->priv->tls_session == NULL)
-    {
-      self->priv->tls_session = evd_tls_session_new ();
-      g_object_ref_sink (self->priv->tls_session);
-    }
+    self->priv->tls_session = evd_tls_session_new ();
 
   return self->priv->tls_session;
 }
