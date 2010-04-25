@@ -30,7 +30,7 @@
 #include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-socket-manager.h"
-#include "evd-stream-protected.h"
+#include "evd-socket-base-protected.h"
 #include "evd-resolver.h"
 
 #include "evd-socket-input-stream.h"
@@ -54,7 +54,7 @@
 #define TLS_OUTPUT_STREAM(socket) G_OUTPUT_STREAM (socket->priv->tls_output_stream)
 #define TLS_READ_PENDING(socket)  g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
+G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_BASE)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                      EVD_TYPE_SOCKET, \
@@ -156,7 +156,7 @@ static void     evd_socket_get_property       (GObject    *obj,
                                                GValue     *value,
                                                GParamSpec *pspec);
 
-static void     evd_socket_closure_changed    (EvdStream *stream);
+static void     evd_socket_closure_changed    (EvdSocketBase *socket_base);
 
 static gssize   evd_socket_write_internal     (EvdSocket    *self,
                                                const gchar  *buf,
@@ -173,14 +173,14 @@ static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
 static void     evd_socket_manage_read_condition    (EvdSocket *self);
 static void     evd_socket_manage_write_condition   (EvdSocket *self);
 
-static void     evd_socket_copy_properties          (EvdStream *self,
-                                                     EvdStream *target);
+static void     evd_socket_copy_properties          (EvdSocketBase *self,
+                                                     EvdSocketBase *target);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
 {
   GObjectClass *obj_class;
-  EvdStreamClass *stream_class;
+  EvdSocketBaseClass *socket_base_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
@@ -192,10 +192,10 @@ evd_socket_class_init (EvdSocketClass *class)
   class->handle_condition = NULL;
   class->invoke_on_read = evd_socket_invoke_on_read;
 
-  stream_class = EVD_STREAM_CLASS (class);
-  stream_class->read_closure_changed = evd_socket_closure_changed;
-  stream_class->write_closure_changed = evd_socket_closure_changed;
-  stream_class->copy_properties = evd_socket_copy_properties;
+  socket_base_class = EVD_SOCKET_BASE_CLASS (class);
+  socket_base_class->read_closure_changed = evd_socket_closure_changed;
+  socket_base_class->write_closure_changed = evd_socket_closure_changed;
+  socket_base_class->copy_properties = evd_socket_copy_properties;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -575,7 +575,7 @@ evd_socket_get_property (GObject    *obj,
 }
 
 static void
-evd_socket_closure_changed (EvdStream *stream)
+evd_socket_closure_changed (EvdSocketBase *stream)
 {
   EvdSocket *self = EVD_SOCKET (stream);
 
@@ -699,7 +699,7 @@ evd_socket_invoke_on_write (EvdSocket *self)
 {
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_write (EVD_STREAM (self));
+  closure = evd_socket_base_get_on_write (EVD_SOCKET_BASE (self));
   if (closure != NULL)
     {
       GValue params = { 0, };
@@ -841,14 +841,14 @@ evd_socket_read_filtered (EvdSocket *self,
     return -1;
 
   /* handle latency and bandwidth */
-  limited_size = evd_stream_request_read (EVD_STREAM (self),
-                                          size,
-                                          &_retry_wait);
+  limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self),
+                                               size,
+                                               &_retry_wait);
 
   if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
-                                            limited_size,
-                                            &_retry_wait);
+    limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self->priv->group),
+                                                 limited_size,
+                                                 &_retry_wait);
 
   if (limited_size > 0)
     {
@@ -864,11 +864,11 @@ evd_socket_read_filtered (EvdSocket *self,
       else if (actual_size > 0)
         {
           if (self->priv->group != NULL)
-            evd_stream_report_read (EVD_STREAM (self->priv->group),
-                                    actual_size);
+            evd_socket_base_report_read (EVD_SOCKET_BASE (self->priv->group),
+                                         actual_size);
 
-          evd_stream_report_read (EVD_STREAM (self),
-                                  actual_size);
+          evd_socket_base_report_read (EVD_SOCKET_BASE (self),
+                                       actual_size);
         }
     }
 
@@ -976,14 +976,14 @@ evd_socket_write_internal (EvdSocket    *self,
     return -1;
 
   /* handle latency and bandwidth */
-  limited_size = evd_stream_request_write (EVD_STREAM (self),
-                                           size,
-                                           &_retry_wait);
+  limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self),
+                                                size,
+                                                &_retry_wait);
 
   if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_stream_request_write (EVD_STREAM (self->priv->group),
-                                             limited_size,
-                                             &_retry_wait);
+    limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self->priv->group),
+                                                  limited_size,
+                                                  &_retry_wait);
 
   if (limited_size > 0)
     {
@@ -997,11 +997,11 @@ evd_socket_write_internal (EvdSocket    *self,
       if (actual_size > 0)
         {
           if (self->priv->group != NULL)
-            evd_stream_report_write (EVD_STREAM (self->priv->group),
-                                     actual_size);
+            evd_socket_base_report_write (EVD_SOCKET_BASE (self->priv->group),
+                                          actual_size);
 
-          evd_stream_report_write (EVD_STREAM (self),
-                                   actual_size);
+          evd_socket_base_report_write (EVD_SOCKET_BASE (self),
+                                        actual_size);
         }
     }
 
@@ -1308,12 +1308,12 @@ evd_socket_confirm_read_condition (EvdSocket *self)
 }
 
 static void
-evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
+evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
 {
   EvdSocket *self = EVD_SOCKET (_self);
   EvdSocket *target = EVD_SOCKET (_target);
 
-  EVD_STREAM_CLASS (evd_socket_parent_class)->
+  EVD_SOCKET_BASE_CLASS (evd_socket_parent_class)->
     copy_properties (_self, _target);
 
   evd_socket_set_priority (target, self->priv->priority);
@@ -1399,7 +1399,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
         {
-          evd_socket_copy_properties (EVD_STREAM (self), EVD_STREAM (client));
+          evd_socket_copy_properties (EVD_SOCKET_BASE (self), EVD_SOCKET_BASE (client));
 
           /* fire 'new-connection' signal */
           g_signal_emit (self,
@@ -1574,8 +1574,8 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
       current_group = self->priv->group;
       self->priv->group = NULL;
 
-      evd_stream_set_on_read (EVD_STREAM (self), NULL);
-      evd_stream_set_on_write (EVD_STREAM (self), NULL);
+      evd_socket_base_set_on_read (EVD_SOCKET_BASE (self), NULL);
+      evd_socket_base_set_on_write (EVD_SOCKET_BASE (self), NULL);
 
       g_object_unref (current_group);
     }
@@ -1599,7 +1599,7 @@ evd_socket_invoke_on_read (EvdSocket *self)
 {
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_read (EVD_STREAM (self));
+  closure = evd_socket_base_get_on_read (EVD_SOCKET_BASE (self));
   if (closure != NULL)
     {
       GValue params = { 0, };
@@ -2315,12 +2315,12 @@ evd_socket_get_max_readable (EvdSocket *self)
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  limited_size = evd_stream_request_read (EVD_STREAM (self),
+  limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self),
                                           size,
                                           NULL);
 
   if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_stream_request_read (EVD_STREAM (self->priv->group),
+    limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self->priv->group),
                                             limited_size,
                                             NULL);
 
@@ -2335,12 +2335,12 @@ evd_socket_get_max_writable (EvdSocket *self)
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  limited_size = evd_stream_request_write (EVD_STREAM (self),
+  limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self),
                                            size,
                                            NULL);
 
   if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_stream_request_write (EVD_STREAM (self->priv->group),
+    limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self->priv->group),
                                              limited_size,
                                              NULL);
 
@@ -2469,7 +2469,7 @@ evd_socket_shutdown (EvdSocket  *self,
 EvdTlsSession *
 evd_socket_get_tls_session (EvdSocket *self)
 {
-  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   if (self->priv->tls_session == NULL)
     self->priv->tls_session = evd_tls_session_new ();
