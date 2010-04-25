@@ -26,7 +26,7 @@
 #ifndef __EVD_SOCKET_GROUP_H__
 #define __EVD_SOCKET_GROUP_H__
 
-#include "evd-stream.h"
+#include "evd-socket-base.h"
 #include "evd-socket.h"
 
 G_BEGIN_DECLS
@@ -36,12 +36,12 @@ typedef struct _EvdSocketGroupClass EvdSocketGroupClass;
 
 struct _EvdSocketGroup
 {
-  EvdStream parent;
+  EvdSocketBase parent;
 };
 
 struct _EvdSocketGroupClass
 {
-  EvdStreamClass parent_class;
+  EvdSocketBaseClass parent_class;
 
   /* virtual methods */
   void     (* socket_on_read)  (EvdSocketGroup *self, EvdSocket *socket);

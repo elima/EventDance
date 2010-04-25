@@ -27,7 +27,7 @@
 #include "evd-socket-group.h"
 #include "evd-socket-group-protected.h"
 
-G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_STREAM)
+G_DEFINE_TYPE (EvdSocketGroup, evd_socket_group, EVD_TYPE_SOCKET_BASE)
 
 static void     evd_socket_group_class_init         (EvdSocketGroupClass *class);
 static void     evd_socket_group_init               (EvdSocketGroup *self);
@@ -36,13 +36,13 @@ static void
 evd_socket_group_class_init (EvdSocketGroupClass *class)
 {
   GObjectClass *obj_class;
-  EvdStreamClass *stream_class;
+  EvdSocketBaseClass *socket_base_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
-  stream_class = EVD_STREAM_CLASS (class);
-  stream_class->read_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
-  stream_class->write_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
+  socket_base_class = EVD_SOCKET_BASE_CLASS (class);
+  socket_base_class->read_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
+  socket_base_class->write_handler_marshal = g_cclosure_marshal_VOID__OBJECT;
 
   class->socket_on_read = evd_socket_group_socket_on_read_internal;
   class->socket_on_write = evd_socket_group_socket_on_write_internal;
@@ -107,7 +107,7 @@ evd_socket_group_socket_on_read_internal (EvdSocketGroup *self,
 {
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_read (EVD_STREAM (self));
+  closure = evd_socket_base_get_on_read (EVD_SOCKET_BASE (self));
   if (closure != NULL)
     evd_socket_group_invoke_closure (self, closure, socket);
 }
@@ -118,7 +118,7 @@ evd_socket_group_socket_on_write_internal (EvdSocketGroup *self,
 {
   GClosure *closure = NULL;
 
-  closure = evd_stream_get_on_write (EVD_STREAM (self));
+  closure = evd_socket_base_get_on_write (EVD_SOCKET_BASE (self));
   if (closure != NULL)
     evd_socket_group_invoke_closure (self, closure, socket);
 }
@@ -127,12 +127,12 @@ void
 evd_socket_group_add_internal (EvdSocketGroup *self,
 			       EvdSocket      *socket)
 {
-  evd_stream_set_read_handler (EVD_STREAM (socket),
-			       G_CALLBACK (evd_socket_group_socket_on_read),
-			       self);
-  evd_stream_set_write_handler (EVD_STREAM (socket),
-                                G_CALLBACK (evd_socket_group_socket_on_write),
-                                self);
+  evd_socket_base_set_read_handler (EVD_SOCKET_BASE (socket),
+                                    G_CALLBACK (evd_socket_group_socket_on_read),
+                                    self);
+  evd_socket_base_set_write_handler (EVD_SOCKET_BASE (socket),
+                                     G_CALLBACK (evd_socket_group_socket_on_write),
+                                     self);
 
   evd_socket_set_group (socket, self);
 }
