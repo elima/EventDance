@@ -53,6 +53,8 @@ struct _EvdSocketBasePrivate
 
   gsize total_in;
   gsize total_out;
+
+  EvdStreamThrottle *input_throttle;
 };
 
 
@@ -65,7 +67,9 @@ enum
   PROP_BANDWIDTH_IN,
   PROP_BANDWIDTH_OUT,
   PROP_LATENCY_IN,
-  PROP_LATENCY_OUT
+  PROP_LATENCY_OUT,
+
+  PROP_INPUT_THROTTLE
 };
 
 G_LOCK_DEFINE_STATIC (counters);
@@ -74,6 +78,7 @@ static void     evd_socket_base_class_init         (EvdSocketBaseClass *class);
 static void     evd_socket_base_init               (EvdSocketBase *self);
 
 static void     evd_socket_base_finalize           (GObject *obj);
+static void     evd_socket_base_dispose            (GObject *obj);
 
 static void     evd_socket_base_set_property       (GObject      *obj,
                                                     guint         prop_id,
@@ -94,6 +99,7 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
+  obj_class->dispose = evd_socket_base_dispose;
   obj_class->finalize = evd_socket_base_finalize;
   obj_class->get_property = evd_socket_base_get_property;
   obj_class->set_property = evd_socket_base_set_property;
@@ -159,6 +165,14 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_INPUT_THROTTLE,
+                                   g_param_spec_object ("input-throttle",
+                                                        "Input throttle",
+                                                        "The input stream throttle object",
+                                                        EVD_TYPE_STREAM_THROTTLE,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketBasePrivate));
 }
@@ -184,6 +198,22 @@ evd_socket_base_init (EvdSocketBase *self)
 
   priv->bytes_in = 0;
   priv->bytes_out = 0;
+
+  priv->input_throttle = NULL;
+}
+
+static void
+evd_socket_base_dispose (GObject *obj)
+{
+  EvdSocketBase *self = EVD_SOCKET_BASE (obj);
+
+  if (self->priv->input_throttle != NULL)
+    {
+      g_object_unref (self->priv->input_throttle);
+      self->priv->input_throttle = NULL;
+    }
+
+  G_OBJECT_CLASS (evd_socket_base_parent_class)->dispose (obj);
 }
 
 static void
@@ -280,6 +310,10 @@ evd_socket_base_get_property (GObject    *obj,
 
     case PROP_LATENCY_OUT:
       g_value_set_float (value, self->priv->latency_out / 1000.0);
+      break;
+
+    case PROP_INPUT_THROTTLE:
+      g_value_set_object (value, evd_socket_base_get_input_throttle (self));
       break;
 
     default:
@@ -592,4 +626,15 @@ evd_socket_base_set_write_handler (EvdSocketBase *self,
     }
 
   evd_socket_base_set_on_write (EVD_SOCKET_BASE (self), closure);
+}
+
+EvdStreamThrottle *
+evd_socket_base_get_input_throttle (EvdSocketBase *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), NULL);
+
+  if (self->priv->input_throttle == NULL)
+    self->priv->input_throttle = evd_stream_throttle_new ();
+
+  return self->priv->input_throttle;
 }

@@ -25,7 +25,7 @@
 
 #include <glib-object.h>
 
-#include "evd-tls-session.h"
+#include "evd-stream-throttle.h"
 
 G_BEGIN_DECLS
 
@@ -142,6 +142,13 @@ gulong         evd_socket_base_get_total_written       (EvdSocketBase *self);
 
 gfloat         evd_socket_base_get_actual_bandwidth_in  (EvdSocketBase *self);
 gfloat         evd_socket_base_get_actual_bandwidth_out (EvdSocketBase *self);
+
+/**
+ * evd_socket_base_get_input_throttle:
+ *
+ * Returns: (transfer none): The input #EvdStreamThrottle object
+ **/
+EvdStreamThrottle *evd_socket_base_get_input_throttle   (EvdSocketBase *self);
 
 G_END_DECLS
 
