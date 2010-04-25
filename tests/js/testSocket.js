@@ -36,7 +36,6 @@ function testInitialState (Assert) {
     Assert.equal (socket.priority, 0);
 
     Assert.equal (socket.tls_autostart, false);
-    Assert.equal (socket.get_tls_autostart (), false);
     Assert.ok (socket.tls);
     Assert.ok (socket.get_tls_session ());
 
