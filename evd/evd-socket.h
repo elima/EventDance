@@ -28,7 +28,8 @@
 
 #include <gio/gio.h>
 
-#include "evd-socket-stream.h"
+#include "evd-stream.h"
+#include "evd-tls-session.h"
 
 G_BEGIN_DECLS
 
@@ -66,7 +67,7 @@ typedef enum
 
 struct _EvdSocket
 {
-  EvdSocketStream parent;
+  EvdStream parent;
 
   /* private structure */
   EvdSocketPrivate *priv;
@@ -74,7 +75,7 @@ struct _EvdSocket
 
 struct _EvdSocketClass
 {
-  EvdSocketStreamClass parent_class;
+  EvdStreamClass parent_class;
 
   /* virtual methods */
   gboolean (* handle_condition) (EvdSocket *self, GIOCondition condition);
@@ -337,6 +338,8 @@ gboolean        evd_socket_shutdown             (EvdSocket  *self,
                                                  gboolean    shutdown_read,
                                                  gboolean    shutdown_write,
                                                  GError    **error);
+
+EvdTlsSession  *evd_socket_get_tls_session      (EvdSocket *self);
 
 gboolean        evd_socket_get_tls_active       (EvdSocket *self);
 

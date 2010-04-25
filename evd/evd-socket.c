@@ -48,13 +48,13 @@
 #define MAX_WRITE_BUFFER_SIZE   G_MAXUINT16
 
 #define TLS_ENABLED(socket)       (socket->priv->tls_enabled == TRUE)
-#define TLS_SESSION(socket)       evd_socket_stream_get_tls_session (EVD_SOCKET_STREAM (socket))
-#define TLS_AUTOSTART(socket)     evd_socket_stream_get_tls_autostart (EVD_SOCKET_STREAM (socket))
+#define TLS_SESSION(socket)       evd_socket_get_tls_session (socket)
+#define TLS_AUTOSTART(socket)     socket->priv->tls_autostart
 #define TLS_INPUT_STREAM(socket)  G_INPUT_STREAM (socket->priv->tls_input_stream)
 #define TLS_OUTPUT_STREAM(socket) G_OUTPUT_STREAM (socket->priv->tls_output_stream)
 #define TLS_READ_PENDING(socket)  g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_STREAM)
+G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_STREAM)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                      EVD_TYPE_SOCKET, \
@@ -94,7 +94,10 @@ struct _EvdSocketPrivate
 
   gboolean bind_allow_reuse;
 
-  gboolean tls_enabled;
+  gboolean       tls_enabled;
+  gboolean       tls_autostart;
+  EvdTlsSession *tls_session;
+
   gboolean delayed_close;
 
   guint         event_handler_src_id;
@@ -131,6 +134,8 @@ enum
   PROP_GROUP,
   PROP_PRIORITY,
   PROP_STATUS,
+  PROP_TLS_AUTOSTART,
+  PROP_TLS_SESSION,
   PROP_TLS_ACTIVE
 };
 
@@ -306,6 +311,22 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
+                                   g_param_spec_boolean ("tls-autostart",
+                                                         "Enable/disable automatic TLS upgrade",
+                                                         "Whether SSL/TLS should be started automatically upon connected",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_TLS_SESSION,
+                                   g_param_spec_object ("tls",
+                                                        "The SSL/TLS session",
+                                                        "The underlaying SSL/TLS session object",
+                                                        EVD_TYPE_TLS_SESSION,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (obj_class, PROP_TLS_ACTIVE,
                                    g_param_spec_boolean ("tls-active",
                                                          "Tells whether SSL/TLS is active",
@@ -395,6 +416,12 @@ evd_socket_dispose (GObject *obj)
       self->priv->context = NULL;
     }
 
+  if (self->priv->tls_session != NULL)
+    {
+      g_object_unref (self->priv->tls_session);
+      self->priv->tls_session = NULL;
+    }
+
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
 }
 
@@ -461,6 +488,10 @@ evd_socket_set_property (GObject      *obj,
       evd_socket_set_priority (self, g_value_get_uint (value));
       break;
 
+    case PROP_TLS_AUTOSTART:
+      self->priv->tls_autostart = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -523,6 +554,14 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_STATUS:
       g_value_set_uint (value, self->priv->status);
+      break;
+
+    case PROP_TLS_AUTOSTART:
+      g_value_set_boolean (value, self->priv->tls_autostart);
+      break;
+
+    case PROP_TLS_SESSION:
+      g_value_set_object (value, TLS_SESSION (self));
       break;
 
     case PROP_TLS_ACTIVE:
@@ -1333,6 +1372,9 @@ evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
   EvdSocket *self = EVD_SOCKET (_self);
   EvdSocket *target = EVD_SOCKET (_target);
 
+  EVD_STREAM_CLASS (evd_socket_parent_class)->
+    copy_properties (_self, _target);
+
   evd_socket_set_priority (target, self->priv->priority);
 
   target->priv->auto_write = self->priv->auto_write;
@@ -1340,8 +1382,7 @@ evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
   if (self->priv->group != NULL)
     evd_socket_group_add (self->priv->group, target);
 
-  EVD_STREAM_CLASS (evd_socket_parent_class)->
-    copy_properties (_self, _target);
+  target->priv->tls_autostart = self->priv->tls_autostart;
 }
 
 void
@@ -1679,6 +1720,11 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
                                             self);
       g_object_unref (self->priv->tls_output_stream);
       self->priv->tls_output_stream = NULL;
+    }
+
+  if (self->priv->tls_session != NULL)
+    {
+      /* @TODO: reset TLS session */
     }
 
   return result;
@@ -2418,6 +2464,20 @@ evd_socket_shutdown (EvdSocket  *self,
                             shutdown_read,
                             shutdown_write,
                             error);
+}
+
+EvdTlsSession *
+evd_socket_get_tls_session (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_STREAM (self), NULL);
+
+  if (self->priv->tls_session == NULL)
+    {
+      self->priv->tls_session = evd_tls_session_new ();
+      g_object_ref_sink (self->priv->tls_session);
+    }
+
+  return self->priv->tls_session;
 }
 
 gboolean
