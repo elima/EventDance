@@ -42,14 +42,14 @@ evd_socket_test_initial_state (EvdSocketFixture *f,
                                gconstpointer     test_data)
 {
   /* EvdStream */
-  g_assert (EVD_IS_STREAM (f->socket));
+  g_assert (EVD_IS_SOCKET_BASE (f->socket));
   g_assert (EVD_IS_SOCKET (f->socket));
 
-  g_assert (evd_stream_get_on_read (EVD_STREAM (f->socket)) == NULL);
-  g_assert (evd_stream_get_on_write (EVD_STREAM (f->socket)) == NULL);
+  g_assert (evd_socket_base_get_on_read (EVD_SOCKET_BASE (f->socket)) == NULL);
+  g_assert (evd_socket_base_get_on_write (EVD_SOCKET_BASE (f->socket)) == NULL);
 
-  g_assert_cmpuint (evd_stream_get_total_read (EVD_STREAM (f->socket)), ==, 0);
-  g_assert_cmpuint (evd_stream_get_total_written (EVD_STREAM (f->socket)), ==, 0);
+  g_assert_cmpuint (evd_socket_base_get_total_read (EVD_SOCKET_BASE (f->socket)), ==, 0);
+  g_assert_cmpuint (evd_socket_base_get_total_written (EVD_SOCKET_BASE (f->socket)), ==, 0);
 
   /* EvdSocket */
   g_assert (evd_socket_get_socket (f->socket) == NULL);

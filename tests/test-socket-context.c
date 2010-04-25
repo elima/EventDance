@@ -171,7 +171,7 @@ socket_do_read (gpointer user_data)
   total_read += size;
   G_UNLOCK (total_read);
 
-  if (evd_stream_get_total_read (EVD_STREAM (socket)) == DATA_SIZE)
+  if (evd_socket_base_get_total_read (EVD_SOCKET_BASE (socket)) == DATA_SIZE)
     {
       g_assert (evd_socket_close (socket, &error));
       g_assert_no_error (error);
@@ -217,7 +217,7 @@ group_socket_on_write (EvdSocketGroup *self,
   g_assert (self == group_senders);
   g_assert (EVD_IS_SOCKET (socket));
 
-  total_sent = evd_stream_get_total_written (EVD_STREAM (socket));
+  total_sent = evd_socket_base_get_total_written (EVD_SOCKET_BASE (socket));
   if (total_sent < DATA_SIZE)
     {
       g_assert_cmpint (evd_socket_write_len (socket,
@@ -357,13 +357,13 @@ test_socket_context ()
   /* socket group */
   group_senders = evd_socket_group_new ();
   group_receivers = evd_socket_group_new ();
-  evd_stream_set_read_handler (EVD_STREAM (group_receivers),
-                               G_CALLBACK (group_socket_on_read),
-                               NULL);
+  evd_socket_base_set_read_handler (EVD_SOCKET_BASE (group_receivers),
+                                    G_CALLBACK (group_socket_on_read),
+                                    NULL);
 
-  evd_stream_set_write_handler (EVD_STREAM (group_senders),
-                                G_CALLBACK (group_socket_on_write),
-                                NULL);
+  evd_socket_base_set_write_handler (EVD_SOCKET_BASE (group_senders),
+                                     G_CALLBACK (group_socket_on_write),
+                                     NULL);
 
   g_object_set (group_senders,
 		"bandwidth-out", GROUP_BANDWIDTH_OUT,

@@ -7,7 +7,7 @@ const Assert = imports.common.assert;
 function testInitialState (Assert) {
     let group = new Evd.SocketGroup ();
     Assert.ok (group);
-    Assert.ok (group instanceof Evd.Stream);
+    Assert.ok (group instanceof Evd.SocketBase);
     Assert.strictEqual (group.read_closure, null);
     Assert.strictEqual (group.get_on_read (), null);
     Assert.strictEqual (group.write_closure, null);

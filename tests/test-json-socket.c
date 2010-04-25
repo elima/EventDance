@@ -198,10 +198,10 @@ evd_json_socket_test_on_new_conn (EvdJsonSocket *self,
                     G_CALLBACK (evd_json_socket_test_on_error),
                     (gpointer) f);
 
-  evd_stream_set_write_handler (EVD_STREAM (client),
-                                G_CALLBACK (evd_json_socket_test_on_write),
-                                f);
-  g_assert (evd_stream_get_on_write (EVD_STREAM (client)) != NULL);
+  evd_socket_base_set_write_handler (EVD_SOCKET_BASE (client),
+                                     G_CALLBACK (evd_json_socket_test_on_write),
+                                     f);
+  g_assert (evd_socket_base_get_on_write (EVD_SOCKET_BASE (client)) != NULL);
 
   evd_json_socket_set_packet_handler (client,
                                       evd_json_socket_test_on_packet,
@@ -257,10 +257,10 @@ evd_json_socket_launch_test (gpointer user_data)
                     G_CALLBACK (evd_json_socket_test_on_close),
                     (gpointer) f);
 
-  evd_stream_set_read_handler (EVD_STREAM (f->socket1),
-                               G_CALLBACK (evd_json_socket_test_on_read),
-                               f);
-  g_assert (evd_stream_get_on_read (EVD_STREAM (f->socket1)) != NULL);
+  evd_socket_base_set_read_handler (EVD_SOCKET_BASE (f->socket1),
+                                    G_CALLBACK (evd_json_socket_test_on_read),
+                                    f);
+  g_assert (evd_socket_base_get_on_read (EVD_SOCKET_BASE (f->socket1)) != NULL);
 
   evd_json_socket_set_packet_handler (f->socket1,
                                       evd_json_socket_test_on_packet,
