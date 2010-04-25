@@ -1293,6 +1293,39 @@ evd_socket_handle_condition_cb (gpointer data)
   return FALSE;
 }
 
+static gboolean
+evd_socket_confirm_read_condition (EvdSocket *self)
+{
+  gchar buf[1] = { 0, };
+
+  if (evd_socket_read_len (self, buf, 1, NULL) == 1)
+    {
+      evd_socket_unread_len (self, buf, 1, NULL);
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+static void
+evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
+{
+  EvdSocket *self = EVD_SOCKET (_self);
+  EvdSocket *target = EVD_SOCKET (_target);
+
+  EVD_STREAM_CLASS (evd_socket_parent_class)->
+    copy_properties (_self, _target);
+
+  evd_socket_set_priority (target, self->priv->priority);
+
+  target->priv->auto_write = self->priv->auto_write;
+
+  if (self->priv->group != NULL)
+    evd_socket_group_add (self->priv->group, target);
+
+  target->priv->tls_autostart = self->priv->tls_autostart;
+}
+
 /* protected methods */
 
 void
@@ -1323,20 +1356,6 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
   g_error_free (error);
 }
 
-static gboolean
-evd_socket_confirm_read_condition (EvdSocket *self)
-{
-  gchar buf[1] = { 0, };
-
-  if (evd_socket_read_len (self, buf, 1, NULL) == 1)
-    {
-      evd_socket_unread_len (self, buf, 1, NULL);
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
 void
 evd_socket_notify_condition (EvdSocket    *self,
                              GIOCondition  cond)
@@ -1364,25 +1383,6 @@ evd_socket_notify_condition (EvdSocket    *self,
     }
 
   g_mutex_unlock (self->priv->mutex);
-}
-
-static void
-evd_socket_copy_properties (EvdStream *_self, EvdStream *_target)
-{
-  EvdSocket *self = EVD_SOCKET (_self);
-  EvdSocket *target = EVD_SOCKET (_target);
-
-  EVD_STREAM_CLASS (evd_socket_parent_class)->
-    copy_properties (_self, _target);
-
-  evd_socket_set_priority (target, self->priv->priority);
-
-  target->priv->auto_write = self->priv->auto_write;
-
-  if (self->priv->group != NULL)
-    evd_socket_group_add (self->priv->group, target);
-
-  target->priv->tls_autostart = self->priv->tls_autostart;
 }
 
 void
