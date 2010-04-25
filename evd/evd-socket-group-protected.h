@@ -32,8 +32,7 @@
 G_BEGIN_DECLS
 
 void     evd_socket_group_socket_on_read_internal  (EvdSocketGroup *self,
-                                                    EvdSocket *socket);
-
+                                                    EvdSocket      *socket);
 void     evd_socket_group_socket_on_write_internal (EvdSocketGroup *self,
                                                     EvdSocket      *socket);
 
