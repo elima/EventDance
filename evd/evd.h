@@ -34,6 +34,7 @@
 #include <evd-socket-output-stream.h>
 #include <evd-tls-input-stream.h>
 #include <evd-tls-output-stream.h>
+#include <evd-stream-throttle.h>
 #include <evd-json-filter.h>
 #include <evd-json-socket.h>
 #include <evd-socket-group.h>
