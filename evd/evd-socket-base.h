@@ -130,19 +130,6 @@ void           evd_socket_base_set_on_write            (EvdSocketBase *self,
  */
 GClosure      *evd_socket_base_get_on_write            (EvdSocketBase *self);
 
-gsize          evd_socket_base_request_write           (EvdSocketBase *self,
-                                                        gsize          size,
-                                                        guint         *wait);
-gsize          evd_socket_base_request_read            (EvdSocketBase *self,
-                                                        gsize          size,
-                                                        guint         *wait);
-
-gulong         evd_socket_base_get_total_read          (EvdSocketBase *self);
-gulong         evd_socket_base_get_total_written       (EvdSocketBase *self);
-
-gfloat         evd_socket_base_get_actual_bandwidth_in  (EvdSocketBase *self);
-gfloat         evd_socket_base_get_actual_bandwidth_out (EvdSocketBase *self);
-
 /**
  * evd_socket_base_get_input_throttle:
  *

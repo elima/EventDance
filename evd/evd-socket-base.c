@@ -40,20 +40,6 @@ struct _EvdSocketBasePrivate
   GClosure *read_closure;
   GClosure *write_closure;
 
-  gsize  bandwidth_in;
-  gsize  bandwidth_out;
-  gulong latency_in;
-  gulong latency_out;
-
-  GTimeVal current_time;
-  gsize    bytes_in;
-  gsize    bytes_out;
-  GTimeVal last_in;
-  GTimeVal last_out;
-
-  gsize total_in;
-  gsize total_out;
-
   EvdStreamThrottle *input_throttle;
 };
 
@@ -64,15 +50,9 @@ enum
   PROP_0,
   PROP_READ_CLOSURE,
   PROP_WRITE_CLOSURE,
-  PROP_BANDWIDTH_IN,
-  PROP_BANDWIDTH_OUT,
-  PROP_LATENCY_IN,
-  PROP_LATENCY_OUT,
 
   PROP_INPUT_THROTTLE
 };
-
-G_LOCK_DEFINE_STATIC (counters);
 
 static void     evd_socket_base_class_init         (EvdSocketBaseClass *class);
 static void     evd_socket_base_init               (EvdSocketBase *self);
@@ -125,46 +105,6 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
                                                        G_TYPE_CLOSURE,
                                                        G_PARAM_READWRITE));
 
-  g_object_class_install_property (obj_class, PROP_BANDWIDTH_IN,
-                                   g_param_spec_float ("bandwidth-in",
-                                                       "Inbound bandwidth limit",
-                                                       "The maximum bandwidth for reading, in kilobytes",
-                                                       0.0,
-                                                       G_MAXFLOAT,
-                                                       0.0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_BANDWIDTH_OUT,
-                                   g_param_spec_float ("bandwidth-out",
-                                                       "Outbound bandwidth limit",
-                                                       "The maximum bandwidth for writing, in kilobytes",
-                                                       0.0,
-                                                       G_MAXFLOAT,
-                                                       0.0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_LATENCY_IN,
-                                   g_param_spec_float ("latency-in",
-                                                       "Inbound minimum latency",
-                                                       "The minimum time between two reads, in miliseconds",
-                                                       0.0,
-                                                       G_MAXFLOAT,
-                                                       0.0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_LATENCY_OUT,
-                                   g_param_spec_float ("latency-out",
-                                                       "Outbound minimum latency",
-                                                       "The minimum time between two writes, in miliseconds",
-                                                       0.0,
-                                                       G_MAXFLOAT,
-                                                       0.0,
-                                                       G_PARAM_READWRITE |
-                                                       G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_INPUT_THROTTLE,
                                    g_param_spec_object ("input-throttle",
                                                         "Input throttle",
@@ -187,17 +127,7 @@ evd_socket_base_init (EvdSocketBase *self)
 
   /* initialize private members */
   priv->read_closure = NULL;
-
-  priv->bandwidth_in = 0;
-  priv->bandwidth_out = 0;
-  priv->latency_in = 0;
-  priv->latency_out = 0;
-
-  priv->current_time.tv_sec = 0;
-  priv->current_time.tv_usec = 0;
-
-  priv->bytes_in = 0;
-  priv->bytes_out = 0;
+  priv->write_closure = NULL;
 
   priv->input_throttle = NULL;
 }
@@ -250,25 +180,6 @@ evd_socket_base_set_property (GObject      *obj,
       evd_socket_base_set_on_write (self, g_value_get_boxed (value));
       break;
 
-    case PROP_BANDWIDTH_IN:
-      self->priv->bandwidth_in = (gsize) (g_value_get_float (value) * 1024.0);
-      break;
-
-    case PROP_BANDWIDTH_OUT:
-      self->priv->bandwidth_out = (gsize) (g_value_get_float (value) * 1024.0);
-      break;
-
-      /* Latency properties are in miliseconds, but we store the value
-         internally  in microseconds, to allow up to 1/1000 fraction of a
-         milisecond */
-    case PROP_LATENCY_IN:
-      self->priv->latency_in = (gulong) (g_value_get_float (value) * 1000.0);
-      break;
-
-    case PROP_LATENCY_OUT:
-      self->priv->latency_out = (gulong) (g_value_get_float (value) * 1000.0);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -295,23 +206,6 @@ evd_socket_base_get_property (GObject    *obj,
       g_value_set_boxed (value, self->priv->write_closure);
       break;
 
-    case PROP_BANDWIDTH_IN:
-      g_value_set_float (value, self->priv->bandwidth_in / 1024.0);
-      break;
-
-    case PROP_BANDWIDTH_OUT:
-      g_value_set_float (value, self->priv->bandwidth_out / 1024.0);
-      break;
-
-      /* Latency values are stored in microseconds internally */
-    case PROP_LATENCY_IN:
-      g_value_set_float (value, self->priv->latency_in / 1000.0);
-      break;
-
-    case PROP_LATENCY_OUT:
-      g_value_set_float (value, self->priv->latency_out / 1000.0);
-      break;
-
     case PROP_INPUT_THROTTLE:
       g_value_set_object (value, evd_socket_base_get_input_throttle (self));
       break;
@@ -323,132 +217,12 @@ evd_socket_base_get_property (GObject    *obj,
 }
 
 static void
-evd_socket_base_update_current_time (EvdSocketBase *self)
-{
-  GTimeVal time_val;
-
-  g_get_current_time (&time_val);
-
-  if (time_val.tv_sec != self->priv->current_time.tv_sec)
-    {
-      G_LOCK (counters);
-
-      self->priv->bytes_in = 0;
-      self->priv->bytes_out = 0;
-
-      G_UNLOCK (counters);
-    }
-
-  g_memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
-}
-
-static gulong
-g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
-{
-  gulong result;
-
-  result = ABS (time2->tv_sec - time1->tv_sec) * G_USEC_PER_SEC;
-  result += ABS (time2->tv_usec - time1->tv_usec) / 1000;
-
-  return result;
-}
-
-static gsize
-evd_socket_base_request (EvdSocketBase *self,
-                         gsize      bandwidth,
-                         gulong     latency,
-                         gsize      bytes,
-                         GTimeVal  *last,
-                         gsize      size,
-                         guint     *wait)
-{
-  gsize actual_size = size;
-
-  if ( (wait != NULL) && (*wait < 0) )
-    *wait = 0;
-
-  G_LOCK (counters);
-
-  /*  latency check */
-  if (latency > 0)
-    {
-      gulong elapsed;
-
-      elapsed = g_timeval_get_diff_micro (&self->priv->current_time,
-                                          last);
-      if (elapsed < latency)
-        {
-          actual_size = 0;
-
-          if (wait != NULL)
-            *wait = MAX ((guint) ((latency - elapsed) / 1000),
-                         *wait);
-        }
-    }
-
-  /* bandwidth check */
-  if ( (bandwidth > 0) && (actual_size > 0) )
-    {
-      actual_size = MAX ((gssize) (bandwidth - bytes), 0);
-      actual_size = MIN (actual_size, size);
-
-      if (wait != NULL)
-        if (actual_size < size)
-          *wait = MAX ((guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1,
-                       *wait);
-    }
-
-  G_UNLOCK (counters);
-
-  return actual_size;
-}
-
-static void
 evd_socket_base_copy_properties (EvdSocketBase *self, EvdSocketBase *target)
 {
-  target->priv->bandwidth_in = self->priv->bandwidth_in;
-  target->priv->bandwidth_out = self->priv->bandwidth_out;
-  target->priv->latency_in = self->priv->latency_in;
-  target->priv->latency_out = self->priv->latency_out;
+  /* @TODO */
 }
 
 /* protected methods */
-
-void
-evd_socket_base_report_read (EvdSocketBase *self,
-                        gsize     size)
-{
-  evd_socket_base_update_current_time (self);
-
-  G_LOCK (counters);
-
-  self->priv->bytes_in += size;
-  self->priv->total_in += size;
-
-  g_memmove (&self->priv->last_in,
-             &self->priv->current_time,
-             sizeof (GTimeVal));
-
-  G_UNLOCK (counters);
-}
-
-void
-evd_socket_base_report_write (EvdSocketBase *self,
-                         gsize     size)
-{
-  evd_socket_base_update_current_time (self);
-
-  G_LOCK (counters);
-
-  self->priv->bytes_out += size;
-  self->priv->total_out += size;
-
-  g_memmove (&self->priv->last_out,
-             &self->priv->current_time,
-             sizeof (GTimeVal));
-
-  G_UNLOCK (counters);
-}
 
 /* public methods */
 
@@ -520,62 +294,6 @@ evd_socket_base_get_on_write (EvdSocketBase *self)
   g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), NULL);
 
   return self->priv->write_closure;
-}
-
-gsize
-evd_socket_base_request_read  (EvdSocketBase *self,
-                          gsize      size,
-                          guint     *wait)
-{
-  evd_socket_base_update_current_time (self);
-
-  return evd_socket_base_request (self,
-                             self->priv->bandwidth_in,
-                             self->priv->latency_in,
-                             self->priv->bytes_in,
-                             &self->priv->last_in,
-                             size,
-                             wait);
-}
-
-gsize
-evd_socket_base_request_write (EvdSocketBase *self,
-                          gsize      size,
-                          guint     *wait)
-{
-  evd_socket_base_update_current_time (self);
-
-  return evd_socket_base_request (self,
-                             self->priv->bandwidth_out,
-                             self->priv->latency_out,
-                             self->priv->bytes_out,
-                             &self->priv->last_out,
-                             size,
-                             wait);
-}
-
-gulong
-evd_socket_base_get_total_read (EvdSocketBase *self)
-{
-  return self->priv->total_in;
-}
-
-gulong
-evd_socket_base_get_total_written (EvdSocketBase *self)
-{
-  return self->priv->total_out;
-}
-
-gfloat
-evd_socket_base_get_actual_bandwidth_in (EvdSocketBase *self)
-{
-  return self->priv->bytes_in / 1024.0;
-}
-
-gfloat
-evd_socket_base_get_actual_bandwidth_out (EvdSocketBase *self)
-{
-  return self->priv->bytes_out / 1024.0;
 }
 
 void
