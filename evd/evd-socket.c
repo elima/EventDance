@@ -830,7 +830,6 @@ evd_socket_read_filtered (EvdSocket *self,
                           GError   **error)
 {
   gssize actual_size = 0;
-  gsize limited_size;
   guint _retry_wait = 0;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
@@ -840,39 +839,17 @@ evd_socket_read_filtered (EvdSocket *self,
   if (! evd_socket_is_connected (self, error))
     return -1;
 
-  /* handle latency and bandwidth */
-  limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self),
-                                               size,
-                                               &_retry_wait);
-
-  if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self->priv->group),
-                                                 limited_size,
-                                                 &_retry_wait);
-
-  if (limited_size > 0)
+  if ( (actual_size =
+        g_input_stream_read (G_INPUT_STREAM (self->priv->socket_input_stream),
+                             buffer,
+                             size,
+                             NULL,
+                             error)) < 0)
     {
-      if ( (actual_size =
-            g_input_stream_read (G_INPUT_STREAM (self->priv->socket_input_stream),
-                                 buffer,
-                                 limited_size,
-                                 NULL,
-                                 error)) < 0)
-        {
-          return -1;
-        }
-      else if (actual_size > 0)
-        {
-          if (self->priv->group != NULL)
-            evd_socket_base_report_read (EVD_SOCKET_BASE (self->priv->group),
-                                         actual_size);
-
-          evd_socket_base_report_read (EVD_SOCKET_BASE (self),
-                                       actual_size);
-        }
+      return -1;
     }
 
-  if (limited_size < size && actual_size == limited_size)
+  if (actual_size == size)
     {
       if (! self->priv->awaiting_read)
         {
@@ -969,41 +946,17 @@ evd_socket_write_internal (EvdSocket    *self,
                            GError      **error)
 {
   gssize actual_size = 0;
-  gsize limited_size;
   guint _retry_wait = 0;
 
   if (! evd_socket_is_connected (self, error))
     return -1;
 
-  /* handle latency and bandwidth */
-  limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self),
-                                                size,
-                                                &_retry_wait);
-
-  if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self->priv->group),
-                                                  limited_size,
-                                                  &_retry_wait);
-
-  if (limited_size > 0)
-    {
-      actual_size =
-        g_output_stream_write (G_OUTPUT_STREAM (self->priv->socket_output_stream),
-                               buf,
-                               limited_size,
-                               NULL,
-                               error);
-
-      if (actual_size > 0)
-        {
-          if (self->priv->group != NULL)
-            evd_socket_base_report_write (EVD_SOCKET_BASE (self->priv->group),
-                                          actual_size);
-
-          evd_socket_base_report_write (EVD_SOCKET_BASE (self),
-                                        actual_size);
-        }
-    }
+  actual_size =
+    g_output_stream_write (G_OUTPUT_STREAM (self->priv->socket_output_stream),
+                           buf,
+                           size,
+                           NULL,
+                           error);
 
   if (actual_size >= 0 && actual_size < size)
     {
@@ -2310,19 +2263,11 @@ evd_socket_has_write_data_pending (EvdSocket *self)
 gsize
 evd_socket_get_max_readable (EvdSocket *self)
 {
-  gsize size = MAX_BLOCK_SIZE;
-  gsize limited_size;
+  gsize limited_size = MAX_BLOCK_SIZE;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self),
-                                          size,
-                                          NULL);
-
-  if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_socket_base_request_read (EVD_SOCKET_BASE (self->priv->group),
-                                            limited_size,
-                                            NULL);
+  /* @TODO: reimplement this when EvdThrottleInputStream is ready */
 
   return limited_size;
 }
@@ -2330,19 +2275,11 @@ evd_socket_get_max_readable (EvdSocket *self)
 gsize
 evd_socket_get_max_writable (EvdSocket *self)
 {
-  gsize size = MAX_BLOCK_SIZE;
-  gsize limited_size;
+  gsize limited_size = MAX_BLOCK_SIZE;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self),
-                                           size,
-                                           NULL);
-
-  if ( (limited_size > 0) && (self->priv->group != NULL) )
-    limited_size = evd_socket_base_request_write (EVD_SOCKET_BASE (self->priv->group),
-                                             limited_size,
-                                             NULL);
+  /* @TODO: reimplement this when EvdThrottleOutputStream is ready */
 
   return limited_size;
 }
