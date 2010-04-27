@@ -26,8 +26,6 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include "evd-socket.h"
-
 G_BEGIN_DECLS
 
 typedef struct _EvdSocketInputStream EvdSocketInputStream;
@@ -59,7 +57,16 @@ struct _EvdSocketInputStreamClass
 
 GType                 evd_socket_input_stream_get_type                     (void) G_GNUC_CONST;
 
-EvdSocketInputStream *evd_socket_input_stream_new                          (EvdSocket *socket);
+EvdSocketInputStream *evd_socket_input_stream_new                          (GSocket *socket);
+
+/**
+ * evd_socket_input_stream_get_socket:
+ *
+ * Returns: (transfer none): the #GSocket
+ **/
+GSocket              *evd_socket_input_stream_get_socket                   (EvdSocketInputStream *self);
+void                  evd_socket_input_stream_set_socket                   (EvdSocketInputStream *self,
+                                                                            GSocket              *socket);
 
 G_END_DECLS
 

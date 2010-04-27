@@ -803,7 +803,7 @@ evd_socket_setup_streams (EvdSocket *self)
   if (self->priv->socket_input_stream == NULL)
     {
       self->priv->socket_input_stream =
-        evd_socket_input_stream_new (self);
+        evd_socket_input_stream_new (self->priv->socket);
 
       g_signal_connect (self->priv->socket_input_stream,
                         "drained",
