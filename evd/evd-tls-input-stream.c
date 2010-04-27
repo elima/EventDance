@@ -191,19 +191,17 @@ evd_tls_input_stream_pull (EvdTlsSession *session,
 
   result = g_input_stream_read (base_stream, buffer, size, NULL, &error);
 
-  if (result < 0)
-    {
-      /* @TODO: report this error through EvdSocket, somehow */
-    }
-  else if (result == 0)
+  if (result == 0)
     {
       g_object_ref (self);
       g_signal_emit (self, evd_tls_input_stream_signals[SIGNAL_DRAINED], 0, NULL);
       g_object_unref (self);
 
-      if (! g_input_stream_set_pending (G_INPUT_STREAM (self), &error))
+      if (! g_input_stream_has_pending (G_INPUT_STREAM (self)) &&
+          ! g_input_stream_set_pending (G_INPUT_STREAM (self), &error))
         {
           /* @TODO: report this error through EvdSocket, somehow */
+          g_debug ("EvdTlsInputStream pull func error: %s", error->message);
         }
 
       result = EVD_TLS_ERROR_AGAIN;
@@ -211,6 +209,12 @@ evd_tls_input_stream_pull (EvdTlsSession *session,
   else
     {
       g_input_stream_clear_pending (G_INPUT_STREAM (self));
+
+      if (result < 0)
+        {
+          /* @TODO: report this error through EvdSocket, somehow */
+          g_debug ("EvdTlsInputStream pull func error: %s", error->message);
+        }
     }
 
   return result;
@@ -224,11 +228,43 @@ evd_tls_input_stream_read (GInputStream  *stream,
                            GError       **error)
 {
   EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (stream);
+  GError *_error = NULL;
+  gssize actual_size;
 
-  return evd_tls_session_read (self->priv->session,
-                               buffer,
-                               size,
-                               error);
+  actual_size = evd_tls_session_read (self->priv->session,
+                                      buffer,
+                                      size,
+                                      &_error);
+
+  /* hack to gracefully recover from peer
+     abruptly closing TLS connection */
+  if (actual_size < 0)
+    {
+      if (_error->code == EVD_TLS_ERROR_UNEXPECTED_PACKET_LEN)
+        {
+          g_error_free (_error);
+          actual_size = 0;
+
+          g_input_stream_clear_pending (stream);
+          g_input_stream_close (stream, NULL, error);
+        }
+      else
+        {
+          if (error != NULL)
+            *error = _error;
+        }
+    }
+
+  return actual_size;
+}
+
+static void
+evd_tls_input_stream_session_destroy_notify (gpointer  user_data,
+                                             GObject  *obj)
+{
+  EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (user_data);
+
+  g_object_unref (self);
 }
 
 /* public methods */
