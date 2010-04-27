@@ -54,6 +54,7 @@ enum
 
 static void     evd_tls_input_stream_class_init         (EvdTlsInputStreamClass *class);
 static void     evd_tls_input_stream_init               (EvdTlsInputStream *self);
+static void     evd_tls_input_stream_finalize           (GObject *obj);
 
 static void     evd_tls_input_stream_set_property       (GObject      *obj,
                                                          guint         prop_id,
@@ -70,6 +71,9 @@ static gssize   evd_tls_input_stream_read               (GInputStream  *stream,
                                                          GCancellable  *cancellable,
                                                          GError       **error);
 
+static void     evd_tls_input_stream_session_destroy_notify (gpointer  user_data,
+                                                             GObject  *obj);
+
 static void
 evd_tls_input_stream_class_init (EvdTlsInputStreamClass *class)
 {
@@ -78,6 +82,7 @@ evd_tls_input_stream_class_init (EvdTlsInputStreamClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
+  obj_class->finalize = evd_tls_input_stream_finalize;
   obj_class->get_property = evd_tls_input_stream_get_property;
   obj_class->set_property = evd_tls_input_stream_set_property;
 
@@ -112,6 +117,18 @@ evd_tls_input_stream_init (EvdTlsInputStream *self)
 
   priv = EVD_TLS_INPUT_STREAM_GET_PRIVATE (self);
   self->priv = priv;
+}
+
+static void
+evd_tls_input_stream_finalize (GObject *obj)
+{
+  EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (obj);
+
+  g_object_weak_unref (G_OBJECT (self->priv->session),
+                       evd_tls_input_stream_session_destroy_notify,
+                       self);
+
+  G_OBJECT_CLASS (evd_tls_input_stream_parent_class)->finalize (obj);
 }
 
 static void
@@ -222,6 +239,9 @@ evd_tls_input_stream_new (EvdTlsSession *session,
 {
   EvdTlsInputStream *self;
 
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (session), NULL);
+  g_return_val_if_fail (G_IS_INPUT_STREAM (base_stream), NULL);
+
   self = g_object_new (EVD_TYPE_TLS_INPUT_STREAM,
                        "session", session,
                        "base-stream", base_stream,
@@ -230,6 +250,10 @@ evd_tls_input_stream_new (EvdTlsSession *session,
   evd_tls_session_set_transport_pull_func (session,
                                            evd_tls_input_stream_pull,
                                            self);
+
+  g_object_weak_ref (G_OBJECT (session),
+                     evd_tls_input_stream_session_destroy_notify,
+                     self);
 
   return self;
 }
