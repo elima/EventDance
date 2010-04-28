@@ -23,6 +23,7 @@
  * 02110-1301 USA
  */
 
+#include "evd-error.h"
 #include "evd-tls-common.h"
 #include "evd-tls-session.h"
 #include "evd-tls-certificate.h"
@@ -694,7 +695,7 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
     {
       if (error != NULL)
         *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_SESS_NOT_INITIALIZED,
+                              EVD_ERROR_NOT_INITIALIZED,
                               "SSL/TLS session not yet initialized");
 
       return -1;

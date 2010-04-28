@@ -50,20 +50,12 @@ struct _EvdResolverClass
   GObjectClass parent_class;
 };
 
-typedef enum
-{
-  EVD_RESOLVER_ERROR_INVALID_ADDR,
-
-  EVD_RESOLVER_ERROR_LAST
-} EvdResolverError;
-
 #define EVD_TYPE_RESOLVER           (evd_resolver_get_type ())
 #define EVD_RESOLVER(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_RESOLVER, EvdResolver))
 #define EVD_RESOLVER_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_RESOLVER, EvdResolverClass))
 #define EVD_IS_RESOLVER(obj)        (G_TYPE_CHECK_INSTANCE_TYPE ((obj), EVD_TYPE_RESOLVER))
 #define EVD_IS_RESOLVER_CLASS(obj)  (G_TYPE_CHECK_CLASS_TYPE ((obj), EVD_TYPE_RESOLVER))
 #define EVD_RESOLVER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_RESOLVER, EvdResolverClass))
-
 
 /**
  * evd_resolver_get_default:

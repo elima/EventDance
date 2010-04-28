@@ -23,6 +23,7 @@
 #include <gnutls/x509.h>
 #include <gnutls/openpgp.h>
 
+#include "evd-error.h"
 #include "evd-tls-common.h"
 #include "evd-tls-certificate.h"
 
@@ -299,7 +300,7 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
           {
             if (error != NULL)
               *error = g_error_new (self->priv->err_domain,
-                                    EVD_TLS_ERROR_CERT_UNKNOWN_TYPE,
+                                    EVD_ERROR_INVALID_DATA,
                                     "Unable to detect certificate type when trying to import");
           }
 
@@ -350,7 +351,7 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
     default:
       if (error != NULL)
         *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting 'dn'");
 
       break;
@@ -374,7 +375,7 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
         time = gnutls_x509_crt_get_expiration_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
           *error = g_error_new (self->priv->err_domain,
-                                EVD_TLS_ERROR_CERT_READ_PROPERTY,
+                                EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain expiration time from X.509 certificate");
 
         break;
@@ -389,7 +390,7 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
     default:
       if (error != NULL)
         *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting expiration time");
 
       break;
@@ -413,7 +414,7 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
         time = gnutls_x509_crt_get_activation_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
           *error = g_error_new (self->priv->err_domain,
-                                EVD_TLS_ERROR_CERT_READ_PROPERTY,
+                                EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from X.509 certificate");
 
         break;
@@ -428,7 +429,7 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
     default:
       if (error != NULL)
         *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting activation time");
 
       break;
@@ -477,7 +478,7 @@ evd_tls_certificate_verify_validity (EvdTlsCertificate  *self,
     default:
       if (error != NULL)
         *error = g_error_new (self->priv->err_domain,
-                              EVD_TLS_ERROR_CERT_NOT_INITIALIZED,
+                              EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when verifying validity");
 
       result = -1;

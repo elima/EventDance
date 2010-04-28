@@ -125,7 +125,7 @@ evd_json_socket_test_on_error (EvdSocket *self,
                                gchar     *message,
                                gpointer   user_data)
 {
-  g_assert_cmpint (code, ==, EVD_JSON_SOCKET_ERROR_INVALID);
+  g_assert_cmpint (code, ==, EVD_ERROR_INVALID_DATA);
 }
 
 static void

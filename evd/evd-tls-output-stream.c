@@ -166,7 +166,7 @@ evd_tls_output_stream_push (EvdTlsSession *session,
 {
   EvdTlsOutputStream *self = EVD_TLS_OUTPUT_STREAM (user_data);
   GError *error = NULL;
-  gssize result = EVD_TLS_ERROR_AGAIN;
+  gssize result = GNUTLS_E_AGAIN;
   GOutputStream *base_stream;
 
   base_stream =
@@ -189,7 +189,7 @@ evd_tls_output_stream_push (EvdTlsSession *session,
           /* @TODO: report this error through EvdSocket, somehow */
         }
 
-      result = EVD_TLS_ERROR_AGAIN;
+      result = GNUTLS_E_AGAIN;
     }
   else
     {

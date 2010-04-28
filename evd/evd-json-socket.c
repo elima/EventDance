@@ -23,6 +23,7 @@
  * 02110-1301 USA
  */
 
+#include "evd-error.h"
 #include "evd-json-socket.h"
 #include "evd-socket-protected.h"
 #include "evd-json-filter.h"
@@ -179,7 +180,7 @@ evd_json_socket_on_read (EvdSocket *socket)
                                       size,
                                       &error))
         {
-          error->code = EVD_JSON_SOCKET_ERROR_INVALID;
+          error->code = EVD_ERROR_INVALID_DATA;
           evd_socket_throw_error (EVD_SOCKET (self), error);
         }
     }

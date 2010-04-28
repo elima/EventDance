@@ -53,13 +53,6 @@ struct _EvdJsonSocketClass
   EvdSocketClass parent_class;
 };
 
-/* error codes */
-typedef enum
-{
-  EVD_JSON_SOCKET_ERROR_FIRST = EVD_SOCKET_ERROR_LAST,
-  EVD_JSON_SOCKET_ERROR_INVALID
-} EvdJsonSocketError;
-
 #define EVD_TYPE_JSON_SOCKET           (evd_json_socket_get_type ())
 #define EVD_JSON_SOCKET(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_JSON_SOCKET, EvdJsonSocket))
 #define EVD_JSON_SOCKET_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_JSON_SOCKET, EvdJsonSocketClass))

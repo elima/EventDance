@@ -20,6 +20,7 @@
  *
  */
 
+#include "evd-error.h"
 #include "evd-tls-common.h"
 #include "evd-tls-credentials.h"
 
@@ -347,11 +348,11 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
         {
           if (self->priv->cert_file == NULL)
             *error = g_error_new (evd_tls_credentials_err_domain,
-                                  EVD_TLS_ERROR_CRED_INVALID_CERT,
+                                  EVD_ERROR_INVALID_DATA,
                                   "Credentials' certificate not specified");
           else
             *error = g_error_new (evd_tls_credentials_err_domain,
-                                  EVD_TLS_ERROR_CRED_INVALID_KEY,
+                                  EVD_ERROR_INVALID_DATA,
                                   "Credentials' key not specified");
         }
 

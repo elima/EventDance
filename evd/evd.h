@@ -26,6 +26,7 @@
 #ifndef __EVD_H__
 #define __EVD_H__
 
+#include <evd-error.h>
 #include <evd-utils.h>
 #include <evd-resolver.h>
 #include <evd-socket.h>

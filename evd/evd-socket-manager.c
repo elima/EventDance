@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 
+#include "evd-error.h"
 #include "evd-socket-manager.h"
 #include "evd-socket-protected.h"
 
@@ -293,7 +294,7 @@ evd_socket_manager_add_socket (EvdSocket     *socket,
     {
       if (error != NULL)
         *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-                              EVD_SOCKET_ERROR_EPOLL_ADD,
+                              EVD_ERROR_EPOLL_ADD,
                               "Failed to add socket file descriptor to epoll set");
 
       result = FALSE;
@@ -327,7 +328,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
         {
           if (error != NULL)
             *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-                                  EVD_SOCKET_ERROR_EPOLL_DEL,
+                                  EVD_ERROR_EPOLL_DEL,
                                   "Failed to remove socket file descriptor from epoll set");
           result = FALSE;
         }
@@ -377,7 +378,7 @@ evd_socket_manager_mod_socket (EvdSocket     *socket,
         {
           if (error != NULL)
             *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
-                                  EVD_SOCKET_ERROR_EPOLL_MOD,
+                                  EVD_ERROR_EPOLL_MOD,
                                   "Failed to modify socket conditions in epoll set");
           result = FALSE;
         }
