@@ -325,6 +325,13 @@ EvdTlsSession  *evd_socket_get_tls_session      (EvdSocket *self);
 
 gboolean        evd_socket_get_tls_active       (EvdSocket *self);
 
+/**
+ * evd_socket_get_input_stream:
+ *
+ * Returns: (transfer none):
+ **/
+GInputStream   *evd_socket_get_input_stream     (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */
