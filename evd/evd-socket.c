@@ -82,7 +82,6 @@ struct _EvdSocketPrivate
   gint write_src_id;
   gboolean awaiting_read;
 
-  GString *read_buffer;
   GString *write_buffer;
 
   GIOCondition cond;
@@ -372,7 +371,6 @@ evd_socket_init (EvdSocket *self)
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
   priv->auto_write   = FALSE;
-  priv->read_buffer  = g_string_new ("");
   priv->write_buffer = g_string_new ("");
 
   priv->context = g_main_context_get_thread_default ();
@@ -793,11 +791,24 @@ evd_socket_input_stream_drained (GInputStream *stream,
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
 
-  self->priv->cond &= ~G_IO_IN;
+  if (self->priv->delayed_close && ! self->priv->awaiting_read)
+    {
+      evd_timeout_add (self->priv->context,
+                       0,
+                       evd_socket_close_in_idle,
+                       self);
+    }
+  else
+    {
+      if ( (self->priv->watched_cond & G_IO_IN) == 0)
+        {
+          self->priv->cond &= ~G_IO_IN;
 
-  self->priv->watched_cond |= G_IO_IN;
-  if (! evd_socket_watch (self, self->priv->watched_cond, &error))
-    evd_socket_throw_error (self, error);
+          self->priv->watched_cond |= G_IO_IN;
+          if (! evd_socket_watch (self, self->priv->watched_cond, &error))
+            evd_socket_throw_error (self, error);
+        }
+    }
 }
 
 static void
@@ -847,64 +858,6 @@ evd_socket_setup_streams (EvdSocket *self)
     }
 }
 
-static gssize
-evd_socket_read_filtered (EvdSocket *self,
-                          gchar     *buffer,
-                          gsize      size,
-                          GError   **error)
-{
-  gssize actual_size = 0;
-  guint _retry_wait = 0;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-  g_return_val_if_fail (buffer != NULL, -1);
-  g_return_val_if_fail (size > 0, -1);
-
-  if (! evd_socket_is_connected (self, error))
-    return -1;
-
-  if ( (actual_size =
-        g_input_stream_read (G_INPUT_STREAM (self->priv->socket_input_stream),
-                             buffer,
-                             size,
-                             NULL,
-                             error)) < 0)
-    {
-      return -1;
-    }
-
-  if (actual_size == size)
-    {
-      if (! self->priv->awaiting_read)
-        {
-          self->priv->awaiting_read = TRUE;
-
-          if (self->priv->read_src_id != 0)
-            {
-              GSource *src;
-
-              src = g_main_context_find_source_by_id (self->priv->context,
-                                                      self->priv->read_src_id);
-              g_source_destroy (src);
-
-              self->priv->read_src_id = 0;
-            }
-        }
-
-      self->priv->read_src_id =
-        evd_timeout_add (self->priv->context,
-                         _retry_wait,
-                         (GSourceFunc) evd_socket_read_wait_timeout,
-                         (gpointer) self);
-    }
-  else
-    {
-      self->priv->awaiting_read = FALSE;
-    }
-
-  return actual_size;
-}
-
 static gboolean
 evd_socket_read_wait_timeout (gpointer user_data)
 {
@@ -915,8 +868,7 @@ evd_socket_read_wait_timeout (gpointer user_data)
 
   self->priv->read_src_id = 0;
 
-  if ( (self->priv->cond & G_IO_IN) > 0 ||
-       self->priv->read_buffer->len > 0)
+  if ( (self->priv->cond & G_IO_IN) > 0)
     {
       evd_socket_manage_read_condition (self);
     }
@@ -995,29 +947,6 @@ evd_socket_write_internal (EvdSocket    *self,
     }
 
   return actual_size;
-}
-
-static gboolean
-evd_socket_read_buffer_add_data (EvdSocket    *self,
-                                 const gchar  *buf,
-                                 gsize         size,
-                                 GError      **error)
-{
-  if (self->priv->read_buffer->len + size > MAX_READ_BUFFER_SIZE)
-    {
-      if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
-                              EVD_ERROR_BUFFER_FULL,
-                              "Read buffer is full");
-
-      return FALSE;
-    }
-  else
-    {
-      g_string_append_len (self->priv->read_buffer, buf, size);
-
-      return TRUE;
-    }
 }
 
 static gboolean
@@ -1225,7 +1154,11 @@ evd_socket_manage_read_condition (EvdSocket *self)
     evd_socket_tls_handshake (self);
   else
     if (self->priv->read_src_id == 0)
-      evd_socket_invoke_on_read_internal (self);
+      {
+        evd_socket_invoke_on_read_internal (self);
+        if (self->priv->buf_input_stream != NULL)
+          evd_buffered_input_stream_notify_read (self->priv->buf_input_stream);
+      }
 }
 
 static void
@@ -1563,9 +1496,6 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
     {
       g_object_ref (self->priv->group);
 
-      if (self->priv->read_buffer->len > 0)
-        evd_socket_invoke_on_read_internal (self);
-
       if (evd_socket_can_write (self))
         evd_socket_invoke_on_write_internal (self);
     }
@@ -1626,12 +1556,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
     {
       g_source_remove (self->priv->write_src_id);
       self->priv->write_src_id = 0;
-    }
-
-  if (self->priv->read_buffer != NULL)
-    {
-      g_string_free (self->priv->read_buffer, TRUE);
-      self->priv->read_buffer = NULL;
     }
 
   if (self->priv->write_buffer != NULL)
@@ -2089,10 +2013,6 @@ evd_socket_read_len (EvdSocket  *self,
                      gsize       size,
                      GError    **error)
 {
-  gssize read_from_buf = 0;
-  gssize read_from_socket = 0;
-  gchar *buf;
-
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
   if (size == 0)
@@ -2100,76 +2020,11 @@ evd_socket_read_len (EvdSocket  *self,
 
   g_return_val_if_fail (buffer != NULL, 0);
 
-  if (self->priv->read_buffer->len > 0)
-    {
-      read_from_buf = MIN (self->priv->read_buffer->len, size);
-      g_memmove (buffer, self->priv->read_buffer->str, read_from_buf);
-      size -= read_from_buf;
-
-      buf = (gchar *) ( ((guintptr) buffer) + read_from_buf);
-    }
-  else
-    {
-      buf = buffer;
-    }
-
-  if (size > 0)
-    {
-      if (TLS_ENABLED (self))
-        {
-          read_from_socket = g_input_stream_read (TLS_INPUT_STREAM (self),
-                                                  buf,
-                                                  size,
-                                                  NULL,
-                                                  error);
-
-          /* TODO: improve this ASAP, too hackish! */
-          if (read_from_socket > 0 && read_from_socket < size &&
-              self->priv->read_src_id == 0)
-            {
-              self->priv->read_src_id =
-                evd_timeout_add (self->priv->context,
-                                 0,
-                                 evd_socket_read_wait_timeout,
-                                 self);
-            }
-        }
-      else
-        read_from_socket = evd_socket_read_filtered (self,
-                                                     buf,
-                                                     size,
-                                                     error);
-    }
-
-  if (read_from_socket == 0)
-    {
-      if (self->priv->delayed_close && ! self->priv->awaiting_read)
-        evd_socket_close (self, NULL);
-    }
-  else if (read_from_socket < 0)
-    {
-      /* hack to gracefully recover from peer
-         abruptly closing TLS connection */
-      if (error != NULL && *error != NULL &&
-          (*error)->code == EVD_TLS_ERROR_UNEXPECTED_PACKET_LEN)
-        {
-          g_error_free (*error);
-          *error = NULL;
-
-          read_from_socket = 0;
-
-          evd_socket_close (self, NULL);
-        }
-
-      read_from_buf = 0;
-    }
-  else
-    {
-      if (read_from_buf > 0)
-        g_string_erase (self->priv->read_buffer, 0, read_from_buf);
-    }
-
-  return read_from_buf + read_from_socket;
+  return g_input_stream_read (G_INPUT_STREAM (self->priv->buf_input_stream),
+                              buffer,
+                              size,
+                              NULL,
+                              error);
 }
 
 gchar *
@@ -2258,24 +2113,11 @@ evd_socket_unread_len (EvdSocket    *self,
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
 
-  if (size == 0)
-    return 0;
-
-  g_return_val_if_fail (buffer != NULL, 0);
-
-  if (! evd_socket_read_buffer_add_data (self,
-                                         buffer,
-                                         size,
-                                         error))
-    {
-      return -1;
-    }
-  else
-    {
-      /* TODO: Should we invoke on-read handler here? */
-
-      return size;
-    }
+  return evd_buffered_input_stream_unread (self->priv->buf_input_stream,
+                                           buffer,
+                                           size,
+                                           NULL,
+                                           error);
 }
 
 gssize
@@ -2326,8 +2168,7 @@ evd_socket_can_read (EvdSocket *self)
   return
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED) &&
     (self->priv->read_src_id == 0) &&
-    ( (self->priv->cond & G_IO_IN) > 0 ||
-      self->priv->read_buffer->len > 0);
+    ( (self->priv->cond & G_IO_IN) > 0);
 }
 
 gboolean
