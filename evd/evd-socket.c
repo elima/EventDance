@@ -179,6 +179,8 @@ static void     evd_socket_manage_write_condition   (EvdSocket *self);
 static void     evd_socket_copy_properties          (EvdSocketBase *self,
                                                      EvdSocketBase *target);
 
+static gboolean evd_socket_finish_close             (gpointer user_data);
+
 static void
 evd_socket_class_init (EvdSocketClass *class)
 {
@@ -412,6 +414,16 @@ evd_socket_dispose (GObject *obj)
   EvdSocket *self = EVD_SOCKET (obj);
 
   evd_socket_cleanup (self, NULL);
+
+  g_signal_handlers_disconnect_by_func (self,
+                                        evd_socket_finish_close,
+                                        self);
+
+  if (self->priv->buf_input_stream != NULL)
+    {
+      g_object_unref (self->priv->buf_input_stream);
+      self->priv->buf_input_stream = NULL;
+    }
 
   evd_socket_set_group (self, NULL);
 
@@ -782,6 +794,16 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
     }
 
   return TRUE;
+}
+
+static gboolean
+evd_socket_close_in_idle (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  evd_socket_close (self, NULL);
+
+  return FALSE;
 }
 
 static void
@@ -1236,6 +1258,31 @@ evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
   target->priv->tls_autostart = self->priv->tls_autostart;
 }
 
+static gboolean
+evd_socket_finish_close (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  if (self->priv->buf_input_stream != NULL)
+    {
+      if (! g_input_stream_is_closed (G_INPUT_STREAM (self->priv->buf_input_stream)))
+        {
+          return TRUE;
+        }
+      else
+        {
+          g_object_unref (self->priv->buf_input_stream);
+          self->priv->buf_input_stream = NULL;
+        }
+    }
+
+  g_object_ref (self);
+  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+  g_object_unref (self);
+
+  return FALSE;
+}
+
 /* protected methods */
 
 void
@@ -1589,15 +1636,16 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
   /* cleanup streams */
   if (self->priv->buf_input_stream != NULL)
     {
+      GError *_error = NULL;
+
+      g_input_stream_clear_pending (G_INPUT_STREAM (self->priv->buf_input_stream));
       if (! g_input_stream_close (G_INPUT_STREAM (self->priv->buf_input_stream),
                                   NULL,
-                                  error))
+                                  &_error))
         {
-          g_debug ("error: %s", (*error)->message);
+          result = FALSE;
+          evd_socket_throw_error (self, _error);
         }
-
-      g_object_unref (self->priv->buf_input_stream);
-      self->priv->buf_input_stream = NULL;
     }
 
   if (self->priv->tls_input_stream != NULL)
@@ -1744,23 +1792,20 @@ gboolean
 evd_socket_close (EvdSocket *self, GError **error)
 {
   gboolean result;
-  gboolean fire_on_close = FALSE;
+  gboolean finish_in_idle = FALSE;
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  fire_on_close = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
+  finish_in_idle = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
   result = evd_socket_cleanup (self, error);
 
-  self->priv->read_buffer = g_string_new ("");
   self->priv->write_buffer = g_string_new ("");
 
-  /* fire 'close' signal */
-  if (fire_on_close)
-    {
-      g_object_ref (self);
-      g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
-      g_object_unref (self);
-    }
+  if (finish_in_idle)
+    evd_timeout_add (self->priv->context,
+                     0,
+                     evd_socket_finish_close,
+                     self);
 
   return result;
 }
