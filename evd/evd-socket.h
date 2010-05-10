@@ -184,36 +184,20 @@ gboolean      evd_socket_connect_to       (EvdSocket    *self,
                                            GError      **error);
 
 /**
- * evd_socket_read_len:
+ * evd_socket_read:
  * @self: The #EvdSocket to read from.
  * @buffer: (out) (transfer full): The buffer to store the data.
  * @size: Maximum number of bytes to read.
  * @error: The #GError to return, or NULL.
  *
- * Reads up to @size bytes of data from the socket. The data read will be copied
+ * Reads up to @size bytes of data from the socket input stream. The data read will be copied
  * into @buffer.
  *
  * Return value: The actual number of bytes read.
  */
-gssize        evd_socket_read_len         (EvdSocket *self,
+gssize        evd_socket_read             (EvdSocket *self,
                                            gchar     *buffer,
                                            gsize      size,
-                                           GError   **error);
-
-/**
- * evd_socket_read:
- * @self: The #EvdSocket to read from.
- * @size: (inout) (transfer full): Maximum number of bytes to read.
- * @error: The #GError to return, or NULL.
- *
- * Reads up to @size bytes of data from the socket. This method assumes data will
- * not contain null characters. To read binary data, #evd_socket_read_buffer should be
- * used instead.
- *
- * Return value: A null-terminated string containing the data read, or NULL on error.
- */
-gchar         *evd_socket_read            (EvdSocket *self,
-                                           gsize     *size,
                                            GError   **error);
 
 /**
@@ -254,7 +238,7 @@ gssize        evd_socket_write            (EvdSocket    *self,
                                            GError      **error);
 
 /**
- * evd_socket_unread_len:
+ * evd_socket_unread:
  * @self: The #EvdSocket to unread data to.
  * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
  * @size: Number of bytes to unread.
@@ -263,8 +247,8 @@ gssize        evd_socket_write            (EvdSocket    *self,
  * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
  * to read will first get data from the local buffer, before performing the actual read
  * operation. This is useful when one needs to do some action with a data just read, but doesn't
- * want to remove the data from the socket, and avoid interferance with other reading operation
- * that is in course.
+ * want to remove the data from the input stream of the socket.
+ *
  * Normally, it would be used to write back data that was previously read, to made it available
  * in further calls to read. But in practice any data can be unread.
  *
@@ -273,25 +257,9 @@ gssize        evd_socket_write            (EvdSocket    *self,
  *
  * Return value: The actual number of bytes unread.
  */
-
-gssize        evd_socket_unread_len    (EvdSocket    *self,
-                                        const gchar  *buffer,
-                                        gsize         size,
-                                        GError      **error);
-
-/**
- * evd_socket_unread:
- * @self: The #EvdSocket to unread data to.
- * @buffer: (transfer none): Buffer holding the data to be unread. Cannot contain nulls.
- * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
- *
- * Works exactly like #evd_socket_unread_len but buffer is a null-terminated string,
- * thus @size is calculated internally.
- *
- * Return value: The actual number of bytes unread.
- */
 gssize        evd_socket_unread           (EvdSocket    *self,
                                            const gchar  *buffer,
+                                           gsize         size,
                                            GError      **error);
 
 gboolean      evd_socket_has_write_data_pending (EvdSocket *self);

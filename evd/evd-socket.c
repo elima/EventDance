@@ -1233,9 +1233,11 @@ evd_socket_confirm_read_condition (EvdSocket *self)
 {
   gchar buf[1] = { 0, };
 
-  if (evd_socket_read_len (self, buf, 1, NULL) == 1)
+  if (self->priv->buf_input_stream != NULL &&
+      g_input_stream_read (G_INPUT_STREAM (self->priv->buf_input_stream),
+                           buf, 1, NULL, NULL) == 1)
     {
-      evd_socket_unread_len (self, buf, 1, NULL);
+      evd_buffered_input_stream_unread (self->priv->buf_input_stream, buf, 1, NULL, NULL);
       return TRUE;
     }
 
@@ -2059,60 +2061,28 @@ evd_socket_connect_to (EvdSocket    *self,
 }
 
 gssize
-evd_socket_read_len (EvdSocket  *self,
-                     gchar      *buffer,
-                     gsize       size,
-                     GError    **error)
+evd_socket_read (EvdSocket  *self,
+                 gchar      *buffer,
+                 gsize       size,
+                 GError    **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  if (size == 0)
-    return 0;
+  if (self->priv->buf_input_stream == NULL)
+    {
+      if (error != NULL)
+        *error = g_error_new (evd_socket_err_domain,
+                              EVD_ERROR_NOT_READABLE,
+                              "Socket is not readable");
 
-  g_return_val_if_fail (buffer != NULL, 0);
+      return -1;
+    }
 
   return g_input_stream_read (G_INPUT_STREAM (self->priv->buf_input_stream),
                               buffer,
                               size,
                               NULL,
                               error);
-}
-
-gchar *
-evd_socket_read (EvdSocket  *self,
-                 gsize      *size,
-                 GError    **error)
-{
-  gchar buf[MAX_BLOCK_SIZE + 1] = { 0, };
-  gssize actual_size;
-  gchar *data = NULL;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-  g_return_val_if_fail (size != NULL, NULL);
-
-  if (*size == 0)
-    return NULL;
-
-  if ( (actual_size = evd_socket_read_len (self,
-                                           buf,
-                                           *size,
-                                           error)) >= 0)
-    {
-      *size = actual_size;
-
-      if (actual_size > 0)
-        {
-          data = g_new (gchar, actual_size + 1);
-          g_memmove (data, buf, actual_size);
-          data[actual_size] = '\0';
-        }
-    }
-  else
-    {
-      (*size) = 0;
-    }
-
-  return data;
 }
 
 gssize
@@ -2157,26 +2127,28 @@ evd_socket_write (EvdSocket    *self,
 }
 
 gssize
-evd_socket_unread_len (EvdSocket    *self,
-                       const gchar  *buffer,
-                       gsize         size,
-                       GError      **error)
+evd_socket_unread (EvdSocket    *self,
+                   const gchar  *buffer,
+                   gsize         size,
+                   GError      **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
+
+  if (self->priv->buf_input_stream == NULL)
+    {
+      if (error != NULL)
+        *error = g_error_new (evd_socket_err_domain,
+                              EVD_ERROR_NOT_READABLE,
+                              "Socket is not readable");
+
+      return -1;
+    }
 
   return evd_buffered_input_stream_unread (self->priv->buf_input_stream,
                                            buffer,
                                            size,
                                            NULL,
                                            error);
-}
-
-gssize
-evd_socket_unread (EvdSocket    *self,
-                   const gchar  *buffer,
-                   GError      **error)
-{
-  return evd_socket_unread_len (self, buffer, strlen (buffer), error);
 }
 
 gboolean
