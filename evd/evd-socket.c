@@ -817,6 +817,7 @@ evd_socket_input_stream_drained (GInputStream *stream,
     {
       evd_timeout_add (self->priv->context,
                        0,
+                       self->priv->actual_priority,
                        evd_socket_close_in_idle,
                        self);
     }
@@ -963,6 +964,7 @@ evd_socket_write_internal (EvdSocket    *self,
           self->priv->write_src_id =
             evd_timeout_add (self->priv->context,
                              _retry_wait,
+                             self->priv->actual_priority,
                              (GSourceFunc) evd_socket_write_wait_timeout,
                              (gpointer) self);
         }
@@ -1179,7 +1181,8 @@ evd_socket_manage_read_condition (EvdSocket *self)
       {
         evd_socket_invoke_on_read_internal (self);
         if (self->priv->buf_input_stream != NULL)
-          evd_buffered_input_stream_notify_read (self->priv->buf_input_stream);
+          evd_buffered_input_stream_notify_read (self->priv->buf_input_stream,
+                                                 self->priv->actual_priority);
       }
 }
 
@@ -1393,6 +1396,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
               self->priv->new_cond |= condition;
               evd_timeout_add (self->priv->context,
                                0,
+                               self->priv->actual_priority,
                                evd_socket_handle_condition_cb,
                                self);
             }
@@ -1505,6 +1509,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
               self->priv->read_src_id =
                 evd_timeout_add (self->priv->context,
                                  0,
+                                 self->priv->actual_priority,
                                  (GSourceFunc) evd_socket_read_wait_timeout,
                                  (gpointer) self);
             }
@@ -1804,6 +1809,7 @@ evd_socket_close (EvdSocket *self, GError **error)
   if (finish_in_idle)
     evd_timeout_add (self->priv->context,
                      0,
+                     self->priv->actual_priority,
                      evd_socket_finish_close,
                      self);
 

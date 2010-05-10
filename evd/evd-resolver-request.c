@@ -437,6 +437,7 @@ evd_resolver_request_resolve (EvdResolverRequest  *self)
   self->priv->src_id =
     evd_timeout_add (g_main_context_get_thread_default (),
                      0,
+                     G_PRIORITY_DEFAULT,
                      (GSourceFunc) evd_resolver_request_perform,
                      (gpointer) self);
 }

@@ -86,7 +86,8 @@ gchar                  *evd_buffered_input_stream_read_str_finish   (EvdBuffered
                                                                      GAsyncResult            *result,
                                                                      GError                 **error);
 
-void                    evd_buffered_input_stream_notify_read       (EvdBufferedInputStream *self);
+void                    evd_buffered_input_stream_notify_read       (EvdBufferedInputStream *self,
+                                                                     gint                    priority);
 
 G_END_DECLS
 

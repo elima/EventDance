@@ -284,6 +284,7 @@ evd_buffered_input_stream_read_async (GInputStream        *stream,
   self->priv->read_src_id =
     evd_timeout_add (g_main_context_get_thread_default (),
                      0,
+                     io_priority,
                      do_read,
                      self);
 }
@@ -427,7 +428,8 @@ evd_buffered_input_stream_read_str_finish (EvdBufferedInputStream  *self,
 }
 
 void
-evd_buffered_input_stream_notify_read (EvdBufferedInputStream *self)
+evd_buffered_input_stream_notify_read (EvdBufferedInputStream *self,
+                                       gint                    priority)
 {
   g_return_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self));
 
@@ -435,6 +437,7 @@ evd_buffered_input_stream_notify_read (EvdBufferedInputStream *self)
     self->priv->read_src_id =
       evd_timeout_add (g_main_context_get_thread_default (),
                        0,
+                       priority,
                        do_read,
                        self);
 }
