@@ -59,9 +59,9 @@ socket.connect ("state-changed",
     });
 
 function read_block (socket) {
-    let [data, len] = socket.read (BLOCK_SIZE);
+    let [data, len] = socket.input_stream.read_str (BLOCK_SIZE);
     if (len > 0) {
-        log (data);
+        print (data);
     }
     return len;
 }

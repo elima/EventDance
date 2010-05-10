@@ -89,7 +89,7 @@ socket.connect ("new-connection",
 
         client.set_on_read (
             function (socket) {
-                let [data, len] = socket.read (BLOCK_SIZE);
+                let [data, len] = socket.input_stream.read_str (BLOCK_SIZE);
                 if (len > 0)
                     socket.write (data);
             });
