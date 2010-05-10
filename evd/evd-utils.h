@@ -30,6 +30,7 @@
 
 guint evd_timeout_add (GMainContext *context,
                        guint         timeout,
+                       gint          priority,
                        GSourceFunc   callback,
                        gpointer      user_data);
 
