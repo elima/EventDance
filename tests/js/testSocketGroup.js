@@ -130,7 +130,7 @@ function testDataTransfer (Assert) {
         if (this.status != Evd.SocketState.CONNECTED)
             return false;
 
-        let [_data, len] = this.read (BLOCK_SIZE);
+        let [_data, len] = this.input_stream.read_str (BLOCK_SIZE, null);
 
         if (len > 0) {
             this.data_read += len;

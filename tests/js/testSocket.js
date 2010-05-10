@@ -40,10 +40,13 @@ function testInitialState (Assert) {
     Assert.ok (socket.get_tls_session ());
     Assert.strictEqual (socket.tls, socket.get_tls_session ());
 
-    Assert.equal (socket.bandwidth_in, 0);
-    Assert.equal (socket.bandwidth_out, 0);
-    Assert.equal (socket.latency_in, 0);
-    Assert.equal (socket.latency_out, 0);
+    Assert.ok (socket.input_throttle);
+    Assert.ok (socket.get_input_throttle ());
+    Assert.strictEqual (socket.input_throttle, socket.get_input_throttle ());
+
+    Assert.equal (socket.input_throttle.bandwidth, 0);
+    Assert.equal (socket.input_throttle.latency, 0);
+
     Assert.equal (socket.status, Evd.SocketState.CLOSED);
 
     Assert.equal (socket.get_socket (), socket.socket);
@@ -197,7 +200,7 @@ function on_socket_read (socket) {
     Assert.strictEqual (socket.constructor, Evd.Socket);
     Assert.ok (socket.can_read ());
 
-    let [data, len] = socket.read (READ_BLOCK_SIZE);
+    let [data, len] = socket.input_stream.read_str (READ_BLOCK_SIZE, null);
 
     if (len > 0) {
         Assert.equal (len, GREETING.length);
