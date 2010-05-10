@@ -379,6 +379,44 @@ evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
     }
 }
 
+gchar *
+evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
+                                    gssize                 *size,
+                                    GError                **error)
+{
+  gchar buf[G_MAXINT16] = { 0, };
+  gssize actual_size;
+  gchar *data = NULL;
+
+  g_return_val_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self), NULL);
+  g_return_val_if_fail (size != NULL, NULL);
+
+  if (*size == 0)
+    return NULL;
+
+  if ( (actual_size = g_input_stream_read (G_INPUT_STREAM (self),
+                                           buf,
+                                           *size,
+                                           NULL,
+                                           error)) >= 0)
+    {
+      *size = actual_size;
+
+      if (actual_size > 0)
+        {
+          data = g_new (gchar, actual_size + 1);
+          g_memmove (data, buf, actual_size);
+          data[actual_size] = '\0';
+        }
+    }
+  else
+    {
+      (*size) = 0;
+    }
+
+  return data;
+}
+
 void
 evd_buffered_input_stream_read_str_async (EvdBufferedInputStream *self,
                                           gsize                   size,
@@ -403,17 +441,18 @@ evd_buffered_input_stream_read_str_async (EvdBufferedInputStream *self,
 gchar *
 evd_buffered_input_stream_read_str_finish (EvdBufferedInputStream  *self,
                                            GAsyncResult            *result,
+                                           gssize                  *size,
                                            GError                 **error)
 {
   gchar *buf = NULL;
-  gssize size;
+  gssize _size;
 
   g_return_val_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self), NULL);
   g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
 
-  if ( (size = g_input_stream_read_finish (G_INPUT_STREAM (self),
-                                           result,
-                                           error)) < 0)
+  if ( (_size = g_input_stream_read_finish (G_INPUT_STREAM (self),
+                                            result,
+                                            error)) < 0)
     {
       g_free (self->priv->async_buffer);
     }
@@ -421,6 +460,9 @@ evd_buffered_input_stream_read_str_finish (EvdBufferedInputStream  *self,
     {
       buf = self->priv->async_buffer;
     }
+
+  if (size != NULL)
+    *size = _size;
 
   self->priv->async_buffer = NULL;
 

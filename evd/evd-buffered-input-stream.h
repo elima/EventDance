@@ -67,6 +67,15 @@ gssize                  evd_buffered_input_stream_unread            (EvdBuffered
                                                                      GError                 **error);
 
 /**
+ * evd_buffered_input_stream_read_str:
+ * @size: (inout):
+ * @user_data: (allow-none):
+ **/
+gchar                  *evd_buffered_input_stream_read_str          (EvdBufferedInputStream *self,
+                                                                     gssize                 *size,
+                                                                     GError                **error);
+
+/**
  * evd_buffered_input_stream_read_str_async:
  * @callback: (scope async): the #GAsyncReadyCallback
  **/
@@ -79,11 +88,13 @@ void                    evd_buffered_input_stream_read_str_async    (EvdBuffered
 
 /**
  * evd_buffered_input_stream_read_str_finish:
+ * @size: (out):
  *
  * Returns:
  **/
 gchar                  *evd_buffered_input_stream_read_str_finish   (EvdBufferedInputStream  *self,
                                                                      GAsyncResult            *result,
+                                                                     gssize                  *size,
                                                                      GError                 **error);
 
 void                    evd_buffered_input_stream_notify_read       (EvdBufferedInputStream *self,
