@@ -40,6 +40,7 @@ source_c = \
 	evd-tls-output-stream.c \
 	evd-stream-throttle.c \
 	evd-buffered-input-stream.c \
+	evd-buffered-output-stream.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
 	evd-socket-group.c \
@@ -65,6 +66,7 @@ source_h = \
 	evd-tls-output-stream.h \
 	evd-stream-throttle.h \
 	evd-buffered-input-stream.h \
+	evd-buffered-output-stream.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
 	evd-socket-group.h \
