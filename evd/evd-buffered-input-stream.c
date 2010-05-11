@@ -49,27 +49,11 @@ struct _EvdBufferedInputStreamPrivate
   guint read_src_id;
 };
 
-/* properties */
-enum
-{
-  PROP_0,
-  PROP_BUFFER_SIZE
-};
-
 static GQuark evd_buffered_input_stream_err_domain;
 
 static void     evd_buffered_input_stream_class_init         (EvdBufferedInputStreamClass *class);
 static void     evd_buffered_input_stream_init               (EvdBufferedInputStream *self);
 static void     evd_buffered_input_stream_finalize           (GObject *obj);
-
-static void     evd_buffered_input_stream_set_property       (GObject      *obj,
-                                                              guint         prop_id,
-                                                              const GValue *value,
-                                                              GParamSpec   *pspec);
-static void     evd_buffered_input_stream_get_property       (GObject    *obj,
-                                                              guint       prop_id,
-                                                              GValue     *value,
-                                                              GParamSpec *pspec);
 
 static gssize   evd_buffered_input_stream_read               (GInputStream  *stream,
                                                               void          *buffer,
@@ -99,8 +83,6 @@ evd_buffered_input_stream_class_init (EvdBufferedInputStreamClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->get_property = evd_buffered_input_stream_get_property;
-  obj_class->set_property = evd_buffered_input_stream_set_property;
   obj_class->finalize = evd_buffered_input_stream_finalize;
 
   input_stream_class = G_INPUT_STREAM_CLASS (class);
@@ -139,42 +121,6 @@ evd_buffered_input_stream_finalize (GObject *obj)
     g_object_unref (self->priv->async_result);
 
   G_OBJECT_CLASS (evd_buffered_input_stream_parent_class)->finalize (obj);
-}
-
-static void
-evd_buffered_input_stream_set_property (GObject      *obj,
-                                        guint         prop_id,
-                                        const GValue *value,
-                                        GParamSpec   *pspec)
-{
-  EvdBufferedInputStream *self;
-
-  self = EVD_BUFFERED_INPUT_STREAM (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-evd_buffered_input_stream_get_property (GObject    *obj,
-                                        guint       prop_id,
-                                        GValue     *value,
-                                        GParamSpec *pspec)
-{
-  EvdBufferedInputStream *self;
-
-  self = EVD_BUFFERED_INPUT_STREAM (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static gssize
