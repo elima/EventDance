@@ -300,6 +300,13 @@ gboolean        evd_socket_get_tls_active       (EvdSocket *self);
  **/
 GInputStream   *evd_socket_get_input_stream     (EvdSocket *self);
 
+/**
+ * evd_socket_get_output_stream:
+ *
+ * Returns: (transfer none):
+ **/
+GOutputStream  *evd_socket_get_output_stream    (EvdSocket *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */

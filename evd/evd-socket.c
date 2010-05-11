@@ -39,6 +39,7 @@
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 #include "evd-buffered-input-stream.h"
+#include "evd-buffered-output-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -110,6 +111,7 @@ struct _EvdSocketPrivate
   EvdTlsInputStream      *tls_input_stream;
   EvdTlsOutputStream     *tls_output_stream;
   EvdBufferedInputStream *buf_input_stream;
+  EvdBufferedOutputStream *buf_output_stream;
 };
 
 /* signals */
@@ -139,7 +141,8 @@ enum
   PROP_TLS_AUTOSTART,
   PROP_TLS_SESSION,
   PROP_TLS_ACTIVE,
-  PROP_INPUT_STREAM
+  PROP_INPUT_STREAM,
+  PROP_OUTPUT_STREAM
 };
 
 static GQuark evd_socket_err_domain;
@@ -345,6 +348,14 @@ evd_socket_class_init (EvdSocketClass *class)
                                                         "The input stream",
                                                         "The socket's input stream object. or NULL if socket is closed",
                                                         G_TYPE_INPUT_STREAM,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_OUTPUT_STREAM,
+                                   g_param_spec_object ("output-stream",
+                                                        "The output stream",
+                                                        "The socket's output stream object. or NULL if socket is closed",
+                                                        G_TYPE_OUTPUT_STREAM,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -593,6 +604,10 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_INPUT_STREAM:
       g_value_set_object (value, evd_socket_get_input_stream (self));
+      break;
+
+    case PROP_OUTPUT_STREAM:
+      g_value_set_object (value, evd_socket_get_output_stream (self));
       break;
 
     default:
@@ -878,6 +893,13 @@ evd_socket_setup_streams (EvdSocket *self)
       self->priv->buf_input_stream =
         evd_buffered_input_stream_new (
                               G_INPUT_STREAM (self->priv->socket_input_stream));
+    }
+
+  if (self->priv->buf_output_stream == NULL)
+    {
+      self->priv->buf_output_stream =
+        evd_buffered_output_stream_new (
+                            G_OUTPUT_STREAM (self->priv->socket_output_stream));
     }
 }
 
@@ -1266,13 +1288,14 @@ evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
 static gboolean
 evd_socket_finish_close (gpointer user_data)
 {
+  gboolean done = TRUE;
   EvdSocket *self = EVD_SOCKET (user_data);
 
   if (self->priv->buf_input_stream != NULL)
     {
       if (! g_input_stream_is_closed (G_INPUT_STREAM (self->priv->buf_input_stream)))
         {
-          return TRUE;
+          done = FALSE;
         }
       else
         {
@@ -1281,11 +1304,31 @@ evd_socket_finish_close (gpointer user_data)
         }
     }
 
-  g_object_ref (self);
-  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
-  g_object_unref (self);
+  if (self->priv->buf_output_stream != NULL)
+    {
+      if (! g_output_stream_is_closed (G_OUTPUT_STREAM (self->priv->buf_output_stream)))
+        {
+          done = FALSE;
+        }
+      else
+        {
+          g_object_unref (self->priv->buf_output_stream);
+          self->priv->buf_output_stream = NULL;
+        }
+    }
 
-  return FALSE;
+  if (! done)
+    {
+      return TRUE;
+    }
+  else
+    {
+      g_object_ref (self);
+      g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+      g_object_unref (self);
+
+      return FALSE;
+    }
 }
 
 /* protected methods */
@@ -1649,6 +1692,20 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       if (! g_input_stream_close (G_INPUT_STREAM (self->priv->buf_input_stream),
                                   NULL,
                                   &_error))
+        {
+          result = FALSE;
+          evd_socket_throw_error (self, _error);
+        }
+    }
+
+  if (self->priv->buf_output_stream != NULL)
+    {
+      GError *_error = NULL;
+
+      g_output_stream_clear_pending (G_OUTPUT_STREAM (self->priv->buf_output_stream));
+      if (! g_output_stream_close (G_OUTPUT_STREAM (self->priv->buf_output_stream),
+                                   NULL,
+                                   &_error))
         {
           result = FALSE;
           evd_socket_throw_error (self, _error);
@@ -2263,7 +2320,6 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   g_filter_input_stream_set_close_base_stream (
     G_FILTER_INPUT_STREAM (self->priv->buf_input_stream), FALSE);
-
   g_object_unref (self->priv->buf_input_stream);
 
   self->priv->buf_input_stream =
@@ -2278,6 +2334,14 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
   self->priv->tls_output_stream =
     evd_tls_output_stream_new (session,
                                G_OUTPUT_STREAM (self->priv->socket_output_stream));
+
+  g_filter_output_stream_set_close_base_stream (
+    G_FILTER_OUTPUT_STREAM (self->priv->buf_output_stream), FALSE);
+  g_object_unref (self->priv->buf_output_stream);
+
+  self->priv->buf_output_stream =
+    evd_buffered_output_stream_new (
+      G_OUTPUT_STREAM (self->priv->tls_output_stream));
 
   g_signal_connect (TLS_OUTPUT_STREAM (self),
                     "filled",
@@ -2335,4 +2399,12 @@ evd_socket_get_input_stream (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   return G_INPUT_STREAM (self->priv->buf_input_stream);
+}
+
+GOutputStream *
+evd_socket_get_output_stream (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
+  return G_OUTPUT_STREAM (self->priv->buf_output_stream);
 }
