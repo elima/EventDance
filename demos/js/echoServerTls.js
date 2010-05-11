@@ -91,7 +91,7 @@ socket.connect ("new-connection",
             function (socket) {
                 let [data, len] = socket.input_stream.read_str (BLOCK_SIZE);
                 if (len > 0)
-                    socket.write (data);
+                    socket.output_stream.write_str (data);
             });
     });
 

@@ -51,9 +51,9 @@ socket.connect ("state-changed",
             }
             else {
                 // perform request
-                socket.write ("GET "+resource+" HTTP/1.1\r\n"+
-                              "Host: "+domain+"\r\n"+
-                              "Connection: close\r\n\r\n");
+                socket.output_stream.write_str ("GET "+resource+" HTTP/1.1\r\n"+
+                                                "Host: "+domain+"\r\n"+
+                                                "Connection: close\r\n\r\n");
             }
         }
     });
