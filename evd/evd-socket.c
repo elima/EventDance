@@ -77,13 +77,9 @@ struct _EvdSocketPrivate
 
   EvdSocketGroup *group;
 
-  gboolean auto_write;
-
   gint read_src_id;
   gint write_src_id;
   gboolean awaiting_read;
-
-  GString *write_buffer;
 
   GIOCondition cond;
   GIOCondition watched_cond;
@@ -134,7 +130,6 @@ enum
   PROP_FAMILY,
   PROP_TYPE,
   PROP_PROTOCOL,
-  PROP_AUTO_WRITE,
   PROP_GROUP,
   PROP_PRIORITY,
   PROP_STATUS,
@@ -163,11 +158,6 @@ static void     evd_socket_get_property       (GObject    *obj,
                                                GParamSpec *pspec);
 
 static void     evd_socket_closure_changed    (EvdSocketBase *socket_base);
-
-static gssize   evd_socket_write_internal     (EvdSocket    *self,
-                                               const gchar  *buf,
-                                               gsize         size,
-                                               GError      **error);
 
 static gboolean evd_socket_cleanup            (EvdSocket  *self,
                                                GError    **error);
@@ -291,14 +281,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_AUTO_WRITE,
-                                   g_param_spec_boolean ("auto-write",
-                                                         "Enables/disables auto-write support on socket",
-                                                         "A socket with auto-write on, will automatically retry uncomplete data writes",
-                                                         FALSE,
-                                                         G_PARAM_READWRITE |
-                                                         G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_PRIORITY,
                                    g_param_spec_int ("priority",
                                                      "The priority of socket's events",
@@ -382,9 +364,6 @@ evd_socket_init (EvdSocket *self)
 
   priv->status     = EVD_SOCKET_STATE_CLOSED;
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
-
-  priv->auto_write   = FALSE;
-  priv->write_buffer = g_string_new ("");
 
   priv->context = g_main_context_get_thread_default ();
   if (priv->context != NULL)
@@ -509,15 +488,6 @@ evd_socket_set_property (GObject      *obj,
         break;
       }
 
-    case PROP_AUTO_WRITE:
-      if (self->priv->auto_write == TRUE)
-        {
-          g_string_free (self->priv->write_buffer, TRUE);
-          self->priv->write_buffer = g_string_new ("");
-        }
-      self->priv->auto_write = g_value_get_boolean (value);
-      break;
-
     case PROP_PRIORITY:
       evd_socket_set_priority (self, g_value_get_uint (value));
       break;
@@ -576,10 +546,6 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_GROUP:
       g_value_set_object (value, evd_socket_get_group (self));
-      break;
-
-    case PROP_AUTO_WRITE:
-      g_value_set_boolean (value, self->priv->auto_write);
       break;
 
     case PROP_PRIORITY:
@@ -926,147 +892,6 @@ evd_socket_read_wait_timeout (gpointer user_data)
 }
 
 static gboolean
-evd_socket_write_wait_timeout (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  self->priv->write_src_id = 0;
-
-  if (self->priv->write_buffer->len > 0)
-    {
-      GError *error = NULL;
-      gsize size;
-      gssize actual_size;
-
-      size = MIN (self->priv->write_buffer->len, MAX_BLOCK_SIZE);
-
-      if ( (actual_size = evd_socket_write_internal (self,
-                                                     self->priv->write_buffer->str,
-                                                     size,
-                                                     &error)) < 0)
-        {
-          evd_socket_throw_error (self, error);
-        }
-      else
-        {
-          if (actual_size > 0)
-            g_string_erase (self->priv->write_buffer, 0, actual_size);
-        }
-    }
-
-  if ( (self->priv->cond & G_IO_OUT) > 0 && self->priv->write_src_id == 0)
-    evd_socket_manage_write_condition (self);
-
-  return FALSE;
-}
-
-static gssize
-evd_socket_write_internal (EvdSocket    *self,
-                           const gchar  *buf,
-                           gsize         size,
-                           GError      **error)
-{
-  gssize actual_size = 0;
-  guint _retry_wait = 0;
-
-  if (! evd_socket_is_connected (self, error))
-    return -1;
-
-  actual_size =
-    g_output_stream_write (G_OUTPUT_STREAM (self->priv->socket_output_stream),
-                           buf,
-                           size,
-                           NULL,
-                           error);
-
-  if (actual_size >= 0 && actual_size < size)
-    {
-      if (self->priv->write_src_id == 0)
-        {
-          self->priv->write_src_id =
-            evd_timeout_add (self->priv->context,
-                             _retry_wait,
-                             self->priv->actual_priority,
-                             (GSourceFunc) evd_socket_write_wait_timeout,
-                             (gpointer) self);
-        }
-    }
-
-  return actual_size;
-}
-
-static gboolean
-evd_socket_write_buffer_add_data (EvdSocket    *self,
-                                  const gchar  *buf,
-                                  gsize         size,
-                                  GError      **error)
-{
-  if (self->priv->write_buffer->len + size > MAX_WRITE_BUFFER_SIZE)
-    {
-      if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
-                              EVD_ERROR_BUFFER_FULL,
-                              "Write buffer is full");
-
-      return FALSE;
-    }
-  else
-    {
-      g_string_append_len (self->priv->write_buffer, buf, size);
-
-      return TRUE;
-    }
-}
-
-static gssize
-evd_socket_write_filtered (EvdSocket    *self,
-                           const gchar  *buf,
-                           gsize         size,
-                           GError      **error)
-{
-  gsize orig_size = size;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-  g_return_val_if_fail (buf != NULL, -1);
-  g_return_val_if_fail (size > 0, -1);
-
-  if (! evd_socket_is_connected (self, error))
-    return -1;
-
-  /* check if there is data pending to be written */
-  if (self->priv->write_buffer->len > 0)
-    {
-      if (! evd_socket_write_buffer_add_data (self, buf, size, error))
-        return -1;
-      else
-        return 0;
-    }
-  else
-    {
-      gsize actual_size;
-
-      actual_size = evd_socket_write_internal (self,
-                                               buf,
-                                               size,
-                                               error);
-
-      if ( (self->priv->auto_write) &&
-           (actual_size < orig_size) && (actual_size >= 0) )
-        {
-          if (! evd_socket_write_buffer_add_data (self,
-                                   (gchar *) (((guintptr) buf) + (actual_size)),
-                                   orig_size - actual_size,
-                                   error))
-            return -1;
-          else
-            return 0;
-        }
-
-      return actual_size;
-    }
-}
-
-static gboolean
 evd_socket_cleanup (EvdSocket *self, GError **error)
 {
   EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
@@ -1276,8 +1101,6 @@ evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
     copy_properties (_self, _target);
 
   evd_socket_set_priority (target, self->priv->priority);
-
-  target->priv->auto_write = self->priv->auto_write;
 
   if (self->priv->group != NULL)
     evd_socket_group_add (self->priv->group, target);
@@ -1655,12 +1478,6 @@ evd_socket_cleanup_protected (EvdSocket *self, GError **error)
       self->priv->write_src_id = 0;
     }
 
-  if (self->priv->write_buffer != NULL)
-    {
-      g_string_free (self->priv->write_buffer, TRUE);
-      self->priv->write_buffer = NULL;
-    }
-
   if (self->priv->socket != NULL)
     {
       if (! g_socket_is_closed (self->priv->socket))
@@ -1862,8 +1679,6 @@ evd_socket_close (EvdSocket *self, GError **error)
 
   finish_in_idle = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
   result = evd_socket_cleanup (self, error);
-
-  self->priv->write_buffer = g_string_new ("");
 
   if (finish_in_idle)
     evd_timeout_add (self->priv->context,
@@ -2213,7 +2028,8 @@ evd_socket_has_write_data_pending (EvdSocket *self)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  return (self->priv->write_buffer->len > 0);
+  /* @TODO: re-implement this using EvdBufferedOutputStream */
+  return FALSE;
 }
 
 gsize
@@ -2260,8 +2076,7 @@ evd_socket_can_write (EvdSocket *self)
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
      self->priv->status == EVD_SOCKET_STATE_BOUND) &&
     (self->priv->write_src_id == 0) &&
-    ( (self->priv->cond & G_IO_OUT) > 0 ||
-      self->priv->write_buffer->len > 0);
+    ( (self->priv->cond & G_IO_OUT) > 0);
 }
 
 GSocketAddress *
