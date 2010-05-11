@@ -1958,44 +1958,28 @@ evd_socket_read (EvdSocket  *self,
 }
 
 gssize
-evd_socket_write_len (EvdSocket    *self,
-                      const gchar  *buffer,
-                      gsize         size,
-                      GError      **error)
+evd_socket_write (EvdSocket    *self,
+                  const gchar  *buffer,
+                  gsize         size,
+                  GError      **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  if (size == 0)
-    return 0;
+  if (self->priv->buf_output_stream == NULL)
+    {
+      g_set_error_literal (error,
+                           evd_socket_err_domain,
+                           EVD_ERROR_NOT_READABLE,
+                           "Socket is not readable");
 
-  g_return_val_if_fail (buffer != NULL, 0);
+      return -1;
+    }
 
-  if (TLS_ENABLED (self))
-    return g_output_stream_write (TLS_OUTPUT_STREAM (self),
-                                  buffer,
-                                  size,
-                                  NULL,
-                                  error);
-  else
-    return evd_socket_write_filtered (self,
-                                      buffer,
-                                      size,
-                                      error);
-}
-
-gssize
-evd_socket_write (EvdSocket    *self,
-                  const gchar  *buffer,
-                  GError      **error)
-{
-  gsize size;
-
-  if (buffer == NULL)
-    return 0;
-
-  size = strlen (buffer);
-
-  return evd_socket_write_len (self, buffer, size, error);
+  return g_output_stream_write (G_OUTPUT_STREAM (self->priv->buf_output_stream),
+                                buffer,
+                                size,
+                                NULL,
+                                error);
 }
 
 gssize

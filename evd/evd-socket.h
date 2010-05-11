@@ -201,7 +201,7 @@ gssize        evd_socket_read             (EvdSocket *self,
                                            GError   **error);
 
 /**
- * evd_socket_write_len:
+ * evd_socket_write:
  * @self: The #EvdSocket to write to.
  * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
  * @size: (in): Maximum number of bytes to write. @buffer should be at least @size long.
@@ -214,27 +214,9 @@ gssize        evd_socket_read             (EvdSocket *self,
  *
  * Return value: The actual number of bytes written.
  */
-gssize        evd_socket_write_len        (EvdSocket    *self,
-                                           const gchar  *buffer,
-                                           gsize         size,
-                                           GError      **error);
-
-/**
- * evd_socket_write:
- * @self: The #EvdSocket to write to.
- * @buffer: (transfer none): Buffer holding the data to be written. Should not contain nulls.
- * @error: (out) (transfer full): The #GError to return, or NULL.
- *
- * Writes up to @size bytes of data to the socket. @buffer should be a null-terminated string.
- * To send binary data, #evd_socket_write_buffer should be used instead. As @buffer cannot
- * contain null characters, the number of bytes to write is obtained from its length.
- *
- * The #auto-write property affects this method exactly as in #evd_socket_write_buffer.
- *
- * Return value: The actual number of bytes written.
- */
 gssize        evd_socket_write            (EvdSocket    *self,
                                            const gchar  *buffer,
+                                           gsize         size,
                                            GError      **error);
 
 /**
