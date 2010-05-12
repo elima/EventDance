@@ -330,7 +330,7 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
                                     gssize                 *size,
                                     GError                **error)
 {
-  gchar buf[G_MAXINT16] = { 0, };
+  void *buf;
   gssize actual_size;
   gchar *data = NULL;
 
@@ -339,6 +339,8 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
 
   if (*size == 0)
     return NULL;
+
+  buf = g_slice_alloc ((*size) + 1);
 
   if ( (actual_size = g_input_stream_read (G_INPUT_STREAM (self),
                                            buf,
@@ -353,6 +355,7 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
           data = g_new (gchar, actual_size + 1);
           g_memmove (data, buf, actual_size);
           data[actual_size] = '\0';
+          g_slice_free1 ((*size) + 1, buf);
         }
     }
   else
