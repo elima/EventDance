@@ -83,6 +83,9 @@ JS_CHECK([0.3])
 GTK_DOC_CHECK([1.11])
 AM_CONDITIONAL([BUILD_GTK_DOC], [test "x$enable_gtk_doc" = "xyes" || test ! -f "autogen.sh"])
 
+# Silent build
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+
 # Output files
 AC_OUTPUT([
 	Makefile
