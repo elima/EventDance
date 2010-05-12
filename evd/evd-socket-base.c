@@ -23,9 +23,6 @@
  * 02110-1301 USA
  */
 
-#include <math.h>
-#include <string.h>
-
 #include "evd-socket-base.h"
 
 G_DEFINE_ABSTRACT_TYPE (EvdSocketBase, evd_socket_base, G_TYPE_OBJECT)
@@ -59,7 +56,6 @@ enum
 static void     evd_socket_base_class_init         (EvdSocketBaseClass *class);
 static void     evd_socket_base_init               (EvdSocketBase *self);
 
-static void     evd_socket_base_finalize           (GObject *obj);
 static void     evd_socket_base_dispose            (GObject *obj);
 
 static void     evd_socket_base_set_property       (GObject      *obj,
@@ -82,7 +78,6 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->dispose = evd_socket_base_dispose;
-  obj_class->finalize = evd_socket_base_finalize;
   obj_class->get_property = evd_socket_base_get_property;
   obj_class->set_property = evd_socket_base_set_property;
 
@@ -92,7 +87,6 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
   class->write_closure_changed = NULL;
   class->copy_properties = evd_socket_base_copy_properties;
 
-  /* install properties */
   g_object_class_install_property (obj_class, PROP_READ_CLOSURE,
                                    g_param_spec_boxed ("read-closure",
                                                        "Read closure",
@@ -123,7 +117,6 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketBasePrivate));
 }
 
@@ -135,7 +128,6 @@ evd_socket_base_init (EvdSocketBase *self)
   priv = EVD_SOCKET_BASE_GET_PRIVATE (self);
   self->priv = priv;
 
-  /* initialize private members */
   priv->read_closure = NULL;
   priv->write_closure = NULL;
 
@@ -160,21 +152,19 @@ evd_socket_base_dispose (GObject *obj)
       self->priv->output_throttle = NULL;
     }
 
-  G_OBJECT_CLASS (evd_socket_base_parent_class)->dispose (obj);
-}
-
-static void
-evd_socket_base_finalize (GObject *obj)
-{
-  EvdSocketBase *self = EVD_SOCKET_BASE (obj);
-
   if (self->priv->read_closure != NULL)
-    g_closure_unref (self->priv->read_closure);
+    {
+      g_closure_unref (self->priv->read_closure);
+      self->priv->read_closure = NULL;
+    }
 
   if (self->priv->write_closure != NULL)
-    g_closure_unref (self->priv->write_closure);
+    {
+      g_closure_unref (self->priv->write_closure);
+      self->priv->write_closure = NULL;
+    }
 
-  G_OBJECT_CLASS (evd_socket_base_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (evd_socket_base_parent_class)->dispose (obj);
 }
 
 static void
@@ -249,7 +239,7 @@ evd_socket_base_copy_properties (EvdSocketBase *self, EvdSocketBase *target)
 
 void
 evd_socket_base_set_on_read (EvdSocketBase *self,
-                        GClosure  *closure)
+                             GClosure      *closure)
 {
   EvdSocketBaseClass *class;
 
@@ -284,7 +274,7 @@ evd_socket_base_get_on_read (EvdSocketBase *self)
 
 void
 evd_socket_base_set_on_write (EvdSocketBase *self,
-                         GClosure  *closure)
+                              GClosure      *closure)
 {
   EvdSocketBaseClass *class;
 
@@ -319,8 +309,8 @@ evd_socket_base_get_on_write (EvdSocketBase *self)
 
 void
 evd_socket_base_set_read_handler (EvdSocketBase *self,
-                             GCallback  callback,
-                             gpointer   user_data)
+                                  GCallback      callback,
+                                  gpointer       user_data)
 {
   GClosure *closure = NULL;
 
@@ -344,8 +334,8 @@ evd_socket_base_set_read_handler (EvdSocketBase *self,
 
 void
 evd_socket_base_set_write_handler (EvdSocketBase *self,
-                              GCallback  callback,
-                              gpointer   user_data)
+                                   GCallback      callback,
+                                   gpointer       user_data)
 {
   GClosure *closure = NULL;
 
