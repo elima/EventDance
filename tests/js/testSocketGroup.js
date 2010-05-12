@@ -106,7 +106,7 @@ function testDataTransfer (Assert) {
         if (DATA_SIZE - this.data_written < size)
             size = DATA_SIZE - this.data_written;
 
-        let len = this.write_len (data.substr (this.data_written, size), size);
+        let len = this.output_stream.write_str (data.substr (this.data_written, size));
 
         if (len > 0) {
             this.data_written += len;

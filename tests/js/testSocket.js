@@ -32,8 +32,10 @@ function testInitialState (Assert) {
     Assert.equal (socket.read_closure, null);
     Assert.equal (socket.write_closure, null);
     Assert.equal (socket.group, null);
-    Assert.equal (socket.auto_write, false);
     Assert.equal (socket.priority, 0);
+
+    Assert.equal (socket.input_stream, null);
+    Assert.equal (socket.output_stream, null);
 
     Assert.equal (socket.tls_autostart, false);
     Assert.ok (socket.tls);
@@ -46,6 +48,13 @@ function testInitialState (Assert) {
 
     Assert.equal (socket.input_throttle.bandwidth, 0);
     Assert.equal (socket.input_throttle.latency, 0);
+
+    Assert.ok (socket.output_throttle);
+    Assert.ok (socket.get_output_throttle ());
+    Assert.strictEqual (socket.output_throttle, socket.get_output_throttle ());
+
+    Assert.equal (socket.output_throttle.bandwidth, 0);
+    Assert.equal (socket.output_throttle.latency, 0);
 
     Assert.equal (socket.status, Evd.SocketState.CLOSED);
 
@@ -63,6 +72,9 @@ function testInitialState (Assert) {
 
     Assert.equal (socket.get_remote_address (), null);
     Assert.equal (socket.get_local_address (), null);
+
+    Assert.strictEqual (socket.get_input_stream (), socket.input_stream);
+    Assert.strictEqual (socket.get_output_stream (), socket.output_stream);
 }
 
 function testBindWhileActive (Assert) {
@@ -220,7 +232,7 @@ function on_socket_write (socket) {
     Assert.ok (socket.can_write ());
 
     if (! socket.greeting_sent) {
-        let len = socket.write (GREETING);
+        let len = socket.output_stream.write_str (GREETING);
         Assert.equal (len, GREETING.length);
 
         socket.greeting_sent = true;
