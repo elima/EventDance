@@ -230,10 +230,50 @@ evd_socket_base_get_property (GObject    *obj,
 static void
 evd_socket_base_copy_properties (EvdSocketBase *self, EvdSocketBase *target)
 {
-  /* @TODO */
-}
+  EvdStreamThrottle *stream_throttle;
+  gfloat bandwidth;
+  gfloat latency;
 
-/* protected methods */
+  stream_throttle = evd_socket_base_get_input_throttle (target);
+
+  if (self->priv->input_throttle != NULL)
+    {
+      g_object_get (self->priv->input_throttle,
+                    "bandwidth", &bandwidth,
+                    "latency", &latency,
+                    NULL);
+    }
+  else
+    {
+      bandwidth = 0.0;
+      latency = 0.0;
+    }
+
+  g_object_set (stream_throttle,
+                "bandwidth", bandwidth,
+                "latency", latency,
+                NULL);
+
+  stream_throttle = evd_socket_base_get_output_throttle (target);
+
+  if (self->priv->output_throttle != NULL)
+    {
+      g_object_get (self->priv->output_throttle,
+                    "bandwidth", &bandwidth,
+                    "latency", &latency,
+                    NULL);
+    }
+  else
+    {
+      bandwidth = 0.0;
+      latency = 0.0;
+    }
+
+  g_object_set (stream_throttle,
+                "bandwidth", bandwidth,
+                "latency", latency,
+                NULL);
+}
 
 /* public methods */
 
