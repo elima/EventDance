@@ -127,7 +127,7 @@ INTROSPECTION_GIRS =
 INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir)
 INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 
-introspection_sources = $(evd_HEADERS)
+introspection_sources = $(evd_HEADERS) $(source_c)
 
 @EVD_GIR_API_NAME@.gir: lib@EVD_API_NAME@.la Makefile
 @EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0
