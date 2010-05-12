@@ -41,6 +41,7 @@ struct _EvdSocketBasePrivate
   GClosure *write_closure;
 
   EvdStreamThrottle *input_throttle;
+  EvdStreamThrottle *output_throttle;
 };
 
 
@@ -51,7 +52,8 @@ enum
   PROP_READ_CLOSURE,
   PROP_WRITE_CLOSURE,
 
-  PROP_INPUT_THROTTLE
+  PROP_INPUT_THROTTLE,
+  PROP_OUTPUT_THROTTLE
 };
 
 static void     evd_socket_base_class_init         (EvdSocketBaseClass *class);
@@ -113,6 +115,14 @@ evd_socket_base_class_init (EvdSocketBaseClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_OUTPUT_THROTTLE,
+                                   g_param_spec_object ("output-throttle",
+                                                        "Output throttle",
+                                                        "The output stream throttle object",
+                                                        EVD_TYPE_STREAM_THROTTLE,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketBasePrivate));
 }
@@ -130,6 +140,7 @@ evd_socket_base_init (EvdSocketBase *self)
   priv->write_closure = NULL;
 
   priv->input_throttle = NULL;
+  priv->output_throttle = NULL;
 }
 
 static void
@@ -141,6 +152,12 @@ evd_socket_base_dispose (GObject *obj)
     {
       g_object_unref (self->priv->input_throttle);
       self->priv->input_throttle = NULL;
+    }
+
+  if (self->priv->output_throttle != NULL)
+    {
+      g_object_unref (self->priv->output_throttle);
+      self->priv->output_throttle = NULL;
     }
 
   G_OBJECT_CLASS (evd_socket_base_parent_class)->dispose (obj);
@@ -208,6 +225,10 @@ evd_socket_base_get_property (GObject    *obj,
 
     case PROP_INPUT_THROTTLE:
       g_value_set_object (value, evd_socket_base_get_input_throttle (self));
+      break;
+
+    case PROP_OUTPUT_THROTTLE:
+      g_value_set_object (value, evd_socket_base_get_output_throttle (self));
       break;
 
     default:
@@ -355,4 +376,20 @@ evd_socket_base_get_input_throttle (EvdSocketBase *self)
     self->priv->input_throttle = evd_stream_throttle_new ();
 
   return self->priv->input_throttle;
+}
+
+/**
+ * evd_socket_base_get_output_throttle:
+ *
+ * Returns: (transfer none): The output #EvdStreamThrottle object
+ **/
+EvdStreamThrottle *
+evd_socket_base_get_output_throttle (EvdSocketBase *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), NULL);
+
+  if (self->priv->output_throttle == NULL)
+    self->priv->output_throttle = evd_stream_throttle_new ();
+
+  return self->priv->output_throttle;
 }

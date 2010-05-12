@@ -137,6 +137,8 @@ GClosure      *evd_socket_base_get_on_write            (EvdSocketBase *self);
  **/
 EvdStreamThrottle *evd_socket_base_get_input_throttle   (EvdSocketBase *self);
 
+EvdStreamThrottle *evd_socket_base_get_output_throttle  (EvdSocketBase *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_BASE_H__ */
