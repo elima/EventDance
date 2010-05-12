@@ -189,6 +189,7 @@ evd_socket_class_init (EvdSocketClass *class)
 
   class->handle_condition = NULL;
   class->invoke_on_read = evd_socket_invoke_on_read;
+  class->invoke_on_write = evd_socket_invoke_on_write;
 
   socket_base_class = EVD_SOCKET_BASE_CLASS (class);
   socket_base_class->read_closure_changed = evd_socket_closure_changed;
@@ -703,32 +704,12 @@ evd_socket_invoke_on_read_internal (EvdSocket *self)
 }
 
 static void
-evd_socket_invoke_on_write (EvdSocket *self)
-{
-  GClosure *closure = NULL;
-
-  closure = evd_socket_base_get_on_write (EVD_SOCKET_BASE (self));
-  if (closure != NULL)
-    {
-      GValue params = { 0, };
-
-      g_value_init (&params, EVD_TYPE_SOCKET);
-      g_value_set_object (&params, self);
-
-      g_object_ref (self);
-      g_closure_invoke (closure, NULL, 1, &params, NULL);
-      g_object_unref (self);
-
-      g_value_unset (&params);
-    }
-}
-
-static void
 evd_socket_invoke_on_write_internal (EvdSocket *self)
 {
-  /* TODO: add an 'invoke_on_write' virtual method and call it here */
+  EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
 
-  evd_socket_invoke_on_write (self);
+  if (class->invoke_on_write != NULL)
+    class->invoke_on_write (self);
 }
 
 static gboolean
@@ -1427,6 +1408,27 @@ evd_socket_invoke_on_read (EvdSocket *self)
   GClosure *closure = NULL;
 
   closure = evd_socket_base_get_on_read (EVD_SOCKET_BASE (self));
+  if (closure != NULL)
+    {
+      GValue params = { 0, };
+
+      g_value_init (&params, EVD_TYPE_SOCKET);
+      g_value_set_object (&params, self);
+
+      g_object_ref (self);
+      g_closure_invoke (closure, NULL, 1, &params, NULL);
+      g_object_unref (self);
+
+      g_value_unset (&params);
+    }
+}
+
+void
+evd_socket_invoke_on_write (EvdSocket *self)
+{
+  GClosure *closure = NULL;
+
+  closure = evd_socket_base_get_on_write (EVD_SOCKET_BASE (self));
   if (closure != NULL)
     {
       GValue params = { 0, };

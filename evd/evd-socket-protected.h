@@ -41,6 +41,8 @@ void            evd_socket_set_group           (EvdSocket      *self,
 EvdSocketGroup *evd_socket_get_group           (EvdSocket      *self);
 
 void            evd_socket_invoke_on_read      (EvdSocket *self);
+void            evd_socket_invoke_on_write     (EvdSocket *self);
+
 
 gboolean        evd_socket_cleanup             (EvdSocket  *self,
                                                 GError    **error);
