@@ -193,7 +193,7 @@ evd_json_socket_cleanup (EvdSocket *socket, GError **error)
 
   evd_json_filter_reset (self->priv->json_filter);
 
-  return evd_socket_cleanup_protected (socket, error);
+  return evd_socket_cleanup (socket, error);
 }
 
 /* public methods */

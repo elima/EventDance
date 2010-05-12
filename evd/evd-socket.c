@@ -159,7 +159,7 @@ static void     evd_socket_get_property       (GObject    *obj,
 
 static void     evd_socket_closure_changed    (EvdSocketBase *socket_base);
 
-static gboolean evd_socket_cleanup            (EvdSocket  *self,
+static gboolean evd_socket_cleanup_internal   (EvdSocket  *self,
                                                GError    **error);
 
 static gboolean evd_socket_read_wait_timeout  (gpointer user_data);
@@ -403,7 +403,7 @@ evd_socket_dispose (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
-  evd_socket_cleanup (self, NULL);
+  evd_socket_cleanup_internal (self, NULL);
 
   g_signal_handlers_disconnect_by_func (self,
                                         evd_socket_finish_close,
@@ -892,14 +892,14 @@ evd_socket_read_wait_timeout (gpointer user_data)
 }
 
 static gboolean
-evd_socket_cleanup (EvdSocket *self, GError **error)
+evd_socket_cleanup_internal (EvdSocket *self, GError **error)
 {
   EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
 
   if (class->cleanup != NULL)
     return class->cleanup (self, error);
   else
-    return evd_socket_cleanup_protected (self, error);
+    return evd_socket_cleanup (self, error);
 }
 
 static void
@@ -1443,7 +1443,7 @@ evd_socket_invoke_on_read (EvdSocket *self)
 }
 
 gboolean
-evd_socket_cleanup_protected (EvdSocket *self, GError **error)
+evd_socket_cleanup (EvdSocket *self, GError **error)
 {
   gboolean result = TRUE;
 
@@ -1678,7 +1678,7 @@ evd_socket_close (EvdSocket *self, GError **error)
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
   finish_in_idle = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
-  result = evd_socket_cleanup (self, error);
+  result = evd_socket_cleanup_internal (self, error);
 
   if (finish_in_idle)
     evd_timeout_add (self->priv->context,
@@ -1802,7 +1802,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
         }
       else
         {
-          evd_socket_cleanup (self, NULL);
+          evd_socket_cleanup_internal (self, NULL);
         }
     }
 
@@ -1893,7 +1893,7 @@ evd_socket_connect_addr (EvdSocket        *self,
 
   if (! evd_socket_watch (self, G_IO_IN | G_IO_OUT, error))
     {
-      evd_socket_cleanup (self, NULL);
+      evd_socket_cleanup_internal (self, NULL);
       return FALSE;
     }
   else

@@ -42,7 +42,7 @@ EvdSocketGroup *evd_socket_get_group           (EvdSocket      *self);
 
 void            evd_socket_invoke_on_read      (EvdSocket *self);
 
-gboolean        evd_socket_cleanup_protected   (EvdSocket  *self,
+gboolean        evd_socket_cleanup             (EvdSocket  *self,
                                                 GError    **error);
 
 EvdSocket      *evd_socket_accept              (EvdSocket  *self,
