@@ -277,6 +277,14 @@ evd_socket_base_copy_properties (EvdSocketBase *self, EvdSocketBase *target)
 
 /* public methods */
 
+/**
+ * evd_socket_base_set_on_read:
+ * @self: The #EvdSocketBase.
+ * @closure: (in) (allow-none): The #GClosure to be invoked.
+ *
+ * Specifies the closure to be invoked when data is waiting to be read from the
+ * stream.
+ **/
 void
 evd_socket_base_set_on_read (EvdSocketBase *self,
                              GClosure      *closure)
@@ -304,6 +312,13 @@ evd_socket_base_set_on_read (EvdSocketBase *self,
     class->read_closure_changed (self);
 }
 
+/**
+ * evd_socket_base_get_on_read:
+ * @self: The #EvdSocketBase.
+ *
+ * Returns: (transfer none): A #GClosure representing the current read handler,
+ * or NULL.
+ **/
 GClosure *
 evd_socket_base_get_on_read (EvdSocketBase *self)
 {
@@ -312,6 +327,14 @@ evd_socket_base_get_on_read (EvdSocketBase *self)
   return self->priv->read_closure;
 }
 
+/**
+ * evd_socket_base_set_on_write:
+ * @self: The #EvdSocketBase.
+ * @closure: (in) (allow-none): The #GClosure to be invoked.
+ *
+ * Specifies the closure to be invoked when it becomes safe to write data to the
+ * stream.
+ **/
 void
 evd_socket_base_set_on_write (EvdSocketBase *self,
                               GClosure      *closure)
@@ -339,6 +362,13 @@ evd_socket_base_set_on_write (EvdSocketBase *self,
     class->write_closure_changed (self);
 }
 
+/**
+ * evd_socket_base_get_on_write:
+ * @self: The #EvdSocketBase.
+ *
+ * Returns: (transfer none): A #GClosure representing the current write handler,
+ * or NULL.
+ **/
 GClosure *
 evd_socket_base_get_on_write (EvdSocketBase *self)
 {
@@ -347,6 +377,15 @@ evd_socket_base_get_on_write (EvdSocketBase *self)
   return self->priv->write_closure;
 }
 
+/**
+ * evd_socket_base_set_read_handler:
+ * @self: The #EvdSocketBase.
+ * @callback: (allow-none): The #GCallback to call upon read condition.
+ * @user_data: Pointer to arbitrary data to pass in @callback.
+ *
+ * Specifies a pointer to the function to be invoked when data is waiting
+ * to be read from the stream.
+ **/
 void
 evd_socket_base_set_read_handler (EvdSocketBase *self,
                                   GCallback      callback,
@@ -372,6 +411,15 @@ evd_socket_base_set_read_handler (EvdSocketBase *self,
   evd_socket_base_set_on_read (EVD_SOCKET_BASE (self), closure);
 }
 
+/**
+ * evd_socket_base_set_write_handler:
+ * @self: The #EvdSocketBase.
+ * @callback: (allow-none): The #GCallback to call upon write condition.
+ * @user_data: Pointer to arbitrary data to pass in @callback.
+ *
+ * Specifies a pointer to the function to be invoked when it becomes safe to
+ * write data to the stream.
+ **/
 void
 evd_socket_base_set_write_handler (EvdSocketBase *self,
                                    GCallback      callback,
@@ -397,6 +445,11 @@ evd_socket_base_set_write_handler (EvdSocketBase *self,
   evd_socket_base_set_on_write (EVD_SOCKET_BASE (self), closure);
 }
 
+/**
+ * evd_socket_base_get_input_throttle:
+ *
+ * Returns: (transfer none): The input #EvdStreamThrottle object
+ **/
 EvdStreamThrottle *
 evd_socket_base_get_input_throttle (EvdSocketBase *self)
 {
