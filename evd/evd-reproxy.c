@@ -518,12 +518,7 @@ evd_reproxy_socket_on_close (EvdService *service,
       evd_reproxy_socket_set_bridge (bridge, NULL);
 
       evd_reproxy_socket_set_bridge (socket, NULL);
-      if (! evd_socket_has_write_data_pending (bridge))
-        evd_socket_close (bridge, NULL);
-      else
-        {
-          /* TODO: check if this situation is ever possible */
-        }
+      evd_socket_close (bridge, NULL);
     }
 
   backend = evd_reproxy_backend_get_from_socket (socket);

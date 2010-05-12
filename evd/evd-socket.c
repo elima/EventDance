@@ -2007,15 +2007,6 @@ evd_socket_unread (EvdSocket    *self,
                                            error);
 }
 
-gboolean
-evd_socket_has_write_data_pending (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  /* @TODO: re-implement this using EvdBufferedOutputStream */
-  return FALSE;
-}
-
 gsize
 evd_socket_get_max_readable (EvdSocket *self)
 {

@@ -70,7 +70,6 @@ evd_socket_test_initial_state (EvdSocketFixture *f,
 
   g_assert (evd_socket_can_read (f->socket) == FALSE);
   g_assert (evd_socket_can_write (f->socket) == FALSE);
-  g_assert (evd_socket_has_write_data_pending (f->socket) == FALSE);
 }
 
 /* test inet socket */

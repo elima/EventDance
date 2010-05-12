@@ -244,8 +244,6 @@ gssize        evd_socket_unread           (EvdSocket    *self,
                                            gsize         size,
                                            GError      **error);
 
-gboolean      evd_socket_has_write_data_pending (EvdSocket *self);
-
 gboolean      evd_socket_can_read               (EvdSocket *self);
 gboolean      evd_socket_can_write              (EvdSocket *self);
 
