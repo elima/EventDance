@@ -23,6 +23,22 @@
  * 02110-1301 USA
  */
 
+/**
+ * SECTION:evd-socket
+ * @short_description: EventDance's base socket class.
+ *
+ * #EvdSocket sockets are Berkeley sockets with finer network control and scalability
+ * under high-concurrency scenarios. It's the class that ultimately handles all network
+ * access in EventDance framework. #EvdSocket is based on GSocket, and extends it by
+ * providing more features like SSL/TLS support, bandwith and latency control, etc; together
+ * with an efficient mechanism to watch socket condition changes, based on the <ulink type="http"
+ * url="http://www.kernel.org/doc/man-pages/online/pages/man4/epoll.4.html">
+ * epoll event notification facility</ulink> available on Linux, in edge-triggered mode.
+ *
+ * #EvdSocket is designed to work always in non-blocking mode. As everything in
+ * EventDance framework, all network IO logic should be strictly asynchronous.
+ **/
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -31,7 +47,6 @@
 #include "evd-marshal.h"
 #include "evd-error.h"
 #include "evd-socket-manager.h"
-#include "evd-socket-base-protected.h"
 #include "evd-resolver.h"
 
 #include "evd-socket-input-stream.h"
@@ -1811,6 +1826,17 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   return FALSE;
 }
 
+/**
+ * evd_socket_listen:
+ * @self: The #EvdSocket to listen on.
+ * @address: (allow-none): A string representing the socket address to listen on, or NULL if
+ *                         the socket was previously bound to an address using #evd_socket_bind
+ *                         or #evd_socket_bind_addr. Only works for connection-oriented sockets.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Returns: TRUE on success or FALSE on error.
+ *
+ **/
 gboolean
 evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
 {
@@ -1836,6 +1862,19 @@ evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
   return TRUE;
 }
 
+/**
+ * evd_socket_connect_addr:
+ * @self: The #EvdSocket to connect.
+ * @address: The #GSocketAddress to connect to.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Attempts to connect the socket to the specified address. If
+ * <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
+ * opertation will abort after that time in miliseconds and a
+ * <emphasis>connect-timeout</emphasis> error will be signaled.
+ *
+ * Returns: TRUE on success or FALSE on error.
+ **/
 gboolean
 evd_socket_connect_addr (EvdSocket        *self,
                          GSocketAddress   *address,
@@ -1907,6 +1946,26 @@ evd_socket_connect_addr (EvdSocket        *self,
     }
 }
 
+/**
+ * evd_socket_connect_to:
+ * @self: The #EvdSocket to connect.
+ * @address: A string representing the socket address to connect to.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Similar to #evd_socket_connect_addr, but address is a string that will
+ * be resolved to a #GSocketAddress internally.
+ *
+ * For unix addresses, a valid filename should be provided since abstract unix
+ * addresses are not supported. For IP addresses, a string in the format "host:port"
+ * is expected. <emphasis>host</emphasis> can be an IP address version 4 or 6 (if
+ * supported by the OS), or any domain name.
+ *
+ * If <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
+ * opertation will abort after that time in miliseconds and a
+ * <emphasis>connect-timeout</emphasis> error will be signaled.
+ *
+ * Returns: TRUE on success or FALSE on error.
+ **/
 gboolean
 evd_socket_connect_to (EvdSocket    *self,
                        const gchar  *address,
@@ -1934,6 +1993,18 @@ evd_socket_connect_to (EvdSocket    *self,
   return TRUE;
 }
 
+/**
+ * evd_socket_read:
+ * @self: The #EvdSocket to read from.
+ * @buffer: (out) (transfer full): The buffer to store the data.
+ * @size: Maximum number of bytes to read.
+ * @error: The #GError to return, or NULL.
+ *
+ * Reads up to @size bytes of data from the socket input stream. The data read will be copied
+ * into @buffer.
+ *
+ * Returns: The actual number of bytes read.
+ **/
 gssize
 evd_socket_read (EvdSocket  *self,
                  gchar      *buffer,
@@ -1959,6 +2030,20 @@ evd_socket_read (EvdSocket  *self,
                               error);
 }
 
+/**
+ * evd_socket_write:
+ * @self: The #EvdSocket to write to.
+ * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
+ * @size: (in): Maximum number of bytes to write. @buffer should be at least @size long.
+ * @error: (out) (transfer full): The #GError to return, or NULL.
+ *
+ * Writes up to @size bytes of data to the socket.
+ *
+ * If #auto-write property is TRUE, this method will always respond as it was able to send
+ * all data requested, and will buffer and handle the actual writting internally.
+ *
+ * Returns: The actual number of bytes written.
+ **/
 gssize
 evd_socket_write (EvdSocket    *self,
                   const gchar  *buffer,
@@ -1984,6 +2069,26 @@ evd_socket_write (EvdSocket    *self,
                                 error);
 }
 
+/**
+ * evd_socket_unread:
+ * @self: The #EvdSocket to unread data to.
+ * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
+ * @size: Number of bytes to unread.
+ * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
+ *
+ * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
+ * to read will first get data from the local buffer, before performing the actual read
+ * operation. This is useful when one needs to do some action with a data just read, but doesn't
+ * want to remove the data from the input stream of the socket.
+ *
+ * Normally, it would be used to write back data that was previously read, to made it available
+ * in further calls to read. But in practice any data can be unread.
+ *
+ * This feature was implemented basically to provide type-of-stream detection on a socket
+ * (e.g. a service selector).
+ *
+ * Returns: The actual number of bytes unread.
+ **/
 gssize
 evd_socket_unread (EvdSocket    *self,
                    const gchar  *buffer,
@@ -2166,6 +2271,11 @@ evd_socket_shutdown (EvdSocket  *self,
                             error);
 }
 
+/**
+ * evd_socket_get_tls_session:
+ *
+ * Returns: (transfer none): The #EvdTlsSession object
+ **/
 EvdTlsSession *
 evd_socket_get_tls_session (EvdSocket *self)
 {
@@ -2185,6 +2295,11 @@ evd_socket_get_tls_active (EvdSocket *self)
   return self->priv->tls_enabled;
 }
 
+/**
+ * evd_socket_get_input_stream:
+ *
+ * Returns: (transfer none):
+ **/
 GInputStream *
 evd_socket_get_input_stream (EvdSocket *self)
 {
@@ -2193,6 +2308,11 @@ evd_socket_get_input_stream (EvdSocket *self)
   return G_INPUT_STREAM (self->priv->buf_input_stream);
 }
 
+/**
+ * evd_socket_get_output_stream:
+ *
+ * Returns: (transfer none):
+ **/
 GOutputStream *
 evd_socket_get_output_stream (EvdSocket *self)
 {
