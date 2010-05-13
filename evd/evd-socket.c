@@ -421,6 +421,8 @@ evd_socket_dispose (GObject *obj)
 
   evd_socket_cleanup_internal (self, NULL);
 
+  self->priv->status = EVD_SOCKET_STATE_CLOSED;
+
   g_signal_handlers_disconnect_by_func (self,
                                         evd_socket_finish_close,
                                         self);
@@ -1143,6 +1145,7 @@ evd_socket_finish_close (gpointer user_data)
   else
     {
       g_object_ref (self);
+      evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSED);
       g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
       g_object_unref (self);
 
@@ -1470,8 +1473,6 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 
   self->priv->family = G_SOCKET_FAMILY_INVALID;
 
-  self->priv->status = EVD_SOCKET_STATE_CLOSED;
-
   self->priv->watched = FALSE;
   self->priv->watched_cond = 0;
   self->priv->cond = 0;
@@ -1689,22 +1690,28 @@ evd_socket_set_priority (EvdSocket *self, gint priority)
 gboolean
 evd_socket_close (EvdSocket *self, GError **error)
 {
-  gboolean result;
-  gboolean finish_in_idle = FALSE;
-
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  finish_in_idle = (self->priv->status != EVD_SOCKET_STATE_CLOSED);
-  result = evd_socket_cleanup_internal (self, error);
+  if (self->priv->status == EVD_SOCKET_STATE_CLOSED ||
+      self->priv->status == EVD_SOCKET_STATE_CLOSING)
+    {
+      return TRUE;
+    }
+  else
+    {
+      gboolean result;
 
-  if (finish_in_idle)
-    evd_timeout_add (self->priv->context,
-                     0,
-                     self->priv->actual_priority,
-                     evd_socket_finish_close,
-                     self);
+      evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSING);
+      result = evd_socket_cleanup_internal (self, error);
 
-  return result;
+      evd_timeout_add (self->priv->context,
+                       0,
+                       self->priv->actual_priority,
+                       evd_socket_finish_close,
+                       self);
+
+      return result;
+    }
 }
 
 gboolean
