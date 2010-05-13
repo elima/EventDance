@@ -200,18 +200,6 @@ evd_tls_certificate_detect_type (const gchar *raw_data)
     return EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
-/* public methods */
-
-EvdTlsCertificate *
-evd_tls_certificate_new (void)
-{
-  EvdTlsCertificate *self;
-
-  self = g_object_new (EVD_TYPE_TLS_CERTIFICATE, NULL);
-
-  return self;
-}
-
 static gboolean
 evd_tls_certificate_import_x509 (EvdTlsCertificate      *self,
                                  const gchar            *raw_data,
@@ -249,6 +237,18 @@ evd_tls_certificate_import_x509 (EvdTlsCertificate      *self,
     }
 
   return FALSE;
+}
+
+/* public methods */
+
+EvdTlsCertificate *
+evd_tls_certificate_new (void)
+{
+  EvdTlsCertificate *self;
+
+  self = g_object_new (EVD_TYPE_TLS_CERTIFICATE, NULL);
+
+  return self;
 }
 
 gboolean
