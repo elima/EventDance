@@ -100,7 +100,6 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
   obj_class->get_property = evd_tls_session_get_property;
   obj_class->set_property = evd_tls_session_set_property;
 
-  /* install properties */
   g_object_class_install_property (obj_class, PROP_CREDENTIALS,
                                    g_param_spec_object ("credentials",
                                                         "The SSL/TLS session's credentials",
@@ -135,7 +134,6 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
-  /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
 }
 
@@ -427,6 +425,11 @@ evd_tls_session_set_credentials (EvdTlsSession     *self,
   g_object_ref (self->priv->cred);
 }
 
+/**
+ * evd_tls_session_get_credentials:
+ *
+ * Returns: (transfer none): The #EvdTlsCredentials object of this session
+ **/
 EvdTlsCredentials *
 evd_tls_session_get_credentials (EvdTlsSession *self)
 {
@@ -637,6 +640,14 @@ evd_tls_session_copy_properties (EvdTlsSession *self,
                 NULL);
 }
 
+/**
+ * evd_tls_session_get_peer_certificates:
+ * @self:
+ * @error:
+ *
+ * Returns: (transfer full) (element-type Evd.TlsCertificate): The list of certificates
+ *          as sent by the peer.
+ **/
 GList *
 evd_tls_session_get_peer_certificates (EvdTlsSession *self, GError **error)
 {
