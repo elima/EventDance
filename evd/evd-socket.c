@@ -677,6 +677,13 @@ evd_socket_tls_handshake (gpointer user_data)
 {
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
+  GIOCondition direction;
+  gboolean result = FALSE;
+
+  direction = evd_tls_session_get_direction (TLS_SESSION (self));
+  if ( (direction == G_IO_IN && self->priv->read_src_id != 0) ||
+       (direction == G_IO_OUT && self->priv->write_src_id != 0) )
+    return FALSE;
 
   if (evd_tls_session_handshake (TLS_SESSION (self), &error))
     {
@@ -687,20 +694,13 @@ evd_socket_tls_handshake (gpointer user_data)
         {
           evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
           evd_socket_invoke_on_write_internal (self);
+          result = TRUE;
         }
       else
         {
           evd_socket_throw_error (self, error);
           evd_socket_close (self, NULL);
         }
-    }
-  else if (error == NULL)
-    {
-      /* update socket conditions to watch, based on
-         session's record direction */
-      self->priv->watched_cond =
-        evd_tls_session_get_direction (TLS_SESSION (self));
-      evd_socket_watch (self, self->priv->watched_cond, &error);
     }
 
   if (error != NULL)
@@ -709,7 +709,7 @@ evd_socket_tls_handshake (gpointer user_data)
       evd_socket_close (self, NULL);
     }
 
-  return FALSE;
+  return result;
 }
 
 static void
