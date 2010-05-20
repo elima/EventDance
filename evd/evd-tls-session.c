@@ -23,6 +23,8 @@
  * 02110-1301 USA
  */
 
+#include <errno.h>
+
 #include "evd-error.h"
 #include "evd-tls-common.h"
 #include "evd-tls-session.h"
@@ -270,11 +272,19 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
                       gsize                   size)
 {
   EvdTlsSession *self = EVD_TLS_SESSION (ptr);
+  gssize res;
 
-  return self->priv->push_func (self,
-                                buf,
-                                size,
-                                self->priv->push_user_data);
+  res = self->priv->push_func (self,
+                               buf,
+                               size,
+                               self->priv->push_user_data);
+
+  if (res == GNUTLS_E_AGAIN)
+    gnutls_transport_set_errno (self->priv->session, EAGAIN);
+  else if (res == GNUTLS_E_INTERRUPTED)
+    gnutls_transport_set_errno (self->priv->session, EINTR);
+
+  return res;
 }
 
 static gssize
@@ -283,11 +293,19 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
                       gsize                   size)
 {
   EvdTlsSession *self = EVD_TLS_SESSION (ptr);
+  gssize res;
 
-  return self->priv->pull_func (self,
-                                buf,
-                                size,
-                                self->priv->pull_user_data);
+  res = self->priv->pull_func (self,
+                               buf,
+                               size,
+                               self->priv->pull_user_data);
+
+  if (res == GNUTLS_E_AGAIN)
+    gnutls_transport_set_errno (self->priv->session, EAGAIN);
+  else if (res == GNUTLS_E_INTERRUPTED)
+    gnutls_transport_set_errno (self->priv->session, EINTR);
+
+  return res;
 }
 
 static gboolean
@@ -509,6 +527,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
                                               evd_tls_session_push);
           gnutls_transport_set_pull_function (self->priv->session,
                                               evd_tls_session_pull);
+          gnutls_transport_set_lowat (self->priv->session, 0);
 
           cred = evd_tls_session_get_credentials (self);
           if (! evd_tls_credentials_ready (cred))
@@ -553,8 +572,11 @@ evd_tls_session_read (EvdTlsSession  *self,
   result = gnutls_record_recv (self->priv->session, buffer, size);
 
   //  g_debug ("record_recv result: %d", result);
-
-  if (result < 0)
+  if (result == 0)
+    {
+      /* @TODO: EOF condition, emit 'close' signal */
+    }
+  else if (result < 0)
     {
       if (gnutls_error_is_fatal (result) != 0)
         {
@@ -606,12 +628,14 @@ GIOCondition
 evd_tls_session_get_direction (EvdTlsSession *self)
 {
   g_return_val_if_fail (EVD_IS_TLS_SESSION (self), 0);
-  g_return_val_if_fail (self->priv->session != NULL, 0);
 
-  if (gnutls_record_get_direction (self->priv->session) == 0)
-    return G_IO_IN;
+  if (self->priv->session == NULL)
+    return 0;
   else
-    return G_IO_OUT;
+    if (gnutls_record_get_direction (self->priv->session) == 0)
+      return G_IO_IN;
+    else
+      return G_IO_OUT;
 }
 
 gboolean
