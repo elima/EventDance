@@ -355,8 +355,9 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
           data = g_new (gchar, actual_size + 1);
           g_memmove (data, buf, actual_size);
           data[actual_size] = '\0';
-          g_slice_free1 ((*size) + 1, buf);
         }
+
+      g_slice_free1 ((*size) + 1, buf);
     }
   else
     {
