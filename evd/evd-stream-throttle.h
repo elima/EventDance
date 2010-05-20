@@ -58,6 +58,8 @@ EvdStreamThrottle *evd_stream_throttle_new                  (void);
 gsize              evd_stream_throttle_request              (EvdStreamThrottle *self,
                                                              gsize              size,
                                                              guint             *wait);
+void               evd_stream_throttle_report               (EvdStreamThrottle *self,
+                                                             gsize              size);
 
 gfloat             evd_stream_throttle_get_actual_bandwidth (EvdStreamThrottle *self);
 
