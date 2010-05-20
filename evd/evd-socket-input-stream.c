@@ -219,10 +219,11 @@ evd_socket_input_stream_read (GInputStream  *stream,
         {
           if (error != NULL)
             *error = _error;
-          actual_size = -1;
+          return -1;
         }
     }
-  else if (actual_size < size)
+
+  if (actual_size < size)
     {
       self->priv->has_bag = FALSE;
       g_object_ref (self);
