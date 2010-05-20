@@ -25,6 +25,7 @@ Evd.tls_init ();
 
 // create socket
 let socket = new Evd.Socket ();
+socket.input_throttle.bandwidth = 0.0;
 
 socket.connect ("close",
     function (socket) {
@@ -51,34 +52,37 @@ socket.connect ("state-changed",
             }
             else {
                 // perform request
+                log ("requesting");
                 socket.output_stream.write_str ("GET "+resource+" HTTP/1.1\r\n"+
                                                 "Host: "+domain+"\r\n"+
                                                 "Connection: close\r\n\r\n");
+                socket.input_stream.read_str_async (BLOCK_SIZE,
+                                                    0,
+                                                    null,
+                                                    on_read,
+                                                    0);
             }
         }
     });
 
-function read_block (socket) {
-    let [data, len] = socket.input_stream.read_str (BLOCK_SIZE);
-    if (len > 0) {
-        print (data);
+function on_read (inputStream, result) {
+    try {
+        let [data, len] = inputStream.read_str_finish (result);
+        if (data)
+            print (data);
+
+        if (! inputStream.is_closed ()) {
+            inputStream.read_str_async (BLOCK_SIZE,
+                                        0,
+                                        null,
+                                        on_read,
+                                        0);
+        }
     }
-    return len;
+    catch (e) {
+        log ("Reading error: " + e);
+    }
 }
-
-function read_another_block () {
-    if (this.status == Evd.SocketState.CONNECTED)
-        if (read_block (this) == BLOCK_SIZE)
-            return true;
-
-    return false;
-}
-
-socket.set_on_read (
-    function (socket) {
-        if (read_block (socket) == BLOCK_SIZE)
-            MainLoop.idle_add (Lang.bind (socket, read_another_block));
-    });
 
 if (! uri) {
     log ("Usage: simpleHttpGet.js <url>");
