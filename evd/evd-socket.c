@@ -55,6 +55,7 @@
 #include "evd-tls-output-stream.h"
 #include "evd-buffered-input-stream.h"
 #include "evd-buffered-output-stream.h"
+#include "evd-throttled-input-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -123,6 +124,7 @@ struct _EvdSocketPrivate
   EvdTlsOutputStream     *tls_output_stream;
   EvdBufferedInputStream *buf_input_stream;
   EvdBufferedOutputStream *buf_output_stream;
+  EvdThrottledInputStream *throt_input_stream;
 };
 
 /* signals */
@@ -412,6 +414,7 @@ evd_socket_init (EvdSocket *self)
   priv->tls_output_stream = NULL;
   priv->tls_input_stream = NULL;
   priv->buf_input_stream = NULL;
+  priv->throt_input_stream = NULL;
 }
 
 static void
@@ -828,6 +831,22 @@ evd_socket_output_stream_filled (GOutputStream *stream,
 }
 
 static void
+evd_socket_delay_read (EvdThrottledInputStream *stream,
+                       guint                    wait,
+                       gpointer                 user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  if (self->priv->read_src_id == 0)
+    self->priv->read_src_id =
+      evd_timeout_add (self->priv->context,
+                       wait,
+                       self->priv->actual_priority,
+                       evd_socket_read_wait_timeout,
+                       self);
+}
+
+static void
 evd_socket_setup_streams (EvdSocket *self)
 {
   if (self->priv->socket_input_stream == NULL)
@@ -852,11 +871,26 @@ evd_socket_setup_streams (EvdSocket *self)
                         self);
     }
 
+  if (self->priv->throt_input_stream == NULL)
+    {
+      self->priv->throt_input_stream =
+        evd_throttled_input_stream_new (
+                              G_INPUT_STREAM (self->priv->socket_input_stream));
+
+      evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
+                   evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self)));
+
+      g_signal_connect (self->priv->throt_input_stream,
+                        "delay-read",
+                        G_CALLBACK (evd_socket_delay_read),
+                        self);
+    }
+
   if (self->priv->buf_input_stream == NULL)
     {
       self->priv->buf_input_stream =
         evd_buffered_input_stream_new (
-                              G_INPUT_STREAM (self->priv->socket_input_stream));
+                              G_INPUT_STREAM (self->priv->throt_input_stream));
     }
 
   if (self->priv->buf_output_stream == NULL)
@@ -2220,7 +2254,7 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   self->priv->tls_input_stream =
     evd_tls_input_stream_new (session,
-                              G_INPUT_STREAM (self->priv->socket_input_stream));
+                              G_INPUT_STREAM (self->priv->throt_input_stream));
 
   g_filter_input_stream_set_close_base_stream (
     G_FILTER_INPUT_STREAM (self->priv->buf_input_stream), FALSE);
