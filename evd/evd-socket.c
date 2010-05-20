@@ -95,7 +95,6 @@ struct _EvdSocketPrivate
 
   gint read_src_id;
   gint write_src_id;
-  gboolean awaiting_read;
 
   GIOCondition cond;
   GIOCondition watched_cond;
@@ -389,7 +388,6 @@ evd_socket_init (EvdSocket *self)
 
   priv->read_src_id = 0;
   priv->write_src_id = 0;
-  priv->awaiting_read = FALSE;
 
   priv->cond = 0;
   priv->watched_cond = G_IO_IN | G_IO_OUT;
@@ -795,7 +793,7 @@ evd_socket_input_stream_drained (GInputStream *stream,
   EvdSocket *self = EVD_SOCKET (user_data);
   GError *error = NULL;
 
-  if (self->priv->delayed_close && ! self->priv->awaiting_read)
+  if (self->priv->delayed_close && self->priv->read_src_id == 0)
     {
       evd_timeout_add (self->priv->context,
                        0,
@@ -1399,9 +1397,10 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 
   if (condition & G_IO_HUP)
     {
-      if (self->priv->awaiting_read ||
+      if (self->priv->read_src_id != 0 ||
           (TLS_ENABLED (self) && TLS_READ_PENDING (self)) ||
-          self->priv->cond & G_IO_IN)
+          self->priv->cond & G_IO_IN ||
+          g_input_stream_has_pending (G_INPUT_STREAM (self->priv->buf_input_stream)))
         {
           self->priv->delayed_close = TRUE;
 
