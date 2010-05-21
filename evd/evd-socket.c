@@ -2167,25 +2167,24 @@ evd_socket_unread (EvdSocket    *self,
 gsize
 evd_socket_get_max_readable (EvdSocket *self)
 {
-  gsize limited_size = MAX_BLOCK_SIZE;
-
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  /* @TODO: reimplement this when EvdThrottleInputStream is ready */
-
-  return limited_size;
+  if (self->priv->throt_input_stream == NULL)
+    return 0;
+  else
+    return
+      evd_throttled_input_stream_get_max_readable (self->priv->throt_input_stream,
+                                                   NULL);
 }
 
 gsize
 evd_socket_get_max_writable (EvdSocket *self)
 {
-  gsize limited_size = MAX_BLOCK_SIZE;
-
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
   /* @TODO: reimplement this when EvdThrottleOutputStream is ready */
 
-  return limited_size;
+  return 0;
 }
 
 gboolean
