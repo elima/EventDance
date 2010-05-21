@@ -195,7 +195,7 @@ g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
   gulong result;
 
   result = ABS (time2->tv_sec - time1->tv_sec) * G_USEC_PER_SEC;
-  result += ABS (time2->tv_usec - time1->tv_usec) / 1000;
+  result += ABS (time2->tv_usec - time1->tv_usec);
 
   return result;
 }
@@ -223,12 +223,13 @@ evd_stream_throttle_request_internal (EvdStreamThrottle *self,
 
       elapsed = g_timeval_get_diff_micro (&self->priv->current_time,
                                           last);
+
       if (elapsed < latency)
         {
           actual_size = 0;
 
           if (wait != NULL)
-            *wait = MAX ((guint) ((latency - elapsed) / 1000),
+            *wait = MAX ((gulong) (latency - elapsed) / 1000 + 2,
                          *wait);
         }
     }
