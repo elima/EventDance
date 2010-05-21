@@ -232,10 +232,27 @@ evd_throttled_input_stream_add_throttle (EvdThrottledInputStream *self,
   g_return_if_fail (EVD_IS_THROTTLED_INPUT_STREAM (self));
   g_return_if_fail (EVD_IS_STREAM_THROTTLE (throttle));
 
-  /* @TODO: check that the throttle object was not already added */
+  if (g_list_find (self->priv->stream_throttles, throttle) == NULL)
+    {
+      g_object_ref (throttle);
 
-  g_object_ref (throttle);
+      self->priv->stream_throttles = g_list_prepend (self->priv->stream_throttles,
+                                                     (gpointer) throttle);
+    }
+}
 
-  self->priv->stream_throttles = g_list_append (self->priv->stream_throttles,
-                                                (gpointer) throttle);
+void
+evd_throttled_input_stream_remove_throttle (EvdThrottledInputStream *self,
+                                            EvdStreamThrottle       *throttle)
+{
+  g_return_if_fail (EVD_IS_THROTTLED_INPUT_STREAM (self));
+  g_return_if_fail (EVD_IS_STREAM_THROTTLE (throttle));
+
+  if (g_list_find (self->priv->stream_throttles, throttle) != NULL)
+    {
+      self->priv->stream_throttles = g_list_remove (self->priv->stream_throttles,
+                                                    (gpointer) throttle);
+
+      g_object_unref (throttle);
+    }
 }

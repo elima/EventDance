@@ -68,6 +68,8 @@ gsize                    evd_throttled_input_stream_get_max_readable (EvdThrottl
 
 void                     evd_throttled_input_stream_add_throttle     (EvdThrottledInputStream *self,
                                                                       EvdStreamThrottle       *throttle);
+void                     evd_throttled_input_stream_remove_throttle  (EvdThrottledInputStream *self,
+                                                                      EvdStreamThrottle       *throttle);
 
 G_END_DECLS
 
