@@ -268,6 +268,8 @@ evd_stream_throttle_request  (EvdStreamThrottle *self,
                               gsize              size,
                               guint             *wait)
 {
+  g_return_val_if_fail (EVD_IS_STREAM_THROTTLE (self), -1);
+
   evd_stream_throttle_update_current_time (self);
 
   return evd_stream_throttle_request_internal (self,
@@ -282,6 +284,8 @@ evd_stream_throttle_request  (EvdStreamThrottle *self,
 void
 evd_stream_throttle_report (EvdStreamThrottle *self, gsize size)
 {
+  g_return_if_fail (EVD_IS_STREAM_THROTTLE (self));
+
   evd_stream_throttle_update_current_time (self);
 
   G_LOCK (counters);
@@ -298,5 +302,7 @@ evd_stream_throttle_report (EvdStreamThrottle *self, gsize size)
 gfloat
 evd_stream_throttle_get_actual_bandwidth (EvdStreamThrottle *self)
 {
+  g_return_val_if_fail (EVD_IS_STREAM_THROTTLE (self), -1.0);
+
   return self->priv->bytes / 1024.0;
 }
