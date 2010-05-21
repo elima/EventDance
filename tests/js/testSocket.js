@@ -65,8 +65,8 @@ function testInitialState (Assert) {
     Assert.equal (socket.get_group (), socket.group);
     Assert.equal (socket.get_priority (), socket.priority);
 
-    Assert.equal (socket.get_max_readable (), 0xffff);
-    Assert.equal (socket.get_max_writable (), 0xffff);
+    Assert.equal (socket.get_max_readable (), 0);
+    Assert.equal (socket.get_max_writable (), 0);
     Assert.equal (socket.can_read (), false);
     Assert.equal (socket.can_write (), false);
 
