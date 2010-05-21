@@ -39,10 +39,6 @@
  * EventDance framework, all network IO logic should be strictly asynchronous.
  **/
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <string.h>
-
 #include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-error.h"
@@ -60,11 +56,7 @@
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
 
-#define DOMAIN_QUARK_STRING     "org.eventdance.lib.socket"
-
-#define MAX_BLOCK_SIZE          G_MAXUINT16
-#define MAX_READ_BUFFER_SIZE    G_MAXUINT16
-#define MAX_WRITE_BUFFER_SIZE   G_MAXUINT16
+#define DOMAIN_QUARK_STRING "org.eventdance.lib.socket"
 
 #define TLS_ENABLED(socket)       (socket->priv->tls_enabled == TRUE)
 #define TLS_SESSION(socket)       evd_socket_get_tls_session (socket)
@@ -2107,7 +2099,7 @@ evd_socket_write (EvdSocket    *self,
       g_set_error_literal (error,
                            evd_socket_err_domain,
                            EVD_ERROR_NOT_READABLE,
-                           "Socket is not readable");
+                           "Socket is not writeable");
 
       return -1;
     }
