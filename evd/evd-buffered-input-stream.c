@@ -348,8 +348,6 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
                                            NULL,
                                            error)) >= 0)
     {
-      *size = actual_size;
-
       if (actual_size > 0)
         {
           data = g_new (gchar, actual_size + 1);
@@ -358,6 +356,7 @@ evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
         }
 
       g_slice_free1 ((*size) + 1, buf);
+      *size = actual_size;
     }
   else
     {
