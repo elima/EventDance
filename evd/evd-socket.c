@@ -872,6 +872,17 @@ evd_socket_setup_streams (EvdSocket *self)
       evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
                    evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self)));
 
+      if (self->priv->group != NULL)
+        {
+          EvdStreamThrottle *throttle;
+
+          throttle =
+            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self->priv->group));
+
+          evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
+                                                   throttle);
+        }
+
       g_signal_connect (self->priv->throt_input_stream,
                         "delay-read",
                         G_CALLBACK (evd_socket_delay_read),
@@ -1442,12 +1453,23 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 void
 evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 {
+  EvdStreamThrottle *throttle;
+
   if (self->priv->group == group)
     return;
 
   if (self->priv->group != NULL)
     {
       EvdSocketGroup *current_group;
+
+      if (self->priv->throt_input_stream != NULL)
+        {
+          throttle =
+            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self->priv->group));
+
+          evd_throttled_input_stream_remove_throttle (self->priv->throt_input_stream,
+                                                      throttle);
+        }
 
       current_group = self->priv->group;
       self->priv->group = NULL;
@@ -1462,6 +1484,15 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 
   if (group != NULL)
     {
+      if (self->priv->throt_input_stream != NULL)
+        {
+          throttle =
+            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (group));
+
+          evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
+                                                   throttle);
+        }
+
       g_object_ref (self->priv->group);
 
       if (evd_socket_can_write (self))
