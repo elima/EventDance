@@ -63,7 +63,8 @@
 #define TLS_AUTOSTART(socket)     socket->priv->tls_autostart
 #define TLS_INPUT_STREAM(socket)  G_INPUT_STREAM (socket->priv->tls_input_stream)
 #define TLS_OUTPUT_STREAM(socket) G_OUTPUT_STREAM (socket->priv->tls_output_stream)
-#define TLS_READ_PENDING(socket)  g_input_stream_has_pending (TLS_INPUT_STREAM(socket))
+#define READ_PENDING(socket)      (socket->priv->buf_input_stream != NULL && \
+                                   g_input_stream_has_pending (G_INPUT_STREAM (self->priv->buf_input_stream)))
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_BASE)
 
@@ -921,7 +922,7 @@ evd_socket_read_wait_timeout (gpointer user_data)
 
   if (self->priv->delayed_close &&
       (self->priv->cond & G_IO_IN) == 0 &&
-      ! g_input_stream_has_pending (G_INPUT_STREAM (self->priv->buf_input_stream)) )
+      ! READ_PENDING (self))
     {
       evd_socket_close (self, NULL);
     }
@@ -1428,9 +1429,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
   if (condition & G_IO_HUP)
     {
       if (self->priv->read_src_id != 0 ||
-          (TLS_ENABLED (self) && TLS_READ_PENDING (self)) ||
           self->priv->cond & G_IO_IN ||
-          g_input_stream_has_pending (G_INPUT_STREAM (self->priv->buf_input_stream)))
+          READ_PENDING (self))
         {
           self->priv->delayed_close = TRUE;
 
