@@ -87,6 +87,7 @@ struct _EvdSocketPrivate
 
   gint read_src_id;
   gint write_src_id;
+  gint close_src_id;
 
   GIOCondition cond;
   GIOCondition watched_cond;
@@ -789,11 +790,13 @@ evd_socket_input_stream_drained (GInputStream *stream,
 
   if (self->priv->delayed_close)
     {
-      evd_timeout_add (self->priv->context,
-                       0,
-                       self->priv->actual_priority,
-                       evd_socket_close_in_idle,
-                       self);
+      if (self->priv->close_src_id == 0)
+        self->priv->close_src_id =
+          evd_timeout_add (self->priv->context,
+                           0,
+                           self->priv->actual_priority,
+                           evd_socket_close_in_idle,
+                           self);
     }
   else
     {
@@ -1573,6 +1576,12 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
     {
       g_source_remove (self->priv->write_src_id);
       self->priv->write_src_id = 0;
+    }
+
+  if (self->priv->close_src_id != 0)
+    {
+      g_source_remove (self->priv->close_src_id);
+      self->priv->close_src_id = 0;
     }
 
   g_mutex_lock (self->priv->mutex);
