@@ -2295,11 +2295,6 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
     evd_buffered_input_stream_new (
       G_INPUT_STREAM (self->priv->tls_input_stream));
 
-  g_signal_connect (TLS_INPUT_STREAM (self),
-                    "drained",
-                    G_CALLBACK (evd_socket_input_stream_drained),
-                    self);
-
   self->priv->tls_output_stream =
     evd_tls_output_stream_new (session,
                                G_OUTPUT_STREAM (self->priv->socket_output_stream));

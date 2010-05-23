@@ -37,15 +37,6 @@ struct _EvdTlsInputStreamPrivate
   EvdTlsSession *session;
 };
 
-/* signals */
-enum
-{
-  SIGNAL_DRAINED,
-  SIGNAL_LAST
-};
-
-static guint evd_tls_input_stream_signals[SIGNAL_LAST] = { 0 };
-
 /* properties */
 enum
 {
@@ -89,15 +80,6 @@ evd_tls_input_stream_class_init (EvdTlsInputStreamClass *class)
 
   input_stream_class = G_INPUT_STREAM_CLASS (class);
   input_stream_class->read_fn = evd_tls_input_stream_read;
-
-  evd_tls_input_stream_signals[SIGNAL_DRAINED] =
-    g_signal_new ("drained",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdTlsInputStreamClass, drained),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 
   g_object_class_install_property (obj_class, PROP_SESSION,
 				   g_param_spec_object ("session",
@@ -194,10 +176,6 @@ evd_tls_input_stream_pull (EvdTlsSession *session,
 
   if (result == 0)
     {
-      g_object_ref (self);
-      g_signal_emit (self, evd_tls_input_stream_signals[SIGNAL_DRAINED], 0, NULL);
-      g_object_unref (self);
-
       if (! g_input_stream_has_pending (G_INPUT_STREAM (self)) &&
           ! g_input_stream_set_pending (G_INPUT_STREAM (self), &error))
         {
@@ -284,13 +262,15 @@ evd_tls_input_stream_new (EvdTlsSession *session,
                        "base-stream", base_stream,
                        NULL);
 
-  evd_tls_session_set_transport_pull_func (session,
-                                           evd_tls_input_stream_pull,
-                                           self);
+  self->priv->session = session;
 
   g_object_weak_ref (G_OBJECT (session),
                      evd_tls_input_stream_session_destroy_notify,
                      self);
+
+  evd_tls_session_set_transport_pull_func (session,
+                                           evd_tls_input_stream_pull,
+                                           self);
 
   return self;
 }

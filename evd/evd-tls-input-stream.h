@@ -44,9 +44,6 @@ struct _EvdTlsInputStream
 struct _EvdTlsInputStreamClass
 {
   GFilterInputStreamClass parent_class;
-
-  /* signal prototypes */
-  void (* drained) (EvdTlsInputStream *self, gpointer user_data);
 };
 
 #define EVD_TYPE_TLS_INPUT_STREAM           (evd_tls_input_stream_get_type ())
