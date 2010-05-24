@@ -23,6 +23,12 @@
 #ifndef __EVD_ERROR_H__
 #define __EVD_ERROR_H__
 
+#define EVD_ERROR_DOMAIN_STR "org.eventdance.lib.Errors"
+#define EVD_ERROR            g_quark_from_string (EVD_ERROR_DOMAIN_STR)
+
+#define EVD_TLS_ERROR_DOMAIN_STR "org.eventdance.lib.TlsErrors"
+#define EVD_TLS_ERROR            g_quark_from_string (EVD_TLS_ERROR_DOMAIN_STR)
+
 typedef enum
 {
   EVD_ERROR_NONE,
@@ -39,7 +45,8 @@ typedef enum
   EVD_ERROR_BUFFER_FULL,
   EVD_ERROR_INVALID_ADDRESS,
   EVD_ERROR_RESOLVE_ADDRESS,
-  EVD_ERROR_NOT_READABLE
-} EvdError;
+  EVD_ERROR_NOT_READABLE,
+  EVD_ERROR_NOT_WRITABLE
+} EvdErrorEnum;
 
 #endif /* __EVD_ERROR_H__ */

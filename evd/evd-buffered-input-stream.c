@@ -26,8 +26,6 @@
 #include "evd-utils.h"
 #include "evd-buffered-input-stream.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.lib.buffered-input-stream"
-
 G_DEFINE_TYPE (EvdBufferedInputStream,
                evd_buffered_input_stream,
                G_TYPE_BUFFERED_INPUT_STREAM)
@@ -48,8 +46,6 @@ struct _EvdBufferedInputStreamPrivate
 
   guint read_src_id;
 };
-
-static GQuark evd_buffered_input_stream_err_domain;
 
 static void     evd_buffered_input_stream_class_init         (EvdBufferedInputStreamClass *class);
 static void     evd_buffered_input_stream_init               (EvdBufferedInputStream *self);
@@ -92,9 +88,6 @@ evd_buffered_input_stream_class_init (EvdBufferedInputStreamClass *class)
   input_stream_class->close_fn = evd_buffered_input_stream_close;
 
   g_type_class_add_private (obj_class, sizeof (EvdBufferedInputStreamPrivate));
-
-  evd_buffered_input_stream_err_domain =
-    g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void
@@ -311,7 +304,7 @@ evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
       g_buffered_input_stream_get_buffer_size (G_BUFFERED_INPUT_STREAM (self)))
     {
       if (error != NULL)
-        *error = g_error_new (evd_buffered_input_stream_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_BUFFER_FULL,
                               "Buffer is full");
 

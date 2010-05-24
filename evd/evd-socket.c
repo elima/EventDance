@@ -152,8 +152,6 @@ enum
   PROP_OUTPUT_STREAM
 };
 
-static GQuark evd_socket_err_domain;
-
 static void     evd_socket_class_init         (EvdSocketClass *class);
 static void     evd_socket_init               (EvdSocket *self);
 
@@ -357,8 +355,6 @@ evd_socket_class_init (EvdSocketClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
-
-  evd_socket_err_domain = g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void
@@ -732,7 +728,7 @@ evd_socket_check_address (EvdSocket       *self,
   else if (self->priv->family != g_socket_address_get_family (address))
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_INVALID_ADDRESS,
                               "Socket family and address family mismatch");
 
@@ -758,7 +754,7 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
 {
   if (self->priv->socket == NULL)
     {
-      *error = g_error_new (evd_socket_err_domain,
+      *error = g_error_new (EVD_ERROR,
                             EVD_ERROR_NOT_CONNECTED,
                             "Socket is not connected");
 
@@ -1067,7 +1063,7 @@ evd_socket_on_resolve (EvdResolver         *resolver,
         }
       else
         {
-          error = g_error_new (evd_socket_err_domain,
+          error = g_error_new (EVD_ERROR,
                                EVD_ERROR_INVALID_ADDRESS,
                                "None of the resolved addresses match socket family");
           evd_socket_throw_error (self, error);
@@ -1356,13 +1352,13 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
             {
               /* @TODO: assume connection was refused */
-              error = g_error_new (evd_socket_err_domain,
+              error = g_error_new (EVD_ERROR,
                                    EVD_ERROR_UNKNOWN,
                                    "Connection refused");
             }
           else
             {
-              error = g_error_new (evd_socket_err_domain,
+              error = g_error_new (EVD_ERROR,
                                    EVD_ERROR_UNKNOWN,
                                    "Unknown socket error");
             }
@@ -1869,7 +1865,7 @@ evd_socket_bind_addr (EvdSocket       *self,
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "Socket is currently active, should be closed first before requesting to bind");
 
@@ -1911,7 +1907,7 @@ evd_socket_bind (EvdSocket    *self,
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "Socket is currently active, should be closed first before requesting to bind");
 
@@ -1937,7 +1933,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
       (self->priv->status != EVD_SOCKET_STATE_BOUND || address != NULL) )
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "Socket is currently active, should be closed first before requesting to listen");
 
@@ -1998,7 +1994,7 @@ evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
     if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
       {
         if (error != NULL)
-          *error = g_error_new (evd_socket_err_domain,
+          *error = g_error_new (EVD_ERROR,
                                 EVD_ERROR_ALREADY_ACTIVE,
                                 "Socket is currently active, should be closed first before requesting to listen");
 
@@ -2040,7 +2036,7 @@ evd_socket_connect_addr (EvdSocket        *self,
        self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "Socket is currently active, should be closed first before requesting to connect");
 
@@ -2129,7 +2125,7 @@ evd_socket_connect_to (EvdSocket    *self,
        self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "Socket is currently active, should be closed first before requesting to connect");
 
@@ -2166,7 +2162,7 @@ evd_socket_read (EvdSocket  *self,
   if (self->priv->buf_input_stream == NULL)
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_READABLE,
                               "Socket is not readable");
 
@@ -2205,8 +2201,8 @@ evd_socket_write (EvdSocket    *self,
   if (self->priv->buf_output_stream == NULL)
     {
       g_set_error_literal (error,
-                           evd_socket_err_domain,
-                           EVD_ERROR_NOT_READABLE,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_WRITABLE,
                            "Socket is not writeable");
 
       return -1;
@@ -2250,7 +2246,7 @@ evd_socket_unread (EvdSocket    *self,
   if (self->priv->buf_input_stream == NULL)
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_READABLE,
                               "Socket is not readable");
 
@@ -2347,7 +2343,7 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
   if (self->priv->tls_enabled)
     {
       if (error != NULL)
-        *error = g_error_new (evd_socket_err_domain,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_ALREADY_ACTIVE,
                               "SSL/TLS was already started");
 

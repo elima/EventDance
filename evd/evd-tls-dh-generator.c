@@ -20,10 +20,9 @@
  *
  */
 
+#include "evd-error.h"
 #include "evd-tls-dh-generator.h"
 #include "evd-tls-common.h"
-
-#define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-dh-generator"
 
 G_DEFINE_TYPE (EvdTlsDhGenerator, evd_tls_dh_generator, G_TYPE_OBJECT)
 
@@ -48,8 +47,6 @@ struct _EvdTlsDhParamsSource
   EvdTlsDhGenerator  *parent;
 };
 
-static GQuark evd_tls_dh_generator_err_domain;
-
 static void     evd_tls_dh_generator_class_init         (EvdTlsDhGeneratorClass *class);
 static void     evd_tls_dh_generator_init               (EvdTlsDhGenerator *self);
 
@@ -68,9 +65,6 @@ evd_tls_dh_generator_class_init (EvdTlsDhGeneratorClass *class)
   obj_class->finalize = evd_tls_dh_generator_finalize;
 
   g_type_class_add_private (obj_class, sizeof (EvdTlsDhGeneratorPrivate));
-
-  evd_tls_dh_generator_err_domain =
-    g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void
@@ -161,7 +155,7 @@ evd_tls_dh_generator_setup_result_from_source (EvdTlsDhParamsSource  *source,
 
       evd_tls_build_error (err_code,
                            &error,
-                           evd_tls_dh_generator_err_domain);
+                           EVD_TLS_ERROR);
 
       g_simple_async_result_set_from_error (result, error);
       g_error_free (error);
@@ -197,7 +191,7 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
 
       evd_tls_build_error (err_code,
                            &error,
-                           evd_tls_dh_generator_err_domain);
+                           EVD_TLS_ERROR);
 
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);

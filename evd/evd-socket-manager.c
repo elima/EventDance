@@ -33,8 +33,6 @@
 #define DEFAULT_MAX_SOCKETS      1000 /* maximum number of sockets to poll */
 #define DEFAULT_MIN_LATENCY      1000 /* nanoseconds between dispatch calls */
 
-#define DOMAIN_QUARK_STRING "org.eventdance.socket.manager"
-
 G_DEFINE_TYPE (EvdSocketManager, evd_socket_manager, G_TYPE_OBJECT)
 
 #define EVD_SOCKET_MANAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -293,7 +291,7 @@ evd_socket_manager_add_socket (EvdSocket     *socket,
                                               socket))
     {
       if (error != NULL)
-        *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_EPOLL_ADD,
                               "Failed to add socket file descriptor to epoll set");
 
@@ -327,7 +325,7 @@ evd_socket_manager_del_socket (EvdSocket  *socket,
       if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
         {
           if (error != NULL)
-            *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+            *error = g_error_new (EVD_ERROR,
                                   EVD_ERROR_EPOLL_DEL,
                                   "Failed to remove socket file descriptor from epoll set");
           result = FALSE;
@@ -377,7 +375,7 @@ evd_socket_manager_mod_socket (EvdSocket     *socket,
       if (epoll_ctl (self->priv->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
         {
           if (error != NULL)
-            *error = g_error_new (g_quark_from_string (DOMAIN_QUARK_STRING),
+            *error = g_error_new (EVD_ERROR,
                                   EVD_ERROR_EPOLL_MOD,
                                   "Failed to modify socket conditions in epoll set");
           result = FALSE;

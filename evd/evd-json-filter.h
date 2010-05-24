@@ -30,8 +30,6 @@
 
 G_BEGIN_DECLS
 
-#define EVD_JSON_FILTER_DOMAIN_QUARK_STRING "org.eventdance.glib.filter.json"
-
 typedef struct _EvdJsonFilter EvdJsonFilter;
 typedef struct _EvdJsonFilterClass EvdJsonFilterClass;
 typedef struct _EvdJsonFilterPrivate EvdJsonFilterPrivate;

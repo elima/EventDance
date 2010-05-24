@@ -26,8 +26,6 @@
 #include "evd-utils.h"
 #include "evd-buffered-output-stream.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.lib.buffered-output-stream"
-
 G_DEFINE_TYPE (EvdBufferedOutputStream,
                evd_buffered_output_stream,
                G_TYPE_BUFFERED_OUTPUT_STREAM)
@@ -52,8 +50,6 @@ enum
   PROP_0,
   PROP_AUTO_FLUSH
 };
-
-static GQuark evd_buffered_output_stream_err_domain;
 
 static void     evd_buffered_output_stream_class_init         (EvdBufferedOutputStreamClass *class);
 static void     evd_buffered_output_stream_init               (EvdBufferedOutputStream *self);
@@ -103,9 +99,6 @@ evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
                                                          G_PARAM_STATIC_STRINGS));
 
   g_type_class_add_private (obj_class, sizeof (EvdBufferedOutputStreamPrivate));
-
-  evd_buffered_output_stream_err_domain =
-    g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void

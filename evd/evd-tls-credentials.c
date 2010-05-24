@@ -24,8 +24,6 @@
 #include "evd-tls-common.h"
 #include "evd-tls-credentials.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-credentials"
-
 G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
 
 #define EVD_TLS_CREDENTIALS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -71,8 +69,6 @@ enum
   PROP_KEY_FILE,
   PROP_TRUST_FILE
 };
-
-static GQuark evd_tls_credentials_err_domain;
 
 static void     evd_tls_credentials_class_init         (EvdTlsCredentialsClass *class);
 static void     evd_tls_credentials_init               (EvdTlsCredentials *self);
@@ -147,9 +143,6 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsCredentialsPrivate));
-
-  evd_tls_credentials_err_domain =
-    g_quark_from_static_string (DOMAIN_QUARK_STRING);
 }
 
 static void
@@ -302,7 +295,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, evd_tls_credentials_err_domain);
+          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
           return FALSE;
         }
 
@@ -335,7 +328,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, evd_tls_credentials_err_domain);
+          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
           return FALSE;
         }
 
@@ -347,11 +340,11 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
       if (error != NULL)
         {
           if (self->priv->cert_file == NULL)
-            *error = g_error_new (evd_tls_credentials_err_domain,
+            *error = g_error_new (EVD_TLS_ERROR,
                                   EVD_ERROR_INVALID_DATA,
                                   "Credentials' certificate not specified");
           else
-            *error = g_error_new (evd_tls_credentials_err_domain,
+            *error = g_error_new (EVD_TLS_ERROR,
                                   EVD_ERROR_INVALID_DATA,
                                   "Credentials' key not specified");
         }

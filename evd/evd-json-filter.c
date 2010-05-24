@@ -25,6 +25,7 @@
 
 #include <string.h>
 
+#include "evd-error.h"
 #include "evd-json-filter.h"
 #include "evd-marshal.h"
 
@@ -537,9 +538,8 @@ evd_json_filter_feed_len (EvdJsonFilter  *self,
         {
           if (error != NULL)
             {
-              *error = g_error_new (g_quark_from_static_string (
-                                          EVD_JSON_FILTER_DOMAIN_QUARK_STRING),
-                                    EVD_JSON_FILTER_ERROR_INVALID,
+              *error = g_error_new (EVD_ERROR,
+                                    EVD_ERROR_INVALID_DATA,
                                     "Malformed JSON sequence at offset %d", i);
             }
 
