@@ -38,6 +38,7 @@
 #include <evd-buffered-input-stream.h>
 #include <evd-buffered-output-stream.h>
 #include <evd-throttled-input-stream.h>
+#include <evd-throttled-output-stream.h>
 #include <evd-json-filter.h>
 #include <evd-json-socket.h>
 #include <evd-socket-group.h>

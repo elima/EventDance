@@ -42,6 +42,7 @@ source_c = \
 	evd-buffered-input-stream.c \
 	evd-buffered-output-stream.c \
 	evd-throttled-input-stream.c \
+	evd-throttled-output-stream.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
 	evd-socket-group.c \
@@ -69,6 +70,7 @@ source_h = \
 	evd-buffered-input-stream.h \
 	evd-buffered-output-stream.h \
 	evd-throttled-input-stream.h \
+	evd-throttled-output-stream.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
 	evd-socket-group.h \
