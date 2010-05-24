@@ -52,6 +52,7 @@
 #include "evd-buffered-input-stream.h"
 #include "evd-buffered-output-stream.h"
 #include "evd-throttled-input-stream.h"
+#include "evd-throttled-output-stream.h"
 
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
@@ -118,6 +119,7 @@ struct _EvdSocketPrivate
   EvdBufferedInputStream *buf_input_stream;
   EvdBufferedOutputStream *buf_output_stream;
   EvdThrottledInputStream *throt_input_stream;
+  EvdThrottledOutputStream *throt_output_stream;
 };
 
 /* signals */
@@ -173,6 +175,7 @@ static gboolean evd_socket_cleanup_internal   (EvdSocket  *self,
                                                GError    **error);
 
 static gboolean evd_socket_read_wait_timeout  (gpointer user_data);
+static gboolean evd_socket_write_wait_timeout (gpointer user_data);
 
 static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
 
@@ -408,6 +411,7 @@ evd_socket_init (EvdSocket *self)
   priv->tls_input_stream = NULL;
   priv->buf_input_stream = NULL;
   priv->throt_input_stream = NULL;
+  priv->throt_output_stream = NULL;
 }
 
 static void
@@ -843,6 +847,22 @@ evd_socket_delay_read (EvdThrottledInputStream *stream,
 }
 
 static void
+evd_socket_delay_write (EvdThrottledOutputStream *stream,
+                        guint                     wait,
+                        gpointer                  user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  if (self->priv->write_src_id == 0)
+    self->priv->write_src_id =
+      evd_timeout_add (self->priv->context,
+                       wait,
+                       self->priv->actual_priority,
+                       evd_socket_write_wait_timeout,
+                       self);
+}
+
+static void
 evd_socket_setup_streams (EvdSocket *self)
 {
   if (self->priv->socket_input_stream == NULL)
@@ -893,6 +913,32 @@ evd_socket_setup_streams (EvdSocket *self)
                         self);
     }
 
+  if (self->priv->throt_output_stream == NULL)
+    {
+      self->priv->throt_output_stream =
+        evd_throttled_output_stream_new (
+                              G_OUTPUT_STREAM (self->priv->socket_output_stream));
+
+      evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
+                   evd_socket_base_get_output_throttle (EVD_SOCKET_BASE (self)));
+
+      if (self->priv->group != NULL)
+        {
+          EvdStreamThrottle *throttle;
+
+          throttle =
+            evd_socket_base_get_output_throttle (EVD_SOCKET_BASE (self->priv->group));
+
+          evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
+                                                    throttle);
+        }
+
+      g_signal_connect (self->priv->throt_output_stream,
+                        "delay-write",
+                        G_CALLBACK (evd_socket_delay_write),
+                        self);
+    }
+
   if (self->priv->buf_input_stream == NULL)
     {
       self->priv->buf_input_stream =
@@ -926,6 +972,21 @@ evd_socket_read_wait_timeout (gpointer user_data)
     {
       evd_socket_close (self, NULL);
     }
+
+  return FALSE;
+}
+
+static gboolean
+evd_socket_write_wait_timeout (gpointer user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  if (self->priv->status == EVD_SOCKET_STATE_CLOSED)
+    return FALSE;
+
+  self->priv->write_src_id = 0;
+
+  evd_socket_manage_write_condition (self);
 
   return FALSE;
 }
@@ -1077,9 +1138,12 @@ evd_socket_manage_write_condition (EvdSocket *self)
 {
   if (self->priv->status == EVD_SOCKET_STATE_TLS_HANDSHAKING)
     evd_socket_tls_handshake (self);
-  else
-    if (self->priv->write_src_id == 0)
-      evd_socket_invoke_on_write_internal (self);
+  else if (self->priv->write_src_id == 0)
+    evd_socket_invoke_on_write_internal (self);
+
+  if (self->priv->tls_output_stream != NULL)
+    evd_tls_output_stream_notify_write (self->priv->tls_output_stream,
+                                        self->priv->actual_priority);
 }
 
 static void
@@ -2306,7 +2370,7 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
 
   self->priv->tls_output_stream =
     evd_tls_output_stream_new (session,
-                               G_OUTPUT_STREAM (self->priv->socket_output_stream));
+                               G_OUTPUT_STREAM (self->priv->throt_output_stream));
 
   g_filter_output_stream_set_close_base_stream (
     G_FILTER_OUTPUT_STREAM (self->priv->buf_output_stream), FALSE);
