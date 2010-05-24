@@ -159,40 +159,34 @@ evd_tls_input_stream_get_property (GObject    *obj,
 }
 
 static gssize
-evd_tls_input_stream_pull (EvdTlsSession *session,
-                           gchar         *buffer,
-                           gsize          size,
-                           gpointer       user_data)
+evd_tls_input_stream_pull (EvdTlsSession  *session,
+                           gchar          *buffer,
+                           gsize           size,
+                           gpointer        user_data,
+                           GError        **error)
 {
   EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (user_data);
-  GError *error = NULL;
   gssize result = GNUTLS_E_AGAIN;
   GInputStream *base_stream;
 
   base_stream =
     g_filter_input_stream_get_base_stream (G_FILTER_INPUT_STREAM (self));
 
-  result = g_input_stream_read (base_stream, buffer, size, NULL, &error);
+  result = g_input_stream_read (base_stream, buffer, size, NULL, error);
 
-  if (result == 0)
+  if (result >= 0)
     {
-      if (! g_input_stream_has_pending (G_INPUT_STREAM (self)) &&
-          ! g_input_stream_set_pending (G_INPUT_STREAM (self), &error))
+      if (result < size)
         {
-          /* @TODO: report this error through EvdSocket, somehow */
-          g_debug ("EvdTlsInputStream pull func error: %s", error->message);
+          if (! g_input_stream_has_pending (G_INPUT_STREAM (self)) &&
+              ! g_input_stream_set_pending (G_INPUT_STREAM (self), error))
+            {
+              result = -1;
+            }
         }
-
-      result = GNUTLS_E_AGAIN;
-    }
-  else
-    {
-      g_input_stream_clear_pending (G_INPUT_STREAM (self));
-
-      if (result < 0)
+      else
         {
-          /* @TODO: report this error through EvdSocket, somehow */
-          g_debug ("EvdTlsInputStream pull func error: %s", error->message);
+          g_input_stream_clear_pending (G_INPUT_STREAM (self));
         }
     }
 
