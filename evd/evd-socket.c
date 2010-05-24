@@ -2278,9 +2278,12 @@ evd_socket_get_max_writable (EvdSocket *self)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
-  /* @TODO: reimplement this when EvdThrottleOutputStream is ready */
-
-  return 0;
+  if (self->priv->throt_output_stream == NULL)
+    return 0;
+  else
+    return
+      evd_throttled_output_stream_get_max_writable (self->priv->throt_output_stream,
+                                                    NULL);
 }
 
 gboolean
