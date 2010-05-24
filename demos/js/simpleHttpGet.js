@@ -1,5 +1,5 @@
 /*
- * echoServerTls.js
+ * simpleHttpGet.js
  *
  * EventDance project - An event distribution framework <http://eventdance.org>
  *
@@ -26,6 +26,10 @@ Evd.tls_init ();
 // create socket
 let socket = new Evd.Socket ();
 socket.input_throttle.bandwidth = 0.0;
+socket.input_throttle.latency = 0.0;
+
+socket.output_throttle.bandwidth = 0.0;
+socket.output_throttle.latency = 0.0;
 
 socket.connect ("close",
     function (socket) {
