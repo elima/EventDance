@@ -59,6 +59,9 @@ GType              evd_tls_output_stream_get_type                     (void) G_G
 EvdTlsOutputStream *evd_tls_output_stream_new                         (EvdTlsSession *session,
                                                                        GOutputStream *base_stream);
 
+void                evd_tls_output_stream_notify_write                (EvdTlsOutputStream *self,
+                                                                       gint                priority);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_OUTPUT_STREAM_H__ */
