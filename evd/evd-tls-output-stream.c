@@ -36,15 +36,6 @@ struct _EvdTlsOutputStreamPrivate
   EvdTlsSession *session;
 };
 
-/* signals */
-enum
-{
-  SIGNAL_FILLED,
-  SIGNAL_LAST
-};
-
-static guint evd_tls_output_stream_signals[SIGNAL_LAST] = { 0 };
-
 /* properties */
 enum
 {
@@ -78,22 +69,14 @@ evd_tls_output_stream_class_init (EvdTlsOutputStreamClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
+  obj_class->finalize = evd_tls_output_stream_finalize;
   obj_class->get_property = evd_tls_output_stream_get_property;
   obj_class->set_property = evd_tls_output_stream_set_property;
 
   output_stream_class = G_OUTPUT_STREAM_CLASS (class);
   output_stream_class->write_fn = evd_tls_output_stream_write;
 
-  evd_tls_output_stream_signals[SIGNAL_FILLED] =
-    g_signal_new ("filled",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdTlsOutputStreamClass, filled),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-
-  g_object_class_install_property (obj_class, PROP_SESSION,
+   g_object_class_install_property (obj_class, PROP_SESSION,
 				   g_param_spec_object ("session",
 							"The TLS session",
 							"The TLS session associated with this stream",

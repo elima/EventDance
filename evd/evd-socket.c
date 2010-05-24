@@ -2316,11 +2316,6 @@ evd_socket_starttls (EvdSocket *self, EvdTlsMode mode, GError **error)
     evd_buffered_output_stream_new (
       G_OUTPUT_STREAM (self->priv->tls_output_stream));
 
-  g_signal_connect (TLS_OUTPUT_STREAM (self),
-                    "filled",
-                    G_CALLBACK (evd_socket_output_stream_filled),
-                    self);
-
   evd_socket_set_status (self, EVD_SOCKET_STATE_TLS_HANDSHAKING);
 
   return TRUE;
