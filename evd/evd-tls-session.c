@@ -62,6 +62,8 @@ struct _EvdTlsSessionPrivate
   gboolean cred_bound;
 
   gboolean require_peer_cert;
+
+  gboolean write_shutdown;
 };
 
 
@@ -166,6 +168,8 @@ evd_tls_session_init (EvdTlsSession *self)
   priv->cred_bound = FALSE;
 
   priv->require_peer_cert = FALSE;
+
+  priv->write_shutdown = FALSE;
 }
 
 static void
@@ -273,16 +277,24 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
 {
   EvdTlsSession *self = EVD_TLS_SESSION (ptr);
   gssize res;
+  GError *error = NULL;
 
   res = self->priv->push_func (self,
                                buf,
                                size,
-                               self->priv->push_user_data);
+                               self->priv->push_user_data,
+                               &error);
 
-  if (res == GNUTLS_E_AGAIN)
-    gnutls_transport_set_errno (self->priv->session, EAGAIN);
-  else if (res == GNUTLS_E_INTERRUPTED)
-    gnutls_transport_set_errno (self->priv->session, EINTR);
+  //  g_debug ("TLS pushed %d out of %d", res, size);
+
+  if (res < 0)
+    {
+      if (! self->priv->write_shutdown || error->code != G_IO_ERROR_CLOSED)
+        {
+          /* @TODO: Handle transport error */
+          g_debug ("TLS session transport error during push: %s", error->message);
+        }
+    }
 
   return res;
 }
@@ -294,16 +306,26 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
 {
   EvdTlsSession *self = EVD_TLS_SESSION (ptr);
   gssize res;
+  GError *error = NULL;
 
   res = self->priv->pull_func (self,
                                buf,
                                size,
-                               self->priv->pull_user_data);
+                               self->priv->pull_user_data,
+                               &error);
 
-  if (res == GNUTLS_E_AGAIN)
-    gnutls_transport_set_errno (self->priv->session, EAGAIN);
-  else if (res == GNUTLS_E_INTERRUPTED)
-    gnutls_transport_set_errno (self->priv->session, EINTR);
+  //  g_debug ("TLS pulled %d out of %d", res, size);
+
+  if (res < 0)
+    {
+      /* @TODO: handle transport error */
+      g_debug ("TLS transport error during pull: %s", error->message);
+    }
+  else if (res == 0)
+    {
+      gnutls_transport_set_errno (self->priv->session, EAGAIN);
+      res = -1;
+    }
 
   return res;
 }
@@ -402,6 +424,8 @@ evd_tls_session_shutdown (EvdTlsSession           *self,
           evd_tls_build_error (err_code, error, self->priv->err_domain);
           return FALSE;
         }
+
+      self->priv->write_shutdown = TRUE;
     }
 
   return TRUE;

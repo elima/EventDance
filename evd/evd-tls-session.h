@@ -39,14 +39,16 @@ typedef struct _EvdTlsSession EvdTlsSession;
 typedef struct _EvdTlsSessionClass EvdTlsSessionClass;
 typedef struct _EvdTlsSessionPrivate EvdTlsSessionPrivate;
 
-typedef gssize (* EvdTlsSessionPullFunc) (EvdTlsSession *self,
-                                          gchar         *buf,
-                                          gsize          size,
-                                          gpointer       user_data);
-typedef gssize (* EvdTlsSessionPushFunc) (EvdTlsSession *self,
-                                          const gchar   *buf,
-                                          gsize          size,
-                                          gpointer       user_data);
+typedef gssize (* EvdTlsSessionPullFunc) (EvdTlsSession  *self,
+                                          gchar          *buf,
+                                          gsize           size,
+                                          gpointer        user_data,
+                                          GError        **error);
+typedef gssize (* EvdTlsSessionPushFunc) (EvdTlsSession  *self,
+                                          const gchar    *buf,
+                                          gsize           size,
+                                          gpointer        user_data,
+                                          GError        **error);
 
 struct _EvdTlsSession
 {
