@@ -26,26 +26,12 @@
 #include <glib.h>
 #include <evd.h>
 
-#define RUNS                  1
+#define THREADS               25
+#define SOCKETS_PER_THREAD     5
 
-#define THREADS               10
-#define SOCKETS_PER_THREAD    10
-
-#define DATA_SIZE         65535
-#define BLOCK_SIZE        32752
+#define DATA_SIZE          65535
+#define BLOCK_SIZE         32752
 #define TOTAL_DATA_SIZE    DATA_SIZE * THREADS * SOCKETS_PER_THREAD
-
-#define SOCKET_BANDWIDTH_IN     0.0
-#define SOCKET_BANDWIDTH_OUT    0.0
-
-#define SOCKET_LATENCY_IN       0.0
-#define SOCKET_LATENCY_OUT      0.0
-
-#define GROUP_BANDWIDTH_IN      0.0
-#define GROUP_BANDWIDTH_OUT     0.0
-
-#define GROUP_LATENCY_IN        0.0
-#define GROUP_LATENCY_OUT       0.0
 
 #define INET_PORT 5555
 
@@ -74,15 +60,6 @@ client_on_state_changed (EvdSocket      *socket,
 {
   g_assert (EVD_IS_SOCKET (socket));
   g_assert_cmpint (new_state, !=, old_state);
-
-  if (new_state == EVD_SOCKET_STATE_CONNECTED)
-    {
-      g_object_set (socket,
-                    "bandwidth-in", SOCKET_BANDWIDTH_IN,
-                    "latency-in", SOCKET_LATENCY_IN,
-                    "auto_write", FALSE,
-                    NULL);
-    }
 }
 
 static void
@@ -140,10 +117,7 @@ server_on_new_connection (EvdSocket *self,
 		    NULL);
 
   g_object_set (client,
-		"bandwidth-out", SOCKET_BANDWIDTH_OUT,
-		"latency-out", SOCKET_LATENCY_OUT,
 		"group", group_senders,
-                "auto_write", FALSE,
 		NULL);
 
   g_object_ref_sink (client);
@@ -160,10 +134,10 @@ socket_do_read (gpointer user_data)
   if (evd_socket_get_status (socket) != EVD_SOCKET_STATE_CONNECTED)
     return FALSE;
 
-  size = evd_socket_read_len (socket,
-                              buf,
-                              BLOCK_SIZE,
-                              &error);
+  size = evd_socket_read (socket,
+                          buf,
+                          BLOCK_SIZE,
+                          &error);
   g_assert_no_error (error);
   g_assert_cmpint (size, >=, 0);
 
@@ -177,8 +151,7 @@ socket_do_read (gpointer user_data)
       g_assert_no_error (error);
       g_assert_cmpint (evd_socket_get_status (socket),
                        ==,
-                       EVD_SOCKET_STATE_CLOSED);
-      g_object_unref (socket);
+                       EVD_SOCKET_STATE_CLOSING);
     }
 
   if (size == BLOCK_SIZE)
@@ -201,6 +174,7 @@ group_socket_on_read (EvdSocketGroup *self,
 
   evd_timeout_add (g_main_context_get_thread_default (),
                    0,
+                   G_PRIORITY_DEFAULT,
                    socket_do_read,
                    socket);
 }
@@ -211,7 +185,6 @@ group_socket_on_write (EvdSocketGroup *self,
                        gpointer        user_data)
 {
   gulong total_sent;
-  GError *error = NULL;
 
   g_assert (EVD_IS_SOCKET_GROUP (self));
   g_assert (self == group_senders);
@@ -220,7 +193,8 @@ group_socket_on_write (EvdSocketGroup *self,
   total_sent = evd_socket_base_get_total_written (EVD_SOCKET_BASE (socket));
   if (total_sent < DATA_SIZE)
     {
-      g_assert_cmpint (evd_socket_write_len (socket,
+      GError *error = NULL;
+      g_assert_cmpint (evd_socket_write (socket,
                                     (gchar *) (((guintptr) data) + total_sent),
                                     DATA_SIZE - total_sent,
                                     &error),
@@ -364,16 +338,6 @@ test_socket_context ()
   evd_socket_base_set_write_handler (EVD_SOCKET_BASE (group_senders),
                                      G_CALLBACK (group_socket_on_write),
                                      NULL);
-
-  g_object_set (group_senders,
-		"bandwidth-out", GROUP_BANDWIDTH_OUT,
-                "latency-out", GROUP_LATENCY_OUT,
-		NULL);
-
-  g_object_set (group_receivers,
-		"bandwidth-in", GROUP_BANDWIDTH_IN,
-                "latency-in", GROUP_LATENCY_IN,
-		NULL);
 
   /* fill data with random bytes */
   for (i=0; i<DATA_SIZE; i++)
