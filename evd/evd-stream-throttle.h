@@ -63,6 +63,8 @@ void               evd_stream_throttle_report               (EvdStreamThrottle *
 
 gfloat             evd_stream_throttle_get_actual_bandwidth (EvdStreamThrottle *self);
 
+guint64            evd_stream_throttle_get_total            (EvdStreamThrottle *self);
+
 G_END_DECLS
 
 #endif /* __EVD_STREAM_THROTTLE_H__ */

@@ -39,6 +39,7 @@ struct _EvdStreamThrottlePrivate
 
   GTimeVal current_time;
   gsize    bytes;
+  guint64  total;
   GTimeVal last;
 };
 
@@ -48,6 +49,7 @@ enum
   PROP_0,
   PROP_BANDWIDTH,
   PROP_LATENCY,
+  PROP_TOTAL
 };
 
 G_LOCK_DEFINE_STATIC (counters);
@@ -94,6 +96,16 @@ evd_stream_throttle_class_init (EvdStreamThrottleClass *class)
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_TOTAL,
+                                   g_param_spec_uint64 ("total",
+                                                        "Total transferred",
+                                                        "Total sum of bytes ever reported to this stream-throttle",
+                                                        0,
+                                                        G_MAXUINT64,
+                                                        0,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   g_type_class_add_private (obj_class, sizeof (EvdStreamThrottlePrivate));
 }
 
@@ -112,6 +124,7 @@ evd_stream_throttle_init (EvdStreamThrottle *self)
   priv->current_time.tv_usec = 0;
 
   priv->bytes = 0;
+  priv->total = 0;
 }
 
 static void
@@ -162,6 +175,10 @@ evd_stream_throttle_get_property (GObject    *obj,
       /* Latency values are stored in microseconds internally */
     case PROP_LATENCY:
       g_value_set_float (value, self->priv->latency / 1000.0);
+      break;
+
+    case PROP_TOTAL:
+      g_value_set_uint64 (value, evd_stream_throttle_get_total (self));
       break;
 
     default:
@@ -291,6 +308,7 @@ evd_stream_throttle_report (EvdStreamThrottle *self, gsize size)
   G_LOCK (counters);
 
   self->priv->bytes += size;
+  self->priv->total += size;
 
   g_memmove (&self->priv->last,
              &self->priv->current_time,
@@ -305,4 +323,12 @@ evd_stream_throttle_get_actual_bandwidth (EvdStreamThrottle *self)
   g_return_val_if_fail (EVD_IS_STREAM_THROTTLE (self), -1.0);
 
   return self->priv->bytes / 1024.0;
+}
+
+guint64
+evd_stream_throttle_get_total (EvdStreamThrottle *self)
+{
+  g_return_val_if_fail (EVD_IS_STREAM_THROTTLE (self), 0);
+
+  return self->priv->total;
 }
