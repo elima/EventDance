@@ -110,8 +110,8 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
                                             &error));
 
       g_assert_error (error,
-                      g_quark_from_static_string (EVD_JSON_FILTER_DOMAIN_QUARK_STRING),
-                      EVD_JSON_FILTER_ERROR_INVALID);
+                      EVD_ERROR,
+                      EVD_ERROR_INVALID_DATA);
     }
 
   error = NULL;

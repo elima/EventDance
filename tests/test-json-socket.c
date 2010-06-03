@@ -23,6 +23,8 @@
  * 02110-1301 USA
  */
 
+#include <string.h>
+
 #include <evd.h>
 #include <evd-socket-manager.h>
 
@@ -178,6 +180,7 @@ evd_json_socket_test_on_write (EvdSocket *self, gpointer user_data)
     {
       evd_socket_write (EVD_SOCKET (self),
                         evd_json_socket_chunks[i],
+                        strlen (evd_json_socket_chunks[i]),
                         &error);
       g_assert_no_error (error);
     }
