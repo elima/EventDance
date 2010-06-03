@@ -476,3 +476,21 @@ evd_socket_base_get_output_throttle (EvdSocketBase *self)
 
   return self->priv->output_throttle;
 }
+
+guint64
+evd_socket_base_get_total_read (EvdSocketBase *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), 0);
+
+  return
+    evd_stream_throttle_get_total (evd_socket_base_get_input_throttle (self));
+}
+
+guint64
+evd_socket_base_get_total_written (EvdSocketBase *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_BASE (self), 0);
+
+  return
+    evd_stream_throttle_get_total (evd_socket_base_get_output_throttle (self));
+}
