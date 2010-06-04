@@ -320,7 +320,7 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
         else
           {
             if (error != NULL)
-              *error = g_error_new (EVD_TLS_ERROR,
+              *error = g_error_new (EVD_ERROR,
                                     EVD_ERROR_INVALID_DATA,
                                     "Unable to detect certificate type when trying to import");
           }
@@ -389,7 +389,7 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_TLS_ERROR,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting 'dn'");
 
@@ -413,7 +413,7 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
       {
         time = gnutls_x509_crt_get_expiration_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_TLS_ERROR,
+          *error = g_error_new (EVD_ERROR,
                                 EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain expiration time from X.509 certificate");
 
@@ -424,7 +424,7 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
       {
         time = gnutls_openpgp_crt_get_expiration_time (self->priv->openpgp_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_TLS_ERROR,
+          *error = g_error_new (EVD_ERROR,
                                 EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain expiration time from OpenPGP certificate");
 
@@ -433,7 +433,7 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_TLS_ERROR,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting expiration time");
 
@@ -457,7 +457,7 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
       {
         time = gnutls_x509_crt_get_activation_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_TLS_ERROR,
+          *error = g_error_new (EVD_ERROR,
                                 EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from X.509 certificate");
 
@@ -468,7 +468,7 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
       {
         time = gnutls_openpgp_crt_get_creation_time (self->priv->openpgp_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_TLS_ERROR,
+          *error = g_error_new (EVD_ERROR,
                                 EVD_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from OpenPGP certificate");
 
@@ -477,7 +477,7 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_TLS_ERROR,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting activation time");
 

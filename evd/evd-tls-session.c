@@ -354,7 +354,7 @@ evd_tls_session_bind_credentials (EvdTlsSession      *self,
   if (cred_internal == NULL)
     {
       g_set_error_literal (error,
-                           EVD_TLS_ERROR,
+                           EVD_ERROR,
                            EVD_ERROR_NOT_INITIALIZED,
                            "TLS credentials not initialized");
 
@@ -763,7 +763,7 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
   if (self->priv->session == NULL)
     {
       if (error != NULL)
-        *error = g_error_new (EVD_TLS_ERROR,
+        *error = g_error_new (EVD_ERROR,
                               EVD_ERROR_NOT_INITIALIZED,
                               "SSL/TLS session not yet initialized");
 

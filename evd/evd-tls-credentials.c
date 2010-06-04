@@ -340,11 +340,11 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
       if (error != NULL)
         {
           if (self->priv->cert_file == NULL)
-            *error = g_error_new (EVD_TLS_ERROR,
+            *error = g_error_new (EVD_ERROR,
                                   EVD_ERROR_INVALID_DATA,
                                   "Credentials' certificate not specified");
           else
-            *error = g_error_new (EVD_TLS_ERROR,
+            *error = g_error_new (EVD_ERROR,
                                   EVD_ERROR_INVALID_DATA,
                                   "Credentials' key not specified");
         }
