@@ -30,8 +30,6 @@
 #include "evd-tls-session.h"
 #include "evd-tls-certificate.h"
 
-#define DOMAIN_QUARK_STRING "org.eventdance.lib.tls-session"
-
 #define EVD_TLS_SESSION_DEFAULT_PRIORITY "NORMAL"
 
 G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
@@ -43,8 +41,6 @@ G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
 /* private data */
 struct _EvdTlsSessionPrivate
 {
-  GQuark err_domain;
-
   gnutls_session_t session;
   EvdTlsCredentials *cred;
 
@@ -148,8 +144,6 @@ evd_tls_session_init (EvdTlsSession *self)
 
   priv = EVD_TLS_SESSION_GET_PRIVATE (self);
   self->priv = priv;
-
-  priv->err_domain = g_quark_from_static_string (DOMAIN_QUARK_STRING);
 
   priv->session = NULL;
   priv->cred = NULL;
@@ -341,7 +335,7 @@ evd_tls_session_handshake_internal (EvdTlsSession  *self,
     return TRUE;
   else
     if (gnutls_error_is_fatal (err_code) == 1)
-      evd_tls_build_error (err_code, error, self->priv->err_domain);
+      evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
 
   return FALSE;
 }
@@ -421,7 +415,7 @@ evd_tls_session_shutdown (EvdTlsSession           *self,
       err_code = gnutls_bye (self->priv->session, how);
       if (err_code < 0 && gnutls_error_is_fatal (err_code) != 0)
         {
-          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
           return FALSE;
         }
 
@@ -524,7 +518,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
       err_code = gnutls_init (&self->priv->session, self->priv->mode);
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
           return FALSE;
         }
       else
@@ -535,7 +529,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
 
           if (err_code != GNUTLS_E_SUCCESS)
             {
-              evd_tls_build_error (err_code, error, self->priv->err_domain);
+              evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
               return FALSE;
             }
 
@@ -604,7 +598,7 @@ evd_tls_session_read (EvdTlsSession  *self,
     {
       if (gnutls_error_is_fatal (result) != 0)
         {
-          evd_tls_build_error (result, error, self->priv->err_domain);
+          evd_tls_build_error (result, error, EVD_TLS_ERROR);
           result = -1;
         }
       else
@@ -636,7 +630,7 @@ evd_tls_session_write (EvdTlsSession  *self,
     {
       if (gnutls_error_is_fatal (result) != 0)
         {
-          evd_tls_build_error (result, error, self->priv->err_domain);
+          evd_tls_build_error (result, error, EVD_TLS_ERROR);
           result = -1;
         }
       else
@@ -753,7 +747,7 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
   if (self->priv->session == NULL)
     {
       if (error != NULL)
-        *error = g_error_new (self->priv->err_domain,
+        *error = g_error_new (EVD_TLS_ERROR,
                               EVD_ERROR_NOT_INITIALIZED,
                               "SSL/TLS session not yet initialized");
 
@@ -766,7 +760,7 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
     {
       if (err_code != GNUTLS_E_NO_CERTIFICATE_FOUND)
         {
-          evd_tls_build_error (err_code, error, self->priv->err_domain);
+          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
 
           return -1;
         }
