@@ -154,8 +154,7 @@ evd_tls_dh_generator_setup_result_from_source (EvdTlsDhParamsSource  *source,
       GError *error = NULL;
 
       evd_tls_build_error (err_code,
-                           &error,
-                           EVD_TLS_ERROR);
+                           &error);
 
       g_simple_async_result_set_from_error (result, error);
       g_error_free (error);
@@ -190,8 +189,7 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
       GError *error = NULL;
 
       evd_tls_build_error (err_code,
-                           &error,
-                           EVD_TLS_ERROR);
+                           &error);
 
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);

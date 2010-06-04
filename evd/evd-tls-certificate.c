@@ -226,7 +226,7 @@ evd_tls_certificate_import_x509 (EvdTlsCertificate      *self,
     }
   else
     {
-      evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
+      evd_tls_build_error (err_code, error);
     }
 
   return FALSE;
@@ -300,7 +300,7 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
           }
         else
           {
-            evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
+            evd_tls_build_error (err_code, error);
           }
 
         break;
@@ -357,7 +357,7 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
           }
         else
           {
-            evd_tls_build_error (ret, error, EVD_TLS_ERROR);
+            evd_tls_build_error (ret, error);
           }
 
         break;
@@ -381,7 +381,7 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
           }
         else
           {
-            evd_tls_build_error (ret, error, EVD_TLS_ERROR);
+            evd_tls_build_error (ret, error);
           }
 
         break;

@@ -295,7 +295,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
+          evd_tls_build_error (err_code, error);
           return FALSE;
         }
 
@@ -328,7 +328,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
+          evd_tls_build_error (err_code, error);
           return FALSE;
         }
 

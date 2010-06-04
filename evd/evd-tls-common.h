@@ -56,8 +56,7 @@ gboolean evd_tls_init              (GError **error);
 void     evd_tls_deinit            (void);
 
 void     evd_tls_build_error       (gint     error_code,
-                                    GError **error,
-                                    GQuark   domain);
+                                    GError **error);
 
 void     evd_tls_free_certificates (GList *certificates);
 

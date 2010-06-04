@@ -67,8 +67,7 @@ evd_tls_init (GError **error)
       else
         {
           evd_tls_build_error (err_code,
-                               error,
-                               EVD_TLS_ERROR);
+                               error);
 
           result = FALSE;
         }
@@ -102,15 +101,12 @@ evd_tls_deinit (void)
 
 void
 evd_tls_build_error (gint     error_code,
-                     GError **error,
-                     GQuark   domain)
+                     GError **error)
 {
-  if (error != NULL)
-    {
-      *error = g_error_new (domain,
-                            error_code,
-                            gnutls_strerror (error_code));
-    }
+  g_set_error_literal (error,
+                       EVD_TLS_ERROR,
+                       error_code,
+                       gnutls_strerror (error_code));
 }
 
 void
