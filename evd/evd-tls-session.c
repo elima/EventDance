@@ -53,7 +53,7 @@ struct _EvdTlsSessionPrivate
 
   gchar *priority;
 
-  gint cred_ready_sig_id;
+  gulong cred_ready_sig_id;
 
   gboolean cred_bound;
 
@@ -810,4 +810,25 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
     }
 
   return result;
+}
+
+void
+evd_tls_session_reset (EvdTlsSession *self)
+{
+  g_return_if_fail (EVD_IS_TLS_SESSION (self));
+
+  if (self->priv->session != NULL)
+    {
+      if (self->priv->cred_ready_sig_id != 0)
+        {
+          g_signal_handler_disconnect (self->priv->cred,
+                                       self->priv->cred_ready_sig_id);
+          self->priv->cred_ready_sig_id = 0;
+        }
+
+      self->priv->cred_bound = FALSE;
+
+      gnutls_deinit (self->priv->session);
+      self->priv->session = NULL;
+    }
 }

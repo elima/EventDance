@@ -114,6 +114,8 @@ gint               evd_tls_session_verify_peer             (EvdTlsSession  *self
                                                             guint           flags,
                                                             GError        **error);
 
+void               evd_tls_session_reset                   (EvdTlsSession *self);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_SESSION_H__ */
