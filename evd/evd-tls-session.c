@@ -346,37 +346,53 @@ evd_tls_session_bind_credentials (EvdTlsSession      *self,
                                   GError            **error)
 {
   gpointer cred_internal;
+  gint err_code;
 
   /* set credentials */
   cred_internal = evd_tls_credentials_get_credentials (cred);
 
   if (cred_internal == NULL)
     {
-      /* TODO: return error, credentials not prepared */
+      g_set_error_literal (error,
+                           EVD_TLS_ERROR,
+                           EVD_ERROR_NOT_INITIALIZED,
+                           "TLS credentials not initialized");
 
       return FALSE;
     }
   else if (evd_tls_credentials_get_anonymous (cred))
     {
       if (self->priv->mode == EVD_TLS_MODE_SERVER)
-        gnutls_credentials_set (self->priv->session,
-                              GNUTLS_CRD_ANON,
-                              (gnutls_anon_server_credentials_t) cred_internal);
+        err_code =
+          gnutls_credentials_set (self->priv->session,
+                                  GNUTLS_CRD_ANON,
+                                  (gnutls_anon_server_credentials_t) cred_internal);
       else
-        gnutls_credentials_set (self->priv->session,
-                              GNUTLS_CRD_ANON,
-                              (gnutls_anon_client_credentials_t) cred_internal);
+        err_code =
+          gnutls_credentials_set (self->priv->session,
+                                  GNUTLS_CRD_ANON,
+                                  (gnutls_anon_client_credentials_t) cred_internal);
     }
   else
     {
-      gnutls_credentials_set (self->priv->session,
-                              GNUTLS_CRD_CERTIFICATE,
-                              (gnutls_certificate_credentials_t) cred_internal);
+      err_code =
+        gnutls_credentials_set (self->priv->session,
+                                GNUTLS_CRD_CERTIFICATE,
+                                (gnutls_certificate_credentials_t) cred_internal);
     }
 
-  self->priv->cred_bound = TRUE;
+  if (err_code != GNUTLS_E_SUCCESS)
+    {
+      evd_tls_build_error (err_code, error, EVD_TLS_ERROR);
 
-  return TRUE;
+      return FALSE;
+    }
+  else
+    {
+      self->priv->cred_bound = TRUE;
+
+      return TRUE;
+    }
 }
 
 static void
