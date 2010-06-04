@@ -1668,9 +1668,7 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
     }
 
   if (self->priv->tls_session != NULL)
-    {
-      /* @TODO: reset TLS session */
-    }
+    evd_tls_session_reset (self->priv->tls_session);
 
   if (self->priv->socket != NULL)
     {
