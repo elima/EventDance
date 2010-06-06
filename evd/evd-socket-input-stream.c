@@ -20,8 +20,7 @@
  *
  */
 
-#include <evd-socket.h>
-
+#include "evd-error.h"
 #include "evd-socket-input-stream.h"
 
 G_DEFINE_TYPE (EvdSocketInputStream, evd_socket_input_stream, G_TYPE_INPUT_STREAM)
@@ -33,7 +32,7 @@ G_DEFINE_TYPE (EvdSocketInputStream, evd_socket_input_stream, G_TYPE_INPUT_STREA
 /* private data */
 struct _EvdSocketInputStreamPrivate
 {
-  GSocket *socket;
+  EvdSocket *socket;
 
   gchar bag;
   gboolean has_bag;
@@ -100,9 +99,9 @@ evd_socket_input_stream_class_init (EvdSocketInputStreamClass *class)
 
   g_object_class_install_property (obj_class, PROP_SOCKET,
 				   g_param_spec_object ("socket",
-							"socket",
-							"The socket that this stream wraps",
-							G_TYPE_SOCKET,
+							"The socket",
+							"The socket object wrapped by this stream",
+							EVD_TYPE_SOCKET,
 							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 
@@ -191,7 +190,17 @@ evd_socket_input_stream_read (GInputStream  *stream,
 
   buf = (gchar *) buffer;
 
-  socket = self->priv->socket;
+  socket = evd_socket_get_socket (self->priv->socket);
+
+  if (socket == NULL)
+    {
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_READABLE,
+                           "Socket is not readable");
+
+      return -1;
+    }
 
   if (self->priv->has_bag)
     {
@@ -247,11 +256,11 @@ evd_socket_input_stream_read (GInputStream  *stream,
 /* public methods */
 
 EvdSocketInputStream *
-evd_socket_input_stream_new (GSocket *socket)
+evd_socket_input_stream_new (EvdSocket *socket)
 {
   EvdSocketInputStream *self;
 
-  g_return_val_if_fail (G_IS_SOCKET (socket), NULL);
+  g_return_val_if_fail (EVD_IS_SOCKET (socket), NULL);
 
   self = g_object_new (EVD_TYPE_SOCKET_INPUT_STREAM,
                        "socket", socket,
@@ -260,24 +269,29 @@ evd_socket_input_stream_new (GSocket *socket)
   return self;
 }
 
-GSocket *
-evd_socket_input_stream_get_socket (EvdSocketInputStream *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET_INPUT_STREAM (self), NULL);
-
-  return self->priv->socket;
-}
-
 void
 evd_socket_input_stream_set_socket (EvdSocketInputStream *self,
-                                    GSocket              *socket)
+                                    EvdSocket            *socket)
 {
   g_return_if_fail (EVD_IS_SOCKET_INPUT_STREAM (self));
-  g_return_if_fail (G_IS_SOCKET (socket));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
 
   if (self->priv->socket != NULL)
     g_object_unref (self->priv->socket);
 
   self->priv->socket = socket;
   g_object_ref (self->priv->socket);
+}
+
+/**
+ * evd_socket_input_stream_get_socket:
+ *
+ * Returns: (transfer none): the #EvdSocket
+ **/
+EvdSocket *
+evd_socket_input_stream_get_socket (EvdSocketInputStream *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_INPUT_STREAM (self), NULL);
+
+  return self->priv->socket;
 }
