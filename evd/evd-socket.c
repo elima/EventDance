@@ -120,6 +120,9 @@ struct _EvdSocketPrivate
   EvdBufferedOutputStream *buf_output_stream;
   EvdThrottledInputStream *throt_input_stream;
   EvdThrottledOutputStream *throt_output_stream;
+
+  EvdSocketNotifyConditionCallback notify_cond_cb;
+  gpointer notify_cond_user_data;
 };
 
 /* signals */
@@ -407,6 +410,9 @@ evd_socket_init (EvdSocket *self)
   priv->buf_input_stream = NULL;
   priv->throt_input_stream = NULL;
   priv->throt_output_stream = NULL;
+
+  priv->notify_cond_cb = NULL;
+  priv->notify_cond_user_data = NULL;
 }
 
 static void
@@ -1460,6 +1466,11 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
         }
     }
 
+  if (self->priv->notify_cond_cb != NULL)
+    self->priv->notify_cond_cb (self,
+                                condition,
+                                self->priv->notify_cond_user_data);
+
   g_object_unref (self);
 }
 
@@ -2455,4 +2466,21 @@ evd_socket_get_output_stream (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   return G_OUTPUT_STREAM (self->priv->buf_output_stream);
+}
+
+/**
+ * evd_socket_set_notify_condition_callback:
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
+void
+evd_socket_set_notify_condition_callback (EvdSocket                        *self,
+                                          EvdSocketNotifyConditionCallback  callback,
+                                          gpointer                          user_data)
+{
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  self->priv->notify_cond_cb = callback;
+  self->priv->notify_cond_user_data = user_data;
 }

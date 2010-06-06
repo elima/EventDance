@@ -38,6 +38,10 @@ typedef struct _EvdSocketClass EvdSocketClass;
 typedef struct _EvdSocketPrivate EvdSocketPrivate;
 typedef struct _EvdSocketEvent EvdSocketEvent;
 
+typedef void (* EvdSocketNotifyConditionCallback) (EvdSocket    *self,
+                                                   GIOCondition  condition,
+                                                   gpointer      user_data);
+
 /* socket states */
 typedef enum
 {
@@ -165,6 +169,11 @@ gboolean        evd_socket_get_tls_active     (EvdSocket *self);
 
 GInputStream   *evd_socket_get_input_stream   (EvdSocket *self);
 GOutputStream  *evd_socket_get_output_stream  (EvdSocket *self);
+
+
+void            evd_socket_set_notify_condition_callback (EvdSocket                        *self,
+                                                          EvdSocketNotifyConditionCallback  callback,
+                                                          gpointer                          user_data);
 
 G_END_DECLS
 
