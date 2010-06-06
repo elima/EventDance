@@ -61,6 +61,10 @@ GType                 evd_socket_output_stream_get_type                     (voi
 
 EvdSocketOutputStream *evd_socket_output_stream_new                         (EvdSocket *socket);
 
+void                   evd_socket_output_stream_set_socket                  (EvdSocketOutputStream *self,
+                                                                             EvdSocket             *socket);
+EvdSocket             *evd_socket_output_stream_get_socket                  (EvdSocketOutputStream *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_OUTPUT_STREAM_H__ */

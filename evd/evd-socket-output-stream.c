@@ -20,8 +20,7 @@
  *
  */
 
-#include <evd-socket.h>
-
+#include "evd-error.h"
 #include "evd-socket-output-stream.h"
 
 G_DEFINE_TYPE (EvdSocketOutputStream, evd_socket_output_stream, G_TYPE_OUTPUT_STREAM)
@@ -100,7 +99,6 @@ evd_socket_output_stream_class_init (EvdSocketOutputStreamClass *class)
 							"socket",
 							"The socket that this stream wraps",
 							EVD_TYPE_SOCKET,
-                                                        G_PARAM_CONSTRUCT_ONLY |
 							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 
@@ -119,6 +117,10 @@ evd_socket_output_stream_init (EvdSocketOutputStream *self)
 static void
 evd_socket_output_stream_finalize (GObject *obj)
 {
+  EvdSocketOutputStream *self = EVD_SOCKET_OUTPUT_STREAM (obj);
+
+  g_object_unref (self->priv->socket);
+
   G_OBJECT_CLASS (evd_socket_output_stream_parent_class)->finalize (obj);
 }
 
@@ -135,7 +137,7 @@ evd_socket_output_stream_set_property (GObject      *obj,
   switch (prop_id)
     {
     case PROP_SOCKET:
-      self->priv->socket = g_value_get_object (value);
+      evd_socket_output_stream_set_socket (self, g_value_get_object (value));
       break;
 
     default:
@@ -157,7 +159,7 @@ evd_socket_output_stream_get_property (GObject    *obj,
   switch (prop_id)
     {
     case PROP_SOCKET:
-      g_value_set_object (value, self->priv->socket);
+      g_value_set_object (value, evd_socket_output_stream_get_socket (self));
       break;
 
     default:
@@ -179,6 +181,16 @@ evd_socket_output_stream_write (GOutputStream  *stream,
   gssize actual_size = 0;
 
   socket = evd_socket_get_socket (self->priv->socket);
+
+  if (socket == NULL)
+    {
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_WRITABLE,
+                           "Socket is not writable");
+
+      return -1;
+    }
 
   if ( (actual_size = g_socket_send (socket,
                                      buffer,
@@ -218,9 +230,33 @@ evd_socket_output_stream_new (EvdSocket *socket)
 {
   EvdSocketOutputStream *self;
 
+  g_return_val_if_fail (EVD_IS_SOCKET (socket), NULL);
+
   self = g_object_new (EVD_TYPE_SOCKET_OUTPUT_STREAM,
                        "socket", socket,
                        NULL);
 
   return self;
+}
+
+void
+evd_socket_output_stream_set_socket (EvdSocketOutputStream *self,
+                                     EvdSocket             *socket)
+{
+  g_return_if_fail (EVD_IS_SOCKET_OUTPUT_STREAM (self));
+  g_return_if_fail (EVD_IS_SOCKET (socket));
+
+  if (self->priv->socket != NULL)
+    g_object_unref (self->priv->socket);
+
+  self->priv->socket = socket;
+  g_object_ref (self->priv->socket);
+}
+
+EvdSocket *
+evd_socket_output_stream_get_socket (EvdSocketOutputStream *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET_OUTPUT_STREAM (self), NULL);
+
+  return self->priv->socket;
 }
