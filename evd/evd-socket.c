@@ -847,7 +847,7 @@ evd_socket_setup_streams (EvdSocket *self)
   if (self->priv->socket_input_stream == NULL)
     {
       self->priv->socket_input_stream =
-        evd_socket_input_stream_new (self->priv->socket);
+        evd_socket_input_stream_new (self);
 
       g_signal_connect (self->priv->socket_input_stream,
                         "drained",
@@ -929,7 +929,7 @@ evd_socket_setup_streams (EvdSocket *self)
     {
       self->priv->buf_output_stream =
         evd_buffered_output_stream_new (
-                            G_OUTPUT_STREAM (self->priv->socket_output_stream));
+                            G_OUTPUT_STREAM (self->priv->throt_output_stream));
     }
 }
 
@@ -1107,8 +1107,8 @@ evd_socket_manage_read_condition (EvdSocket *self)
       {
         evd_socket_invoke_on_read_internal (self);
         if (self->priv->buf_input_stream != NULL)
-          evd_buffered_input_stream_notify_read (self->priv->buf_input_stream,
-                                                 self->priv->actual_priority);
+          evd_buffered_input_stream_thaw (self->priv->buf_input_stream,
+                                          self->priv->actual_priority);
       }
 }
 
