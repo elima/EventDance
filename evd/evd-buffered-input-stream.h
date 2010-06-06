@@ -97,7 +97,8 @@ gchar                  *evd_buffered_input_stream_read_str_finish   (EvdBuffered
                                                                      gssize                  *size,
                                                                      GError                 **error);
 
-void                    evd_buffered_input_stream_notify_read       (EvdBufferedInputStream *self,
+void                    evd_buffered_input_stream_freeze            (EvdBufferedInputStream *self);
+void                    evd_buffered_input_stream_thaw              (EvdBufferedInputStream *self,
                                                                      gint                    priority);
 
 G_END_DECLS

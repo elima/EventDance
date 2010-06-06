@@ -45,6 +45,8 @@ struct _EvdBufferedInputStreamPrivate
   gssize actual_size;
 
   guint read_src_id;
+
+  gboolean frozen;
 };
 
 static void     evd_buffered_input_stream_class_init         (EvdBufferedInputStreamClass *class);
@@ -100,13 +102,23 @@ evd_buffered_input_stream_init (EvdBufferedInputStream *self)
 
   priv->buffer = g_string_new ("");
 
+  priv->async_result = NULL;
   priv->async_buffer = NULL;
+  priv->requested_size = 0;
+  priv->actual_size = 0;
+
+  priv->read_src_id = 0;
+
+  priv->frozen = FALSE;
 }
 
 static void
 evd_buffered_input_stream_finalize (GObject *obj)
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (obj);
+
+  if (self->priv->read_src_id != 0)
+    g_source_remove (self->priv->read_src_id);
 
   g_string_free (self->priv->buffer, TRUE);
 
@@ -128,6 +140,9 @@ evd_buffered_input_stream_read (GInputStream  *stream,
   GInputStream *base_stream;
   gssize read_from_buf = 0;
   gssize read_from_stream = 0;
+
+  if (self->priv->frozen)
+    return 0;
 
   if (self->priv->buffer->len > 0)
     {
@@ -175,6 +190,7 @@ do_read (gpointer user_data)
                                               self->priv->requested_size,
                                               NULL,
                                               &error);
+
   if (size != 0)
     {
       GSimpleAsyncResult *res;
@@ -220,12 +236,13 @@ evd_buffered_input_stream_read_async (GInputStream        *stream,
   self->priv->requested_size = size;
   self->priv->actual_size = 0;
 
-  self->priv->read_src_id =
-    evd_timeout_add (g_main_context_get_thread_default (),
-                     0,
-                     io_priority,
-                     do_read,
-                     self);
+  if (! self->priv->frozen)
+    self->priv->read_src_id =
+      evd_timeout_add (g_main_context_get_thread_default (),
+                       0,
+                       io_priority,
+                       do_read,
+                       self);
 }
 
 static gssize
@@ -412,10 +429,20 @@ evd_buffered_input_stream_read_str_finish (EvdBufferedInputStream  *self,
 }
 
 void
-evd_buffered_input_stream_notify_read (EvdBufferedInputStream *self,
-                                       gint                    priority)
+evd_buffered_input_stream_freeze (EvdBufferedInputStream *self)
 {
   g_return_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self));
+
+  self->priv->frozen = TRUE;
+}
+
+void
+evd_buffered_input_stream_thaw (EvdBufferedInputStream *self,
+                                gint                    priority)
+{
+  g_return_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self));
+
+  self->priv->frozen = FALSE;
 
   if (self->priv->async_result != NULL && self->priv->read_src_id == 0)
     self->priv->read_src_id =
