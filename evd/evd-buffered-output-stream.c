@@ -42,6 +42,7 @@ struct _EvdBufferedOutputStreamPrivate
   guint write_src_id;
 
   gboolean auto_flush;
+  gboolean frozen;
 };
 
 /* properties */
@@ -114,6 +115,7 @@ evd_buffered_output_stream_init (EvdBufferedOutputStream *self)
   priv->write_src_id = 0;
 
   priv->auto_flush = TRUE;
+  priv->frozen = FALSE;
 }
 
 static void
@@ -279,4 +281,29 @@ evd_buffered_output_stream_write_str (EvdBufferedOutputStream  *self,
                                 size,
                                 NULL,
                                 error);
+}
+
+void
+evd_buffered_output_stream_freeze (EvdBufferedOutputStream *self)
+{
+  g_return_if_fail (EVD_IS_BUFFERED_OUTPUT_STREAM (self));
+
+  self->priv->frozen = TRUE;
+}
+
+void
+evd_buffered_output_stream_thaw (EvdBufferedOutputStream *self,
+                                 gint                     priority)
+{
+  g_return_if_fail (EVD_IS_BUFFERED_OUTPUT_STREAM (self));
+
+  self->priv->frozen = FALSE;
+
+  if (self->priv->async_result != NULL && self->priv->write_src_id == 0)
+    self->priv->write_src_id =
+      evd_timeout_add (g_main_context_get_thread_default (),
+                       0,
+                       priority,
+                       do_write,
+                       self);
 }

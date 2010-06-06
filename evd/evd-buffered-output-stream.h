@@ -60,6 +60,11 @@ gssize                  evd_buffered_output_stream_write_str         (EvdBuffere
                                                                       const gchar              *buffer,
                                                                       GError                  **error);
 
+
+void                    evd_buffered_output_stream_freeze            (EvdBufferedOutputStream *self);
+void                    evd_buffered_output_stream_thaw              (EvdBufferedOutputStream *self,
+                                                                      gint                     priority);
+
 G_END_DECLS
 
 #endif /* __EVD_BUFFERED_OUTPUT_STREAM_H__ */
