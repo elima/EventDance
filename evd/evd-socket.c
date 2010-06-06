@@ -640,21 +640,6 @@ evd_socket_check (EvdSocket  *self,
 }
 
 static gboolean
-evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
-{
-  if ( (! self->priv->watched &&
-        evd_socket_manager_add_socket (self, cond, error)) ||
-       (self->priv->watched &&
-        evd_socket_manager_mod_socket (self, cond, error)) )
-    {
-      self->priv->watched = TRUE;
-      return TRUE;
-    }
-  else
-    return FALSE;
-}
-
-static gboolean
 evd_socket_unwatch (EvdSocket *self, GError **error)
 {
   if (evd_socket_manager_del_socket (self, error))
@@ -684,7 +669,7 @@ evd_socket_tls_handshake (gpointer user_data)
       self->priv->cond = G_IO_OUT;
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
 
-      if (evd_socket_watch (self, self->priv->watched_cond, &error))
+      if (evd_socket_watch_condition (self, self->priv->watched_cond, &error))
         {
           evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
           evd_socket_invoke_on_write_internal (self);
@@ -804,7 +789,7 @@ evd_socket_input_stream_drained (GInputStream *stream,
           self->priv->cond &= ~G_IO_IN;
 
           self->priv->watched_cond |= G_IO_IN;
-          if (! evd_socket_watch (self, self->priv->watched_cond, &error))
+          if (! evd_socket_watch_condition (self, self->priv->watched_cond, &error))
             evd_socket_throw_error (self, error);
         }
     }
@@ -820,7 +805,7 @@ evd_socket_output_stream_filled (GOutputStream *stream,
   self->priv->cond &= (~ G_IO_OUT);
 
   self->priv->watched_cond |= G_IO_OUT;
-  if (! evd_socket_watch (self, self->priv->watched_cond, &error))
+  if (! evd_socket_watch_condition (self, self->priv->watched_cond, &error))
     evd_socket_throw_error (self, error);
 }
 
@@ -1378,7 +1363,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (condition & G_IO_OUT)
             {
               self->priv->watched_cond &= (~G_IO_OUT);
-              if (evd_socket_watch (self, self->priv->watched_cond, &error))
+              if (evd_socket_watch_condition (self, self->priv->watched_cond, &error))
                 {
                   if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
                     {
@@ -1419,9 +1404,9 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (condition & G_IO_IN)
             {
               self->priv->watched_cond &= ~G_IO_IN;
-              if (! evd_socket_watch (self,
-                                      self->priv->watched_cond,
-                                      &error))
+              if (! evd_socket_watch_condition (self,
+                                                self->priv->watched_cond,
+                                                &error))
                 {
                   evd_socket_throw_error (self, error);
                   evd_socket_close (self, NULL);
@@ -1714,7 +1699,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
       evd_socket_set_socket (client, client_socket);
 
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (evd_socket_watch (client, self->priv->watched_cond, error))
+      if (evd_socket_watch_condition (client, self->priv->watched_cond, error))
         {
           evd_socket_setup_streams (client);
 
@@ -1964,7 +1949,7 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   if (g_socket_listen (self->priv->socket, error))
     {
       self->priv->watched_cond = G_IO_IN;
-      if (evd_socket_watch (self, self->priv->watched_cond, error))
+      if (evd_socket_watch_condition (self, self->priv->watched_cond, error))
         {
           self->priv->cond = 0;
           self->priv->actual_priority = G_PRIORITY_HIGH + 1;
@@ -2087,7 +2072,7 @@ evd_socket_connect_addr (EvdSocket        *self,
       _error = NULL;
     }
 
-  if (! evd_socket_watch (self, G_IO_IN | G_IO_OUT, error))
+  if (! evd_socket_watch_condition (self, G_IO_IN | G_IO_OUT, error))
     {
       evd_socket_cleanup_internal (self, NULL);
       return FALSE;
@@ -2466,6 +2451,26 @@ evd_socket_get_output_stream (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   return G_OUTPUT_STREAM (self->priv->buf_output_stream);
+}
+
+gboolean
+evd_socket_watch_condition (EvdSocket *self, GIOCondition cond, GError **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  self->priv->watched_cond = cond;
+  if ( (! self->priv->watched &&
+        evd_socket_manager_add_socket (self, cond, error)) ||
+       (self->priv->watched &&
+        evd_socket_manager_mod_socket (self, cond, error)) )
+    {
+      self->priv->watched = TRUE;
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
 }
 
 /**

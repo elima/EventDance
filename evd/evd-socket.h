@@ -170,6 +170,9 @@ gboolean        evd_socket_get_tls_active     (EvdSocket *self);
 GInputStream   *evd_socket_get_input_stream   (EvdSocket *self);
 GOutputStream  *evd_socket_get_output_stream  (EvdSocket *self);
 
+gboolean        evd_socket_watch_condition    (EvdSocket     *self,
+                                               GIOCondition   cond,
+                                               GError       **error);
 
 void            evd_socket_set_notify_condition_callback (EvdSocket                        *self,
                                                           EvdSocketNotifyConditionCallback  callback,
