@@ -60,6 +60,15 @@ gssize                  evd_buffered_output_stream_write_str         (EvdBuffere
                                                                       const gchar              *buffer,
                                                                       GError                  **error);
 
+void                    evd_buffered_output_stream_write_str_async   (EvdBufferedOutputStream *self,
+                                                                      const gchar             *buffer,
+                                                                      int                      io_priority,
+                                                                      GCancellable            *cancellable,
+                                                                      GAsyncReadyCallback      callback,
+                                                                      gpointer                 user_data);
+gssize                  evd_buffered_output_stream_write_str_finish  (EvdBufferedOutputStream  *self,
+                                                                      GAsyncResult             *result,
+                                                                      GError                  **error);
 
 void                    evd_buffered_output_stream_freeze            (EvdBufferedOutputStream *self);
 void                    evd_buffered_output_stream_thaw              (EvdBufferedOutputStream *self,
