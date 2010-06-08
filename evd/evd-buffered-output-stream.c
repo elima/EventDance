@@ -90,6 +90,10 @@ static gssize   evd_buffered_output_stream_write_finish       (GOutputStream  *s
                                                                GAsyncResult   *result,
                                                                GError        **error);
 
+static gboolean evd_buffered_output_stream_close              (GOutputStream  *stream,
+                                                               GCancellable   *cancellable,
+                                                               GError        **error);
+
 static void
 evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
 {
@@ -107,6 +111,7 @@ evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
   output_stream_class->flush = evd_buffered_output_stream_flush;
   output_stream_class->write_async = evd_buffered_output_stream_write_async;
   output_stream_class->write_finish = evd_buffered_output_stream_write_finish;
+  output_stream_class->close_fn = evd_buffered_output_stream_close;
 
   g_object_class_install_property (obj_class, PROP_AUTO_FLUSH,
                                    g_param_spec_boolean ("auto-flush",
@@ -238,7 +243,9 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
   gssize actual_size;
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
 
-  if (self->priv->buffer->len > 0 || ! self->priv->auto_flush)
+  if (self->priv->frozen ||
+      self->priv->buffer->len > 0 ||
+      ! self->priv->auto_flush)
     {
       actual_size = evd_buffered_output_stream_fill (self,
                                                      buffer,
@@ -276,16 +283,11 @@ do_write (gpointer user_data)
 
   self->priv->write_src_id = 0;
 
-  //  g_debug ("%d: %s", self->priv->requested_size, self->priv->buffer->str);
-
-  if (self->priv->async_result == NULL || self->priv->buffer->len == 0)
-    return FALSE;
-
   result = evd_buffered_output_stream_flush (G_OUTPUT_STREAM (self),
                                              NULL,
                                              &error);
 
-  if (! result || self->priv->actual_size > 0)
+  if (self->priv->buffer->len == 0 && self->priv->async_result != NULL)
     {
       GSimpleAsyncResult *res;
 
@@ -328,8 +330,6 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
   evd_buffered_output_stream_fill (self,
                                    buffer,
                                    size);
-
-  //  g_debug ("%d: %s", self->priv->buffer->len, self->priv->buffer->str);
 
   if (! self->priv->frozen)
     self->priv->write_src_id =
@@ -379,9 +379,34 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
                                        error);
 
   if (actual_size > 0)
-    g_string_erase (self->priv->buffer, 0, actual_size);
+    {
+      g_string_erase (self->priv->buffer, 0, actual_size);
+      self->priv->actual_size += actual_size;
+      self->priv->requested_size -= actual_size;
+    }
 
-  self->priv->actual_size = actual_size;
+  return TRUE;
+}
+
+static gboolean
+evd_buffered_output_stream_close (GOutputStream  *stream,
+                                  GCancellable   *cancellable,
+                                  GError        **error)
+{
+  EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
+
+  if (self->priv->async_result != NULL)
+    {
+      g_simple_async_result_complete (self->priv->async_result);
+      g_object_unref (self->priv->async_result);
+      self->priv->async_result = NULL;
+    }
+
+  if (self->priv->write_src_id != 0)
+    {
+      g_source_remove (self->priv->write_src_id);
+      self->priv->write_src_id = 0;
+    }
 
   return TRUE;
 }
@@ -471,7 +496,7 @@ evd_buffered_output_stream_thaw (EvdBufferedOutputStream *self,
 
   self->priv->frozen = FALSE;
 
-  if (self->priv->async_result != NULL && self->priv->write_src_id == 0)
+  if (self->priv->buffer->len > 0)
     self->priv->write_src_id =
       evd_timeout_add (g_main_context_get_thread_default (),
                        0,
