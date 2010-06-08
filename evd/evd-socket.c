@@ -57,6 +57,8 @@
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
 
+#include "evd-connection.h"
+
 #define DOMAIN_QUARK_STRING "org.eventdance.lib.socket"
 
 #define TLS_ENABLED(socket)       (socket->priv->tls_enabled == TRUE)
@@ -1705,6 +1707,8 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
     }
   self->priv->watched = FALSE;
 
+  self->priv->io_stream = NULL;
+
   return result;
 }
 
@@ -2511,4 +2515,22 @@ evd_socket_set_notify_condition_callback (EvdSocket                        *self
 
   self->priv->notify_cond_cb = callback;
   self->priv->notify_cond_user_data = user_data;
+}
+
+/**
+ * evd_socket_get_io_stream:
+ *
+ * Returns: (transfer-full): A connection object that specializes a #GIOStream.
+ **/
+GIOStream *
+evd_socket_get_io_stream (EvdSocket  *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
+  if (self->priv->io_stream == NULL)
+    self->priv->io_stream = g_object_new (self->priv->io_stream_type,
+                                          "socket", self,
+                                          NULL);
+
+  return self->priv->io_stream;
 }

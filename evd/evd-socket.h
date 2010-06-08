@@ -178,6 +178,8 @@ void            evd_socket_set_notify_condition_callback (EvdSocket             
                                                           EvdSocketNotifyConditionCallback  callback,
                                                           gpointer                          user_data);
 
+GIOStream      *evd_socket_get_io_stream                 (EvdSocket  *self);
+
 G_END_DECLS
 
 #endif /* __EVD_SOCKET_H__ */
