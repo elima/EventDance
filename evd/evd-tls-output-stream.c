@@ -179,6 +179,9 @@ evd_tls_output_stream_push (EvdTlsSession  *session,
   EvdTlsOutputStream *self = EVD_TLS_OUTPUT_STREAM (user_data);
   gssize result;
 
+  if (g_output_stream_is_closed (G_OUTPUT_STREAM (self)))
+    return 0;
+
   /* if we already have data pending to be pushed, just
      append new data to the tail of the buffer */
   if (self->priv->buf->len > 0)
