@@ -46,5 +46,6 @@
 #include <evd-tls-session.h>
 #include <evd-tls-credentials.h>
 #include <evd-tls-certificate.h>
+#include <evd-connection.h>
 
 #endif /* __EVD_H__ */
