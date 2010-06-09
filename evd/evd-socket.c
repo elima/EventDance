@@ -27,16 +27,9 @@
  * SECTION:evd-socket
  * @short_description: EventDance's base socket class.
  *
- * #EvdSocket sockets are Berkeley sockets with finer network control and scalability
- * under high-concurrency scenarios. It's the class that ultimately handles all network
- * access in EventDance framework. #EvdSocket is based on GSocket, and extends it by
- * providing more features like SSL/TLS support, bandwith and latency control, etc; together
- * with an efficient mechanism to watch socket condition changes, based on the <ulink type="http"
- * url="http://www.kernel.org/doc/man-pages/online/pages/man4/epoll.4.html">
- * epoll event notification facility</ulink> available on Linux, in edge-triggered mode.
+ * #EvdSocket sockets are Berkeley-style sockets optmized for performance and scalability
+ * under high-concurrency scenarios.
  *
- * #EvdSocket is designed to work always in non-blocking mode. As everything in
- * EventDance framework, all network IO logic should be strictly asynchronous.
  **/
 
 #include "evd-utils.h"
