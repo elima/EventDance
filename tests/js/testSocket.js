@@ -37,11 +37,6 @@ function testInitialState (Assert) {
     Assert.equal (socket.input_stream, null);
     Assert.equal (socket.output_stream, null);
 
-    Assert.equal (socket.tls_autostart, false);
-    Assert.ok (socket.tls);
-    Assert.ok (socket.get_tls_session ());
-    Assert.strictEqual (socket.tls, socket.get_tls_session ());
-
     Assert.ok (socket.input_throttle);
     Assert.ok (socket.get_input_throttle ());
     Assert.strictEqual (socket.input_throttle, socket.get_input_throttle ());
