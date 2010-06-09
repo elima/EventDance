@@ -123,6 +123,9 @@ struct _EvdSocketPrivate
 
   EvdSocketNotifyConditionCallback notify_cond_cb;
   gpointer notify_cond_user_data;
+
+  GType io_stream_type;
+  GIOStream *io_stream;
 };
 
 /* signals */
@@ -152,7 +155,8 @@ enum
   PROP_TLS_SESSION,
   PROP_TLS_ACTIVE,
   PROP_INPUT_STREAM,
-  PROP_OUTPUT_STREAM
+  PROP_OUTPUT_STREAM,
+  PROP_IO_STREAM_TYPE
 };
 
 static void     evd_socket_class_init         (EvdSocketClass *class);
@@ -356,6 +360,14 @@ evd_socket_class_init (EvdSocketClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_IO_STREAM_TYPE,
+                                   g_param_spec_gtype ("io-stream-type",
+                                                       "The IO stream GType",
+                                                       "The GType of the socket's IO stream returned by #evd_socket_get_io_stream",
+                                                       EVD_TYPE_CONNECTION,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
 }
@@ -413,6 +425,9 @@ evd_socket_init (EvdSocket *self)
 
   priv->notify_cond_cb = NULL;
   priv->notify_cond_user_data = NULL;
+
+  self->priv->io_stream_type = EVD_TYPE_CONNECTION;
+  self->priv->io_stream = NULL;
 }
 
 static void
@@ -509,6 +524,10 @@ evd_socket_set_property (GObject      *obj,
       self->priv->tls_autostart = g_value_get_boolean (value);
       break;
 
+    case PROP_IO_STREAM_TYPE:
+      self->priv->io_stream_type = g_value_get_gtype (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -587,6 +606,10 @@ evd_socket_get_property (GObject    *obj,
 
     case PROP_OUTPUT_STREAM:
       g_value_set_object (value, evd_socket_get_output_stream (self));
+      break;
+
+    case PROP_IO_STREAM_TYPE:
+      g_value_set_gtype (value, self->priv->io_stream_type);
       break;
 
     default:
