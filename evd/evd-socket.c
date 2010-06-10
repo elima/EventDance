@@ -38,13 +38,6 @@
 #include "evd-socket-manager.h"
 #include "evd-resolver.h"
 
-#include "evd-socket-input-stream.h"
-#include "evd-socket-output-stream.h"
-#include "evd-buffered-input-stream.h"
-#include "evd-buffered-output-stream.h"
-#include "evd-throttled-input-stream.h"
-#include "evd-throttled-output-stream.h"
-
 #include "evd-socket.h"
 #include "evd-socket-protected.h"
 
@@ -55,9 +48,6 @@ G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_BASE)
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                      EVD_TYPE_SOCKET, \
                                      EvdSocketPrivate))
-
-#define READ_PENDING(socket)        (socket->priv->buf_input_stream != NULL && \
-                                     g_input_stream_has_pending (G_INPUT_STREAM (self->priv->buf_input_stream)))
 
 /* private data */
 struct _EvdSocketPrivate
@@ -73,8 +63,6 @@ struct _EvdSocketPrivate
 
   EvdSocketGroup *group;
 
-  gint read_src_id;
-  gint write_src_id;
   gint close_src_id;
 
   GIOCondition cond;
@@ -93,13 +81,6 @@ struct _EvdSocketPrivate
   guint         event_handler_src_id;
   GIOCondition  new_cond;
   GMutex       *mutex;
-
-  EvdSocketInputStream   *socket_input_stream;
-  EvdSocketOutputStream  *socket_output_stream;
-  EvdBufferedInputStream *buf_input_stream;
-  EvdBufferedOutputStream *buf_output_stream;
-  EvdThrottledInputStream *throt_input_stream;
-  EvdThrottledOutputStream *throt_output_stream;
 
   EvdSocketNotifyConditionCallback notify_cond_cb;
   gpointer notify_cond_user_data;
@@ -131,8 +112,6 @@ enum
   PROP_GROUP,
   PROP_PRIORITY,
   PROP_STATUS,
-  PROP_INPUT_STREAM,
-  PROP_OUTPUT_STREAM,
   PROP_IO_STREAM_TYPE
 };
 
@@ -155,9 +134,6 @@ static void     evd_socket_closure_changed    (EvdSocketBase *socket_base);
 
 static gboolean evd_socket_cleanup_internal   (EvdSocket  *self,
                                                GError    **error);
-
-static gboolean evd_socket_read_wait_timeout  (gpointer user_data);
-static gboolean evd_socket_write_wait_timeout (gpointer user_data);
 
 static void     evd_socket_invoke_on_write_internal (EvdSocket *self);
 
@@ -297,22 +273,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_INPUT_STREAM,
-                                   g_param_spec_object ("input-stream",
-                                                        "The input stream",
-                                                        "The socket's input stream object. or NULL if socket is closed",
-                                                        G_TYPE_INPUT_STREAM,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_OUTPUT_STREAM,
-                                   g_param_spec_object ("output-stream",
-                                                        "The output stream",
-                                                        "The socket's output stream object. or NULL if socket is closed",
-                                                        G_TYPE_OUTPUT_STREAM,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_IO_STREAM_TYPE,
                                    g_param_spec_gtype ("io-stream-type",
                                                        "The IO stream GType",
@@ -347,9 +307,6 @@ evd_socket_init (EvdSocket *self)
   if (priv->context != NULL)
     g_main_context_ref (priv->context);
 
-  priv->read_src_id = 0;
-  priv->write_src_id = 0;
-
   priv->cond = 0;
   priv->watched_cond = G_IO_IN | G_IO_OUT;
   priv->watched = FALSE;
@@ -366,12 +323,6 @@ evd_socket_init (EvdSocket *self)
   priv->new_cond = 0;
 
   priv->mutex = g_mutex_new ();
-
-  priv->socket_input_stream = NULL;
-  priv->socket_output_stream = NULL;
-  priv->buf_input_stream = NULL;
-  priv->throt_input_stream = NULL;
-  priv->throt_output_stream = NULL;
 
   priv->notify_cond_cb = NULL;
   priv->notify_cond_user_data = NULL;
@@ -528,14 +479,6 @@ evd_socket_get_property (GObject    *obj,
       g_value_set_uint (value, self->priv->status);
       break;
 
-    case PROP_INPUT_STREAM:
-      g_value_set_object (value, evd_socket_get_input_stream (self));
-      break;
-
-    case PROP_OUTPUT_STREAM:
-      g_value_set_object (value, evd_socket_get_output_stream (self));
-      break;
-
     case PROP_IO_STREAM_TYPE:
       g_value_set_gtype (value, self->priv->io_stream_type);
       break;
@@ -664,221 +607,6 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
     }
 
   return TRUE;
-}
-
-static gboolean
-evd_socket_close_in_idle (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  evd_socket_close (self, NULL);
-
-  return FALSE;
-}
-
-static void
-evd_socket_input_stream_drained (GInputStream *stream,
-                                 gpointer      user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-  GError *error = NULL;
-
-  if (self->priv->delayed_close)
-    {
-      if (self->priv->close_src_id == 0)
-        self->priv->close_src_id =
-          evd_timeout_add (self->priv->context,
-                           0,
-                           self->priv->actual_priority,
-                           evd_socket_close_in_idle,
-                           self);
-    }
-  else
-    {
-      if ( (self->priv->watched_cond & G_IO_IN) == 0)
-        {
-          self->priv->cond &= ~G_IO_IN;
-
-          self->priv->watched_cond |= G_IO_IN;
-          if (! evd_socket_watch_condition (self, self->priv->watched_cond, &error))
-            evd_socket_throw_error (self, error);
-        }
-    }
-}
-
-static void
-evd_socket_output_stream_filled (GOutputStream *stream,
-                                 gpointer       user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-  GError *error = NULL;
-
-  self->priv->cond &= (~ G_IO_OUT);
-
-  self->priv->watched_cond |= G_IO_OUT;
-  if (! evd_socket_watch_condition (self, self->priv->watched_cond, &error))
-    evd_socket_throw_error (self, error);
-}
-
-static void
-evd_socket_delay_read (EvdThrottledInputStream *stream,
-                       guint                    wait,
-                       gpointer                 user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  if (self->priv->read_src_id == 0)
-    self->priv->read_src_id =
-      evd_timeout_add (self->priv->context,
-                       wait,
-                       self->priv->actual_priority,
-                       evd_socket_read_wait_timeout,
-                       self);
-}
-
-static void
-evd_socket_delay_write (EvdThrottledOutputStream *stream,
-                        guint                     wait,
-                        gpointer                  user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  if (self->priv->write_src_id == 0)
-    self->priv->write_src_id =
-      evd_timeout_add (self->priv->context,
-                       wait,
-                       self->priv->actual_priority,
-                       evd_socket_write_wait_timeout,
-                       self);
-}
-
-static void
-evd_socket_setup_streams (EvdSocket *self)
-{
-  if (self->priv->socket_input_stream == NULL)
-    {
-      self->priv->socket_input_stream =
-        evd_socket_input_stream_new (self);
-
-      g_signal_connect (self->priv->socket_input_stream,
-                        "drained",
-                        G_CALLBACK (evd_socket_input_stream_drained),
-                        self);
-    }
-
-  if (self->priv->socket_output_stream == NULL)
-    {
-      self->priv->socket_output_stream =
-        evd_socket_output_stream_new (self);
-
-      g_signal_connect (self->priv->socket_output_stream,
-                        "filled",
-                        G_CALLBACK (evd_socket_output_stream_filled),
-                        self);
-    }
-
-  if (self->priv->throt_input_stream == NULL)
-    {
-      self->priv->throt_input_stream =
-        evd_throttled_input_stream_new (
-                              G_INPUT_STREAM (self->priv->socket_input_stream));
-
-      evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-                   evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self)));
-
-      if (self->priv->group != NULL)
-        {
-          EvdStreamThrottle *throttle;
-
-          throttle =
-            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self->priv->group));
-
-          evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-                                                   throttle);
-        }
-
-      g_signal_connect (self->priv->throt_input_stream,
-                        "delay-read",
-                        G_CALLBACK (evd_socket_delay_read),
-                        self);
-    }
-
-  if (self->priv->throt_output_stream == NULL)
-    {
-      self->priv->throt_output_stream =
-        evd_throttled_output_stream_new (
-                              G_OUTPUT_STREAM (self->priv->socket_output_stream));
-
-      evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
-                   evd_socket_base_get_output_throttle (EVD_SOCKET_BASE (self)));
-
-      if (self->priv->group != NULL)
-        {
-          EvdStreamThrottle *throttle;
-
-          throttle =
-            evd_socket_base_get_output_throttle (EVD_SOCKET_BASE (self->priv->group));
-
-          evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
-                                                    throttle);
-        }
-
-      g_signal_connect (self->priv->throt_output_stream,
-                        "delay-write",
-                        G_CALLBACK (evd_socket_delay_write),
-                        self);
-    }
-
-  if (self->priv->buf_input_stream == NULL)
-    {
-      self->priv->buf_input_stream =
-        evd_buffered_input_stream_new (
-                              G_INPUT_STREAM (self->priv->throt_input_stream));
-    }
-
-  if (self->priv->buf_output_stream == NULL)
-    {
-      self->priv->buf_output_stream =
-        evd_buffered_output_stream_new (
-                            G_OUTPUT_STREAM (self->priv->throt_output_stream));
-    }
-}
-
-static gboolean
-evd_socket_read_wait_timeout (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  if (self->priv->status == EVD_SOCKET_STATE_CLOSED)
-    return FALSE;
-
-  self->priv->read_src_id = 0;
-
-  evd_socket_manage_read_condition (self);
-
-  if (self->priv->delayed_close &&
-      (self->priv->cond & G_IO_IN) == 0 &&
-      ! READ_PENDING (self))
-    {
-      evd_socket_close (self, NULL);
-    }
-
-  return FALSE;
-}
-
-static gboolean
-evd_socket_write_wait_timeout (gpointer user_data)
-{
-  EvdSocket *self = EVD_SOCKET (user_data);
-
-  if (self->priv->status == EVD_SOCKET_STATE_CLOSED)
-    return FALSE;
-
-  self->priv->write_src_id = 0;
-
-  evd_socket_manage_write_condition (self);
-
-  return FALSE;
 }
 
 static gboolean
@@ -1011,20 +739,13 @@ evd_socket_resolve_address (EvdSocket      *self,
 static void
 evd_socket_manage_read_condition (EvdSocket *self)
 {
-  if (self->priv->read_src_id == 0)
-    {
-      evd_socket_invoke_on_read_internal (self);
-      if (self->priv->buf_input_stream != NULL)
-        evd_buffered_input_stream_thaw (self->priv->buf_input_stream,
-                                        self->priv->actual_priority);
-    }
+  evd_socket_invoke_on_read_internal (self);
 }
 
 static void
 evd_socket_manage_write_condition (EvdSocket *self)
 {
-  if (self->priv->write_src_id == 0)
-    evd_socket_invoke_on_write_internal (self);
+  evd_socket_invoke_on_write_internal (self);
 }
 
 static void
@@ -1059,22 +780,6 @@ evd_socket_handle_condition_cb (gpointer data)
   return FALSE;
 }
 
-static gboolean
-evd_socket_confirm_read_condition (EvdSocket *self)
-{
-  gchar buf[1] = { 0, };
-
-  if (self->priv->buf_input_stream != NULL &&
-      g_input_stream_read (G_INPUT_STREAM (self->priv->buf_input_stream),
-                           buf, 1, NULL, NULL) == 1)
-    {
-      evd_buffered_input_stream_unread (self->priv->buf_input_stream, buf, 1, NULL, NULL);
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
 static void
 evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
 {
@@ -1095,26 +800,16 @@ evd_socket_finish_close (gpointer user_data)
 {
   EvdSocket *self = EVD_SOCKET (user_data);
 
-  if ( (self->priv->buf_input_stream != NULL &&
-        ! g_input_stream_is_closed (G_INPUT_STREAM (self->priv->buf_input_stream))) ||
-       (self->priv->buf_output_stream != NULL &&
-        ! g_output_stream_is_closed (G_OUTPUT_STREAM (self->priv->buf_output_stream))) )
-    {
-      return TRUE;
-    }
-  else
-    {
-      GError *error = NULL;
+  GError *error = NULL;
 
-      evd_socket_cleanup_internal (self, &error);
+  evd_socket_cleanup_internal (self, &error);
 
-      g_object_ref (self);
-      evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSED);
-      g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
-      g_object_unref (self);
+  g_object_ref (self);
+  evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSED);
+  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+  g_object_unref (self);
 
-      return FALSE;
-    }
+  return FALSE;
 }
 
 /* protected methods */
@@ -1257,8 +952,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                       /* restore priority */
                       self->priv->actual_priority = self->priv->priority;
 
-                      evd_socket_setup_streams (self);
-
                       self->priv->cond |= G_IO_OUT;
                       evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
                       self->priv->cond &= ~G_IO_OUT;
@@ -1287,12 +980,11 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                                                 &error))
                 {
                   evd_socket_throw_error (self, error);
-                  evd_socket_close (self, NULL);
+                  //                  evd_socket_close (self, NULL);
                 }
               else if ( (self->priv->cond & G_IO_IN) == 0)
                 {
-                  if ( (condition & G_IO_HUP) == 0 ||
-                       evd_socket_confirm_read_condition (self) )
+                  if ( (condition & G_IO_HUP) == 0)
                     {
                       self->priv->cond |= G_IO_IN;
 
@@ -1306,25 +998,13 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 
   if (condition & G_IO_HUP)
     {
-      if (self->priv->read_src_id != 0 ||
-          self->priv->cond & G_IO_IN ||
-          READ_PENDING (self))
+      if (self->priv->cond & G_IO_IN)
         {
           self->priv->delayed_close = TRUE;
-
-          if (self->priv->read_src_id == 0)
-            {
-              self->priv->read_src_id =
-                evd_timeout_add (self->priv->context,
-                                 0,
-                                 self->priv->actual_priority,
-                                 (GSourceFunc) evd_socket_read_wait_timeout,
-                                 (gpointer) self);
-            }
         }
       else
         {
-          evd_socket_close (self, &error);
+          //          evd_socket_close (self, &error);
         }
     }
 
@@ -1339,23 +1019,12 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 void
 evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 {
-  EvdStreamThrottle *throttle;
-
   if (self->priv->group == group)
     return;
 
   if (self->priv->group != NULL)
     {
       EvdSocketGroup *current_group;
-
-      if (self->priv->throt_input_stream != NULL)
-        {
-          throttle =
-            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self->priv->group));
-
-          evd_throttled_input_stream_remove_throttle (self->priv->throt_input_stream,
-                                                      throttle);
-        }
 
       current_group = self->priv->group;
       self->priv->group = NULL;
@@ -1370,15 +1039,6 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
 
   if (group != NULL)
     {
-      if (self->priv->throt_input_stream != NULL)
-        {
-          throttle =
-            evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (group));
-
-          evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-                                                   throttle);
-        }
-
       g_object_ref (self->priv->group);
 
       if (evd_socket_can_write (self))
@@ -1444,18 +1104,6 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 
   self->priv->delayed_close = FALSE;
 
-  if (self->priv->read_src_id != 0)
-    {
-      g_source_remove (self->priv->read_src_id);
-      self->priv->read_src_id = 0;
-    }
-
-  if (self->priv->write_src_id != 0)
-    {
-      g_source_remove (self->priv->write_src_id);
-      self->priv->write_src_id = 0;
-    }
-
   if (self->priv->close_src_id != 0)
     {
       g_source_remove (self->priv->close_src_id);
@@ -1470,55 +1118,6 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
       self->priv->new_cond = 0;
     }
   g_mutex_unlock (self->priv->mutex);
-
-  /* cleanup streams */
-  if (self->priv->buf_input_stream != NULL)
-    {
-      g_object_unref (self->priv->buf_input_stream);
-      self->priv->buf_input_stream = NULL;
-    }
-
-  if (self->priv->buf_output_stream != NULL)
-    {
-      g_object_unref (self->priv->buf_output_stream);
-      self->priv->buf_output_stream = NULL;
-    }
-
-  if (self->priv->throt_input_stream != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (self->priv->throt_input_stream,
-                                            evd_socket_delay_read,
-                                            self);
-      g_object_unref (self->priv->throt_input_stream);
-      self->priv->throt_input_stream = NULL;
-    }
-
-  if (self->priv->throt_output_stream != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (self->priv->throt_output_stream,
-                                            evd_socket_delay_write,
-                                            self);
-      g_object_unref (self->priv->throt_output_stream);
-      self->priv->throt_output_stream = NULL;
-    }
-
-  if (self->priv->socket_input_stream != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (self->priv->socket_input_stream,
-                                            evd_socket_input_stream_drained,
-                                            self);
-      g_object_unref (self->priv->socket_input_stream);
-      self->priv->socket_input_stream = NULL;
-    }
-
-  if (self->priv->socket_output_stream != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (self->priv->socket_output_stream,
-                                            evd_socket_output_stream_filled,
-                                            self);
-      g_object_unref (self->priv->socket_output_stream);
-      self->priv->socket_output_stream = NULL;
-    }
 
   if (self->priv->socket != NULL)
     {
@@ -1557,8 +1156,6 @@ evd_socket_accept (EvdSocket *self, GError **error)
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
       if (evd_socket_watch_condition (client, self->priv->watched_cond, error))
         {
-          evd_socket_setup_streams (client);
-
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
           return client;
@@ -1645,49 +1242,9 @@ evd_socket_close (EvdSocket *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (self->priv->status == EVD_SOCKET_STATE_CLOSED ||
-      self->priv->status == EVD_SOCKET_STATE_CLOSING)
+  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
+      self->priv->status != EVD_SOCKET_STATE_CLOSING)
     {
-      return TRUE;
-    }
-  else
-    {
-      gboolean result = TRUE;
-
-      if (self->priv->buf_input_stream != NULL)
-        {
-          GError *_error = NULL;
-
-          g_input_stream_clear_pending (G_INPUT_STREAM (self->priv->buf_input_stream));
-          if (! g_input_stream_close (G_INPUT_STREAM (self->priv->buf_input_stream),
-                                      NULL,
-                                      error))
-            {
-              result = FALSE;
-              if (error != NULL && *error == NULL)
-                *error = _error;
-              else
-                g_error_free (_error);
-            }
-        }
-
-      if (self->priv->buf_output_stream != NULL)
-        {
-          GError *_error = NULL;
-
-          g_output_stream_clear_pending (G_OUTPUT_STREAM (self->priv->buf_output_stream));
-          if (! g_output_stream_close (G_OUTPUT_STREAM (self->priv->buf_output_stream),
-                                       NULL,
-                                       &_error))
-            {
-              result = FALSE;
-              if (error != NULL && *error == NULL)
-                *error = _error;
-              else
-                g_error_free (_error);
-            }
-        }
-
       evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSING);
 
       evd_timeout_add (self->priv->context,
@@ -1695,9 +1252,9 @@ evd_socket_close (EvdSocket *self, GError **error)
                        self->priv->actual_priority,
                        evd_socket_finish_close,
                        self);
-
-      return result;
     }
+
+  return TRUE;
 }
 
 gboolean
@@ -1986,153 +1543,6 @@ evd_socket_connect_to (EvdSocket    *self,
   return TRUE;
 }
 
-/**
- * evd_socket_read:
- * @self: The #EvdSocket to read from.
- * @buffer: (out) (transfer full): The buffer to store the data.
- * @size: Maximum number of bytes to read.
- * @error: The #GError to return, or NULL.
- *
- * Reads up to @size bytes of data from the socket input stream. The data read will be copied
- * into @buffer.
- *
- * Returns: The actual number of bytes read.
- **/
-gssize
-evd_socket_read (EvdSocket  *self,
-                 gchar      *buffer,
-                 gsize       size,
-                 GError    **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
-
-  if (self->priv->buf_input_stream == NULL)
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_READABLE,
-                              "Socket is not readable");
-
-      return -1;
-    }
-
-  return g_input_stream_read (G_INPUT_STREAM (self->priv->buf_input_stream),
-                              buffer,
-                              size,
-                              NULL,
-                              error);
-}
-
-/**
- * evd_socket_write:
- * @self: The #EvdSocket to write to.
- * @buffer: (transfer none): Buffer holding the data to be written. Can contain nulls.
- * @size: (in): Maximum number of bytes to write. @buffer should be at least @size long.
- * @error: (out) (transfer full): The #GError to return, or NULL.
- *
- * Writes up to @size bytes of data to the socket.
- *
- * If #auto-write property is TRUE, this method will always respond as it was able to send
- * all data requested, and will buffer and handle the actual writting internally.
- *
- * Returns: The actual number of bytes written.
- **/
-gssize
-evd_socket_write (EvdSocket    *self,
-                  const gchar  *buffer,
-                  gsize         size,
-                  GError      **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
-
-  if (self->priv->buf_output_stream == NULL)
-    {
-      g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_NOT_WRITABLE,
-                           "Socket is not writeable");
-
-      return -1;
-    }
-
-  return g_output_stream_write (G_OUTPUT_STREAM (self->priv->buf_output_stream),
-                                buffer,
-                                size,
-                                NULL,
-                                error);
-}
-
-/**
- * evd_socket_unread:
- * @self: The #EvdSocket to unread data to.
- * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
- * @size: Number of bytes to unread.
- * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
- *
- * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
- * to read will first get data from the local buffer, before performing the actual read
- * operation. This is useful when one needs to do some action with a data just read, but doesn't
- * want to remove the data from the input stream of the socket.
- *
- * Normally, it would be used to write back data that was previously read, to made it available
- * in further calls to read. But in practice any data can be unread.
- *
- * This feature was implemented basically to provide type-of-stream detection on a socket
- * (e.g. a service selector).
- *
- * Returns: The actual number of bytes unread.
- **/
-gssize
-evd_socket_unread (EvdSocket    *self,
-                   const gchar  *buffer,
-                   gsize         size,
-                   GError      **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), -1);
-
-  if (self->priv->buf_input_stream == NULL)
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_READABLE,
-                              "Socket is not readable");
-
-      return -1;
-    }
-
-  return evd_buffered_input_stream_unread (self->priv->buf_input_stream,
-                                           buffer,
-                                           size,
-                                           NULL,
-                                           error);
-}
-
-gsize
-evd_socket_get_max_readable (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
-
-  if (self->priv->throt_input_stream == NULL)
-    return 0;
-  else
-    return
-      evd_throttled_input_stream_get_max_readable (self->priv->throt_input_stream,
-                                                   NULL);
-}
-
-gsize
-evd_socket_get_max_writable (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
-
-  if (self->priv->throt_output_stream == NULL)
-    return 0;
-  else
-    return
-      evd_throttled_output_stream_get_max_writable (self->priv->throt_output_stream,
-                                                    NULL);
-}
-
 gboolean
 evd_socket_can_read (EvdSocket *self)
 {
@@ -2140,7 +1550,6 @@ evd_socket_can_read (EvdSocket *self)
 
   return
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED) &&
-    (self->priv->read_src_id == 0) &&
     ( (self->priv->cond & G_IO_IN) > 0);
 }
 
@@ -2152,7 +1561,6 @@ evd_socket_can_write (EvdSocket *self)
   return
     (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
      self->priv->status == EVD_SOCKET_STATE_BOUND) &&
-    (self->priv->write_src_id == 0) &&
     ( (self->priv->cond & G_IO_OUT) > 0);
 }
 
@@ -2195,32 +1603,6 @@ evd_socket_shutdown (EvdSocket  *self,
                             shutdown_read,
                             shutdown_write,
                             error);
-}
-
-/**
- * evd_socket_get_input_stream:
- *
- * Returns: (transfer none):
- **/
-GInputStream *
-evd_socket_get_input_stream (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-
-  return G_INPUT_STREAM (self->priv->buf_input_stream);
-}
-
-/**
- * evd_socket_get_output_stream:
- *
- * Returns: (transfer none):
- **/
-GOutputStream *
-evd_socket_get_output_stream (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-
-  return G_OUTPUT_STREAM (self->priv->buf_output_stream);
 }
 
 gboolean

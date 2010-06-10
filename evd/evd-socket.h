@@ -128,21 +128,6 @@ gboolean        evd_socket_connect_to         (EvdSocket    *self,
                                                const gchar  *address,
                                                GError      **error);
 
-gssize          evd_socket_read               (EvdSocket *self,
-                                               gchar     *buffer,
-                                               gsize      size,
-                                               GError   **error);
-
-gssize          evd_socket_write              (EvdSocket    *self,
-                                               const gchar  *buffer,
-                                               gsize         size,
-                                               GError      **error);
-
-gssize          evd_socket_unread             (EvdSocket    *self,
-                                               const gchar  *buffer,
-                                               gsize         size,
-                                               GError      **error);
-
 gboolean        evd_socket_can_read           (EvdSocket *self);
 gboolean        evd_socket_can_write          (EvdSocket *self);
 
@@ -151,16 +136,10 @@ GSocketAddress *evd_socket_get_remote_address (EvdSocket  *self,
 GSocketAddress *evd_socket_get_local_address  (EvdSocket  *self,
                                                GError    **error);
 
-gsize           evd_socket_get_max_readable   (EvdSocket *self);
-gsize           evd_socket_get_max_writable   (EvdSocket *self);
-
 gboolean        evd_socket_shutdown           (EvdSocket  *self,
                                                gboolean    shutdown_read,
                                                gboolean    shutdown_write,
                                                GError    **error);
-
-GInputStream   *evd_socket_get_input_stream   (EvdSocket *self);
-GOutputStream  *evd_socket_get_output_stream  (EvdSocket *self);
 
 gboolean        evd_socket_watch_condition    (EvdSocket     *self,
                                                GIOCondition   cond,
