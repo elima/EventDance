@@ -1013,10 +1013,12 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
         }
     }
 
-  if (self->priv->notify_cond_cb != NULL)
-    self->priv->notify_cond_cb (self,
-                                condition,
-                                self->priv->notify_cond_user_data);
+  if (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
+      self->priv->status == EVD_SOCKET_STATE_BOUND)
+    if (self->priv->notify_cond_cb != NULL)
+      self->priv->notify_cond_cb (self,
+                                  condition,
+                                  self->priv->notify_cond_user_data);
 
   g_object_unref (self);
 }
