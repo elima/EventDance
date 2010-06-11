@@ -174,8 +174,9 @@ evd_socket_class_init (EvdSocketClass *class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdSocketClass, error),
                   NULL, NULL,
-                  evd_marshal_VOID__INT_STRING,
-                  G_TYPE_NONE, 2,
+                  evd_marshal_VOID__UINT_INT_STRING,
+                  G_TYPE_NONE, 3,
+                  G_TYPE_UINT,
                   G_TYPE_INT,
                   G_TYPE_STRING);
 
@@ -833,12 +834,16 @@ evd_socket_set_status (EvdSocket *self, EvdSocketState status)
 void
 evd_socket_throw_error (EvdSocket *self, GError *error)
 {
+  g_object_ref (self);
   g_signal_emit (self,
                  evd_socket_signals[SIGNAL_ERROR],
                  0,
+                 error->domain,
                  error->code,
                  error->message,
                  NULL);
+  g_object_unref (self);
+
   g_error_free (error);
 }
 
@@ -924,7 +929,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
             {
               /* @TODO: assume connection was refused */
               error = g_error_new (EVD_ERROR,
-                                   EVD_ERROR_UNKNOWN,
+                                   EVD_ERROR_REFUSED,
                                    "Connection refused");
             }
           else

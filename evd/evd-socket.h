@@ -74,7 +74,10 @@ struct _EvdSocketClass
 
   /* signal prototypes */
   void (* error)          (EvdSocket *self,
-                           GError    *error);
+                           guint32    error_domain,
+                           gint       error_code,
+                           gchar     *error_message,
+                           gpointer   user_data);
   void (* state_changed)  (EvdSocket      *self,
                            EvdSocketState  new_state,
                            EvdSocketState  old_state);
