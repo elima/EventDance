@@ -208,7 +208,7 @@ evd_socket_class_init (EvdSocketClass *class)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__OBJECT,
                   G_TYPE_NONE, 1,
-                  EVD_TYPE_SOCKET);
+                  G_TYPE_IO_STREAM);
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_SOCKET,
@@ -886,18 +886,25 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
   if (self->priv->status == EVD_SOCKET_STATE_LISTENING)
     {
       EvdSocket *client;
+      GIOStream *conn;
 
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
         {
           evd_socket_copy_properties (EVD_SOCKET_BASE (self), EVD_SOCKET_BASE (client));
 
+          conn = g_object_new (self->priv->io_stream_type,
+                               "socket", client,
+                               NULL);
+
           /* fire 'new-connection' signal */
           g_signal_emit (self,
                          evd_socket_signals[SIGNAL_NEW_CONNECTION],
                          0,
-                         client, NULL);
+                         G_IO_STREAM (conn),
+                         NULL);
 
+          g_object_unref (conn);
           g_object_unref (client);
         }
 

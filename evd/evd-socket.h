@@ -83,7 +83,8 @@ struct _EvdSocketClass
                            EvdSocketState  old_state);
   void (* close)          (EvdSocket *self);
   void (* new_connection) (EvdSocket *self,
-                           EvdSocket *socket);
+                           GIOStream *socket,
+                           gpointer   user_data);
 };
 
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())
