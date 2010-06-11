@@ -274,7 +274,7 @@ evd_buffered_input_stream_close (GInputStream  *stream,
       res = self->priv->async_result;
       self->priv->async_result = NULL;
 
-      g_simple_async_result_complete_in_idle (res);
+      g_simple_async_result_complete (res);
       g_object_unref (res);
     }
 
