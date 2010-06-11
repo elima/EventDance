@@ -49,6 +49,10 @@ G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_BASE)
                                      EVD_TYPE_SOCKET, \
                                      EvdSocketPrivate))
 
+#define SOCKET_ACTIVE(socket)       (socket->priv->status == EVD_SOCKET_STATE_CONNECTED || \
+                                     (socket->priv->status == EVD_SOCKET_STATE_BOUND && \
+                                      socket->priv->protocol == G_SOCKET_PROTOCOL_UDP))
+
 /* private data */
 struct _EvdSocketPrivate
 {
