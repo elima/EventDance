@@ -397,9 +397,18 @@ evd_buffered_output_stream_close (GOutputStream  *stream,
 
   if (self->priv->async_result != NULL)
     {
-      g_simple_async_result_complete (self->priv->async_result);
-      g_object_unref (self->priv->async_result);
+      GSimpleAsyncResult *res;
+
+      res = self->priv->async_result;
       self->priv->async_result = NULL;
+
+      g_simple_async_result_set_error (res,
+                                       EVD_ERROR,
+                                       EVD_ERROR_NOT_WRITABLE,
+                                       "Stream has been closed");
+
+      g_simple_async_result_complete (res);
+      g_object_unref (res);
     }
 
   if (self->priv->write_src_id != 0)
