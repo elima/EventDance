@@ -303,6 +303,27 @@ evd_buffered_input_stream_new (GInputStream *base_stream)
   return self;
 }
 
+/**
+ * evd_buffered_input_stream_unread:
+ * @self: The #EvdConnection to unread data to.
+ * @buffer: (transfer none): Buffer holding the data to be unread. Can contain nulls.
+ * @size: Number of bytes to unread.
+ * @cancellable: A #GCancellable object, or NULL.
+ * @error: (out) (transfer full): A pointer to a #GError to return, or NULL.
+ *
+ * Stores @size bytes from @buffer in the local read buffer of the socket. Next calls
+ * to read will first get data from the local buffer, before performing the actual read
+ * operation. This is useful when one needs to do some action with a data just read, but doesn't
+ * want to remove the data from the input stream of the socket.
+ *
+ * Normally, it would be used to write back data that was previously read, to made it available
+ * in further calls to read. But in practice any data can be unread.
+ *
+ * This feature was implemented basically to provide type-of-stream detection on a socket
+ * (e.g. a service selector).
+ *
+ * Returns: The actual number of bytes unread.
+ **/
 gssize
 evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
                                   const void              *buffer,
