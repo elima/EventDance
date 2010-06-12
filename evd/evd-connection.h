@@ -45,6 +45,9 @@ struct _EvdConnection
 struct _EvdConnectionClass
 {
   GIOStreamClass parent_class;
+
+  /* signal prototypes */
+  void (* close) (EvdConnection *self);
 };
 
 #define EVD_TYPE_CONNECTION           (evd_connection_get_type ())
@@ -76,6 +79,8 @@ gboolean           evd_connection_starttls_finish      (EvdConnection  *self,
                                                         GError        **error);
 
 gboolean           evd_connection_get_tls_active       (EvdConnection *self);
+
+gboolean           evd_connection_is_connected         (EvdConnection *self);
 
 G_END_DECLS
 
