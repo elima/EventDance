@@ -9,7 +9,7 @@
  */
 
 // A simple http GET client, supporting TLS upgrade
-// Use it passing any domain name as first argument
+// Use it passing any http URL as first argument
 
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
@@ -18,74 +18,96 @@ const Lang = imports.lang;
 const BLOCK_SIZE  = 2048;
 
 let uri = ARGV[0];
-let schema, resource, domain;
+let schema, resource, domain, port;
 
-// initialize TLS
-Evd.tls_init ();
+function performRequest (req) {
+    // initialize TLS
+    Evd.tls_init ();
 
-// create socket
-let socket = new Evd.Socket ();
-socket.input_throttle.bandwidth = 0.0;
-socket.input_throttle.latency = 0.0;
+    // create socket
+    let socket = new Evd.Socket ();
 
-socket.output_throttle.bandwidth = 0.0;
-socket.output_throttle.latency = 0.0;
+    socket.input_throttle.bandwidth = 0.0;
+    socket.input_throttle.latency = 0.0;
 
-socket.connect ("close",
-    function (socket) {
-        log ("socket closed");
-        MainLoop.quit ("main");
-    });
+    socket.output_throttle.bandwidth = 0.0;
+    socket.output_throttle.latency = 0.0;
 
-socket.connect ("error",
-    function (socket, code, msg) {
-        log ("socket error: " + msg);
-        socket.close ();
-    });
+    socket.connect ("error",
+        function (socket, domain, code, msg) {
+            log ("socket error: " + msg);
+        });
 
-socket.connect ("state-changed",
-    function (socket, newState, oldState) {
-        if (newState == Evd.SocketState.CONNECTED) {
-            let addr = socket.get_remote_address ();
-
-            if (schema == "https" && ! socket.tls_active) {
-                // do TLS upgrade
-                socket.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
-                socket.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
-                socket.starttls (Evd.TlsMode.CLIENT);
-            }
-            else {
-                // perform request
-                log ("requesting");
-                socket.output_stream.write_str ("GET "+resource+" HTTP/1.1\r\n"+
-                                                "Host: "+domain+"\r\n"+
-                                                "Connection: close\r\n\r\n");
-                socket.input_stream.read_str_async (BLOCK_SIZE,
-                                                    0,
-                                                    null,
-                                                    on_read,
-                                                    0);
-            }
+    function receiveResponse (inputStream, result) {
+        try {
+            let [data, len] = inputStream.read_str_finish (result);
+            if (data)
+                print (data);
         }
-    });
+        catch (e) {
+            log (e);
+            return;
+        }
 
-function on_read (inputStream, result) {
-    try {
-        let [data, len] = inputStream.read_str_finish (result);
-        if (data)
-            print (data);
-
-        if (! inputStream.is_closed ()) {
+        if (this.is_connected ()) {
             inputStream.read_str_async (BLOCK_SIZE,
                                         0,
                                         null,
-                                        on_read,
+                                        Lang.bind (this, receiveResponse),
                                         0);
         }
     }
-    catch (e) {
-        log ("Reading error: " + e);
-    }
+
+    // connect to server
+    socket.connect_async (domain + ":" + port, null,
+        function (socket, result, userData) {
+            let conn;
+            try {
+                conn = socket.connect_finish (result);
+            }
+            catch (e) {
+                log (e);
+                MainLoop.quit ("main");
+                return;
+            }
+
+            conn.connect ("close",
+                function (socket) {
+                    log ("connection closed");
+                    MainLoop.quit ("main");
+                });
+
+            log ("socket connected");
+
+            if (schema == "https") {
+                conn.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
+                conn.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
+                conn.starttls_async (Evd.TlsMode.CLIENT, 0, null,
+                    function (conn, result, userData) {
+                        try {
+                            conn.starttls_finish (result);
+                            log ("TLS started");
+                        }
+                        catch (e) {
+                            log (e);
+                        }
+                    }, null, null);
+            }
+
+            conn.output_stream.write_str_async (req, 0, null, null, null);
+
+            conn.input_stream.read_str_async (BLOCK_SIZE,
+                                              0,
+                                              null,
+                                              Lang.bind (conn, receiveResponse),
+                                              null);
+        }, null, null);
+
+    // start the main event loop
+    MainLoop.run ("main");
+
+    // deinitialize TLS
+    Evd.tls_deinit ();
 }
 
 if (! uri) {
@@ -97,7 +119,7 @@ else {
     try {
         schema = uriTokens[1];
         domain = uriTokens[2];
-        let port = uriTokens[4];
+        port = uriTokens[4];
 
         resource = uriTokens[5];
         if (uriTokens[6])
@@ -114,16 +136,13 @@ else {
             else
                 port = 80;
 
-        // connect to server
-        socket.connect_to (domain + ":" + port);
+        let req = "GET "+resource+" HTTP/1.1\r\n"+
+            "Host: "+domain+"\r\n"+
+            "Connection: close\r\n\r\n";
 
-        // start the main event loop
-        MainLoop.run ("main");
+        performRequest (req);
     }
     catch (e) {
-        log ("error parsing url");
+        log ("error parsing url: " + e);
     }
 }
-
-// deinitialize TLS
-Evd.tls_deinit ();

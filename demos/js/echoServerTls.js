@@ -12,6 +12,7 @@
 // Use any TLS echo client (e.g 'gnutls-cli') to test this.
 
 const MainLoop = imports.mainloop;
+const Lang = imports.lang;
 const Evd = imports.gi.Evd;
 
 const LISTEN_PORT = 5556;
@@ -23,36 +24,37 @@ Evd.tls_init ();
 // create socket
 let socket = new Evd.Socket ();
 
-// setup TLS on socket
-socket.tls_autostart = true;
-socket.tls.credentials.dh_bits = 1024;
-socket.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
-socket.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
-socket.tls.credentials.trust_file = "../../tests/certs/x509-ca.pem";
-socket.tls.require_peer_cert = true;
+// setup TLS credentials
+let cred = new Evd.TlsCredentials ();
+cred.dh_bits = 1024;
+cred.cert_file = "../../tests/certs/x509-server.pem";
+cred.key_file = "../../tests/certs/x509-server-key.pem";
+cred.trust_file = "../../tests/certs/x509-ca.pem";
 
 // hook-up new-connection event
 socket.connect ("new-connection",
-    function (listener, client) {
+    function (listener, conn) {
         log ("Client connected");
 
-        client.connect ("close",
+        conn.socket.connect ("close",
             function (socket) {
                 log ("Client closed connection");
             });
 
-        client.connect ("error",
+        conn.socket.connect ("error",
             function (socket, code, msg) {
                 log ("Socket error: " + msg);
             });
 
-        client.connect ("state-changed",
-            function (socket, newState, oldState) {
-                if (newState == Evd.SocketState.CONNECTED &&
-                    socket.tls_active) {
-                    log ("Handshake completed");
+        conn.tls.credentials = cred;
+        conn.tls.require_peer_cert = true;
 
-                    let certificates = socket.tls.get_peer_certificates ();
+        conn.starttls_async (Evd.TlsMode.SERVER, 0, null,
+            function (conn, res, userData) {
+                try {
+                    conn.starttls_finish (res);
+
+                    let certificates = conn.tls.get_peer_certificates ();
                     log ("Peer sent " + certificates.length + " certificate(s):");
                     for (let i=0; i<certificates.length; i++) {
                         let cert = certificates[i];
@@ -62,7 +64,7 @@ socket.connect ("new-connection",
                         log ("     - Expiration time: " + cert.get_expiration_time ());
                     }
 
-                    let result = socket.tls.verify_peer (0);
+                    let result = conn.tls.verify_peer (0);
                     if (result == Evd.TlsVerifyState.OK)
                         log ("Peer verification: OK");
                     else {
@@ -85,18 +87,49 @@ socket.connect ("new-connection",
                             log ("  - One of the peer certificates is not active yet");
                     }
                 }
-            });
+                catch (e) {
+                    log ("TLS upgrade failed: " + e);
+                }
+            }, null);
 
-        client.set_on_read (
-            function (socket) {
-                let [data, len] = socket.input_stream.read_str (BLOCK_SIZE);
-                if (len > 0)
-                    socket.output_stream.write_str (data);
-            });
+        function on_read (inputStream, result) {
+            try {
+                let [data, len] = inputStream.read_str_finish (result);
+
+                this.output_stream.write_str (data, null);
+
+                if (! inputStream.is_closed ()) {
+                    inputStream.read_str_async (BLOCK_SIZE,
+                                                0,
+                                                null,
+                                                Lang.bind (this, on_read),
+                                                0);
+                }
+            }
+            catch (e) {
+                log ("Reading error: " + e);
+            }
+        }
+
+        conn.input_stream.read_str_async (BLOCK_SIZE,
+                                          0,
+                                          null,
+                                          Lang.bind (conn, on_read),
+                                          null);
     });
 
 // listen on all IPv4 interfaces
-socket.listen ("0.0.0.0:" + LISTEN_PORT);
+socket.listen_async ("0.0.0.0:" + LISTEN_PORT, null,
+    function (socket, result, userData) {
+        try {
+            socket.listen_finish (result);
+            log ("Socket listening");
+        }
+        catch (e) {
+            log (e);
+            MainLoop.quit ("main");
+        }
+    }, null);
 
 // start the main event loop
 MainLoop.run ("main");
