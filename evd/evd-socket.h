@@ -109,32 +109,6 @@ void            evd_socket_set_priority       (EvdSocket *self, gint priority);
 
 gboolean        evd_socket_close              (EvdSocket *self, GError **error);
 
-gboolean        evd_socket_bind_addr          (EvdSocket       *self,
-                                               GSocketAddress  *address,
-                                               gboolean         allow_reuse,
-                                               GError         **error);
-gboolean        evd_socket_bind               (EvdSocket    *self,
-                                               const gchar  *address,
-                                               gboolean      allow_reuse,
-                                               GError      **error);
-
-gboolean        evd_socket_listen_addr        (EvdSocket       *self,
-                                               GSocketAddress  *address,
-                                               GError         **error);
-gboolean        evd_socket_listen             (EvdSocket    *self,
-                                               const gchar  *address,
-                                               GError      **error);
-
-gboolean        evd_socket_connect_addr       (EvdSocket       *self,
-                                               GSocketAddress  *address,
-                                               GError         **error);
-gboolean        evd_socket_connect_to         (EvdSocket    *self,
-                                               const gchar  *address,
-                                               GError      **error);
-
-gboolean        evd_socket_can_read           (EvdSocket *self);
-gboolean        evd_socket_can_write          (EvdSocket *self);
-
 GSocketAddress *evd_socket_get_remote_address (EvdSocket  *self,
                                                GError    **error);
 GSocketAddress *evd_socket_get_local_address  (EvdSocket  *self,
@@ -153,7 +127,44 @@ void            evd_socket_set_notify_condition_callback (EvdSocket             
                                                           EvdSocketNotifyConditionCallback  callback,
                                                           gpointer                          user_data);
 
-GIOStream      *evd_socket_get_io_stream                 (EvdSocket  *self);
+gboolean        evd_socket_bind_addr                     (EvdSocket       *self,
+                                                          GSocketAddress  *address,
+                                                          gboolean         allow_reuse,
+                                                          GError         **error);
+void            evd_socket_bind_async                    (EvdSocket           *self,
+                                                          const gchar         *address,
+                                                          GCancellable        *cancellable,
+                                                          GAsyncReadyCallback  callback,
+                                                          gpointer             user_data);
+gboolean        evd_socket_bind_finish                   (EvdSocket     *self,
+                                                          GAsyncResult  *result,
+                                                          GError       **error);
+
+gboolean        evd_socket_listen_addr                   (EvdSocket       *self,
+                                                          GSocketAddress  *address,
+                                                          GError         **error);
+void            evd_socket_listen_async                  (EvdSocket           *self,
+                                                          const gchar         *address,
+                                                          GCancellable        *cancellable,
+                                                          GAsyncReadyCallback  callback,
+                                                          gpointer             user_data);
+gboolean        evd_socket_listen_finish                 (EvdSocket     *self,
+                                                          GAsyncResult  *result,
+                                                          GError       **error);
+
+void            evd_socket_connect_async                 (EvdSocket           *self,
+                                                          const gchar         *address,
+                                                          GCancellable        *cancellable,
+                                                          GAsyncReadyCallback  callback,
+                                                          gpointer             user_data);
+void            evd_socket_connect_async_addr            (EvdSocket           *self,
+                                                          GSocketAddress      *address,
+                                                          GCancellable        *cancellable,
+                                                          GAsyncReadyCallback  callback,
+                                                          gpointer             user_data);
+GIOStream      *evd_socket_connect_finish                (EvdSocket     *self,
+                                                          GAsyncResult  *result,
+                                                          GError       **error);
 
 G_END_DECLS
 

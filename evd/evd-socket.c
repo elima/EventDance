@@ -67,8 +67,6 @@ struct _EvdSocketPrivate
 
   EvdSocketGroup *group;
 
-  gint close_src_id;
-
   GIOCondition cond;
   GIOCondition watched_cond;
   gboolean watched;
@@ -80,8 +78,6 @@ struct _EvdSocketPrivate
 
   gboolean bind_allow_reuse;
 
-  gboolean delayed_close;
-
   guint         event_handler_src_id;
   GIOCondition  new_cond;
   GMutex       *mutex;
@@ -91,6 +87,9 @@ struct _EvdSocketPrivate
 
   GType io_stream_type;
   GIOStream *io_stream;
+
+  gboolean has_pending;
+  GSimpleAsyncResult *async_result;
 };
 
 /* signals */
@@ -147,7 +146,15 @@ static void     evd_socket_manage_write_condition   (EvdSocket *self);
 static void     evd_socket_copy_properties          (EvdSocketBase *self,
                                                      EvdSocketBase *target);
 
-static gboolean evd_socket_finish_close             (gpointer user_data);
+static void     evd_socket_deliver_async_result_error (EvdSocket           *self,
+                                                       GSimpleAsyncResult  *res,
+                                                       GError              *error,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             user_data,
+                                                       gboolean             in_idle);
+
+static gboolean evd_socket_check_availability         (EvdSocket  *self,
+                                                       GError    **error);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
@@ -322,8 +329,6 @@ evd_socket_init (EvdSocket *self)
 
   priv->resolve_request = NULL;
 
-  priv->delayed_close = FALSE;
-
   priv->event_handler_src_id = 0;
   priv->new_cond = 0;
 
@@ -332,8 +337,11 @@ evd_socket_init (EvdSocket *self)
   priv->notify_cond_cb = NULL;
   priv->notify_cond_user_data = NULL;
 
-  self->priv->io_stream_type = EVD_TYPE_CONNECTION;
-  self->priv->io_stream = NULL;
+  priv->io_stream_type = EVD_TYPE_CONNECTION;
+  priv->io_stream = NULL;
+
+  priv->has_pending = FALSE;
+  priv->async_result = NULL;
 }
 
 static void
@@ -342,10 +350,6 @@ evd_socket_dispose (GObject *obj)
   EvdSocket *self = EVD_SOCKET (obj);
 
   self->priv->status = EVD_SOCKET_STATE_CLOSED;
-
-  g_signal_handlers_disconnect_by_func (self,
-                                        evd_socket_finish_close,
-                                        self);
 
   evd_socket_cleanup_internal (self, NULL);
 
@@ -507,7 +511,6 @@ static void
 evd_socket_set_socket (EvdSocket *self, GSocket *socket)
 {
   self->priv->socket = socket;
-  g_object_ref (socket);
 
   g_object_set (socket,
                 "blocking", FALSE,
@@ -516,26 +519,44 @@ evd_socket_set_socket (EvdSocket *self, GSocket *socket)
 }
 
 static gboolean
-evd_socket_check (EvdSocket  *self,
+evd_socket_setup (EvdSocket  *self,
                   GError    **error)
 {
-  GSocket *socket;
-
-  if (self->priv->socket != NULL)
-    return TRUE;
-
-  socket = g_socket_new (self->priv->family,
-                         self->priv->type,
-                         self->priv->protocol,
-                         error);
-
-  if (socket != NULL)
+  if (self->priv->socket == NULL)
     {
-      evd_socket_set_socket (self, socket);
+      GSocket *socket;
+
+      if ( (socket = g_socket_new (self->priv->family,
+                                   self->priv->type,
+                                   self->priv->protocol,
+                                   error)) == NULL)
+        {
+          return FALSE;
+        }
+      else
+        {
+          evd_socket_set_socket (self, socket);
+        }
+    }
+
+  return TRUE;
+}
+
+gboolean
+static evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
+{
+  if ( (! self->priv->watched &&
+        evd_socket_manager_add_socket (self, cond, error)) ||
+       (self->priv->watched &&
+        evd_socket_manager_mod_socket (self, cond, error)) )
+    {
+      self->priv->watched = TRUE;
       return TRUE;
     }
   else
-    return FALSE;
+    {
+      return FALSE;
+    }
 }
 
 static gboolean
@@ -626,6 +647,163 @@ evd_socket_cleanup_internal (EvdSocket *self, GError **error)
 }
 
 static void
+evd_socket_deliver_async_result_error (EvdSocket           *self,
+                                       GSimpleAsyncResult  *res,
+                                       GError              *error,
+                                       GAsyncReadyCallback  callback,
+                                       gpointer             user_data,
+                                       gboolean             in_idle)
+{
+  if (res == NULL)
+    {
+      res = g_simple_async_result_new_from_error (G_OBJECT (self),
+                                                  callback,
+                                                  user_data,
+                                                  error);
+    }
+  else
+    {
+      g_simple_async_result_set_from_error (res, error);
+    }
+
+  if (in_idle)
+    g_simple_async_result_complete_in_idle (res);
+  else
+    g_simple_async_result_complete (res);
+
+  g_object_unref (res);
+}
+
+static gboolean
+evd_socket_bind_addr_internal (EvdSocket       *self,
+                               GSocketAddress  *address,
+                               gboolean         allow_reuse,
+                               GError         **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
+
+  if (! evd_socket_check_address (self, address, error))
+    return FALSE;
+
+  if (! evd_socket_setup (self, error))
+    return FALSE;
+
+  if (! g_socket_bind (self->priv->socket,
+                       address,
+                       allow_reuse,
+                       error))
+    {
+      evd_socket_cleanup (self, NULL);
+      return FALSE;
+    }
+  else
+    {
+      evd_socket_set_status (self, EVD_SOCKET_STATE_BOUND);
+    }
+
+  return TRUE;
+}
+
+static gboolean
+evd_socket_listen_addr_internal (EvdSocket *self, GSocketAddress *address, GError **error)
+{
+  if (address != NULL && ! evd_socket_bind_addr_internal (self, address, TRUE, error))
+    return FALSE;
+
+  if (self->priv->status != EVD_SOCKET_STATE_BOUND)
+    {
+      /* this is to consider that socket could have been closed
+         during 'state-changed' signal handler after call to bind */
+
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_CLOSED,
+                           "Socket has been closed");
+
+      return FALSE;
+    }
+
+  g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
+  if (g_socket_listen (self->priv->socket, error))
+    {
+      self->priv->watched_cond = G_IO_IN;
+      if (evd_socket_watch (self, self->priv->watched_cond, error))
+        {
+          self->priv->cond = 0;
+          self->priv->actual_priority = G_PRIORITY_HIGH + 1;
+          evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
+        }
+      else
+        {
+          evd_socket_cleanup_internal (self, NULL);
+
+          return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
+static gboolean
+evd_socket_connect_addr (EvdSocket        *self,
+                         GSocketAddress   *address,
+                         GError          **error)
+{
+  GError *_error = NULL;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
+
+  if (! evd_socket_check_address (self, address, error))
+    return FALSE;
+
+  if (! evd_socket_setup (self, error))
+    return FALSE;
+
+  if (! g_socket_connect (self->priv->socket,
+                          address,
+                          NULL,
+                          &_error))
+    {
+      /* an error ocurred, but error-pending
+         is normal as on async ops */
+      if ((_error)->code != G_IO_ERROR_PENDING)
+        {
+          if (error != NULL)
+            *error = _error;
+
+          return FALSE;
+        }
+      else
+        {
+          g_error_free (_error);
+          _error = NULL;
+        }
+    }
+
+  /* g_socket_connect returns TRUE on a non-blocking socket, however
+     fills error with "connection in progress" hint */
+  if (_error != NULL)
+    {
+      g_error_free (_error);
+      _error = NULL;
+    }
+
+  if (! evd_socket_watch (self, G_IO_OUT, error))
+    {
+      return FALSE;
+    }
+  else
+    {
+      self->priv->actual_priority = G_PRIORITY_HIGH + 2;
+      evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTING);
+
+      return TRUE;
+    }
+}
+
+static void
 evd_socket_on_resolve (EvdResolver         *resolver,
                        EvdResolverRequest  *request,
                        gpointer             user_data)
@@ -660,8 +838,6 @@ evd_socket_on_resolve (EvdResolver         *resolver,
         {
           gint sub_status;
 
-          self->priv->status = EVD_SOCKET_STATE_CLOSED;
-
           sub_status = self->priv->sub_status;
           self->priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
@@ -669,26 +845,42 @@ evd_socket_on_resolve (EvdResolver         *resolver,
             {
             case EVD_SOCKET_STATE_LISTENING:
               {
-                if (! evd_socket_listen_addr (self, socket_address, &error) &&
-                    error != NULL)
-                  evd_socket_throw_error (self, error);
+                if (evd_socket_listen_addr_internal (self, socket_address, &error))
+                  {
+                    if (self->priv->async_result != NULL)
+                      {
+                        self->priv->has_pending = FALSE;
+
+                        g_simple_async_result_complete_in_idle (self->priv->async_result);
+                        g_object_unref (self->priv->async_result);
+                        self->priv->async_result = NULL;
+                      }
+                  }
                 break;
               }
             case EVD_SOCKET_STATE_BOUND:
               {
-                if (! evd_socket_bind_addr (self,
-                                            socket_address,
-                                            self->priv->bind_allow_reuse,
-                                            &error) && error != NULL)
-                  evd_socket_throw_error (self, error);
+                if (evd_socket_bind_addr_internal (self,
+                                                   socket_address,
+                                                   self->priv->bind_allow_reuse,
+                                                   &error))
+                  {
+                    if (self->priv->async_result != NULL)
+                      {
+                        self->priv->has_pending = FALSE;
+
+                        g_simple_async_result_complete_in_idle (self->priv->async_result);
+                        g_object_unref (self->priv->async_result);
+                        self->priv->async_result = NULL;
+                      }
+                  }
                 break;
               }
-            case EVD_SOCKET_STATE_CONNECTED:
+            case EVD_SOCKET_STATE_CONNECTING:
               {
-                if (! evd_socket_connect_addr (self,
-                                               socket_address,
-                                               &error) && error != NULL)
-                  evd_socket_throw_error (self, error);
+                evd_socket_connect_addr (self,
+                                         socket_address,
+                                         &error);
                 break;
               }
             default:
@@ -701,16 +893,25 @@ evd_socket_on_resolve (EvdResolver         *resolver,
           error = g_error_new (EVD_ERROR,
                                EVD_ERROR_INVALID_ADDRESS,
                                "None of the resolved addresses match socket family");
-          evd_socket_throw_error (self, error);
-          evd_socket_close (self, NULL);
         }
 
       evd_resolver_free_addresses (addresses);
     }
-  else
+
+  if (error != NULL)
     {
-      error->code = EVD_ERROR_RESOLVE_ADDRESS;
+      if (self->priv->async_result != NULL)
+        {
+          evd_socket_deliver_async_result_error (self,
+                                                 self->priv->async_result,
+                                                 error,
+                                                 NULL,
+                                                 NULL,
+                                                 TRUE);
+          self->priv->async_result = NULL;
+        }
       evd_socket_throw_error (self, error);
+      evd_socket_close (self, NULL);
     }
 }
 
@@ -801,20 +1002,30 @@ evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
 }
 
 static gboolean
-evd_socket_finish_close (gpointer user_data)
+evd_socket_check_availability (EvdSocket  *self,
+                               GError    **error)
 {
-  EvdSocket *self = EVD_SOCKET (user_data);
+  if (self->priv->has_pending)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_PENDING,
+                           "Socket has outstanding operation");
 
-  GError *error = NULL;
+      return FALSE;
+    }
 
-  evd_socket_cleanup_internal (self, &error);
+  if (SOCKET_ACTIVE (self))
+    {
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_ALREADY_ACTIVE,
+                           "Socket is currently active, should be closed first before requesting new operation");
 
-  g_object_ref (self);
-  evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSED);
-  g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
-  g_object_unref (self);
+      return FALSE;
+    }
 
-  return FALSE;
+  return TRUE;
 }
 
 /* protected methods */
@@ -823,6 +1034,9 @@ void
 evd_socket_set_status (EvdSocket *self, EvdSocketState status)
 {
   EvdSocketState old_status;
+
+  if (status == self->priv->status)
+    return;
 
   old_status = self->priv->status;
   self->priv->status = status;
@@ -927,9 +1141,10 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                                evd_socket_handle_condition_cb,
                                self);
             }
-
-          if (error != NULL)
-            g_error_free (error);
+          else
+            {
+              g_error_free (error);
+            }
         }
     }
   else
@@ -938,10 +1153,17 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
         {
           if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
             {
-              /* @TODO: assume connection was refused */
+              /* assume connection was refused */
               error = g_error_new (EVD_ERROR,
                                    EVD_ERROR_REFUSED,
                                    "Connection refused");
+              evd_socket_deliver_async_result_error (self,
+                                                     self->priv->async_result,
+                                                     error,
+                                                     NULL,
+                                                     NULL,
+                                                     TRUE);
+              self->priv->async_result = NULL;
             }
           else
             {
@@ -949,7 +1171,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                                    EVD_ERROR_UNKNOWN,
                                    "Unknown socket error");
             }
-
           evd_socket_throw_error (self, error);
           evd_socket_close (self, NULL);
         }
@@ -959,11 +1180,12 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (condition & G_IO_OUT)
             {
               self->priv->watched_cond &= (~G_IO_OUT);
-              if (evd_socket_watch_condition (self, self->priv->watched_cond, &error))
+              if (evd_socket_watch (self, self->priv->watched_cond, &error))
                 {
                   if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
                     {
                       /* socket has just connected! */
+                      self->priv->has_pending = FALSE;
 
                       /* restore priority */
                       self->priv->actual_priority = self->priv->priority;
@@ -971,6 +1193,13 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                       self->priv->cond |= G_IO_OUT;
                       evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
                       self->priv->cond &= ~G_IO_OUT;
+
+                      if (self->priv->async_result != NULL)
+                        {
+                          g_simple_async_result_complete_in_idle (self->priv->async_result);
+                          g_object_unref (self->priv->async_result);
+                          self->priv->async_result = NULL;
+                        }
                     }
 
                   if ( (self->priv->cond & G_IO_OUT) == 0)
@@ -983,7 +1212,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
               else
                 {
                   evd_socket_throw_error (self, error);
-                  evd_socket_close (self, NULL);
                 }
             }
 
@@ -991,12 +1219,11 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (condition & G_IO_IN)
             {
               self->priv->watched_cond &= ~G_IO_IN;
-              if (! evd_socket_watch_condition (self,
-                                                self->priv->watched_cond,
-                                                &error))
+              if (! evd_socket_watch (self,
+                                      self->priv->watched_cond,
+                                      &error))
                 {
                   evd_socket_throw_error (self, error);
-                  //                  evd_socket_close (self, NULL);
                 }
               else if ( (self->priv->cond & G_IO_IN) == 0)
                 {
@@ -1012,24 +1239,10 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 
     }
 
-  if (condition & G_IO_HUP)
-    {
-      if (self->priv->cond & G_IO_IN)
-        {
-          self->priv->delayed_close = TRUE;
-        }
-      else
-        {
-          //          evd_socket_close (self, &error);
-        }
-    }
-
-  if (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
-      self->priv->status == EVD_SOCKET_STATE_BOUND)
-    if (self->priv->notify_cond_cb != NULL)
-      self->priv->notify_cond_cb (self,
-                                  condition,
-                                  self->priv->notify_cond_user_data);
+  if (SOCKET_ACTIVE (self) && self->priv->notify_cond_cb != NULL)
+    self->priv->notify_cond_cb (self,
+                                condition,
+                                self->priv->notify_cond_user_data);
 
   g_object_unref (self);
 }
@@ -1059,7 +1272,7 @@ evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
     {
       g_object_ref (self->priv->group);
 
-      if (evd_socket_can_write (self))
+      if (self->priv->cond & G_IO_OUT)
         evd_socket_invoke_on_write_internal (self);
     }
 }
@@ -1120,14 +1333,6 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
   self->priv->watched_cond = 0;
   self->priv->cond = 0;
 
-  self->priv->delayed_close = FALSE;
-
-  if (self->priv->close_src_id != 0)
-    {
-      g_source_remove (self->priv->close_src_id);
-      self->priv->close_src_id = 0;
-    }
-
   g_mutex_lock (self->priv->mutex);
   if (self->priv->event_handler_src_id != 0)
     {
@@ -1155,6 +1360,8 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 
   self->priv->io_stream = NULL;
 
+  self->priv->has_pending = FALSE;
+
   return result;
 }
 
@@ -1172,7 +1379,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
       evd_socket_set_socket (client, client_socket);
 
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (evd_socket_watch_condition (client, self->priv->watched_cond, error))
+      if (evd_socket_watch (client, self->priv->watched_cond, error))
         {
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
@@ -1258,328 +1465,34 @@ evd_socket_set_priority (EvdSocket *self, gint priority)
 gboolean
 evd_socket_close (EvdSocket *self, GError **error)
 {
+  gboolean result = TRUE;
+
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  if (self->priv->async_result != NULL)
+    {
+      g_simple_async_result_set_error (self->priv->async_result,
+                                       EVD_ERROR,
+                                       EVD_ERROR_CLOSED,
+                                       "Socket has been closed");
+      g_simple_async_result_complete (self->priv->async_result);
+      g_object_unref (self->priv->async_result);
+      self->priv->async_result = NULL;
+    }
 
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
       self->priv->status != EVD_SOCKET_STATE_CLOSING)
     {
-      evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSING);
+      if (! evd_socket_cleanup_internal (self, error))
+        result = FALSE;
 
-      evd_timeout_add (self->priv->context,
-                       0,
-                       self->priv->actual_priority,
-                       evd_socket_finish_close,
-                       self);
+      g_object_ref (self);
+      evd_socket_set_status (self, EVD_SOCKET_STATE_CLOSED);
+      g_signal_emit (self, evd_socket_signals[SIGNAL_CLOSE], 0, NULL);
+      g_object_unref (self);
     }
 
-  return TRUE;
-}
-
-gboolean
-evd_socket_bind_addr (EvdSocket       *self,
-                      GSocketAddress  *address,
-                      gboolean         allow_reuse,
-                      GError         **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
-
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_ALREADY_ACTIVE,
-                              "Socket is currently active, should be closed first before requesting to bind");
-
-      return FALSE;
-    }
-
-  if (! evd_socket_check_address (self, address, error))
-    return FALSE;
-
-  if (! evd_socket_check (self, error))
-    return FALSE;
-
-  if (g_socket_bind (self->priv->socket,
-                     address,
-                     allow_reuse,
-                     error))
-    {
-      evd_socket_set_status (self, EVD_SOCKET_STATE_BOUND);
-
-      return TRUE;
-    }
-  else
-    {
-      evd_socket_cleanup (self, NULL);
-    }
-
-  return FALSE;
-}
-
-gboolean
-evd_socket_bind (EvdSocket    *self,
-                 const gchar  *address,
-                 gboolean      allow_reuse,
-                 GError      **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (address != NULL, FALSE);
-
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_ALREADY_ACTIVE,
-                              "Socket is currently active, should be closed first before requesting to bind");
-
-      return FALSE;
-    }
-
-  /* we need to cache the allow_reuse flag as this op will complete async */
-  self->priv->bind_allow_reuse = allow_reuse;
-
-  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
-
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_BOUND);
-
-  return TRUE;
-}
-
-gboolean
-evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
-      (self->priv->status != EVD_SOCKET_STATE_BOUND || address != NULL) )
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_ALREADY_ACTIVE,
-                              "Socket is currently active, should be closed first before requesting to listen");
-
-      return FALSE;
-    }
-
-  if (address != NULL)
-    if (! evd_socket_bind_addr (self, address, TRUE, error))
-      return FALSE;
-
-  if (self->priv->status != EVD_SOCKET_STATE_BOUND)
-    {
-      /* this is to consider that socket could have been closed
-         during 'state-changed' signal handler after call to bind */
-      return FALSE;
-    }
-
-  g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
-  if (g_socket_listen (self->priv->socket, error))
-    {
-      self->priv->watched_cond = G_IO_IN;
-      if (evd_socket_watch_condition (self, self->priv->watched_cond, error))
-        {
-          self->priv->cond = 0;
-          self->priv->actual_priority = G_PRIORITY_HIGH + 1;
-          evd_socket_set_status (self, EVD_SOCKET_STATE_LISTENING);
-
-          return TRUE;
-        }
-      else
-        {
-          evd_socket_cleanup_internal (self, NULL);
-        }
-    }
-
-  return FALSE;
-}
-
-/**
- * evd_socket_listen:
- * @self: The #EvdSocket to listen on.
- * @address: (allow-none): A string representing the socket address to listen on, or NULL if
- *                         the socket was previously bound to an address using #evd_socket_bind
- *                         or #evd_socket_bind_addr. Only works for connection-oriented sockets.
- * @error: (out) (transfer full): The #GError to return, or NULL.
- *
- * Returns: TRUE on success or FALSE on error.
- *
- **/
-gboolean
-evd_socket_listen (EvdSocket *self, const gchar *address, GError **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  if (address == NULL)
-    return evd_socket_listen_addr (self, NULL, error);
-  else
-    if (self->priv->status != EVD_SOCKET_STATE_CLOSED)
-      {
-        if (error != NULL)
-          *error = g_error_new (EVD_ERROR,
-                                EVD_ERROR_ALREADY_ACTIVE,
-                                "Socket is currently active, should be closed first before requesting to listen");
-
-        return FALSE;
-      }
-
-  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
-
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
-
-  return TRUE;
-}
-
-/**
- * evd_socket_connect_addr:
- * @self: The #EvdSocket to connect.
- * @address: The #GSocketAddress to connect to.
- * @error: (out) (transfer full): The #GError to return, or NULL.
- *
- * Attempts to connect the socket to the specified address. If
- * <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
- * opertation will abort after that time in miliseconds and a
- * <emphasis>connect-timeout</emphasis> error will be signaled.
- *
- * Returns: TRUE on success or FALSE on error.
- **/
-gboolean
-evd_socket_connect_addr (EvdSocket        *self,
-                         GSocketAddress   *address,
-                         GError          **error)
-{
-  GError *_error = NULL;
-
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
-
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
-      (self->priv->status != EVD_SOCKET_STATE_BOUND ||
-       self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_ALREADY_ACTIVE,
-                              "Socket is currently active, should be closed first before requesting to connect");
-
-      return FALSE;
-    }
-
-  if (! evd_socket_check_address (self, address, error))
-    return FALSE;
-
-  if (! evd_socket_check (self, error))
-    return FALSE;
-
-  if (! g_socket_connect (self->priv->socket,
-                          address,
-                          NULL,
-                          &_error))
-    {
-      /* an error ocurred, but error-pending
-         is normal as on async ops */
-      if ((_error)->code != G_IO_ERROR_PENDING)
-        {
-          if (error != NULL)
-            *error = _error;
-
-          return FALSE;
-        }
-      else
-        {
-          g_error_free (_error);
-          _error = NULL;
-        }
-    }
-
-  /* g_socket_connect returns TRUE on a non-blocking socket, however
-     fills error with "connection in progress" hint */
-  if (_error != NULL)
-    {
-      g_error_free (_error);
-      _error = NULL;
-    }
-
-  if (! evd_socket_watch_condition (self, G_IO_IN | G_IO_OUT, error))
-    {
-      evd_socket_cleanup_internal (self, NULL);
-      return FALSE;
-    }
-  else
-    {
-      self->priv->actual_priority = G_PRIORITY_HIGH + 2;
-      evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTING);
-
-      return TRUE;
-    }
-}
-
-/**
- * evd_socket_connect_to:
- * @self: The #EvdSocket to connect.
- * @address: A string representing the socket address to connect to.
- * @error: (out) (transfer full): The #GError to return, or NULL.
- *
- * Similar to #evd_socket_connect_addr, but address is a string that will
- * be resolved to a #GSocketAddress internally.
- *
- * For unix addresses, a valid filename should be provided since abstract unix
- * addresses are not supported. For IP addresses, a string in the format "host:port"
- * is expected. <emphasis>host</emphasis> can be an IP address version 4 or 6 (if
- * supported by the OS), or any domain name.
- *
- * If <emphasis>connect-timeout</emphasis> property is greater than zero, the connect
- * opertation will abort after that time in miliseconds and a
- * <emphasis>connect-timeout</emphasis> error will be signaled.
- *
- * Returns: TRUE on success or FALSE on error.
- **/
-gboolean
-evd_socket_connect_to (EvdSocket    *self,
-                       const gchar  *address,
-                       GError      **error)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (address != NULL, FALSE);
-
-  if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
-      (self->priv->status != EVD_SOCKET_STATE_BOUND ||
-       self->priv->protocol != G_SOCKET_PROTOCOL_UDP) )
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_ALREADY_ACTIVE,
-                              "Socket is currently active, should be closed first before requesting to connect");
-
-      return FALSE;
-    }
-
-  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
-
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTED);
-
-  return TRUE;
-}
-
-gboolean
-evd_socket_can_read (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  return
-    (self->priv->status == EVD_SOCKET_STATE_CONNECTED) &&
-    ( (self->priv->cond & G_IO_IN) > 0);
-}
-
-gboolean
-evd_socket_can_write (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-
-  return
-    (self->priv->status == EVD_SOCKET_STATE_CONNECTED ||
-     self->priv->status == EVD_SOCKET_STATE_BOUND) &&
-    ( (self->priv->cond & G_IO_OUT) > 0);
+  return result;
 }
 
 GSocketAddress *
@@ -1628,18 +1541,14 @@ evd_socket_watch_condition (EvdSocket *self, GIOCondition cond, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  self->priv->watched_cond = cond;
-  if ( (! self->priv->watched &&
-        evd_socket_manager_add_socket (self, cond, error)) ||
-       (self->priv->watched &&
-        evd_socket_manager_mod_socket (self, cond, error)) )
+  if (SOCKET_ACTIVE (self))
     {
-      self->priv->watched = TRUE;
-      return TRUE;
+      self->priv->watched_cond = cond;
+      return evd_socket_watch (self, self->priv->watched_cond, error);
     }
   else
     {
-      return FALSE;
+      return TRUE;
     }
 }
 
@@ -1660,20 +1569,235 @@ evd_socket_set_notify_condition_callback (EvdSocket                        *self
   self->priv->notify_cond_user_data = user_data;
 }
 
-/**
- * evd_socket_get_io_stream:
- *
- * Returns: (transfer-full): A connection object that specializes a #GIOStream.
- **/
+void
+evd_socket_connect_async (EvdSocket           *self,
+                          const gchar         *address,
+                          GCancellable        *cancellable,
+                          GAsyncReadyCallback  callback,
+                          gpointer             user_data)
+{
+  GError *error = NULL;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (! evd_socket_check_availability (self, &error))
+    {
+      evd_socket_deliver_async_result_error (self,
+                                             NULL,
+                                             error,
+                                             callback,
+                                             user_data,
+                                             TRUE);
+      return;
+    }
+
+  self->priv->has_pending = TRUE;
+  self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
+                                                        callback,
+                                                        user_data,
+                                                        evd_socket_connect_async);
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
+
+  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTING);
+
+  return;
+}
+
+void
+evd_socket_connect_async_addr (EvdSocket           *self,
+                               GSocketAddress      *address,
+                               GCancellable        *cancellable,
+                               GAsyncReadyCallback  callback,
+                               gpointer             user_data)
+{
+  GError *error = NULL;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (! evd_socket_check_availability (self, &error) ||
+      ! evd_socket_connect_addr (self, address, &error))
+    {
+      evd_socket_deliver_async_result_error (self,
+                                             NULL,
+                                             error,
+                                             callback,
+                                             user_data,
+                                             TRUE);
+      return;
+    }
+  else
+    {
+      self->priv->has_pending = TRUE;
+      self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
+                                                            callback,
+                                                            user_data,
+                                                            evd_socket_connect_async);
+    }
+
+  return;
+}
+
 GIOStream *
-evd_socket_get_io_stream (EvdSocket  *self)
+evd_socket_connect_finish (EvdSocket     *self,
+                           GAsyncResult  *result,
+                           GError       **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                        G_OBJECT (self),
+                                                        evd_socket_connect_async),
+                        NULL);
 
-  if (self->priv->io_stream == NULL)
-    self->priv->io_stream = g_object_new (self->priv->io_stream_type,
-                                          "socket", self,
-                                          NULL);
+  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                               error))
+    return g_object_new (self->priv->io_stream_type, "socket", self, NULL);
+  else
+    return NULL;
+}
 
-  return self->priv->io_stream;
+gboolean
+evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error)
+{
+  gboolean result;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+
+  if (! evd_socket_check_availability (self, error))
+    return FALSE;
+  else
+    self->priv->has_pending = TRUE;
+
+  result = evd_socket_listen_addr_internal (self, address, error);
+  self->priv->has_pending = FALSE;
+
+  return result;
+}
+
+void
+evd_socket_listen_async (EvdSocket           *self,
+                         const gchar         *address,
+                         GCancellable        *cancellable,
+                         GAsyncReadyCallback  callback,
+                         gpointer             user_data)
+{
+  GError *error = NULL;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (! evd_socket_check_availability (self, &error))
+    {
+      evd_socket_deliver_async_result_error (self,
+                                             NULL,
+                                             error,
+                                             callback,
+                                             user_data,
+                                             TRUE);
+      return;
+    }
+
+  self->priv->has_pending = TRUE;
+  self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
+                                                        callback,
+                                                        user_data,
+                                                        evd_socket_listen_async);
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
+
+  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
+
+  return;
+}
+
+gboolean
+evd_socket_listen_finish (EvdSocket     *self,
+                          GAsyncResult  *result,
+                          GError       **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                        G_OBJECT (self),
+                                                        evd_socket_listen_async),
+                        FALSE);
+
+  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                               error))
+    return TRUE;
+  else
+    return FALSE;
+}
+
+gboolean
+evd_socket_bind_addr (EvdSocket       *self,
+                      GSocketAddress  *address,
+                      gboolean         allow_reuse,
+                      GError         **error)
+{
+  gboolean result;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (G_IS_SOCKET_ADDRESS (address), FALSE);
+
+  if (! evd_socket_check_availability (self, error))
+    return FALSE;
+  else
+    self->priv->has_pending = TRUE;
+
+  result = evd_socket_bind_addr_internal (self, address, allow_reuse, error);
+  self->priv->has_pending = FALSE;
+
+  return result;
+}
+
+void
+evd_socket_bind_async (EvdSocket           *self,
+                       const gchar         *address,
+                       GCancellable        *cancellable,
+                       GAsyncReadyCallback  callback,
+                       gpointer             user_data)
+{
+  GError *error = NULL;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+
+  if (! evd_socket_check_availability (self, &error))
+    {
+      evd_socket_deliver_async_result_error (self,
+                                             NULL,
+                                             error,
+                                             callback,
+                                             user_data,
+                                             TRUE);
+      return;
+    }
+
+  self->priv->has_pending = TRUE;
+  self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
+                                                        callback,
+                                                        user_data,
+                                                        evd_socket_bind_async);
+
+  evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
+
+  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_BOUND);
+
+  return;
+}
+
+gboolean
+evd_socket_bind_finish (EvdSocket     *self,
+                        GAsyncResult  *result,
+                        GError       **error)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                        G_OBJECT (self),
+                                                        evd_socket_bind_async),
+                        FALSE);
+
+  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                               error))
+    return TRUE;
+  else
+    return FALSE;
 }
