@@ -2,12 +2,12 @@ MAINTAINERCLEANFILES = \
 	Makefile.in
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = evd.pc
+pkgconfig_DATA = @EVD_API_NAME@.pc
 
 library_includedir=$(includedir)/@EVD_API_NAME@
 library_include_HEADERS = evd.h
 
-CLEANFILES = *~ evd.pc
+CLEANFILES = *~ @EVD_API_NAME@.pc
 
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
 	-DPKGDATADIR="\"$(pkgdatadir)\""

@@ -1,4 +1,3 @@
-
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
@@ -7,9 +6,9 @@ includedir=@includedir@
 datarootdir=@datarootdir@
 localedir=@localedir@
 
-Name: Eventdance
+Name: EventDance
 Description: An event distribution framework.
-Requires: GLib
+Requires: glib-2.0 gio-2.0 gobject-2.0 libsoup-2.4 uuid
 Version: @VERSION@
 Libs: -L${libdir} -levd-@VERSION@
 Cflags: -I${includedir}/evd-@VERSION@

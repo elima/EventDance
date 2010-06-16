@@ -90,7 +90,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 AC_OUTPUT([
 	Makefile
 	evd/Makefile
-	evd/evd.pc
+	evd/evd-0.1.pc
 	tests/Makefile
         doc/Makefile
         doc/reference/Makefile
