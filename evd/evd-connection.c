@@ -30,11 +30,10 @@
 #include "evd-buffered-output-stream.h"
 #include "evd-throttled-input-stream.h"
 #include "evd-throttled-output-stream.h"
-
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
-#include "evd-socket-group.h"
+#include "evd-stream-throttle.h"
 
 G_DEFINE_TYPE (EvdConnection, evd_connection, G_TYPE_IO_STREAM)
 
@@ -74,6 +73,9 @@ struct _EvdConnectionPrivate
   GSimpleAsyncResult *starttls_result;
 
   gboolean connected;
+
+  EvdStreamThrottle *input_throttle;
+  EvdStreamThrottle *output_throttle;
 };
 
 /* signals */
@@ -91,7 +93,9 @@ enum
   PROP_0,
   PROP_SOCKET,
   PROP_TLS_SESSION,
-  PROP_TLS_ACTIVE
+  PROP_TLS_ACTIVE,
+  PROP_INPUT_THROTTLE,
+  PROP_OUTPUT_THROTTLE
 };
 
 static void           evd_connection_class_init        (EvdConnectionClass *class);
@@ -175,6 +179,22 @@ evd_connection_class_init (EvdConnectionClass *class)
                                                          G_PARAM_READABLE |
                                                          G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_INPUT_THROTTLE,
+                                   g_param_spec_object ("input-throttle",
+                                                        "Input throttle object",
+                                                        "The connection's input throttle object",
+                                                        EVD_TYPE_STREAM_THROTTLE,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_OUTPUT_THROTTLE,
+                                   g_param_spec_object ("output-throttle",
+                                                        "Output throttle object",
+                                                        "The connection's output throttle object",
+                                                        EVD_TYPE_STREAM_THROTTLE,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
   g_type_class_add_private (obj_class, sizeof (EvdConnectionPrivate));
 }
 
@@ -199,6 +219,9 @@ evd_connection_init (EvdConnection *self)
   priv->tls_active = FALSE;
 
   priv->connected = FALSE;
+
+  priv->input_throttle = evd_stream_throttle_new ();
+  priv->output_throttle = evd_stream_throttle_new ();
 }
 
 static void
@@ -215,6 +238,9 @@ evd_connection_finalize (GObject *obj)
   EvdConnection *self = EVD_CONNECTION (obj);
 
   evd_connection_teardown_streams (self);
+
+  g_object_unref (self->priv->input_throttle);
+  g_object_unref (self->priv->output_throttle);
 
   g_object_unref (self->priv->socket);
 
@@ -271,6 +297,14 @@ evd_connection_get_property (GObject    *obj,
 
     case PROP_TLS_ACTIVE:
       g_value_set_boolean (value, evd_connection_get_tls_active (self));
+      break;
+
+    case PROP_INPUT_THROTTLE:
+      g_value_set_object (value, self->priv->input_throttle);
+      break;
+
+    case PROP_OUTPUT_THROTTLE:
+      g_value_set_object (value, self->priv->output_throttle);
       break;
 
     default:
@@ -688,7 +722,7 @@ evd_connection_setup_streams (EvdConnection *self)
                               G_INPUT_STREAM (self->priv->socket_input_stream));
 
   evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-    evd_socket_base_get_input_throttle (EVD_SOCKET_BASE (self->priv->socket)));
+                                           self->priv->input_throttle);
 
   g_signal_connect (self->priv->throt_input_stream,
                     "delay-read",
@@ -701,7 +735,7 @@ evd_connection_setup_streams (EvdConnection *self)
                             G_OUTPUT_STREAM (self->priv->socket_output_stream));
 
   evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
-    evd_socket_base_get_output_throttle (EVD_SOCKET_BASE (self->priv->socket)));
+                                            self->priv->output_throttle);
 
   g_signal_connect (self->priv->throt_output_stream,
                     "delay-write",
