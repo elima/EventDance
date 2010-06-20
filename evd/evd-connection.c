@@ -20,9 +20,10 @@
  *
  */
 
+#include "evd-connection.h"
+
 #include "evd-error.h"
 #include "evd-utils.h"
-#include "evd-connection.h"
 
 #include "evd-socket-input-stream.h"
 #include "evd-socket-output-stream.h"
@@ -120,12 +121,11 @@ static void           evd_connection_get_property      (GObject    *obj,
 static GInputStream  *evd_connection_get_input_stream  (GIOStream *stream);
 static GOutputStream *evd_connection_get_output_stream (GIOStream *stream);
 
-static gboolean       evd_connection_close             (GIOStream     *stream,
+static gboolean       evd_connection_close_internal    (GIOStream     *stream,
                                                         GCancellable  *cancellable,
                                                         GError       **error);
 static void           evd_connection_close_in_idle     (EvdConnection *self);
-static gboolean       evd_connection_close_internal    (gpointer user_data);
-
+static gboolean       evd_connection_close_in_idle_cb  (gpointer user_data);
 
 static void           evd_connection_set_group         (EvdConnection      *self,
                                                         EvdConnectionGroup *group);
@@ -150,7 +150,7 @@ evd_connection_class_init (EvdConnectionClass *class)
   io_stream_class = G_IO_STREAM_CLASS (class);
   io_stream_class->get_input_stream = evd_connection_get_input_stream;
   io_stream_class->get_output_stream = evd_connection_get_output_stream;
-  io_stream_class->close_fn = evd_connection_close;
+  io_stream_class->close_fn = evd_connection_close_internal;
 
   evd_connection_signals[SIGNAL_CLOSE] =
     g_signal_new ("close",
@@ -357,13 +357,20 @@ evd_connection_get_output_stream (GIOStream *stream)
 }
 
 static gboolean
-evd_connection_close (GIOStream     *stream,
-                      GCancellable  *cancellable,
-                      GError       **error)
+evd_connection_close_internal (GIOStream     *stream,
+                               GCancellable  *cancellable,
+                               GError       **error)
 {
   EvdConnection *self = EVD_CONNECTION (stream);
   gboolean result = TRUE;
   GError *_error = NULL;
+
+  if (self->priv->close_src_id != 0)
+    {
+      g_source_remove (self->priv->close_src_id);
+      self->priv->close_src_id = 0;
+      g_object_unref (self);
+    }
 
   if (self->priv->read_src_id != 0)
     {
@@ -379,14 +386,18 @@ evd_connection_close (GIOStream     *stream,
 
   if (self->priv->starttls_result != NULL)
     {
-      if (self->priv->tls_handshaking)
-        g_simple_async_result_set_error (self->priv->starttls_result,
-                                         EVD_ERROR,
-                                         EVD_ERROR_NOT_CONNECTED,
-                                         "Connection closed during TLS handshake");
-      g_simple_async_result_complete (self->priv->starttls_result);
-      g_object_unref (self->priv->starttls_result);
+      GSimpleAsyncResult *res;
+
+      res = self->priv->starttls_result;
       self->priv->starttls_result = NULL;
+
+      if (self->priv->tls_handshaking)
+        g_simple_async_result_set_error (res,
+                                         EVD_ERROR,
+                                         EVD_ERROR_CLOSED,
+                                         "Connection closed during TLS handshake");
+      g_simple_async_result_complete (res);
+      g_object_unref (res);
     }
 
   self->priv->tls_handshaking = FALSE;
@@ -505,11 +516,9 @@ evd_connection_socket_on_status_changed (EvdSocket      *socket,
                                         &error))
         {
           /* @TODO: handle error */
+
+          g_error_free (error);
         }
-    }
-  else if (new_status == EVD_SOCKET_STATE_CLOSED)
-    {
-      evd_connection_close_in_idle (self);
     }
 }
 
@@ -524,18 +533,23 @@ evd_connection_socket_on_error (EvdSocket *socket,
 }
 
 static gboolean
-evd_connection_close_internal (gpointer user_data)
+evd_connection_close_in_idle_cb (gpointer user_data)
 {
   EvdConnection *self = EVD_CONNECTION (user_data);
   GError *error = NULL;
 
   self->priv->close_src_id = 0;
 
-  if (! g_io_stream_close (G_IO_STREAM (self), NULL, &error))
+  g_io_stream_clear_pending (G_IO_STREAM (self));
+   if (! g_io_stream_close (G_IO_STREAM (self), NULL, &error))
     {
       /* @TODO: handle error */
       g_debug ("error closing connection: %s", error->message);
+
+      g_error_free (error);
     }
+
+  g_object_unref (self);
 
   return FALSE;
 }
@@ -546,12 +560,16 @@ evd_connection_close_in_idle (EvdConnection *self)
   self->priv->connected = FALSE;
 
   if (self->priv->close_src_id == 0)
-    self->priv->close_src_id =
-      evd_timeout_add (evd_socket_get_context (self->priv->socket),
-                       0,
-                       evd_socket_get_priority (self->priv->socket),
-                       evd_connection_close_internal,
-                       self);
+    {
+      g_object_ref (self);
+
+      self->priv->close_src_id =
+        evd_timeout_add (evd_socket_get_context (self->priv->socket),
+                         0,
+                         evd_socket_get_priority (self->priv->socket),
+                         evd_connection_close_in_idle_cb,
+                         self);
+    }
 }
 
 static void
@@ -572,11 +590,14 @@ evd_connection_tls_handshake (EvdConnection *self)
                                       self->priv->watched_cond,
                                       &error))
         {
-          g_simple_async_result_complete (self->priv->starttls_result);
-          g_object_unref (self->priv->starttls_result);
-          self->priv->starttls_result = NULL;
+          GSimpleAsyncResult *res;
 
+          res = self->priv->starttls_result;
+          self->priv->starttls_result = NULL;
           self->priv->tls_handshaking = FALSE;
+
+          g_simple_async_result_complete (res);
+          g_object_unref (res);
         }
     }
 
@@ -627,7 +648,8 @@ evd_connection_read_wait_timeout (gpointer user_data)
   if (self->priv->delayed_close &&
       ! READ_PENDING (self))
     {
-      evd_connection_close_internal (self);
+      g_object_ref (self);
+      evd_connection_close_in_idle_cb (self);
     }
 
   return FALSE;
@@ -876,6 +898,18 @@ evd_connection_teardown_streams (EvdConnection *self)
 
   g_object_unref (self->priv->socket_input_stream);
   g_object_unref (self->priv->socket_output_stream);
+}
+
+/* protected methods */
+
+gboolean
+evd_connection_close_protected (EvdConnection  *self,
+                                GCancellable   *cancellable,
+                                GError        **error)
+{
+  return evd_connection_close_internal (G_IO_STREAM (self),
+                                        cancellable,
+                                        error);
 }
 
 /* public methods */
