@@ -56,6 +56,8 @@ PKG_CHECK_MODULES(GLIB, gio-2.0 >= $GIO_REQUIRED
 		        gthread-2.0 >= 2.22.0
 		        gobject-2.0 >= 2.22.0)
 
+PKG_CHECK_MODULES(SOUP, libsoup-2.4 >= 2.22.0)
+
 PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= $GIO_REQUIRED],
         [HAVE_GIO_UNIX=yes],
         [HAVE_GIO_UNIX=no])

@@ -96,10 +96,12 @@ source_h_priv = \
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
+	$(SOUP_LIBS) \
 	$(TLS_LIBS)
 
 lib@EVD_API_NAME@_la_CFLAGS  = \
 	$(AM_CFLAGS) \
+	$(SOUP_CFLAGS) \
 	$(TLS_CFLAGS)
 
 if HAVE_GIO_UNIX
@@ -138,7 +140,7 @@ INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
 introspection_sources = $(evd_HEADERS) $(source_c)
 
 @EVD_GIR_API_NAME@.gir: lib@EVD_API_NAME@.la Makefile
-@EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0
+@EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0 Soup-2.4
 @EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES)
 @EVD_GIR_TARGET_NAME@_LIBS = lib@EVD_API_NAME@.la
 @EVD_GIR_TARGET_NAME@_FILES = $(addprefix $(srcdir)/,$(introspection_sources))
