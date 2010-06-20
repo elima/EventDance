@@ -65,8 +65,6 @@ struct _EvdSocketPrivate
   EvdSocketState   sub_status;
   GMainContext    *context;
 
-  EvdSocketGroup *group;
-
   GIOCondition cond;
   GIOCondition watched_cond;
   gboolean watched;
@@ -112,7 +110,6 @@ enum
   PROP_FAMILY,
   PROP_TYPE,
   PROP_PROTOCOL,
-  PROP_GROUP,
   PROP_PRIORITY,
   PROP_STATUS,
   PROP_IO_STREAM_TYPE
@@ -257,14 +254,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_GROUP,
-                                   g_param_spec_object ("group",
-                                                        "Socket group",
-                                                        "The socket group owning this socket",
-                                                        EVD_TYPE_SOCKET_GROUP,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_PRIORITY,
                                    g_param_spec_int ("priority",
                                                      "The priority of socket's events",
@@ -310,8 +299,6 @@ evd_socket_init (EvdSocket *self)
   priv->type     = G_SOCKET_TYPE_INVALID;
   priv->protocol = G_SOCKET_PROTOCOL_UNKNOWN;
 
-  priv->group = NULL;
-
   priv->status     = EVD_SOCKET_STATE_CLOSED;
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
@@ -352,8 +339,6 @@ evd_socket_dispose (GObject *obj)
   self->priv->status = EVD_SOCKET_STATE_CLOSED;
 
   evd_socket_cleanup_internal (self, NULL);
-
-  evd_socket_set_group (self, NULL);
 
   if (self->priv->resolve_request != NULL)
     {
@@ -405,20 +390,6 @@ evd_socket_set_property (GObject      *obj,
     case PROP_PROTOCOL:
       self->priv->protocol = g_value_get_enum (value);
       break;
-
-    case PROP_GROUP:
-      {
-        EvdSocketGroup *group;
-
-        if (self->priv->group != NULL)
-          evd_socket_group_remove (self->priv->group, self);
-
-        group = g_value_get_object (value);
-        if (group != NULL)
-          evd_socket_group_add (group, self);
-
-        break;
-      }
 
     case PROP_PRIORITY:
       evd_socket_set_priority (self, g_value_get_uint (value));
@@ -476,10 +447,6 @@ evd_socket_get_property (GObject    *obj,
         g_value_set_enum (value, self->priv->protocol);
       break;
 
-    case PROP_GROUP:
-      g_value_set_object (value, evd_socket_get_group (self));
-      break;
-
     case PROP_PRIORITY:
       g_value_set_int (value, self->priv->priority);
       break;
@@ -496,15 +463,6 @@ evd_socket_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
-}
-
-static void
-evd_socket_closure_changed (EvdSocketBase *stream)
-{
-  EvdSocket *self = EVD_SOCKET (stream);
-
-  if (self->priv->group != NULL)
-    evd_socket_group_remove (self->priv->group, self);
 }
 
 static void
@@ -997,8 +955,6 @@ evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
 
   evd_socket_set_priority (target, self->priv->priority);
 
-  if (self->priv->group != NULL)
-    evd_socket_group_add (self->priv->group, target);
 }
 
 static gboolean
@@ -1248,36 +1204,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 }
 
 void
-evd_socket_set_group (EvdSocket *self, EvdSocketGroup *group)
-{
-  if (self->priv->group == group)
-    return;
-
-  if (self->priv->group != NULL)
-    {
-      EvdSocketGroup *current_group;
-
-      current_group = self->priv->group;
-      self->priv->group = NULL;
-
-      evd_socket_base_set_on_read (EVD_SOCKET_BASE (self), NULL);
-      evd_socket_base_set_on_write (EVD_SOCKET_BASE (self), NULL);
-
-      g_object_unref (current_group);
-    }
-
-  self->priv->group = group;
-
-  if (group != NULL)
-    {
-      g_object_ref (self->priv->group);
-
-      if (self->priv->cond & G_IO_OUT)
-        evd_socket_invoke_on_write_internal (self);
-    }
-}
-
-void
 evd_socket_invoke_on_read (EvdSocket *self)
 {
   GClosure *closure = NULL;
@@ -1432,14 +1358,6 @@ evd_socket_get_status (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
 
   return self->priv->status;
-}
-
-EvdSocketGroup *
-evd_socket_get_group (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-
-  return self->priv->group;
 }
 
 gint
