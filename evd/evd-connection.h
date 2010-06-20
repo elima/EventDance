@@ -81,6 +81,8 @@ gboolean           evd_connection_get_tls_active       (EvdConnection *self);
 
 gboolean           evd_connection_is_connected         (EvdConnection *self);
 
+gint               evd_connection_get_priority         (EvdConnection *self);
+
 G_END_DECLS
 
 #endif /* __EVD_CONNECTION_H__ */

@@ -1005,3 +1005,11 @@ evd_connection_is_connected (EvdConnection *self)
 
   return self->priv->connected;
 }
+
+gint
+evd_connection_get_priority (EvdConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
+
+  return evd_socket_get_priority (self->priv->socket);
+}
