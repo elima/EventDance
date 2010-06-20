@@ -26,26 +26,13 @@
 #ifndef __EVD_SOCKET_PROTECTED_H__
 #define __EVD_SOCKET_PROTECTED_H__
 
-#include "evd-socket.h"
-#include "evd-socket-group.h"
+#include <evd-socket.h>
 
 G_BEGIN_DECLS
 
-void            evd_socket_set_status          (EvdSocket *self,
-                                                EvdSocketState status);
 void            evd_socket_throw_error         (EvdSocket *self, GError *error);
 void            evd_socket_handle_condition    (EvdSocket    *self,
                                                 GIOCondition  condition);
-void            evd_socket_set_group           (EvdSocket      *self,
-                                                EvdSocketGroup *group);
-EvdSocketGroup *evd_socket_get_group           (EvdSocket      *self);
-
-void            evd_socket_invoke_on_read      (EvdSocket *self);
-void            evd_socket_invoke_on_write     (EvdSocket *self);
-
-
-gboolean        evd_socket_cleanup             (EvdSocket  *self,
-                                                GError    **error);
 
 EvdSocket      *evd_socket_accept              (EvdSocket  *self,
                                                 GError    **error);
