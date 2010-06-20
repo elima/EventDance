@@ -55,7 +55,8 @@ source_c = \
 	evd-tls-certificate.c \
 	evd-tls-credentials.c \
 	evd-connection.c \
-	evd-connection-group.c
+	evd-connection-group.c \
+	evd-http-connection.c
 
 source_h = \
 	evd.h \
@@ -82,7 +83,8 @@ source_h = \
 	evd-tls-certificate.h \
 	evd-tls-credentials.h \
 	evd-connection.h \
-	evd-connection-group.h
+	evd-connection-group.h \
+	evd-http-connection.h
 
 source_h_priv = \
 	evd-marshal.h \

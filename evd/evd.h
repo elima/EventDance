@@ -48,5 +48,6 @@
 #include <evd-tls-certificate.h>
 #include <evd-connection.h>
 #include <evd-connection-group.h>
+#include <evd-http-connection.h>
 
 #endif /* __EVD_H__ */
