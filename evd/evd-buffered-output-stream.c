@@ -240,8 +240,9 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
                                   GCancellable   *cancellable,
                                   GError        **error)
 {
-  gssize actual_size;
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
+  gssize actual_size;
+  gsize buffered_size = 0;
 
   if (self->priv->frozen ||
       self->priv->buffer->len > 0 ||
@@ -265,13 +266,13 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
                                            error);
       if (actual_size > 0 && actual_size < size)
         {
-          evd_buffered_output_stream_fill (self,
-                                    (void *) (((guintptr) buffer) + actual_size),
-                                    size - actual_size);
+          buffered_size = evd_buffered_output_stream_fill (self,
+                                   (void *) (((guintptr) buffer) + actual_size),
+                                   size - actual_size);
         }
     }
 
-  return actual_size;
+  return actual_size + buffered_size;
 }
 
 static gboolean
@@ -290,6 +291,8 @@ do_write (gpointer user_data)
   if (self->priv->buffer->len == 0 && self->priv->async_result != NULL)
     {
       GSimpleAsyncResult *res;
+
+      g_output_stream_clear_pending (G_OUTPUT_STREAM (self));
 
       res = self->priv->async_result;
       self->priv->async_result = NULL;
@@ -346,8 +349,6 @@ evd_buffered_output_stream_write_finish (GOutputStream  *stream,
                                          GError        **error)
 {
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
-
-  g_output_stream_clear_pending (stream);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result), error))
     return self->priv->actual_size;
