@@ -55,14 +55,14 @@ G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_OBJECT)
 /* private data */
 struct _EvdSocketPrivate
 {
-  GSocket         *socket;
-  GSocketFamily    family;
-  GSocketType      type;
-  GSocketProtocol  protocol;
+  GSocket *socket;
+  GSocketFamily family;
+  GSocketType type;
+  GSocketProtocol protocol;
 
-  EvdSocketState   status;
-  EvdSocketState   sub_status;
-  GMainContext    *context;
+  EvdSocketState status;
+  EvdSocketState sub_status;
+  GMainContext *context;
 
   GIOCondition cond;
   GIOCondition watched_cond;
@@ -75,9 +75,9 @@ struct _EvdSocketPrivate
 
   gboolean bind_allow_reuse;
 
-  guint         event_handler_src_id;
-  GIOCondition  new_cond;
-  GMutex       *mutex;
+  guint event_handler_src_id;
+  GIOCondition new_cond;
+  GMutex *mutex;
 
   EvdSocketNotifyConditionCallback notify_cond_cb;
   gpointer notify_cond_user_data;
@@ -114,25 +114,26 @@ enum
   PROP_IO_STREAM_TYPE
 };
 
-static void     evd_socket_class_init         (EvdSocketClass *class);
-static void     evd_socket_init               (EvdSocket *self);
+static void     evd_socket_class_init                 (EvdSocketClass *class);
+static void     evd_socket_init                       (EvdSocket *self);
 
-static void     evd_socket_finalize           (GObject *obj);
-static void     evd_socket_dispose            (GObject *obj);
+static void     evd_socket_finalize                   (GObject *obj);
+static void     evd_socket_dispose                    (GObject *obj);
 
-static void     evd_socket_set_property       (GObject      *obj,
-                                               guint         prop_id,
-                                               const GValue *value,
-                                               GParamSpec   *pspec);
-static void     evd_socket_get_property       (GObject    *obj,
-                                               guint       prop_id,
-                                               GValue     *value,
-                                               GParamSpec *pspec);
+static void     evd_socket_set_property               (GObject      *obj,
+                                                       guint         prop_id,
+                                                       const GValue *value,
+                                                       GParamSpec   *pspec);
+static void     evd_socket_get_property               (GObject    *obj,
+                                                       guint       prop_id,
+                                                       GValue     *value,
+                                                       GParamSpec *pspec);
 
-static gboolean evd_socket_cleanup            (EvdSocket *self, GError **error);
+static gboolean evd_socket_cleanup                    (EvdSocket  *self,
+                                                       GError    **error);
 
-static gboolean evd_socket_cleanup_internal   (EvdSocket  *self,
-                                               GError    **error);
+static gboolean evd_socket_cleanup_internal           (EvdSocket  *self,
+                                                       GError    **error);
 
 static void     evd_socket_set_status                 (EvdSocket      *self,
                                                        EvdSocketState  status);

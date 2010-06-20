@@ -92,33 +92,35 @@ struct _EvdSocketClass
 #define EVD_SOCKET_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_SOCKET, EvdSocketClass))
 
 
-GType           evd_socket_get_type           (void) G_GNUC_CONST;
+GType           evd_socket_get_type                      (void) G_GNUC_CONST;
 
-EvdSocket      *evd_socket_new                (void);
+EvdSocket      *evd_socket_new                           (void);
 
-GSocket        *evd_socket_get_socket         (EvdSocket *self);
-GMainContext   *evd_socket_get_context        (EvdSocket *self);
-GSocketFamily   evd_socket_get_family         (EvdSocket *self);
-EvdSocketState  evd_socket_get_status         (EvdSocket *self);
+GSocket        *evd_socket_get_socket                    (EvdSocket *self);
+GMainContext   *evd_socket_get_context                   (EvdSocket *self);
+GSocketFamily   evd_socket_get_family                    (EvdSocket *self);
+EvdSocketState  evd_socket_get_status                    (EvdSocket *self);
 
-gint            evd_socket_get_priority       (EvdSocket *self);
-void            evd_socket_set_priority       (EvdSocket *self, gint priority);
+gint            evd_socket_get_priority                  (EvdSocket *self);
+void            evd_socket_set_priority                  (EvdSocket *self,
+                                                          gint       priority);
 
-gboolean        evd_socket_close              (EvdSocket *self, GError **error);
+gboolean        evd_socket_close                         (EvdSocket  *self,
+                                                          GError    **error);
 
-GSocketAddress *evd_socket_get_remote_address (EvdSocket  *self,
-                                               GError    **error);
-GSocketAddress *evd_socket_get_local_address  (EvdSocket  *self,
-                                               GError    **error);
+GSocketAddress *evd_socket_get_remote_address            (EvdSocket  *self,
+                                                          GError    **error);
+GSocketAddress *evd_socket_get_local_address             (EvdSocket  *self,
+                                                          GError    **error);
 
-gboolean        evd_socket_shutdown           (EvdSocket  *self,
-                                               gboolean    shutdown_read,
-                                               gboolean    shutdown_write,
-                                               GError    **error);
+gboolean        evd_socket_shutdown                      (EvdSocket  *self,
+                                                          gboolean    shutdown_read,
+                                                          gboolean    shutdown_write,
+                                                          GError    **error);
 
-gboolean        evd_socket_watch_condition    (EvdSocket     *self,
-                                               GIOCondition   cond,
-                                               GError       **error);
+gboolean        evd_socket_watch_condition               (EvdSocket     *self,
+                                                          GIOCondition   cond,
+                                                          GError       **error);
 
 void            evd_socket_set_notify_condition_callback (EvdSocket                        *self,
                                                           EvdSocketNotifyConditionCallback  callback,
