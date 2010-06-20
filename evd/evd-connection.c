@@ -605,6 +605,7 @@ evd_connection_tls_handshake (EvdConnection *self)
     {
       g_simple_async_result_set_from_error (self->priv->starttls_result,
                                             error);
+      g_error_free (error);
       evd_connection_close_in_idle (self);
     }
 }
@@ -717,6 +718,7 @@ evd_connection_socket_on_condition (EvdSocket    *socket,
                                         &error))
         {
           /* @TODO: handle error */
+          g_error_free (error);
         }
     }
 }
@@ -743,6 +745,7 @@ evd_connection_socket_input_stream_drained (GInputStream *stream,
                                         &error))
         {
           /* @TODO: handle error */
+          g_error_free (error);
         }
     }
 }
@@ -763,6 +766,7 @@ evd_connection_socket_output_stream_filled (GOutputStream *stream,
                                     &error))
     {
       /* @TODO: handle error */
+      g_error_free (error);
     }
 }
 
