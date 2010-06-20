@@ -20,8 +20,6 @@
  *
  */
 
-#include <evd-tls-session.h>
-
 #include "evd-tls-output-stream.h"
 
 G_DEFINE_TYPE (EvdTlsOutputStream, evd_tls_output_stream, G_TYPE_FILTER_OUTPUT_STREAM)
@@ -108,6 +106,8 @@ evd_tls_output_stream_finalize (GObject *obj)
 
   g_string_free (self->priv->buf, TRUE);
 
+  g_object_unref (self->priv->session);
+
   G_OBJECT_CLASS (evd_tls_output_stream_parent_class)->finalize (obj);
 }
 
@@ -124,7 +124,7 @@ evd_tls_output_stream_set_property (GObject      *obj,
   switch (prop_id)
     {
     case PROP_SESSION:
-      self->priv->session = g_value_get_object (value);
+      self->priv->session = g_value_dup_object (value);
       break;
 
     default:

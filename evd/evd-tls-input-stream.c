@@ -63,9 +63,6 @@ static gssize   evd_tls_input_stream_read               (GInputStream  *stream,
                                                          GCancellable  *cancellable,
                                                          GError       **error);
 
-static void     evd_tls_input_stream_session_destroy_notify (gpointer  user_data,
-                                                             GObject  *obj);
-
 static void
 evd_tls_input_stream_class_init (EvdTlsInputStreamClass *class)
 {
@@ -107,9 +104,7 @@ evd_tls_input_stream_finalize (GObject *obj)
 {
   EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (obj);
 
-  g_object_weak_unref (G_OBJECT (self->priv->session),
-                       evd_tls_input_stream_session_destroy_notify,
-                       self);
+  g_object_unref (self->priv->session);
 
   G_OBJECT_CLASS (evd_tls_input_stream_parent_class)->finalize (obj);
 }
@@ -127,7 +122,7 @@ evd_tls_input_stream_set_property (GObject      *obj,
   switch (prop_id)
     {
     case PROP_SESSION:
-      self->priv->session = g_value_get_object (value);
+      self->priv->session = g_value_dup_object (value);
       break;
 
     default:
@@ -231,15 +226,6 @@ evd_tls_input_stream_read (GInputStream  *stream,
   return actual_size;
 }
 
-static void
-evd_tls_input_stream_session_destroy_notify (gpointer  user_data,
-                                             GObject  *obj)
-{
-  EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (user_data);
-
-  g_object_unref (self);
-}
-
 /* public methods */
 
 EvdTlsInputStream *
@@ -255,12 +241,6 @@ evd_tls_input_stream_new (EvdTlsSession *session,
                        "session", session,
                        "base-stream", base_stream,
                        NULL);
-
-  self->priv->session = session;
-
-  g_object_weak_ref (G_OBJECT (session),
-                     evd_tls_input_stream_session_destroy_notify,
-                     self);
 
   evd_tls_session_set_transport_pull_func (session,
                                            evd_tls_input_stream_pull,
