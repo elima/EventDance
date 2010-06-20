@@ -26,9 +26,8 @@
 #ifndef __EVD_SOCKET_H__
 #define __EVD_SOCKET_H__
 
+#include <glib-object.h>
 #include <gio/gio.h>
-
-#include "evd-socket-base.h"
 
 G_BEGIN_DECLS
 
@@ -56,7 +55,7 @@ typedef enum
 
 struct _EvdSocket
 {
-  EvdSocketBase parent;
+  GObject parent;
 
   /* private structure */
   EvdSocketPrivate *priv;
@@ -64,7 +63,7 @@ struct _EvdSocket
 
 struct _EvdSocketClass
 {
-  EvdSocketBaseClass parent_class;
+  GObjectClass parent_class;
 
   /* virtual methods */
   gboolean (* handle_condition) (EvdSocket *self, GIOCondition condition);

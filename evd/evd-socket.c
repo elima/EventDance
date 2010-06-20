@@ -32,18 +32,17 @@
  *
  **/
 
+#include "evd-socket.h"
+#include "evd-socket-protected.h"
+
 #include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-error.h"
 #include "evd-socket-manager.h"
 #include "evd-resolver.h"
-
-#include "evd-socket.h"
-#include "evd-socket-protected.h"
-
 #include "evd-connection.h"
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, EVD_TYPE_SOCKET_BASE)
+G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_OBJECT)
 
 #define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                      EVD_TYPE_SOCKET, \
@@ -130,13 +129,16 @@ static void     evd_socket_get_property       (GObject    *obj,
                                                GValue     *value,
                                                GParamSpec *pspec);
 
+static gboolean evd_socket_cleanup            (EvdSocket *self, GError **error);
 
 static gboolean evd_socket_cleanup_internal   (EvdSocket  *self,
                                                GError    **error);
 
+static void     evd_socket_set_status                 (EvdSocket      *self,
+                                                       EvdSocketState  status);
 
-static void     evd_socket_copy_properties          (EvdSocketBase *self,
-                                                     EvdSocketBase *target);
+static void     evd_socket_copy_properties            (EvdSocket *self,
+                                                       EvdSocket *target);
 
 static void     evd_socket_deliver_async_result_error (EvdSocket           *self,
                                                        GSimpleAsyncResult  *res,
@@ -152,7 +154,6 @@ static void
 evd_socket_class_init (EvdSocketClass *class)
 {
   GObjectClass *obj_class;
-  EvdSocketBaseClass *socket_base_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
@@ -162,9 +163,6 @@ evd_socket_class_init (EvdSocketClass *class)
   obj_class->set_property = evd_socket_set_property;
 
   class->handle_condition = NULL;
-
-  socket_base_class = EVD_SOCKET_BASE_CLASS (class);
-  socket_base_class->copy_properties = evd_socket_copy_properties;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -907,16 +905,11 @@ evd_socket_handle_condition_cb (gpointer data)
 }
 
 static void
-evd_socket_copy_properties (EvdSocketBase *_self, EvdSocketBase *_target)
+evd_socket_copy_properties (EvdSocket *self, EvdSocket *target)
 {
-  EvdSocket *self = EVD_SOCKET (_self);
-  EvdSocket *target = EVD_SOCKET (_target);
-
-  EVD_SOCKET_BASE_CLASS (evd_socket_parent_class)->
-    copy_properties (_self, _target);
-
   evd_socket_set_priority (target, self->priv->priority);
 
+  target->priv->io_stream_type = self->priv->io_stream_type;
 }
 
 static gboolean
@@ -946,9 +939,7 @@ evd_socket_check_availability (EvdSocket  *self,
   return TRUE;
 }
 
-/* protected methods */
-
-void
+static void
 evd_socket_set_status (EvdSocket *self, EvdSocketState status)
 {
   EvdSocketState old_status;
@@ -966,6 +957,8 @@ evd_socket_set_status (EvdSocket *self, EvdSocketState status)
                  old_status,
                  NULL);
 }
+
+/* protected methods */
 
 void
 evd_socket_throw_error (EvdSocket *self, GError *error)
@@ -1027,7 +1020,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
         {
-          evd_socket_copy_properties (EVD_SOCKET_BASE (self), EVD_SOCKET_BASE (client));
+          evd_socket_copy_properties (self, client);
 
           conn = g_object_new (self->priv->io_stream_type,
                                "socket", client,
@@ -1114,9 +1107,11 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 
                       if (self->priv->async_result != NULL)
                         {
-                          g_simple_async_result_complete_in_idle (self->priv->async_result);
-                          g_object_unref (self->priv->async_result);
-                          self->priv->async_result = NULL;
+                          GSimpleAsyncResult *res;
+
+                          res = self->priv->async_result;
+                          g_simple_async_result_complete_in_idle (res);
+                          g_object_unref (res);
                         }
                     }
 
