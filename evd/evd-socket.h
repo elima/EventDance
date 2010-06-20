@@ -68,8 +68,6 @@ struct _EvdSocketClass
 
   /* virtual methods */
   gboolean (* handle_condition) (EvdSocket *self, GIOCondition condition);
-  void     (* invoke_on_read)   (EvdSocket *self);
-  void     (* invoke_on_write)  (EvdSocket *self);
   gboolean (* cleanup)          (EvdSocket *self, GError **error);
 
   /* signal prototypes */
