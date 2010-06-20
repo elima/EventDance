@@ -1111,6 +1111,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                           GSimpleAsyncResult *res;
 
                           res = self->priv->async_result;
+                          self->priv->async_result = NULL;
+
                           g_simple_async_result_complete_in_idle (res);
                           g_object_unref (res);
                         }
@@ -1297,13 +1299,17 @@ evd_socket_close (EvdSocket *self, GError **error)
 
   if (self->priv->async_result != NULL)
     {
-      g_simple_async_result_set_error (self->priv->async_result,
+      GSimpleAsyncResult *res;
+
+      res = self->priv->async_result;
+      self->priv->async_result = NULL;
+
+      g_simple_async_result_set_error (res,
                                        EVD_ERROR,
                                        EVD_ERROR_CLOSED,
                                        "Socket has been closed");
-      g_simple_async_result_complete (self->priv->async_result);
-      g_object_unref (self->priv->async_result);
-      self->priv->async_result = NULL;
+      g_simple_async_result_complete (res);
+      g_object_unref (res);
     }
 
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
