@@ -48,5 +48,6 @@
 #include <evd-connection.h>
 #include <evd-connection-group.h>
 #include <evd-http-connection.h>
+#include <evd-peer.h>
 
 #endif /* __EVD_H__ */
