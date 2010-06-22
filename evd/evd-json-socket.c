@@ -52,7 +52,7 @@ static void     evd_json_socket_init               (EvdJsonSocket *self);
 
 static void     evd_json_socket_finalize           (GObject *obj);
 
-static void     evd_json_socket_on_read            (EvdSocket *socket);
+//static void     evd_json_socket_on_read            (EvdSocket *socket);
 
 static void     evd_json_socket_on_filter_packet   (EvdJsonFilter *filter,
                                                     const gchar   *buffer,
@@ -74,7 +74,7 @@ evd_json_socket_class_init (EvdJsonSocketClass *class)
 
   socket_class = EVD_SOCKET_CLASS (class);
 
-  socket_class->invoke_on_read = evd_json_socket_on_read;
+  //  socket_class->invoke_on_read = evd_json_socket_on_read;
   socket_class->cleanup = evd_json_socket_cleanup;
 
   /* add private structure */
@@ -155,6 +155,7 @@ evd_json_socket_on_filter_packet (EvdJsonFilter *filter,
     }
 }
 
+  /*
 static void
 evd_json_socket_on_read (EvdSocket *socket)
 {
@@ -185,6 +186,7 @@ evd_json_socket_on_read (EvdSocket *socket)
         }
     }
 }
+  */
 
 static gboolean
 evd_json_socket_cleanup (EvdSocket *socket, GError **error)
@@ -193,7 +195,8 @@ evd_json_socket_cleanup (EvdSocket *socket, GError **error)
 
   evd_json_filter_reset (self->priv->json_filter);
 
-  return evd_socket_cleanup (socket, error);
+  return EVD_SOCKET_CLASS (evd_json_socket_parent_class)->cleanup (socket,
+                                                                   error);
 }
 
 /* public methods */

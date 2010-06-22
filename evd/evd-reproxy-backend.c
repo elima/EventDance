@@ -294,13 +294,13 @@ static void
 evd_reproxy_backend_connect_bridge (EvdReproxyBackend *self,
                                     EvdSocket         *bridge)
 {
-  GError *error = NULL;
+  //  GError *error = NULL;
 
+  /*
   if (! evd_socket_connect_addr (bridge,
                                  self->priv->address,
                                  &error))
     {
-      /* TODO: what to do exactly? better error handling required! */
       g_warning ("Failed to connect to backend: %s", error->message);
       g_error_free (error);
     }
@@ -309,6 +309,7 @@ evd_reproxy_backend_connect_bridge (EvdReproxyBackend *self,
       g_queue_push_tail (self->priv->connecting_bridges,
                          (gpointer) bridge);
     }
+*/
 }
 
 static void
@@ -335,9 +336,11 @@ evd_reproxy_backend_new_bridge (EvdReproxyBackend *self)
 
   bridge = evd_socket_new ();
 
+  /*
   g_object_set (bridge,
                 "group", EVD_SOCKET_GROUP (self->priv->reproxy),
                 NULL);
+  */
 
   g_signal_connect (bridge,
                     "state-changed",

@@ -68,12 +68,6 @@ static EvdSocket * evd_reproxy_bridge_sockets     (EvdReproxy *self,
                                                    EvdSocket  *socket,
                                                    EvdSocket  *bridge);
 
-void            evd_reproxy_socket_on_read        (EvdSocketGroup *socket_group,
-                                                   EvdSocket      *socket);
-
-void            evd_reproxy_socket_on_write       (EvdSocketGroup *socket_group,
-                                                   EvdSocket      *socket);
-
 void            evd_reproxy_socket_on_close       (EvdService *service,
                                                    EvdSocket  *socket);
 
@@ -238,6 +232,7 @@ evd_reproxy_socket_set_bridge (EvdSocket *socket,
     data->bridge = bridge;
 }
 
+/*
 static void
 evd_reproxy_client_cache_data (EvdSocket   *socket,
                                const gchar *buf,
@@ -254,6 +249,7 @@ evd_reproxy_client_cache_data (EvdSocket   *socket,
         g_string_append_len (data->cache, buf, size);
     }
 }
+*/
 
 static GString *
 evd_reproxy_client_get_cached_data (EvdSocket *socket)
@@ -305,6 +301,7 @@ evd_reproxy_enqueue_awaiting_client (EvdReproxy *self,
 static gboolean
 evd_reproxy_redirect_data (EvdSocket *from)
 {
+  /*
   gchar buf[BLOCK_SIZE + 1];
   gssize read_size;
   gssize write_size;
@@ -326,7 +323,9 @@ evd_reproxy_redirect_data (EvdSocket *from)
     {
       return FALSE;
     }
+  */
 
+  /*
   if ( (read_size = evd_socket_read (from,
                                      buf,
                                      max_writable + 2,
@@ -339,7 +338,9 @@ evd_reproxy_redirect_data (EvdSocket *from)
                                                read_size,
                                                &error)) >= 0)
             {
+  */
               /* keep back read data that wasn't written */
+  /*
               if (read_size > write_size)
                 {
                   evd_socket_unread (from,
@@ -376,6 +377,7 @@ evd_reproxy_redirect_data (EvdSocket *from)
       g_warning ("Failed to redirect data: %s", error->message);
       g_error_free (error);
     }
+  */
 
   return FALSE;
 }
@@ -485,7 +487,7 @@ evd_reproxy_socket_on_read (EvdSocketGroup *socket_group,
         }
     }
 
-  if ( (bridge != NULL) && (evd_socket_can_write (bridge)) )
+  if ( (bridge != NULL)/* && (evd_socket_can_write (bridge))*/ )
     evd_reproxy_redirect_data (socket);
 }
 
@@ -498,7 +500,7 @@ evd_reproxy_socket_on_write (EvdSocketGroup *socket_group,
   //  g_debug ("write!");
 
   bridge = evd_reproxy_socket_get_bridge (socket);
-  if ( (bridge != NULL) && (evd_socket_can_read (bridge)) )
+  if ( (bridge != NULL)/* && (evd_socket_can_read (bridge))*/ )
     evd_reproxy_redirect_data (bridge);
 }
 
@@ -597,7 +599,7 @@ evd_reproxy_notify_bridge_error (EvdReproxy *self,
       cache = evd_reproxy_client_get_cached_data (client);
       if (cache != NULL)
         {
-          evd_socket_unread (client, cache->str, cache->len, NULL);
+          //          evd_socket_unread (client, cache->str, cache->len, NULL);
           evd_reproxy_client_free_cached_data (client);
         }
 
