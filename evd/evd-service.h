@@ -26,7 +26,12 @@
 #ifndef __EVD_SERVICE_H__
 #define __EVD_SERVICE_H__
 
-#include "evd-socket-group.h"
+#include <glib-object.h>
+#include <gio/gio.h>
+
+#include <evd-connection-group.h>
+#include <evd-connection.h>
+#include <evd-tls-credentials.h>
 
 G_BEGIN_DECLS
 
@@ -36,15 +41,14 @@ typedef struct _EvdServicePrivate EvdServicePrivate;
 
 struct _EvdService
 {
-  EvdSocketGroup parent;
+  EvdConnectionGroup parent;
 
-  /* private structure */
   EvdServicePrivate *priv;
 };
 
 struct _EvdServiceClass
 {
-  EvdSocketGroupClass parent_class;
+  EvdConnectionGroupClass parent_class;
 
   /* virtual methods */
   void (* socket_on_close) (EvdService *self,

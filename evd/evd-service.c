@@ -26,13 +26,13 @@
 #include "evd-service.h"
 #include "evd-service-protected.h"
 #include "evd-socket.h"
-#include "evd-socket-group-protected.h"
+#include "evd-tls-session.h"
 
-G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_SOCKET_GROUP)
+G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_CONNECTION_GROUP)
 
 #define EVD_SERVICE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                           EVD_TYPE_SERVICE, \
-                                           EvdServicePrivate))
+                                      EVD_TYPE_SERVICE, \
+                                      EvdServicePrivate))
 
 /* private data */
 struct _EvdServicePrivate
@@ -59,12 +59,13 @@ static void     evd_service_dispose            (GObject *obj);
 static void
 evd_service_class_init (EvdServiceClass *class)
 {
-  GObjectClass *obj_class;
-  EvdSocketGroupClass *socket_group_class;
+  GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  EvdConnectionGroupClass *conn_group_class = EVD_CONNECTION_GROUP_CLASS (class);
 
-  class->socket_on_close = evd_service_socket_on_close;
-
-  obj_class = G_OBJECT_CLASS (class);
+  class->accept_connection = evd_service_accept_connection;
+  class->new_connection = evd_service_new_connection_protected;
+  class->tls_started = evd_service_tls_started_protected;
+  class->connection_closed = evd_service_connection_closed_protected;
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
@@ -158,7 +159,6 @@ evd_service_on_new_connection (EvdSocket *listener,
 {
   EvdService *self = EVD_SERVICE (user_data);
 
-  evd_socket_group_add (EVD_SOCKET_GROUP (self), client);
 
   g_object_ref (client);
   g_signal_emit (self,
