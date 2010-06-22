@@ -19,13 +19,14 @@ AM_CFLAGS += \
 	-DHAVE_GIO_UNIX
 endif
 
-noinst_PROGRAMS = \
-	test-all \
-	test-socket \
-	test-json-filter \
-	test-json-socket \
-	test-resolver \
-	test-socket-context
+noinst_PROGRAMS =
+#	test-all \
+#	test-socket \
+#	test-json-filter \
+#	test-json-socket \
+#	test-resolver \
+#	test-socket-context
+#	test-http-connection
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
