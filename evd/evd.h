@@ -50,5 +50,6 @@
 #include <evd-http-connection.h>
 #include <evd-transport.h>
 #include <evd-peer.h>
+#include <evd-long-polling.h>
 
 #endif /* __EVD_H__ */
