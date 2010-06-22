@@ -31,7 +31,6 @@ source_c = \
 	evd-marshal.c \
 	evd-resolver-request.c \
 	evd-resolver.c \
-	evd-socket-base.c \
 	evd-socket.c \
 	evd-socket-manager.c \
 	evd-socket-input-stream.c \
@@ -45,7 +44,6 @@ source_c = \
 	evd-throttled-output-stream.c \
 	evd-json-filter.c \
 	evd-json-socket.c \
-	evd-socket-group.c \
 	evd-service.c \
 	evd-reproxy-backend.c \
 	evd-reproxy.c \
@@ -63,7 +61,6 @@ source_h = \
 	evd-utils.h \
 	evd-resolver-request.h \
 	evd-resolver.h \
-	evd-socket-base.h \
 	evd-socket.h \
 	evd-socket-input-stream.h \
 	evd-socket-output-stream.h \
