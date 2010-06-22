@@ -10,6 +10,7 @@
 
 // A simple http GET client, supporting TLS upgrade
 // Use it passing any http URL as first argument
+// (e.g 'gjs-console simpleHttpGet.js http://foo.bar').
 
 const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
@@ -26,12 +27,6 @@ function performRequest (req) {
 
     // create socket
     let socket = new Evd.Socket ();
-
-    socket.input_throttle.bandwidth = 0.0;
-    socket.input_throttle.latency = 0.0;
-
-    socket.output_throttle.bandwidth = 0.0;
-    socket.output_throttle.latency = 0.0;
 
     socket.connect ("error",
         function (socket, domain, code, msg) {
@@ -63,7 +58,8 @@ function performRequest (req) {
         function (socket, result, userData) {
             let conn;
             try {
-                conn = socket.connect_finish (result);
+                socket.connect_finish (result);
+                conn = new Evd.HttpConnection ({socket: socket});
             }
             catch (e) {
                 log (e);
@@ -71,18 +67,24 @@ function performRequest (req) {
                 return;
             }
 
+            log ("socket connected");
+
+            conn.input_throttle.bandwidth = 0.0;
+            conn.input_throttle.latency = 0.0;
+
+            conn.output_throttle.bandwidth = 0.0;
+            conn.output_throttle.latency = 0.0;
+
             conn.connect ("close",
                 function (socket) {
                     log ("connection closed");
                     MainLoop.quit ("main");
                 });
 
-            log ("socket connected");
-
             if (schema == "https") {
                 conn.tls.credentials.cert_file = "../../tests/certs/x509-server.pem";
                 conn.tls.credentials.key_file = "../../tests/certs/x509-server-key.pem";
-                conn.starttls_async (Evd.TlsMode.CLIENT, 0, null,
+                conn.starttls_async (Evd.TlsMode.CLIENT, null,
                     function (conn, result, userData) {
                         try {
                             conn.starttls_finish (result);
@@ -96,11 +98,27 @@ function performRequest (req) {
 
             conn.output_stream.write_str_async (req, 0, null, null, null);
 
-            conn.input_stream.read_str_async (BLOCK_SIZE,
-                                              0,
-                                              null,
-                                              Lang.bind (conn, receiveResponse),
-                                              null);
+            conn.read_response_headers_async (null,
+                function (conn, result) {
+                    try {
+                        let [headers, ver, code, reason]
+                            = conn.read_response_headers_finish (result);
+                        log ("response: " + code + " " + reason);
+                        if (code == 200)
+                            conn.input_stream.read_str_async (BLOCK_SIZE,
+                                                              0,
+                                                              null,
+                                                              Lang.bind (conn, receiveResponse),
+                                                              null);
+                        else
+                            conn.close (null);
+
+                    }
+                    catch (e) {
+                        log (e);
+                    }
+                });
+
         }, null, null);
 
     // start the main event loop
