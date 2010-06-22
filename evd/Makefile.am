@@ -45,8 +45,6 @@ source_c = \
 	evd-json-filter.c \
 	evd-json-socket.c \
 	evd-service.c \
-	evd-reproxy-backend.c \
-	evd-reproxy.c \
 	evd-tls-common.c \
 	evd-tls-dh-generator.c \
 	evd-tls-session.c \
@@ -73,9 +71,7 @@ source_h = \
 	evd-throttled-output-stream.h \
 	evd-json-filter.h \
 	evd-json-socket.h \
-	evd-socket-group.h \
 	evd-service.h \
-	evd-reproxy.h \
 	evd-tls-session.h \
 	evd-tls-certificate.h \
 	evd-tls-credentials.h \
@@ -87,8 +83,6 @@ source_h_priv = \
 	evd-marshal.h \
 	evd-socket-manager.h \
 	evd-socket-protected.h \
-	evd-socket-group-protected.h \
-	evd-reproxy-backend.h \
 	evd-service-protected.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h
