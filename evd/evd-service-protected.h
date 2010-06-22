@@ -26,18 +26,19 @@
 #ifndef __EVD_SERVICE_PROTECTED_H__
 #define __EVD_SERVICE_PROTECTED_H__
 
-#include "evd-socket.h"
-#include "evd-socket-group.h"
+#include <evd-socket.h>
+#include <evd-connection.h>
 
 G_BEGIN_DECLS
 
-void     evd_service_add_internal         (EvdSocketGroup *self,
-                                           EvdSocket      *socket);
-gboolean evd_service_remove_internal      (EvdSocketGroup *self,
-                                           EvdSocket      *socket);
+gboolean evd_service_new_connection_protected    (EvdService    *self,
+                                                  EvdConnection *conn);
 
-void     evd_service_socket_on_close      (EvdService *self,
-                                           EvdSocket  *socket);
+gboolean evd_service_tls_started_protected       (EvdService    *self,
+                                                  EvdConnection *conn);
+
+gboolean evd_service_connection_closed_protected (EvdService    *self,
+                                                  EvdConnection *conn);
 
 G_END_DECLS
 

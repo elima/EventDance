@@ -51,31 +51,30 @@ struct _EvdServiceClass
   EvdConnectionGroupClass parent_class;
 
   /* virtual methods */
-  void (* socket_on_close) (EvdService *self,
-                            EvdSocket  *socket);
+  void     (* accept_connection) (EvdService     *self,
+                                  EvdConnection  *conn);
+
+  gboolean (* new_connection)    (EvdService     *self,
+                                  EvdConnection  *conn);
+  gboolean (* tls_started)       (EvdService     *self,
+                                  EvdConnection  *conn);
+  gboolean (* connection_closed) (EvdService     *self,
+                                  EvdConnection  *conn);
 
   /* signal prototypes */
+  guint (* validate_connection)  (EvdService    *self,
+                                  EvdConnection *socket,
+                                  gpointer       user_data);
 
- /**
-  * EvdService::new-connection:
-  * @self: The #EvdService emmitting the signal.
-  * @socket: A new #EvdSocket representing the local end-point of the connection.
-  *
-  * This signal is invoked when a remote socket connects to any of the
-  * listening sockets added to the service.
-  */
-  void (* new_connection)  (EvdService *self,
-                            EvdSocket  *socket);
-
- /**
-  * EvdService::close:
-  * @self: The #EvdService emmitting the signal.
-  * @socket: The #EvdSocket that closed the connection.
-  *
-  * This signal is invoked when any of the sockets added to the service closes its connection.
-  */
-  void (* close)           (EvdService *self);
+  void  (* close_signal)           (EvdService *self);
 };
+
+typedef enum
+{
+  EVD_SERVICE_VALIDATE_ACCEPT,
+  EVD_SERVICE_VALIDATE_REJECT,
+  EVD_SERVICE_VALIDATE_PENDING
+} EvdServiceValidate;
 
 #define EVD_TYPE_SERVICE           (evd_service_get_type ())
 #define EVD_SERVICE(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_SERVICE, EvdService))
@@ -85,19 +84,35 @@ struct _EvdServiceClass
 #define EVD_SERVICE_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_SERVICE, EvdServiceClass))
 
 
-GType           evd_service_get_type          (void) G_GNUC_CONST;
+GType              evd_service_get_type            (void) G_GNUC_CONST;
 
-EvdService     *evd_service_new               (void);
+EvdService        *evd_service_new                 (void);
 
-void            evd_service_add_listener      (EvdService  *self,
-                                               EvdSocket   *socket);
+void               evd_service_set_tls_autostart   (EvdService *self,
+                                                    gboolean    autostart);
+gboolean           evd_service_get_tls_autostart   (EvdService *self);
 
-gboolean        evd_service_remove_listener   (EvdService *self,
-                                               EvdSocket  *socket);
+void               evd_service_set_tls_credentials (EvdService        *self,
+                                                    EvdTlsCredentials *credentials);
+EvdTlsCredentials *evd_service_get_tls_credentials (EvdService *self);
 
-EvdSocket      *evd_service_listen            (EvdService   *self,
-                                               const gchar  *address,
-                                               GError      **error);
+void               evd_service_set_io_stream_type  (EvdService *self,
+                                                    GType       io_stream_type);
+
+void               evd_service_add_listener        (EvdService  *self,
+                                                    EvdSocket   *socket);
+
+gboolean           evd_service_remove_listener     (EvdService *self,
+                                                    EvdSocket  *socket);
+
+void               evd_service_listen_async        (EvdService          *self,
+                                                    const gchar         *address,
+                                                    GCancellable        *cancellable,
+                                                    GAsyncReadyCallback  callback,
+                                                    gpointer             user_data);
+gboolean           evd_service_listen_finish       (EvdService    *self,
+                                                    GAsyncResult  *result,
+                                                    GError       **error);
 
 G_END_DECLS
 

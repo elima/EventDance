@@ -25,6 +25,9 @@
 
 #include "evd-service.h"
 #include "evd-service-protected.h"
+
+#include "evd-error.h"
+#include "evd-marshal.h"
 #include "evd-socket.h"
 #include "evd-tls-session.h"
 
@@ -38,23 +41,59 @@ G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_CONNECTION_GROUP)
 struct _EvdServicePrivate
 {
   GHashTable *listeners;
+
+  GType io_stream_type;
+
+  gboolean tls_autostart;
+  EvdTlsCredentials *tls_cred;
 };
 
 /* signals */
 enum
 {
-  SIGNAL_NEW_CONNECTION,
+  SIGNAL_VALIDATE_CONNECTION,
   SIGNAL_CLOSE,
   SIGNAL_LAST
 };
 
+/* properties */
+enum
+{
+  PROP_0,
+  PROP_TLS_AUTOSTART,
+  PROP_TLS_CREDENTIALS
+};
+
 static guint evd_service_signals[SIGNAL_LAST] = { 0 };
 
-static void     evd_service_class_init         (EvdServiceClass *class);
-static void     evd_service_init               (EvdService *self);
+static void     evd_service_class_init                (EvdServiceClass *class);
+static void     evd_service_init                      (EvdService *self);
 
-static void     evd_service_finalize           (GObject *obj);
-static void     evd_service_dispose            (GObject *obj);
+static void     evd_service_finalize                  (GObject *obj);
+static void     evd_service_dispose                   (GObject *obj);
+
+static void     evd_service_set_property              (GObject      *obj,
+                                                       guint         prop_id,
+                                                       const GValue *value,
+                                                       GParamSpec   *pspec);
+static void     evd_service_get_property              (GObject    *obj,
+                                                       guint       prop_id,
+                                                       GValue     *value,
+                                                       GParamSpec *pspec);
+
+static gboolean evd_service_validate_conn_signal_acc  (GSignalInvocationHint *ihint,
+                                                       GValue                *return_accu,
+                                                       const GValue          *handler_return,
+                                                       gpointer              data);
+
+static gboolean evd_service_add                       (EvdConnectionGroup  *self,
+                                                       EvdConnection       *conn,
+                                                       GError             **error);
+static gboolean evd_service_remove                    (EvdConnectionGroup *self,
+                                                       EvdConnection      *conn);
+
+static void     evd_service_accept_connection         (EvdService    *self,
+                                                       EvdConnection *conn);
 
 static void
 evd_service_class_init (EvdServiceClass *class)
@@ -69,30 +108,48 @@ evd_service_class_init (EvdServiceClass *class)
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
+  obj_class->get_property = evd_service_get_property;
+  obj_class->set_property = evd_service_set_property;
 
-  socket_group_class = EVD_SOCKET_GROUP_CLASS (class);
-  socket_group_class->add = evd_service_add_internal;
-  socket_group_class->remove = evd_service_remove_internal;
+  conn_group_class->add = evd_service_add;
+  conn_group_class->remove = evd_service_remove;
 
-  evd_service_signals[SIGNAL_NEW_CONNECTION] =
-    g_signal_new ("new-connection",
+  evd_service_signals[SIGNAL_VALIDATE_CONNECTION] =
+    g_signal_new ("validate-connection",
                   G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdServiceClass, new_connection),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
-                  G_TYPE_NONE, 1,
-                  EVD_TYPE_SOCKET);
+                  G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdServiceClass, validate_connection),
+                  evd_service_validate_conn_signal_acc,
+                  NULL,
+                  evd_marshal_UINT__OBJECT,
+                  G_TYPE_UINT, 1,
+                  EVD_TYPE_CONNECTION);
 
   evd_service_signals[SIGNAL_CLOSE] =
     g_signal_new ("close",
                   G_TYPE_FROM_CLASS (obj_class),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdServiceClass, close),
+                  G_STRUCT_OFFSET (EvdServiceClass, close_signal),
                   NULL, NULL,
                   g_cclosure_marshal_VOID__OBJECT,
                   G_TYPE_NONE, 1,
                   EVD_TYPE_SOCKET);
+
+  g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
+                                   g_param_spec_boolean ("tls-autostart",
+                                                         "Autostart TLS in connections",
+                                                         "Returns TRUE if TLS upgrade should be performed automatically upon incomming connections",
+                                                         FALSE,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_TLS_CREDENTIALS,
+                                   g_param_spec_object ("tls-credentials",
+                                                        "The TLS credentials",
+                                                        "The TLS credentials that will be passed to the connections of the service",
+                                                        EVD_TYPE_TLS_CREDENTIALS,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdServicePrivate));
@@ -107,8 +164,12 @@ evd_service_init (EvdService *self)
   priv = EVD_SERVICE_GET_PRIVATE (self);
   self->priv = priv;
 
-  /* initialize private members */
   priv->listeners = g_hash_table_new (g_direct_hash, g_direct_equal);
+
+  priv->io_stream_type = EVD_TYPE_CONNECTION;
+
+  priv->tls_autostart = FALSE;
+  priv->tls_cred = NULL;
 }
 
 static void
@@ -121,51 +182,150 @@ static void
 evd_service_finalize (GObject *obj)
 {
   EvdService *self = EVD_SERVICE (obj);
+  GHashTableIter iter;
+  gpointer key, value;
+  EvdSocket *socket;
 
-  while (g_hash_table_size (self->priv->listeners) > 0)
+  g_hash_table_iter_init (&iter, self->priv->listeners);
+
+  while (g_hash_table_iter_next (&iter, &key, &value))
     {
-      GHashTableIter iter;
-      gpointer key, value;
-      EvdSocket *socket;
-
-      g_hash_table_iter_init (&iter, self->priv->listeners);
-      g_hash_table_iter_next (&iter, &key, &value);
-
       socket = EVD_SOCKET (value);
 
       evd_service_remove_listener (self, socket);
     }
+  g_hash_table_destroy (self->priv->listeners);
 
-  g_hash_table_unref (self->priv->listeners);
+  if (self->priv->tls_cred != NULL)
+    g_object_unref (self->priv->tls_cred);
 
   G_OBJECT_CLASS (evd_service_parent_class)->finalize (obj);
 }
 
 static void
-evd_service_on_client_close (EvdSocket *socket,
-                             gpointer   user_data)
+evd_service_set_property (GObject      *obj,
+                          guint         prop_id,
+                          const GValue *value,
+                          GParamSpec   *pspec)
 {
-  EvdService *self = EVD_SERVICE (user_data);
-  EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
+  EvdService *self;
 
-  if (class->socket_on_close != NULL)
-    class->socket_on_close (self, socket);
+  self = EVD_SERVICE (obj);
+
+  switch (prop_id)
+    {
+    case PROP_TLS_AUTOSTART:
+      evd_service_set_tls_autostart (self, g_value_get_boolean (value));
+      break;
+
+    case PROP_TLS_CREDENTIALS:
+      evd_service_set_tls_credentials (self, g_value_get_object (value));
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+      break;
+    }
 }
 
 static void
-evd_service_on_new_connection (EvdSocket *listener,
-                               EvdSocket *client,
-                               gpointer   user_data)
+evd_service_get_property (GObject    *obj,
+                          guint       prop_id,
+                          GValue     *value,
+                          GParamSpec *pspec)
+{
+  EvdService *self;
+
+  self = EVD_SERVICE (obj);
+
+  switch (prop_id)
+    {
+    case PROP_TLS_AUTOSTART:
+      g_value_set_boolean (value, evd_service_get_tls_autostart (self));
+      break;
+
+    case PROP_TLS_CREDENTIALS:
+      g_value_set_object (value, evd_service_get_tls_credentials (self));
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+      break;
+    }
+}
+
+static gboolean
+evd_service_validate_conn_signal_acc (GSignalInvocationHint *hint,
+                                      GValue                *return_accu,
+                                      const GValue          *handler_return,
+                                      gpointer               data)
+{
+  guint ret;
+  guint acc_ret;
+
+  ret = g_value_get_uint (handler_return);
+  acc_ret = g_value_get_uint (return_accu);
+
+  if (ret > acc_ret)
+    g_value_set_uint (return_accu, ret);
+
+  return ret != EVD_SERVICE_VALIDATE_REJECT;
+}
+
+static void
+evd_service_connection_on_tls_started (GObject      *obj,
+                                       GAsyncResult *res,
+                                       gpointer      user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+  EvdConnection *conn = EVD_CONNECTION (obj);
+  GError *error = NULL;
+
+  if (evd_connection_starttls_finish (conn, res, &error))
+    {
+      EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
+
+      if (class->tls_started != NULL)
+        class->tls_started (self, conn);
+    }
+  else
+    {
+      g_debug ("TLS upgrade error in EvdService: %s", error->message);
+
+      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
+    }
+
+  g_object_unref (conn);
+}
+
+static void
+evd_service_connection_starttls (EvdService    *self,
+                                 EvdConnection *conn)
+{
+  EvdTlsSession *tls_session;
+  EvdTlsCredentials *tls_cred;
+
+  g_object_ref (conn);
+
+  tls_session = evd_connection_get_tls_session (conn);
+  tls_cred = evd_service_get_tls_credentials (self);
+  evd_tls_session_set_credentials (tls_session, tls_cred);
+
+  evd_connection_starttls_async (conn,
+                                 EVD_TLS_MODE_SERVER,
+                                 NULL,
+                                 evd_service_connection_on_tls_started,
+                                 self);
+}
+
+static void
+evd_service_socket_on_new_connection (EvdSocket     *listener,
+                                      EvdConnection *conn,
+                                      gpointer       user_data)
 {
   EvdService *self = EVD_SERVICE (user_data);
 
-
-  g_object_ref (client);
-  g_signal_emit (self,
-                 evd_service_signals[SIGNAL_NEW_CONNECTION],
-                 0,
-                 client, NULL);
-  g_object_unref (client);
+  evd_service_add (EVD_CONNECTION_GROUP (self), conn, NULL);
 }
 
 static void
@@ -177,47 +337,182 @@ evd_service_on_listener_close (EvdSocket *listener,
   evd_service_remove_listener (self, listener);
 }
 
+static void
+evd_service_connection_on_close (EvdConnection *conn,
+                                 gpointer       user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+  EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
+
+  if (class->connection_closed != NULL)
+    class->connection_closed (self, conn);
+}
+
+static EvdServiceValidate
+evd_service_validate_connection_tls (EvdService    *self,
+                                     EvdConnection *conn)
+{
+  /* @TODO */
+  return EVD_SERVICE_VALIDATE_ACCEPT;
+}
+
+static EvdServiceValidate
+evd_service_validate_connection (EvdService    *self,
+                                 EvdConnection *conn)
+{
+  EvdServiceValidate ret;
+
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
+                 0,
+                 conn,
+                 &ret);
+
+  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+    {
+      if (self->priv->tls_autostart)
+        {
+          if (! evd_connection_get_tls_active (conn))
+            {
+              evd_service_connection_starttls (self, conn);
+              ret = EVD_SERVICE_VALIDATE_PENDING;
+            }
+          else
+            {
+              ret = evd_service_validate_connection_tls (self, conn);
+            }
+        }
+    }
+
+  if (ret == EVD_SERVICE_VALIDATE_PENDING)
+    {
+      /* @TODO */
+    }
+
+  return ret;
+}
+
+static void
+evd_service_accept_connection (EvdService    *self,
+                               EvdConnection *conn)
+{
+  EvdServiceClass *class;
+
+  class = EVD_SERVICE_GET_CLASS (self);
+  if (class->accept_connection != NULL)
+    class->accept_connection (self, conn);
+}
+
+static gboolean
+evd_service_add (EvdConnectionGroup  *group,
+                 EvdConnection       *conn,
+                 GError             **error)
+{
+  EvdService *self = EVD_SERVICE (group);
+  EvdServiceValidate ret;
+
+  /* @TODO: implement connection limit */
+
+  ret = evd_service_validate_connection (self, conn);
+  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+    {
+      EVD_CONNECTION_GROUP_CLASS (evd_service_parent_class)->add (group,
+                                                                  conn,
+                                                                  error);
+      evd_service_accept_connection (self, conn);
+
+      return TRUE;
+    }
+  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
+    {
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_REFUSED,
+                           "Service refused the connection");
+    }
+
+  return FALSE;
+}
+
+static gboolean
+evd_service_remove (EvdConnectionGroup *self, EvdConnection *conn)
+{
+  /* @TODO */
+
+  return FALSE;
+}
+
+static void
+evd_service_socket_on_listen (GObject      *obj,
+                              GAsyncResult *result,
+                              gpointer      user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+  GError *error = NULL;
+  GSimpleAsyncResult *res;
+
+  res = g_object_get_data (obj, "listen-result");
+  g_assert (G_IS_SIMPLE_ASYNC_RESULT (res));
+
+  if (! evd_socket_listen_finish (EVD_SOCKET (obj),
+                                  result,
+                                  &error))
+    {
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
+    }
+  else
+    {
+      evd_service_add_listener (self, EVD_SOCKET (obj));
+    }
+
+  g_simple_async_result_complete (res);
+  g_object_unref (res);
+}
+
 /* protected methods */
 
-void
-evd_service_add_internal (EvdSocketGroup *self, EvdSocket *socket)
+gboolean
+evd_service_new_connection_protected (EvdService     *self,
+                                      EvdConnection  *conn)
 {
-  g_return_if_fail (EVD_IS_SERVICE (self));
-  g_return_if_fail (EVD_IS_SOCKET (socket));
+  EvdSocket *socket;
 
-  evd_socket_group_add_internal (self, socket);
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
 
-  /* connect to the 'close' signal of the socket */
-  g_signal_connect (socket,
+  socket = evd_connection_get_socket (conn);
+
+  g_signal_connect (conn,
                     "close",
-                    G_CALLBACK (evd_service_on_client_close),
-                    (gpointer) self);
+                    G_CALLBACK (evd_service_connection_on_close),
+                    self);
 
-  evd_socket_group_socket_on_read_internal (self, socket);
+  return TRUE;
 }
 
 gboolean
-evd_service_remove_internal (EvdSocketGroup *self, EvdSocket *socket)
+evd_service_tls_started_protected (EvdService    *self,
+                                   EvdConnection *conn)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
-  g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
+  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
 
-  /* disconnect from the 'close' signal of the socket */
-  g_signal_handlers_disconnect_by_func (self,
-                                        G_CALLBACK (evd_service_on_client_close),
-                                        (gpointer) self);
+  /* @TODO: emit a 'tls-started' signal */
 
-  return evd_socket_group_remove_internal (self, socket);
+  return TRUE;
 }
 
-void
-evd_service_socket_on_close (EvdService *self,
-                             EvdSocket  *socket)
+gboolean
+evd_service_connection_closed_protected (EvdService    *self,
+                                         EvdConnection *conn)
 {
-  g_signal_emit (self,
-                 evd_service_signals[SIGNAL_CLOSE],
-                 0,
-                 socket, NULL);
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
+
+  /* @TODO: remove connection from service */
+
+  return TRUE;
 }
 
 /* public methods */
@@ -233,6 +528,62 @@ evd_service_new (void)
 }
 
 void
+evd_service_set_tls_autostart (EvdService *self, gboolean autostart)
+{
+  g_return_if_fail (EVD_IS_SERVICE (self));
+
+  self->priv->tls_autostart = autostart;
+}
+
+gboolean
+evd_service_get_tls_autostart (EvdService *self)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+
+  return self->priv->tls_autostart;
+}
+
+void
+evd_service_set_tls_credentials (EvdService        *self,
+                                 EvdTlsCredentials *credentials)
+{
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (credentials));
+
+  if (self->priv->tls_cred != NULL)
+    g_object_unref (self->priv->tls_cred);
+
+  self->priv->tls_cred = credentials;
+  g_object_ref (self->priv->tls_cred);
+}
+
+/**
+ * evd_service_get_tls_credentials:
+ *
+ * Returns: (transfer none): The #EvdTlsCredentials object of this session
+ **/
+EvdTlsCredentials *
+evd_service_get_tls_credentials (EvdService *self)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), NULL);
+
+  if (self->priv->tls_cred == NULL)
+    self->priv->tls_cred = evd_tls_credentials_new ();
+
+  return self->priv->tls_cred;
+}
+
+void
+evd_service_set_io_stream_type (EvdService *self,
+                                GType       io_stream_type)
+{
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (g_type_is_a (io_stream_type, EVD_TYPE_CONNECTION));
+
+  self->priv->io_stream_type = io_stream_type;
+}
+
+void
 evd_service_add_listener (EvdService  *self,
                           EvdSocket   *socket)
 {
@@ -241,6 +592,8 @@ evd_service_add_listener (EvdService  *self,
 
   g_object_ref (socket);
 
+  g_object_set (socket, "io-stream-type", self->priv->io_stream_type, NULL);
+
   g_hash_table_insert (self->priv->listeners,
                        (gpointer) socket,
                        (gpointer) socket);
@@ -248,39 +601,13 @@ evd_service_add_listener (EvdService  *self,
   if (evd_socket_get_status (socket) == EVD_SOCKET_STATE_LISTENING)
     g_signal_connect (socket,
                       "new-connection",
-                      G_CALLBACK (evd_service_on_new_connection),
+                      G_CALLBACK (evd_service_socket_on_new_connection),
                       self);
-  else
-    evd_socket_group_add (EVD_SOCKET_GROUP (self), socket);
 
   g_signal_connect (socket,
                     "close",
                     G_CALLBACK (evd_service_on_listener_close),
                     self);
-}
-
-EvdSocket *
-evd_service_listen (EvdService   *self,
-                    const gchar  *address,
-                    GError      **error)
-{
-  EvdSocket *socket = NULL;
-
-  g_return_val_if_fail (EVD_IS_SERVICE (self), NULL);
-
-  socket = evd_socket_new ();
-
-  if (! evd_socket_listen (socket, address, error))
-    {
-      g_object_unref (socket);
-      return NULL;
-    }
-  else
-    {
-      evd_service_add_listener (self, socket);
-
-      return EVD_SOCKET (socket);
-    }
 }
 
 gboolean
@@ -293,16 +620,54 @@ evd_service_remove_listener (EvdService *self,
   if (g_hash_table_remove (self->priv->listeners,
                            (gconstpointer) socket))
     {
-      EvdSocketGroup *group = NULL;
-
-      g_object_get (socket, "group", &group, NULL);
-      if (group == EVD_SOCKET_GROUP (self))
-        evd_socket_group_remove (EVD_SOCKET_GROUP (self), socket);
-
-      g_object_unref (socket);
-
+      /* @TODO: disconnect from signals */
       return TRUE;
     }
 
   return FALSE;
+}
+
+void
+evd_service_listen_async (EvdService          *self,
+                          const gchar         *address,
+                          GCancellable        *cancellable,
+                          GAsyncReadyCallback  callback,
+                          gpointer             user_data)
+{
+  EvdSocket *socket;
+  GSimpleAsyncResult *res;
+
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (address != NULL);
+
+  socket = evd_socket_new ();
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_service_listen_async);
+
+  g_object_set_data (G_OBJECT (socket), "listen-result", res);
+
+  evd_socket_listen_async (socket,
+                           address,
+                           cancellable,
+                           evd_service_socket_on_listen,
+                           self);
+}
+
+gboolean
+evd_service_listen_finish (EvdService    *self,
+                           GAsyncResult  *result,
+                           GError       **error)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                        G_OBJECT (self),
+                                                        evd_service_listen_async),
+                        FALSE);
+
+  return
+    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                             error);
 }
