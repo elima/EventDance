@@ -24,6 +24,7 @@
  */
 
 #include <time.h>
+#include <uuid/uuid.h>
 
 #include "evd-utils.h"
 
@@ -66,4 +67,18 @@ evd_nanosleep (gulong nanoseconds)
   delay.tv_nsec = nanoseconds;
 
   nanosleep (&delay, NULL);
+}
+
+gchar *
+evd_uuid_new (void)
+{
+  uuid_t uuid;
+  gchar *uuid_st = NULL;
+
+  uuid_st = g_new (gchar, 37);
+
+  uuid_generate (uuid);
+  uuid_unparse (uuid, uuid_st);
+
+  return uuid_st;
 }
