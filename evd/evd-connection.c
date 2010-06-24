@@ -127,9 +127,6 @@ static gboolean       evd_connection_close_internal    (GIOStream     *stream,
 static void           evd_connection_close_in_idle     (EvdConnection *self);
 static gboolean       evd_connection_close_in_idle_cb  (gpointer user_data);
 
-static void           evd_connection_set_group         (EvdConnection      *self,
-                                                        EvdConnectionGroup *group);
-
 static void           evd_connection_setup_streams     (EvdConnection *self);
 static void           evd_connection_teardown_streams  (EvdConnection *self);
 
@@ -438,62 +435,6 @@ evd_connection_close_internal (GIOStream     *stream,
   g_signal_emit (self, evd_connection_signals[SIGNAL_CLOSE], 0, NULL);
 
   return result;
-}
-
-static void
-evd_connection_on_group_destroyed (gpointer  user_data,
-                                   GObject  *where_the_object_was)
-{
-  EvdConnection *self = EVD_CONNECTION (user_data);
-
-  /* @TODO: remove group's throttle objects from thottled streams */
-
-  self->priv->group = NULL;
-}
-
-static void
-evd_connection_set_group (EvdConnection      *self,
-                          EvdConnectionGroup *group)
-{
-  if (group == self->priv->group)
-    return;
-
-  if (self->priv->group != NULL)
-    {
-      EvdConnectionGroup *_group;
-
-      _group = self->priv->group;
-      self->priv->group = NULL;
-
-      g_object_weak_unref (G_OBJECT (_group),
-                           evd_connection_on_group_destroyed,
-                           self);
-
-      /* @TODO: remove group's throttle objects from thottled streams */
-
-      evd_connection_group_remove (_group, self);
-    }
-
-  self->priv->group = group;
-
-  if (group != NULL)
-    {
-      GError *error = NULL;
-
-      if (evd_connection_group_add (group, self, &error))
-        {
-          g_object_weak_ref (G_OBJECT (group),
-                             evd_connection_on_group_destroyed,
-                             self);
-
-          /* @TODO: add group's throttle objects to thottled streams */
-        }
-      else
-        {
-          /* @TODO: handle error */
-          g_error_free (error);
-        }
-    }
 }
 
 static void
@@ -1168,4 +1109,45 @@ evd_connection_get_priority (EvdConnection *self)
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
   return evd_socket_get_priority (self->priv->socket);
+}
+
+gboolean
+evd_connection_set_group (EvdConnection      *self,
+                          EvdConnectionGroup *group)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
+  g_return_val_if_fail (group == NULL || EVD_IS_CONNECTION_GROUP (group),
+                        FALSE);
+
+  if (group == self->priv->group)
+    return FALSE;
+
+  if (self->priv->group != NULL)
+    {
+      EvdConnectionGroup *_group;
+
+      _group = self->priv->group;
+      self->priv->group = NULL;
+
+      if (evd_connection_group_remove (_group, G_IO_STREAM (self)))
+        {
+          g_object_unref (group);
+
+          /* @TODO: remove group's throttle objects from thottled streams */
+        }
+    }
+
+  self->priv->group = group;
+
+  if (group != NULL)
+    {
+      if (evd_connection_group_add (group, G_IO_STREAM (self)))
+        {
+          g_object_ref (group);
+
+          /* @TODO: add group's throttle objects to thottled streams */
+        }
+    }
+
+  return TRUE;
 }
