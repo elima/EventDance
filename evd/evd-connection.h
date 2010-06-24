@@ -28,7 +28,7 @@
 
 #include <evd-socket.h>
 #include <evd-tls-session.h>
-#include <evd-connection-group.h>
+#include <evd-io-stream-group.h>
 
 G_BEGIN_DECLS
 
@@ -87,8 +87,8 @@ gint               evd_connection_get_priority         (EvdConnection *self);
 gboolean           evd_connection_close_protected      (EvdConnection  *self,
                                                         GCancellable   *cancellable,
                                                         GError        **error);
-gboolean           evd_connection_set_group            (EvdConnection      *self,
-                                                        EvdConnectionGroup *group);
+gboolean           evd_connection_set_group            (EvdConnection    *self,
+                                                        EvdIoStreamGroup *group);
 
 G_END_DECLS
 

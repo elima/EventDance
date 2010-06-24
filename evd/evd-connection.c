@@ -34,7 +34,6 @@
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
-#include "evd-connection-group.h"
 #include "evd-stream-throttle.h"
 
 G_DEFINE_TYPE (EvdConnection, evd_connection, G_TYPE_IO_STREAM)
@@ -76,7 +75,7 @@ struct _EvdConnectionPrivate
 
   gboolean connected;
 
-  EvdConnectionGroup *group;
+  EvdIoStreamGroup *group;
 
   EvdStreamThrottle *input_throttle;
   EvdStreamThrottle *output_throttle;
@@ -186,7 +185,7 @@ evd_connection_class_init (EvdConnectionClass *class)
                                    g_param_spec_object ("group",
                                                         "Connection group",
                                                         "The group this connection belongs to",
-                                                        EVD_TYPE_CONNECTION_GROUP,
+                                                        EVD_TYPE_IO_STREAM_GROUP,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -1113,10 +1112,10 @@ evd_connection_get_priority (EvdConnection *self)
 
 gboolean
 evd_connection_set_group (EvdConnection      *self,
-                          EvdConnectionGroup *group)
+                          EvdIoStreamGroup *group)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
-  g_return_val_if_fail (group == NULL || EVD_IS_CONNECTION_GROUP (group),
+  g_return_val_if_fail (group == NULL || EVD_IS_IO_STREAM_GROUP (group),
                         FALSE);
 
   if (group == self->priv->group)
@@ -1124,12 +1123,12 @@ evd_connection_set_group (EvdConnection      *self,
 
   if (self->priv->group != NULL)
     {
-      EvdConnectionGroup *_group;
+      EvdIoStreamGroup *_group;
 
       _group = self->priv->group;
       self->priv->group = NULL;
 
-      if (evd_connection_group_remove (_group, G_IO_STREAM (self)))
+      if (evd_io_stream_group_remove (_group, G_IO_STREAM (self)))
         {
           g_object_unref (group);
 
@@ -1141,7 +1140,7 @@ evd_connection_set_group (EvdConnection      *self,
 
   if (group != NULL)
     {
-      if (evd_connection_group_add (group, G_IO_STREAM (self)))
+      if (evd_io_stream_group_add (group, G_IO_STREAM (self)))
         {
           g_object_ref (group);
 
