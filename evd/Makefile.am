@@ -51,7 +51,7 @@ source_c = \
 	evd-tls-certificate.c \
 	evd-tls-credentials.c \
 	evd-connection.c \
-	evd-connection-group.c \
+	evd-io-stream-group.c \
 	evd-http-connection.c \
 	evd-transport.c \
 	evd-peer.c \
@@ -79,7 +79,7 @@ source_h = \
 	evd-tls-certificate.h \
 	evd-tls-credentials.h \
 	evd-connection.h \
-	evd-connection-group.h \
+	evd-io-stream-group.h \
 	evd-http-connection.h \
 	evd-transport.h \
 	evd-peer.h \
