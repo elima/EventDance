@@ -29,7 +29,7 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include <evd-connection-group.h>
+#include <evd-io-stream-group.h>
 #include <evd-connection.h>
 #include <evd-tls-credentials.h>
 
@@ -41,14 +41,14 @@ typedef struct _EvdServicePrivate EvdServicePrivate;
 
 struct _EvdService
 {
-  EvdConnectionGroup parent;
+  EvdIoStreamGroup parent;
 
   EvdServicePrivate *priv;
 };
 
 struct _EvdServiceClass
 {
-  EvdConnectionGroupClass parent_class;
+  EvdIoStreamGroupClass parent_class;
 
   /* virtual methods */
   void     (* accept_connection) (EvdService     *self,

@@ -31,7 +31,7 @@
 #include "evd-socket.h"
 #include "evd-tls-session.h"
 
-G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_CONNECTION_GROUP)
+G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_IO_STREAM_GROUP)
 
 #define EVD_SERVICE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                       EVD_TYPE_SERVICE, \
@@ -86,11 +86,10 @@ static gboolean evd_service_validate_conn_signal_acc  (GSignalInvocationHint *ih
                                                        const GValue          *handler_return,
                                                        gpointer              data);
 
-static gboolean evd_service_add                       (EvdConnectionGroup  *self,
-                                                       EvdConnection       *conn,
-                                                       GError             **error);
-static gboolean evd_service_remove                    (EvdConnectionGroup *self,
-                                                       EvdConnection      *conn);
+static gboolean evd_service_add                       (EvdIoStreamGroup *self,
+                                                       GIOStream        *io_stream);
+static gboolean evd_service_remove                    (EvdIoStreamGroup *self,
+                                                       GIOStream        *io_stream);
 
 static void     evd_service_accept_connection         (EvdService    *self,
                                                        EvdConnection *conn);
@@ -99,7 +98,7 @@ static void
 evd_service_class_init (EvdServiceClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  EvdConnectionGroupClass *conn_group_class = EVD_CONNECTION_GROUP_CLASS (class);
+  EvdIoStreamGroupClass *conn_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
   class->accept_connection = evd_service_accept_connection;
   class->new_connection = evd_service_new_connection_protected;
@@ -325,7 +324,7 @@ evd_service_socket_on_new_connection (EvdSocket     *listener,
 {
   EvdService *self = EVD_SERVICE (user_data);
 
-  evd_service_add (EVD_CONNECTION_GROUP (self), conn, NULL);
+  evd_service_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 }
 
 static void
@@ -404,42 +403,51 @@ evd_service_accept_connection (EvdService    *self,
 }
 
 static gboolean
-evd_service_add (EvdConnectionGroup  *group,
-                 EvdConnection       *conn,
-                 GError             **error)
+evd_service_add (EvdIoStreamGroup *group,
+                 GIOStream        *io_stream)
 {
   EvdService *self = EVD_SERVICE (group);
   EvdServiceValidate ret;
+  EvdConnection *conn;
+
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
+                                                                   io_stream))
+    return FALSE;
+
+  conn = EVD_CONNECTION (io_stream);
+
+  g_signal_connect (conn,
+                    "close",
+                    G_CALLBACK (evd_service_connection_on_close),
+                    self);
 
   /* @TODO: implement connection limit */
 
   ret = evd_service_validate_connection (self, conn);
   if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
     {
-      EVD_CONNECTION_GROUP_CLASS (evd_service_parent_class)->add (group,
-                                                                  conn,
-                                                                  error);
-      evd_service_accept_connection (self, conn);
-
-      return TRUE;
+      evd_service_accept_connection_priv (self, conn);
     }
   else if (ret == EVD_SERVICE_VALIDATE_REJECT)
     {
-      g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_REFUSED,
-                           "Service refused the connection");
+      /* @TODO: refuse connection */
     }
 
-  return FALSE;
+  return TRUE;
 }
 
 static gboolean
-evd_service_remove (EvdConnectionGroup *self, EvdConnection *conn)
+evd_service_remove (EvdIoStreamGroup *group, GIOStream *io_stream)
 {
-  /* @TODO */
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->remove (group,
+                                                                      io_stream))
+    return FALSE;
 
-  return FALSE;
+  g_signal_handlers_disconnect_by_func (io_stream,
+                                        evd_service_connection_on_close,
+                                        group);
+
+  return TRUE;
 }
 
 static void
@@ -476,17 +484,8 @@ gboolean
 evd_service_new_connection_protected (EvdService     *self,
                                       EvdConnection  *conn)
 {
-  EvdSocket *socket;
-
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
-
-  socket = evd_connection_get_socket (conn);
-
-  g_signal_connect (conn,
-                    "close",
-                    G_CALLBACK (evd_service_connection_on_close),
-                    self);
 
   return TRUE;
 }
@@ -510,9 +509,8 @@ evd_service_connection_closed_protected (EvdService    *self,
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
 
-  /* @TODO: remove connection from service */
-
-  return TRUE;
+  return evd_service_remove (EVD_IO_STREAM_GROUP (self),
+                             G_IO_STREAM (conn));
 }
 
 /* public methods */
