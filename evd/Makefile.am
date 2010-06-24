@@ -59,6 +59,7 @@ source_c = \
 
 source_h = \
 	evd.h \
+	evd-error.h \
 	evd-utils.h \
 	evd-resolver-request.h \
 	evd-resolver.h \
