@@ -27,8 +27,7 @@
 #define __EVD_CONNECTION_GROUP_H__
 
 #include <glib-object.h>
-
-#include <evd-connection.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -48,11 +47,10 @@ struct _EvdConnectionGroupClass
   GObjectClass parent_class;
 
   /* virtual methods */
-  gboolean (* add)         (EvdConnectionGroup  *self,
-                            EvdConnection       *connection,
-                            GError             **error);
+  gboolean (* add)         (EvdConnectionGroup *self,
+                            GIOStream          *io_stream);
   gboolean (* remove)      (EvdConnectionGroup *self,
-                            EvdConnection      *connection);
+                            GIOStream          *io_stream);
 };
 
 #define EVD_TYPE_CONNECTION_GROUP           (evd_connection_group_get_type ())
@@ -67,11 +65,10 @@ GType               evd_connection_group_get_type         (void) G_GNUC_CONST;
 
 EvdConnectionGroup *evd_connection_group_new              (void);
 
-gboolean            evd_connection_group_add              (EvdConnectionGroup  *self,
-                                                           EvdConnection       *connection,
-                                                           GError             **error);
+gboolean            evd_connection_group_add              (EvdConnectionGroup *self,
+                                                           GIOStream          *io_stream);
 gboolean            evd_connection_group_remove           (EvdConnectionGroup *self,
-                                                           EvdConnection      *connection);
+                                                           GIOStream          *io_stream);
 
 G_END_DECLS
 

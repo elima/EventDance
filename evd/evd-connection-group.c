@@ -26,6 +26,7 @@
 #include "evd-connection-group.h"
 
 #include "evd-stream-throttle.h"
+#include "evd-connection.h"
 
 G_DEFINE_TYPE (EvdConnectionGroup, evd_connection_group, G_TYPE_OBJECT)
 
@@ -62,11 +63,10 @@ static void     evd_connection_group_get_property       (GObject    *obj,
                                                          GValue     *value,
                                                          GParamSpec *pspec);
 
-static gboolean evd_connection_group_add_internal       (EvdConnectionGroup  *self,
-                                                         EvdConnection       *conn,
-                                                         GError             **error);
+static gboolean evd_connection_group_add_internal       (EvdConnectionGroup *self,
+                                                         GIOStream          *io_stream);
 static gboolean evd_connection_group_remove_internal    (EvdConnectionGroup *self,
-                                                         EvdConnection      *conn);
+                                                         GIOStream          *io_stream);
 
 static void
 evd_connection_group_class_init (EvdConnectionGroupClass *class)
@@ -120,6 +120,8 @@ evd_connection_group_finalize (GObject *obj)
   g_object_unref (self->priv->output_throttle);
 
   G_OBJECT_CLASS (evd_connection_group_parent_class)->finalize (obj);
+
+  g_debug ("conn group finalized");
 }
 
 static void
@@ -167,34 +169,23 @@ evd_connection_group_get_property (GObject    *obj,
 }
 
 static gboolean
-evd_connection_group_add_internal (EvdConnectionGroup  *self,
-                                   EvdConnection       *conn,
-                                   GError             **error)
+evd_connection_group_add_internal (EvdConnectionGroup *self,
+                                   GIOStream          *io_stream)
 {
-  EvdConnectionGroup *group;
-
-  g_object_get (conn, "group", &group, NULL);
-
-  if (group != self)
-    g_object_set (conn, "group", self, NULL);
-
-  return TRUE;
+  if (EVD_IS_CONNECTION (io_stream))
+    return evd_connection_set_group (EVD_CONNECTION (io_stream), self);
+  else
+    return FALSE;
 }
 
 static gboolean
 evd_connection_group_remove_internal (EvdConnectionGroup *self,
-                                      EvdConnection      *conn)
+                                      GIOStream          *io_stream)
 {
-  EvdConnectionGroup *group;
-
-  g_object_get (conn, "group", &group, NULL);
-
-  if (group != self)
-    return FALSE;
+  if (EVD_IS_CONNECTION (io_stream))
+    return evd_connection_set_group (EVD_CONNECTION (io_stream), NULL);
   else
-    g_object_set (conn, "group", NULL, NULL);
-
-  return TRUE;
+    return FALSE;
 }
 
 /* public methods */
@@ -211,33 +202,32 @@ evd_connection_group_new (void)
 
 gboolean
 evd_connection_group_add (EvdConnectionGroup  *self,
-                          EvdConnection       *connection,
-                          GError             **error)
+                          GIOStream           *io_stream)
 {
   EvdConnectionGroupClass *class;
 
   g_return_val_if_fail (EVD_IS_CONNECTION_GROUP (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (connection), FALSE);
+  g_return_val_if_fail (G_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_CONNECTION_GROUP_GET_CLASS (self);
   if (class->add != NULL)
-    return class->add (self, connection, error);
+    return class->add (self, io_stream);
   else
     return TRUE;
 }
 
 gboolean
 evd_connection_group_remove (EvdConnectionGroup *self,
-                             EvdConnection      *connection)
+                             GIOStream          *io_stream)
 {
   EvdConnectionGroupClass *class;
 
   g_return_val_if_fail (EVD_IS_CONNECTION_GROUP (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (connection), FALSE);
+  g_return_val_if_fail (G_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_CONNECTION_GROUP_GET_CLASS (self);
   if (class->remove != NULL)
-    return class->remove (self, connection);
+    return class->remove (self, io_stream);
   else
     return TRUE;
 }
