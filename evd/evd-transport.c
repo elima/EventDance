@@ -90,8 +90,6 @@ evd_transport_finalize (GObject *obj)
   g_hash_table_destroy (self->priv->peers);
 
   G_OBJECT_CLASS (evd_transport_parent_class)->finalize (obj);
-
-  g_debug ("transport finalized");
 }
 
 /* protected methods */
@@ -187,7 +185,9 @@ evd_transport_send (EvdTransport  *self,
 
   class = EVD_TRANSPORT_GET_CLASS (self);
   if (class->send != NULL)
-    return class->send (self, peer, buffer, size, error);
+    {
+      return class->send (self, peer, buffer, size, error);
+    }
   else
     {
       g_set_error_literal (error,
