@@ -20,9 +20,9 @@
  */
 
 #include "evd-transport.h"
+
 #include "evd-utils.h"
 #include "evd-error.h"
-#include "evd-service-protected.h"
 
 G_DEFINE_ABSTRACT_TYPE (EvdTransport, evd_transport, EVD_TYPE_SERVICE)
 
@@ -95,20 +95,6 @@ evd_transport_finalize (GObject *obj)
 }
 
 /* protected methods */
-
-gboolean
-evd_transport_new_connection_protected (EvdService    *service,
-                                        EvdConnection *conn)
-{
-  EvdTransport *self = EVD_TRANSPORT (service);
-
-  g_return_val_if_fail (EVD_TRANSPORT (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
-
-  /* @TODO */
-
-  return evd_service_new_connection_protected (service, conn);
-}
 
 EvdPeer *
 evd_transport_get_new_peer_protected (EvdTransport *self)

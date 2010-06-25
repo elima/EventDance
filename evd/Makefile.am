@@ -90,7 +90,6 @@ source_h_priv = \
 	evd-marshal.h \
 	evd-socket-manager.h \
 	evd-socket-protected.h \
-	evd-service-protected.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h
 

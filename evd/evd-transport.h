@@ -67,9 +67,6 @@ EvdPeer          *evd_transport_lookup_peer              (EvdTransport *self,
 
 GList            *evd_transport_get_all_peers            (EvdTransport *self);
 
-gboolean          evd_transport_new_connection_protected (EvdService    *service,
-                                                          EvdConnection *conn);
-
 EvdPeer          *evd_transport_get_new_peer_protected   (EvdTransport *self);
 
 gssize            evd_transport_send                     (EvdTransport  *self,

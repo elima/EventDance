@@ -58,15 +58,6 @@ GType               evd_long_polling_get_type          (void) G_GNUC_CONST;
 
 EvdLongPolling     *evd_long_polling_new               (void);
 
-gboolean            evd_long_polling_new_connection_protected    (EvdService    *service,
-                                                                  EvdConnection *conn);
-
-gboolean            evd_long_polling_tls_started_protected       (EvdService     *service,
-                                                                  EvdConnection  *conn);
-
-gboolean            evd_long_polling_connection_closed_protected (EvdService    *self,
-                                                                  EvdConnection *conn);
-
 G_END_DECLS
 
 #endif /* __EVD_LONG_POLLING_H__ */

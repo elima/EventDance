@@ -24,7 +24,7 @@
 #include <libsoup/soup-headers.h>
 
 #include "evd-long-polling.h"
-#include "evd-service-protected.h"
+
 #include "evd-http-connection.h"
 
 G_DEFINE_TYPE (EvdLongPolling, evd_long_polling, EVD_TYPE_TRANSPORT)
@@ -71,6 +71,12 @@ static gssize   evd_long_polling_send               (EvdTransport  *self,
                                                      gsize          size,
                                                      GError       **error);
 
+static void     evd_long_polling_accept_connection  (EvdService    *self,
+                                                     EvdConnection *conn);
+
+static gboolean evd_long_polling_connection_closed  (EvdService    *self,
+                                                     EvdConnection *conn);
+
 static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
 {
@@ -81,9 +87,8 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
   obj_class->dispose = evd_long_polling_dispose;
   obj_class->finalize = evd_long_polling_finalize;
 
-  service_class->new_connection = evd_long_polling_new_connection_protected;
-  service_class->tls_started = evd_long_polling_tls_started_protected;
-  service_class->connection_closed = evd_long_polling_connection_closed_protected;
+  service_class->accept_connection = evd_long_polling_accept_connection;
+  service_class->connection_closed = evd_long_polling_connection_closed;
 
   transport_class->send = evd_long_polling_send;
 
@@ -401,43 +406,20 @@ evd_long_polling_send (EvdTransport  *self,
   return size;
 }
 
-/* protected methods */
-
-gboolean
-evd_long_polling_new_connection_protected (EvdService     *service,
-                                           EvdConnection  *conn)
+static void
+evd_long_polling_accept_connection (EvdService    *service,
+                                    EvdConnection *conn)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (service);
 
-  g_return_val_if_fail (EVD_IS_LONG_POLLING (self), FALSE);
-  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
-
-  EVD_SERVICE_CLASS (evd_long_polling_parent_class)->new_connection (service,
-                                                                     conn);
-
-  if (! evd_service_get_tls_autostart (service))
-    evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
-
-  return TRUE;
-}
-
-gboolean
-evd_long_polling_tls_started_protected (EvdService     *service,
-                                        EvdConnection  *conn)
-{
-  EvdLongPolling *self = EVD_LONG_POLLING (service);
-
-  g_return_val_if_fail (EVD_IS_LONG_POLLING (self), FALSE);
-  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
+  g_object_ref (conn);
 
   evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
-
-  return TRUE;
 }
 
-gboolean
-evd_long_polling_connection_closed_protected (EvdService    *service,
-                                              EvdConnection *conn)
+static gboolean
+evd_long_polling_connection_closed (EvdService    *service,
+                                    EvdConnection *conn)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (service);
   EvdPeer *peer;
@@ -459,7 +441,10 @@ evd_long_polling_connection_closed_protected (EvdService    *service,
         }
     }
 
-  g_debug ("http conn closed! (%X) (ref count: %d", (guintptr) conn, G_OBJECT (conn)->ref_count);
+  g_object_unref (conn);
+
+  EVD_SERVICE_CLASS (evd_long_polling_parent_class)->connection_closed (service,
+                                                                        conn);
 
   return TRUE;
 }
