@@ -367,6 +367,7 @@ evd_resolver_request_perform (gpointer user_data)
   if (inet_addr != NULL)
     {
       addr = g_inet_socket_address_new (inet_addr, self->priv->port);
+      g_object_unref (inet_addr);
       self->priv->socket_addresses = g_list_append (NULL, (gpointer) addr);
 
       evd_resolver_request_invoke_closure (self);

@@ -410,6 +410,7 @@ evd_long_polling_send (EvdTransport  *self,
           /* @TODO: handle error */
         }
 
+      soup_message_headers_free (headers);
       g_free (_data);
     }
   else
