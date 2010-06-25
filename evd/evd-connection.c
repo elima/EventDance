@@ -819,6 +819,9 @@ evd_connection_setup_streams (EvdConnection *self)
 
       evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
                                                 output_throttle);
+
+      g_object_unref (input_throttle);
+      g_object_unref (output_throttle);
     }
 
   /* buffered input stream */
