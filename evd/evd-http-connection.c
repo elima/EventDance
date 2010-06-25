@@ -327,7 +327,7 @@ evd_http_connection_find_end_headers_mark (const GString *buf,
   gint i;
 
   i = last_pos;
-  while (i < buf->len - 3)
+  while (i < buf->len)
     {
       if (buf->str[i] != '\r' && buf->str[i] != '\n')
         {
@@ -367,6 +367,12 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
                                            &error)) >= 0)
     {
       gint pos;
+      gint extra;
+
+      extra = HEADER_BLOCK_SIZE - size;
+
+      if (extra > 0)
+        g_string_truncate (self->priv->buf, self->priv->buf->len - extra);
 
       if ( (pos =
             evd_http_connection_find_end_headers_mark (self->priv->buf,
@@ -377,7 +383,8 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
 
           /* unread data beyond HTTP headers, back to the stream */
           unread_buf = (void *) ( ((guintptr) self->priv->buf->str) + pos);
-          unread_size = self->priv->buf->len - pos - (HEADER_BLOCK_SIZE - size);
+          unread_size = self->priv->buf->len - pos;
+
           if (evd_buffered_input_stream_unread (EVD_BUFFERED_INPUT_STREAM (obj),
                                                 unread_buf,
                                                 unread_size,
@@ -388,8 +395,7 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
 
               evd_http_connection_on_read_headers (self, self->priv->buf);
 
-              g_string_free (self->priv->buf, TRUE);
-              self->priv->buf = g_string_new ("");
+              g_string_set_size (self->priv->buf, 0);
             }
         }
       else if (self->priv->buf->len < MAX_HEADERS_SIZE)
@@ -437,7 +443,7 @@ evd_http_connection_read_headers_block (EvdHttpConnection *self)
 
   /* enlarge buffer */
   g_string_set_size (self->priv->buf,
-                     self->priv->buf->len + new_block_size);
+                     self->priv->buf->len + HEADER_BLOCK_SIZE);
 
   buf = (void *) ( ((guintptr) self->priv->buf->str)
                    + self->priv->buf->len - new_block_size);
