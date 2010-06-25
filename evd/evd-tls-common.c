@@ -52,6 +52,8 @@ evd_tls_init (GError **error)
     {
       gint err_code;
 
+      g_type_init ();
+
       g_thread_init (NULL);
 
       gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
