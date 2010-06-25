@@ -43,7 +43,6 @@ source_c = \
 	evd-throttled-input-stream.c \
 	evd-throttled-output-stream.c \
 	evd-json-filter.c \
-	evd-json-socket.c \
 	evd-service.c \
 	evd-tls-common.c \
 	evd-tls-dh-generator.c \
@@ -74,7 +73,6 @@ source_h = \
 	evd-throttled-input-stream.h \
 	evd-throttled-output-stream.h \
 	evd-json-filter.h \
-	evd-json-socket.h \
 	evd-service.h \
 	evd-tls-session.h \
 	evd-tls-certificate.h \

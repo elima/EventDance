@@ -23,7 +23,6 @@ noinst_PROGRAMS =
 #	test-all \
 #	test-socket \
 #	test-json-filter \
-#	test-json-socket \
 #	test-resolver \
 #	test-socket-context
 #	test-http-connection
@@ -53,10 +52,6 @@ test_json_filter_CFLAGS = $(AM_CFLAGS)
 test_json_filter_LDADD = $(AM_LIBS)
 test_json_filter_SOURCES = test-json-filter.c
 
-# test-json-socket
-test_json_socket_CFLAGS = $(AM_CFLAGS)
-test_json_socket_LDADD = $(AM_LIBS)
-test_json_socket_SOURCES = test-json-socket.c
 
 if HAVE_JS
 noinst_PROGRAMS += test-all-js

@@ -40,7 +40,6 @@
 #include <evd-throttled-input-stream.h>
 #include <evd-throttled-output-stream.h>
 #include <evd-json-filter.h>
-#include <evd-json-socket.h>
 #include <evd-service.h>
 #include <evd-tls-session.h>
 #include <evd-tls-credentials.h>

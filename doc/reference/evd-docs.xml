@@ -56,7 +56,6 @@
       <xi:include href="xml/evd-reproxy.xml"/>
       <xi:include href="xml/evd-reproxy-backend.xml"/>
       <xi:include href="xml/evd-json-filter.xml"/>
-      <xi:include href="xml/evd-json-socket.xml"/>
       <xi:include href="xml/evd-resolver.xml"/>
       <xi:include href="xml/evd-resolver-request.xml"/>
       <xi:include href="xml/evd-tls-session.xml"/>
