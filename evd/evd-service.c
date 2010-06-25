@@ -64,20 +64,20 @@ enum
 
 static guint evd_service_signals[SIGNAL_LAST] = { 0 };
 
-static void     evd_service_class_init                (EvdServiceClass *class);
-static void     evd_service_init                      (EvdService *self);
+static void     evd_service_class_init                 (EvdServiceClass *class);
+static void     evd_service_init                       (EvdService *self);
 
-static void     evd_service_finalize                  (GObject *obj);
-static void     evd_service_dispose                   (GObject *obj);
+static void     evd_service_finalize                   (GObject *obj);
+static void     evd_service_dispose                    (GObject *obj);
 
-static void     evd_service_set_property              (GObject      *obj,
-                                                       guint         prop_id,
-                                                       const GValue *value,
-                                                       GParamSpec   *pspec);
-static void     evd_service_get_property              (GObject    *obj,
-                                                       guint       prop_id,
-                                                       GValue     *value,
-                                                       GParamSpec *pspec);
+static void     evd_service_set_property               (GObject      *obj,
+                                                        guint         prop_id,
+                                                        const GValue *value,
+                                                        GParamSpec   *pspec);
+static void     evd_service_get_property               (GObject    *obj,
+                                                        guint       prop_id,
+                                                        GValue     *value,
+                                                        GParamSpec *pspec);
 
 static void     evd_service_listener_destroy           (gpointer listener);
 static void     evd_service_listener_on_new_connection (EvdSocket     *listener,
@@ -86,21 +86,21 @@ static void     evd_service_listener_on_new_connection (EvdSocket     *listener,
 static void     evd_service_listener_on_close          (EvdSocket *listener,
                                                         gpointer   user_data);
 
-static void     evd_service_connection_starttls       (EvdService    *self,
-                                                       EvdConnection *conn);
+static void     evd_service_connection_starttls        (EvdService    *self,
+                                                        EvdConnection *conn);
 
-static gboolean evd_service_validate_conn_signal_acc  (GSignalInvocationHint *ihint,
-                                                       GValue                *return_accu,
-                                                       const GValue          *handler_return,
-                                                       gpointer              data);
+static gboolean evd_service_validate_conn_signal_acc   (GSignalInvocationHint *ihint,
+                                                        GValue                *return_accu,
+                                                        const GValue          *handler_return,
+                                                        gpointer              data);
 
-static gboolean evd_service_add                       (EvdIoStreamGroup *self,
-                                                       GIOStream        *io_stream);
-static gboolean evd_service_remove                    (EvdIoStreamGroup *self,
-                                                       GIOStream        *io_stream);
+static gboolean evd_service_add                        (EvdIoStreamGroup *self,
+                                                        GIOStream        *io_stream);
+static gboolean evd_service_remove                     (EvdIoStreamGroup *self,
+                                                        GIOStream        *io_stream);
 
-static void     evd_service_connection_closed         (EvdService    *self,
-                                                       EvdConnection *conn);
+static void     evd_service_connection_closed          (EvdService    *self,
+                                                        EvdConnection *conn);
 
 static void
 evd_service_class_init (EvdServiceClass *class)
