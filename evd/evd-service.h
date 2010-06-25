@@ -51,8 +51,8 @@ struct _EvdServiceClass
   EvdIoStreamGroupClass parent_class;
 
   /* virtual methods */
-  void     (* accept_connection) (EvdService     *self,
-                                  EvdConnection  *conn);
+  void (* connection_accepted) (EvdService     *self,
+                                EvdConnection  *conn);
   void (* connection_closed)   (EvdService     *self,
                                 EvdConnection  *conn);
 

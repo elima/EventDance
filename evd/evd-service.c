@@ -109,7 +109,7 @@ evd_service_class_init (EvdServiceClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdIoStreamGroupClass *conn_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
-  class->accept_connection = NULL;
+  class->connection_accepted = NULL;
   class->connection_closed = evd_service_connection_closed;
 
   obj_class->dispose = evd_service_dispose;
@@ -303,8 +303,8 @@ evd_service_accept_connection_priv (EvdService    *self,
   EvdServiceClass *class;
 
   class = EVD_SERVICE_GET_CLASS (self);
-  if (class->accept_connection != NULL)
-    class->accept_connection (self, conn);
+  if (class->connection_accepted != NULL)
+    class->connection_accepted (self, conn);
 }
 
 static gboolean

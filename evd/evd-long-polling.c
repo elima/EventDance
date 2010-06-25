@@ -71,8 +71,8 @@ static gssize   evd_long_polling_send               (EvdTransport  *self,
                                                      gsize          size,
                                                      GError       **error);
 
-static void     evd_long_polling_accept_connection  (EvdService    *self,
-                                                     EvdConnection *conn);
+static void     evd_long_polling_connection_accepted (EvdService    *self,
+                                                      EvdConnection *conn);
 
 static void     evd_long_polling_connection_closed   (EvdService    *self,
                                                       EvdConnection *conn);
@@ -87,7 +87,7 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
   obj_class->dispose = evd_long_polling_dispose;
   obj_class->finalize = evd_long_polling_finalize;
 
-  service_class->accept_connection = evd_long_polling_accept_connection;
+  service_class->connection_accepted = evd_long_polling_connection_accepted;
   service_class->connection_closed = evd_long_polling_connection_closed;
 
   transport_class->send = evd_long_polling_send;
@@ -407,8 +407,8 @@ evd_long_polling_send (EvdTransport  *self,
 }
 
 static void
-evd_long_polling_accept_connection (EvdService    *service,
-                                    EvdConnection *conn)
+evd_long_polling_connection_accepted (EvdService    *service,
+                                      EvdConnection *conn)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (service);
 
