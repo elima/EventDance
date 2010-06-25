@@ -349,6 +349,8 @@ evd_socket_finalize (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
+  g_mutex_lock (self->priv->mutex);
+  g_mutex_unlock (self->priv->mutex);
   g_mutex_free (self->priv->mutex);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
