@@ -314,19 +314,12 @@ evd_service_validate_conn_signal_acc (GSignalInvocationHint *hint,
   return ret != EVD_SERVICE_VALIDATE_REJECT;
 }
 
-static EvdServiceValidate
-evd_service_validate_tls_connection (EvdService    *self,
-                                     EvdConnection *conn)
+static void
+evd_service_validate_tls_connection (EvdService *self, EvdConnection *conn)
 {
   EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
 
-  /*
-  g_signal_emit (self,
-                 evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
-                 0,
-                 conn,
-                 &ret);
-  */
+  /* @TODO: call 'validate-tls-connection' signal */
 
   if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
     {
@@ -336,13 +329,15 @@ evd_service_validate_tls_connection (EvdService    *self,
     {
       /* @TODO: refuse connection */
     }
-
-  return ret;
+  else
+    {
+      /* @TODO: assume validation is pending.
+         Add validation hint to connection */
+    }
 }
 
-static EvdServiceValidate
-evd_service_validate_connection (EvdService    *self,
-                                 EvdConnection *conn)
+static void
+evd_service_validate_connection (EvdService *self, EvdConnection *conn)
 {
   EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
 
@@ -357,23 +352,24 @@ evd_service_validate_connection (EvdService    *self,
       if (self->priv->tls_autostart)
         {
           if (! evd_connection_get_tls_active (conn))
-            {
-              evd_service_connection_starttls (self, conn);
-              ret = EVD_SERVICE_VALIDATE_PENDING;
-            }
+            evd_service_connection_starttls (self, conn);
           else
-            {
-              ret = evd_service_validate_tls_connection (self, conn);
-            }
+            evd_service_validate_tls_connection (self, conn);
+        }
+      else
+        {
+          evd_service_accept_connection_priv (self, conn);
         }
     }
-
-  if (ret == EVD_SERVICE_VALIDATE_PENDING)
+  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
     {
-      /* @TODO */
+      /* @TODO: refuse connection */
     }
-
-  return ret;
+  else
+    {
+      /* @TODO: assume validation is pending.
+         Add validation hint to connection */
+    }
 }
 
 static void
@@ -435,7 +431,6 @@ evd_service_add (EvdIoStreamGroup *group,
                  GIOStream        *io_stream)
 {
   EvdService *self = EVD_SERVICE (group);
-  EvdServiceValidate ret;
   EvdConnection *conn;
 
   if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
@@ -453,15 +448,7 @@ evd_service_add (EvdIoStreamGroup *group,
 
   /* @TODO: check if connection type matches service's io_stream_type */
 
-  ret = evd_service_validate_connection (self, conn);
-  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
-    {
-      evd_service_accept_connection_priv (self, conn);
-    }
-  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
-    {
-      /* @TODO: refuse connection */
-    }
+  evd_service_validate_connection (self, conn);
 
   return TRUE;
 }
