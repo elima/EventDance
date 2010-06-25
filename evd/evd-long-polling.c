@@ -135,6 +135,9 @@ evd_long_polling_free_peer_data (gpointer  _data,
 
       /* @TODO: close conn with HTTP response */
 
+      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY, NULL);
+
+      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
       g_object_unref (conn);
     }
   g_queue_free (data->conns);
