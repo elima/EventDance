@@ -225,24 +225,33 @@ evd_long_polling_resolve_peer_id_from_headers (SoupMessageHeaders *headers)
   gchar *peer_id = NULL;
   const gchar *cookies;
   gchar *start;
+  gchar **tokens;
+  gint i;
 
   cookies = soup_message_headers_get_list (headers, "Cookie");
   if (cookies == NULL)
     return NULL;
 
-  start = g_strrstr (cookies, PEER_ID_COOKIE_NAME);
-  if (start != NULL)
+  tokens = g_strsplit (cookies, ",", 0);
+  for (i=0; tokens[i] != NULL; i++)
     {
-      gsize size;
+      start = g_strstr_len (tokens[i], -1, PEER_ID_COOKIE_NAME);
 
-      size = ((guintptr) cookies) + strlen (cookies) -
-        ((guintptr) start) + strlen (PEER_ID_COOKIE_NAME) - 1;
+      if (start != NULL)
+        {
+          gsize size;
 
-      peer_id = g_new (gchar, size + 1);
-      peer_id[size] = '\0';
+          size = ((guintptr) tokens[i]) + strlen (tokens[i]) -
+            ((guintptr) start) + strlen (PEER_ID_COOKIE_NAME) - 1;
 
-      g_memmove (peer_id, (gchar *) ((guintptr) start + strlen (PEER_ID_COOKIE_NAME) + 1), size);
+          peer_id = g_new (gchar, size + 1);
+          peer_id[size] = '\0';
+
+          g_memmove (peer_id, (gchar *) ((guintptr) start + strlen (PEER_ID_COOKIE_NAME) + 1), size);
+        }
     }
+
+  g_strfreev (tokens);
 
   return peer_id;
 }
