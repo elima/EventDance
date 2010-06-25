@@ -35,7 +35,7 @@ G_DEFINE_TYPE (EvdLongPolling, evd_long_polling, EVD_TYPE_TRANSPORT)
 
 #define PEER_ID_COOKIE_NAME "X-evd-peer-id"
 
-#define PEER_DATA_KEY       "org.eventdance.transports.long-polling"
+#define PEER_DATA_KEY       "org.eventdance.lib.transports.long-polling"
 #define CONN_PEER_KEY       PEER_DATA_KEY
 
 /* private data */
