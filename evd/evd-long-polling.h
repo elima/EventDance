@@ -40,10 +40,6 @@ struct _EvdLongPolling
 struct _EvdLongPollingClass
 {
   EvdTransportClass parent_class;
-
-  /* virtual methods */
-
-  /* signal prototypes */
 };
 
 #define EVD_TYPE_LONG_POLLING           (evd_long_polling_get_type ())

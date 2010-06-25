@@ -59,17 +59,17 @@ enum
 
 //static guint evd_long_polling_signals[SIGNAL_LAST] = { 0 };
 
-static void     evd_long_polling_class_init         (EvdLongPollingClass *class);
-static void     evd_long_polling_init               (EvdLongPolling *self);
+static void     evd_long_polling_class_init          (EvdLongPollingClass *class);
+static void     evd_long_polling_init                (EvdLongPolling *self);
 
-static void     evd_long_polling_finalize           (GObject *obj);
-static void     evd_long_polling_dispose            (GObject *obj);
+static void     evd_long_polling_finalize            (GObject *obj);
+static void     evd_long_polling_dispose             (GObject *obj);
 
-static gssize   evd_long_polling_send               (EvdTransport  *self,
-                                                     EvdPeer       *peer,
-                                                     const gchar   *buffer,
-                                                     gsize          size,
-                                                     GError       **error);
+static gssize   evd_long_polling_send                (EvdTransport  *self,
+                                                      EvdPeer       *peer,
+                                                      const gchar   *buffer,
+                                                      gsize          size,
+                                                      GError       **error);
 
 static void     evd_long_polling_connection_accepted (EvdService    *self,
                                                       EvdConnection *conn);
@@ -308,7 +308,9 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
             {
               EvdLongPollingPeerData *data;
 
-              data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
+              data =
+                (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
+                                                              PEER_DATA_KEY);
 
               g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY, peer);
               g_queue_push_tail (data->conns, conn);
