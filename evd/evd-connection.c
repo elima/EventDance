@@ -129,6 +129,15 @@ static gboolean       evd_connection_close_in_idle_cb  (gpointer user_data);
 static void           evd_connection_setup_streams     (EvdConnection *self);
 static void           evd_connection_teardown_streams  (EvdConnection *self);
 
+static void           evd_connection_socket_on_status_changed (EvdSocket      *socket,
+                                                               EvdSocketState  new_status,
+                                                               EvdSocketState  old_status,
+                                                               gpointer        user_data);
+static void           evd_connection_socket_on_error          (EvdSocket *socket,
+                                                               guint32    error_domain,
+                                                               gint       error_code,
+                                                               gchar     *message,
+                                                               gpointer   user_data);
 
 static void
 evd_connection_class_init (EvdConnectionClass *class)
@@ -426,6 +435,12 @@ evd_connection_close_internal (GIOStream     *stream,
       result = FALSE;
     }
 
+  g_signal_handlers_disconnect_by_func (self->priv->socket,
+                                        evd_connection_socket_on_status_changed,
+                                        self);
+  g_signal_handlers_disconnect_by_func (self->priv->socket,
+                                        evd_connection_socket_on_error,
+                                        self);
   evd_socket_close (self->priv->socket, (_error == NULL) ? &_error : NULL);
 
   if (error)
