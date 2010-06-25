@@ -844,18 +844,6 @@ evd_connection_teardown_streams (EvdConnection *self)
   g_object_unref (self->priv->socket_output_stream);
 }
 
-/* protected methods */
-
-gboolean
-evd_connection_close_protected (EvdConnection  *self,
-                                GCancellable   *cancellable,
-                                GError        **error)
-{
-  return evd_connection_close_internal (G_IO_STREAM (self),
-                                        cancellable,
-                                        error);
-}
-
 /* public methods */
 
 EvdConnection *

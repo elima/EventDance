@@ -84,9 +84,6 @@ gboolean           evd_connection_is_connected         (EvdConnection *self);
 
 gint               evd_connection_get_priority         (EvdConnection *self);
 
-gboolean           evd_connection_close_protected      (EvdConnection  *self,
-                                                        GCancellable   *cancellable,
-                                                        GError        **error);
 gboolean           evd_connection_set_group            (EvdConnection    *self,
                                                         EvdIoStreamGroup *group);
 

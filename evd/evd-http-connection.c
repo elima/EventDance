@@ -203,9 +203,10 @@ evd_http_connection_close (GIOStream     *stream,
       g_object_unref (res);
     }
 
-  result = evd_connection_close_protected (EVD_CONNECTION (stream),
-                                           cancellable,
-                                           error);
+  return
+    G_IO_STREAM_CLASS (evd_http_connection_parent_class)->close_fn (stream,
+                                                                    cancellable,
+                                                                    error);
 
   return result;
 }
