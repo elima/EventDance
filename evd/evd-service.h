@@ -57,11 +57,9 @@ struct _EvdServiceClass
                                 EvdConnection  *conn);
 
   /* signal prototypes */
-  guint (* validate_connection)  (EvdService    *self,
-                                  EvdConnection *socket,
-                                  gpointer       user_data);
-
-  void  (* close_signal)           (EvdService *self);
+  guint (* validate_connection) (EvdService    *self,
+                                 EvdConnection *socket,
+                                 gpointer       user_data);
 };
 
 typedef enum

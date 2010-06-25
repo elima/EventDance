@@ -51,7 +51,6 @@ struct _EvdServicePrivate
 enum
 {
   SIGNAL_VALIDATE_CONNECTION,
-  SIGNAL_CLOSE,
   SIGNAL_LAST
 };
 
@@ -130,16 +129,6 @@ evd_service_class_init (EvdServiceClass *class)
                   evd_marshal_UINT__OBJECT,
                   G_TYPE_UINT, 1,
                   EVD_TYPE_CONNECTION);
-
-  evd_service_signals[SIGNAL_CLOSE] =
-    g_signal_new ("close",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdServiceClass, close_signal),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
-                  G_TYPE_NONE, 1,
-                  EVD_TYPE_SOCKET);
 
   g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
                                    g_param_spec_boolean ("tls-autostart",
