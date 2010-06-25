@@ -234,6 +234,7 @@ evd_connection_init (EvdConnection *self)
   priv->write_src_id = 0;
   priv->close_src_id = 0;
 
+  priv->starttls_result = NULL;
   priv->tls_session = NULL;
   priv->tls_active = FALSE;
 
@@ -370,6 +371,8 @@ evd_connection_close_internal (GIOStream     *stream,
   gboolean result = TRUE;
   GError *_error = NULL;
 
+  self->priv->connected = FALSE;
+
   if (self->priv->close_src_id != 0)
     {
       g_source_remove (self->priv->close_src_id);
@@ -474,6 +477,11 @@ evd_connection_socket_on_status_changed (EvdSocket      *socket,
 
           g_error_free (error);
         }
+    }
+  else if (new_status == EVD_SOCKET_STATE_CLOSED)
+    {
+      if (self->priv->connected)
+        evd_connection_close_in_idle_cb (self);
     }
 }
 
