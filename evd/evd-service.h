@@ -53,11 +53,6 @@ struct _EvdServiceClass
   /* virtual methods */
   void     (* accept_connection) (EvdService     *self,
                                   EvdConnection  *conn);
-
-  gboolean (* new_connection)    (EvdService     *self,
-                                  EvdConnection  *conn);
-  gboolean (* tls_started)       (EvdService     *self,
-                                  EvdConnection  *conn);
   gboolean (* connection_closed) (EvdService     *self,
                                   EvdConnection  *conn);
 

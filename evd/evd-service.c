@@ -24,7 +24,6 @@
  */
 
 #include "evd-service.h"
-#include "evd-service-protected.h"
 
 #include "evd-error.h"
 #include "evd-marshal.h"
@@ -81,6 +80,9 @@ static void     evd_service_get_property              (GObject    *obj,
                                                        GValue     *value,
                                                        GParamSpec *pspec);
 
+static void     evd_service_connection_starttls       (EvdService    *self,
+                                                       EvdConnection *conn);
+
 static gboolean evd_service_validate_conn_signal_acc  (GSignalInvocationHint *ihint,
                                                        GValue                *return_accu,
                                                        const GValue          *handler_return,
@@ -91,7 +93,7 @@ static gboolean evd_service_add                       (EvdIoStreamGroup *self,
 static gboolean evd_service_remove                    (EvdIoStreamGroup *self,
                                                        GIOStream        *io_stream);
 
-static void     evd_service_accept_connection         (EvdService    *self,
+static gboolean evd_service_connection_closed         (EvdService    *self,
                                                        EvdConnection *conn);
 
 static void
@@ -100,10 +102,8 @@ evd_service_class_init (EvdServiceClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdIoStreamGroupClass *conn_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
-  class->accept_connection = evd_service_accept_connection;
-  class->new_connection = evd_service_new_connection_protected;
-  class->tls_started = evd_service_tls_started_protected;
-  class->connection_closed = evd_service_connection_closed_protected;
+  class->accept_connection = NULL;
+  class->connection_closed = evd_service_connection_closed;
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
@@ -253,6 +253,17 @@ evd_service_get_property (GObject    *obj,
     }
 }
 
+static void
+evd_service_accept_connection_priv (EvdService    *self,
+                                    EvdConnection *conn)
+{
+  EvdServiceClass *class;
+
+  class = EVD_SERVICE_GET_CLASS (self);
+  if (class->accept_connection != NULL)
+    class->accept_connection (self, conn);
+}
+
 static gboolean
 evd_service_validate_conn_signal_acc (GSignalInvocationHint *hint,
                                       GValue                *return_accu,
@@ -271,6 +282,68 @@ evd_service_validate_conn_signal_acc (GSignalInvocationHint *hint,
   return ret != EVD_SERVICE_VALIDATE_REJECT;
 }
 
+static EvdServiceValidate
+evd_service_validate_tls_connection (EvdService    *self,
+                                     EvdConnection *conn)
+{
+  EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
+
+  /*
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
+                 0,
+                 conn,
+                 &ret);
+  */
+
+  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+    {
+      evd_service_accept_connection_priv (self, conn);
+    }
+  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
+    {
+      /* @TODO: refuse connection */
+    }
+
+  return ret;
+}
+
+static EvdServiceValidate
+evd_service_validate_connection (EvdService    *self,
+                                 EvdConnection *conn)
+{
+  EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
+
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
+                 0,
+                 conn,
+                 &ret);
+
+  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+    {
+      if (self->priv->tls_autostart)
+        {
+          if (! evd_connection_get_tls_active (conn))
+            {
+              evd_service_connection_starttls (self, conn);
+              ret = EVD_SERVICE_VALIDATE_PENDING;
+            }
+          else
+            {
+              ret = evd_service_validate_tls_connection (self, conn);
+            }
+        }
+    }
+
+  if (ret == EVD_SERVICE_VALIDATE_PENDING)
+    {
+      /* @TODO */
+    }
+
+  return ret;
+}
+
 static void
 evd_service_connection_on_tls_started (GObject      *obj,
                                        GAsyncResult *res,
@@ -282,10 +355,7 @@ evd_service_connection_on_tls_started (GObject      *obj,
 
   if (evd_connection_starttls_finish (conn, res, &error))
     {
-      EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
-
-      if (class->tls_started != NULL)
-        class->tls_started (self, conn);
+      evd_service_validate_tls_connection (self, conn);
     }
   else
     {
@@ -347,61 +417,6 @@ evd_service_connection_on_close (EvdConnection *conn,
     class->connection_closed (self, conn);
 }
 
-static EvdServiceValidate
-evd_service_validate_connection_tls (EvdService    *self,
-                                     EvdConnection *conn)
-{
-  /* @TODO */
-  return EVD_SERVICE_VALIDATE_ACCEPT;
-}
-
-static EvdServiceValidate
-evd_service_validate_connection (EvdService    *self,
-                                 EvdConnection *conn)
-{
-  EvdServiceValidate ret;
-
-  g_signal_emit (self,
-                 evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
-                 0,
-                 conn,
-                 &ret);
-
-  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
-    {
-      if (self->priv->tls_autostart)
-        {
-          if (! evd_connection_get_tls_active (conn))
-            {
-              evd_service_connection_starttls (self, conn);
-              ret = EVD_SERVICE_VALIDATE_PENDING;
-            }
-          else
-            {
-              ret = evd_service_validate_connection_tls (self, conn);
-            }
-        }
-    }
-
-  if (ret == EVD_SERVICE_VALIDATE_PENDING)
-    {
-      /* @TODO */
-    }
-
-  return ret;
-}
-
-static void
-evd_service_accept_connection (EvdService    *self,
-                               EvdConnection *conn)
-{
-  EvdServiceClass *class;
-
-  class = EVD_SERVICE_GET_CLASS (self);
-  if (class->accept_connection != NULL)
-    class->accept_connection (self, conn);
-}
-
 static gboolean
 evd_service_add (EvdIoStreamGroup *group,
                  GIOStream        *io_stream)
@@ -422,6 +437,8 @@ evd_service_add (EvdIoStreamGroup *group,
                     self);
 
   /* @TODO: implement connection limit */
+
+  /* @TODO: check if connection type matches service's io_stream_type */
 
   ret = evd_service_validate_connection (self, conn);
   if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
@@ -478,33 +495,9 @@ evd_service_socket_on_listen (GObject      *obj,
   g_object_unref (res);
 }
 
-/* protected methods */
-
-gboolean
-evd_service_new_connection_protected (EvdService     *self,
-                                      EvdConnection  *conn)
-{
-  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
-
-  return TRUE;
-}
-
-gboolean
-evd_service_tls_started_protected (EvdService    *self,
-                                   EvdConnection *conn)
-{
-  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
-
-  /* @TODO: emit a 'tls-started' signal */
-
-  return TRUE;
-}
-
-gboolean
-evd_service_connection_closed_protected (EvdService    *self,
-                                         EvdConnection *conn)
+static gboolean
+evd_service_connection_closed (EvdService    *self,
+                               EvdConnection *conn)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
