@@ -74,8 +74,8 @@ static gssize   evd_long_polling_send               (EvdTransport  *self,
 static void     evd_long_polling_accept_connection  (EvdService    *self,
                                                      EvdConnection *conn);
 
-static gboolean evd_long_polling_connection_closed  (EvdService    *self,
-                                                     EvdConnection *conn);
+static void     evd_long_polling_connection_closed   (EvdService    *self,
+                                                      EvdConnection *conn);
 
 static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
@@ -417,15 +417,10 @@ evd_long_polling_accept_connection (EvdService    *service,
   evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
 }
 
-static gboolean
-evd_long_polling_connection_closed (EvdService    *service,
-                                    EvdConnection *conn)
+static void
+evd_long_polling_connection_closed (EvdService *service, EvdConnection *conn)
 {
-  EvdLongPolling *self = EVD_LONG_POLLING (service);
   EvdPeer *peer;
-
-  g_return_val_if_fail (EVD_IS_LONG_POLLING (self), FALSE);
-  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
 
   /* remove conn from Peer's list of conns */
   peer = g_object_get_data (G_OBJECT (conn), CONN_PEER_KEY);
@@ -446,7 +441,6 @@ evd_long_polling_connection_closed (EvdService    *service,
   EVD_SERVICE_CLASS (evd_long_polling_parent_class)->connection_closed (service,
                                                                         conn);
 
-  return TRUE;
 }
 
 /* public methods */

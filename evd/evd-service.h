@@ -53,8 +53,8 @@ struct _EvdServiceClass
   /* virtual methods */
   void     (* accept_connection) (EvdService     *self,
                                   EvdConnection  *conn);
-  gboolean (* connection_closed) (EvdService     *self,
-                                  EvdConnection  *conn);
+  void (* connection_closed)   (EvdService     *self,
+                                EvdConnection  *conn);
 
   /* signal prototypes */
   guint (* validate_connection)  (EvdService    *self,

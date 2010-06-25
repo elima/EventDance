@@ -100,7 +100,7 @@ static gboolean evd_service_add                       (EvdIoStreamGroup *self,
 static gboolean evd_service_remove                    (EvdIoStreamGroup *self,
                                                        GIOStream        *io_stream);
 
-static gboolean evd_service_connection_closed         (EvdService    *self,
+static void     evd_service_connection_closed         (EvdService    *self,
                                                        EvdConnection *conn);
 
 static void
@@ -520,15 +520,10 @@ evd_service_socket_on_listen (GObject      *obj,
   g_object_unref (res);
 }
 
-static gboolean
-evd_service_connection_closed (EvdService    *self,
-                               EvdConnection *conn)
+static void
+evd_service_connection_closed (EvdService *self, EvdConnection *conn)
 {
-  g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
-  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
-
-  return evd_service_remove (EVD_IO_STREAM_GROUP (self),
-                             G_IO_STREAM (conn));
+  evd_service_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 }
 
 /* public methods */
