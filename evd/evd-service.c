@@ -80,6 +80,13 @@ static void     evd_service_get_property              (GObject    *obj,
                                                        GValue     *value,
                                                        GParamSpec *pspec);
 
+static void     evd_service_listener_destroy           (gpointer listener);
+static void     evd_service_listener_on_new_connection (EvdSocket     *listener,
+                                                        EvdConnection *conn,
+                                                        gpointer       user_data);
+static void     evd_service_listener_on_close          (EvdSocket *listener,
+                                                        gpointer   user_data);
+
 static void     evd_service_connection_starttls       (EvdService    *self,
                                                        EvdConnection *conn);
 
@@ -163,7 +170,10 @@ evd_service_init (EvdService *self)
   priv = EVD_SERVICE_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->listeners = g_hash_table_new (g_direct_hash, g_direct_equal);
+  priv->listeners = g_hash_table_new_full (g_direct_hash,
+                                           g_direct_equal,
+                                           NULL,
+                                           evd_service_listener_destroy);
 
   priv->io_stream_type = EVD_TYPE_CONNECTION;
 
@@ -174,6 +184,14 @@ evd_service_init (EvdService *self)
 static void
 evd_service_dispose (GObject *obj)
 {
+  EvdService *self = EVD_SERVICE (obj);
+
+  if (self->priv->listeners != NULL)
+    {
+      g_hash_table_destroy (self->priv->listeners);
+      self->priv->listeners = NULL;
+    }
+
   G_OBJECT_CLASS (evd_service_parent_class)->dispose (obj);
 }
 
@@ -181,19 +199,6 @@ static void
 evd_service_finalize (GObject *obj)
 {
   EvdService *self = EVD_SERVICE (obj);
-  GHashTableIter iter;
-  gpointer key, value;
-  EvdSocket *socket;
-
-  g_hash_table_iter_init (&iter, self->priv->listeners);
-
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      socket = EVD_SOCKET (value);
-
-      evd_service_remove_listener (self, socket);
-    }
-  g_hash_table_destroy (self->priv->listeners);
 
   if (self->priv->tls_cred != NULL)
     g_object_unref (self->priv->tls_cred);
@@ -251,6 +256,44 @@ evd_service_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_service_listener_destroy (gpointer listener)
+{
+  EvdSocket *socket = EVD_SOCKET (listener);
+  EvdService *self;
+
+  self = g_object_get_data (G_OBJECT (socket), "evd-service");
+
+  g_signal_handlers_disconnect_by_func (socket,
+                                        evd_service_listener_on_new_connection,
+                                        self);
+
+  g_signal_handlers_disconnect_by_func (socket,
+                                        evd_service_listener_on_close,
+                                        self);
+
+  g_object_unref (socket);
+}
+
+static void
+evd_service_listener_on_new_connection (EvdSocket     *listener,
+                                        EvdConnection *conn,
+                                        gpointer       user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+
+  evd_service_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+}
+
+static void
+evd_service_listener_on_close (EvdSocket *listener,
+                               gpointer   user_data)
+{
+  EvdService *self = EVD_SERVICE (user_data);
+
+  evd_service_remove_listener (self, listener);
 }
 
 static void
@@ -388,25 +431,6 @@ evd_service_connection_starttls (EvdService    *self,
 }
 
 static void
-evd_service_socket_on_new_connection (EvdSocket     *listener,
-                                      EvdConnection *conn,
-                                      gpointer       user_data)
-{
-  EvdService *self = EVD_SERVICE (user_data);
-
-  evd_service_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-}
-
-static void
-evd_service_on_listener_close (EvdSocket *listener,
-                               gpointer   user_data)
-{
-  EvdService *self = EVD_SERVICE (user_data);
-
-  evd_service_remove_listener (self, listener);
-}
-
-static void
 evd_service_connection_on_close (EvdConnection *conn,
                                  gpointer       user_data)
 {
@@ -489,6 +513,7 @@ evd_service_socket_on_listen (GObject      *obj,
   else
     {
       evd_service_add_listener (self, EVD_SOCKET (obj));
+      g_object_unref (obj);
     }
 
   g_simple_async_result_complete (res);
@@ -581,7 +606,7 @@ evd_service_add_listener (EvdService  *self,
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
 
-  g_object_ref (socket);
+  g_object_ref_sink (socket);
 
   g_object_set (socket, "io-stream-type", self->priv->io_stream_type, NULL);
 
@@ -589,16 +614,17 @@ evd_service_add_listener (EvdService  *self,
                        (gpointer) socket,
                        (gpointer) socket);
 
-  if (evd_socket_get_status (socket) == EVD_SOCKET_STATE_LISTENING)
-    g_signal_connect (socket,
-                      "new-connection",
-                      G_CALLBACK (evd_service_socket_on_new_connection),
-                      self);
+  g_signal_connect (socket,
+                    "new-connection",
+                    G_CALLBACK (evd_service_listener_on_new_connection),
+                    self);
 
   g_signal_connect (socket,
                     "close",
-                    G_CALLBACK (evd_service_on_listener_close),
+                    G_CALLBACK (evd_service_listener_on_close),
                     self);
+
+  g_object_set_data (G_OBJECT (socket), "evd-service", self);
 }
 
 gboolean
@@ -611,7 +637,8 @@ evd_service_remove_listener (EvdService *self,
   if (g_hash_table_remove (self->priv->listeners,
                            (gconstpointer) socket))
     {
-      /* @TODO: disconnect from signals */
+      evd_service_listener_destroy (socket);
+
       return TRUE;
     }
 
