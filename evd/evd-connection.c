@@ -24,6 +24,7 @@
 
 #include "evd-error.h"
 #include "evd-utils.h"
+#include "evd-marshal.h"
 
 #include "evd-socket-input-stream.h"
 #include "evd-socket-output-stream.h"
@@ -85,6 +86,7 @@ struct _EvdConnectionPrivate
 enum
 {
   SIGNAL_CLOSE,
+  SIGNAL_GROUP_CHANGED,
   SIGNAL_LAST
 };
 
@@ -165,6 +167,16 @@ evd_connection_class_init (EvdConnectionClass *class)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
+
+  evd_connection_signals[SIGNAL_GROUP_CHANGED] =
+    g_signal_new ("group-changed",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdConnectionClass, group_changed),
+                  NULL, NULL,
+                  evd_marshal_VOID__OBJECT_OBJECT,
+                  G_TYPE_NONE,
+                  2, G_TYPE_OBJECT, G_TYPE_OBJECT);
 
   g_object_class_install_property (obj_class, PROP_SOCKET,
                                    g_param_spec_object ("socket",

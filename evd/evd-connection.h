@@ -48,7 +48,11 @@ struct _EvdConnectionClass
   GIOStreamClass parent_class;
 
   /* signal prototypes */
-  void (* close) (EvdConnection *self);
+  void (* close)         (EvdConnection *self);
+  void (* group_changed) (EvdConnection    *self,
+                          EvdIoStreamGroup *new_group,
+                          EvdIoStreamGroup *old_group,
+                          gpointer          user_data);
 };
 
 #define EVD_TYPE_CONNECTION           (evd_connection_get_type ())
