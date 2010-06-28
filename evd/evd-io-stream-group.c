@@ -39,6 +39,8 @@ struct _EvdIoStreamGroupPrivate
 {
   EvdStreamThrottle *input_throttle;
   EvdStreamThrottle *output_throttle;
+
+  gboolean group_changed;
 };
 
 /* properties */
@@ -109,6 +111,8 @@ evd_io_stream_group_init (EvdIoStreamGroup *self)
 
   priv->input_throttle = evd_stream_throttle_new ();
   priv->output_throttle = evd_stream_throttle_new ();
+
+  priv->group_changed = FALSE;
 }
 
 static void
@@ -166,14 +170,40 @@ evd_io_stream_group_get_property (GObject    *obj,
     }
 }
 
+static void
+evd_io_stream_connection_on_group_changed (EvdConnection    *conn,
+                                           EvdIoStreamGroup *new_group,
+                                           EvdIoStreamGroup *old_group,
+                                           gpointer          user_data)
+{
+  EvdIoStreamGroup *self = EVD_IO_STREAM_GROUP (user_data);
+
+  if (old_group == self)
+    {
+      self->priv->group_changed = TRUE;
+      evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self),
+                                  G_IO_STREAM (conn));
+    }
+}
+
 static gboolean
 evd_io_stream_group_add_internal (EvdIoStreamGroup *self,
                                   GIOStream        *io_stream)
 {
-  if (EVD_IS_CONNECTION (io_stream))
-    return evd_connection_set_group (EVD_CONNECTION (io_stream), self);
+  if (EVD_IS_CONNECTION (io_stream) &&
+      evd_connection_set_group (EVD_CONNECTION (io_stream), self))
+    {
+      g_signal_connect (io_stream,
+                        "group-changed",
+                        G_CALLBACK (evd_io_stream_connection_on_group_changed),
+                        self);
+
+      return TRUE;
+    }
   else
-    return FALSE;
+    {
+      return FALSE;
+    }
 }
 
 static gboolean
@@ -181,9 +211,21 @@ evd_io_stream_group_remove_internal (EvdIoStreamGroup *self,
                                      GIOStream        *io_stream)
 {
   if (EVD_IS_CONNECTION (io_stream))
-    return evd_connection_set_group (EVD_CONNECTION (io_stream), NULL);
-  else
-    return FALSE;
+    {
+      g_signal_handlers_disconnect_by_func (io_stream,
+                                            evd_io_stream_connection_on_group_changed,
+                                            self);
+
+      if (self->priv->group_changed ||
+          evd_connection_set_group (EVD_CONNECTION (io_stream), NULL))
+        {
+          self->priv->group_changed = FALSE;
+
+          return TRUE;
+        }
+    }
+
+  return FALSE;
 }
 
 /* public methods */
