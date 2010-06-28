@@ -1137,9 +1137,14 @@ evd_connection_get_priority (EvdConnection *self)
 }
 
 gboolean
-evd_connection_set_group (EvdConnection      *self,
+evd_connection_set_group (EvdConnection    *self,
                           EvdIoStreamGroup *group)
 {
+  EvdIoStreamGroup *old_group = NULL;
+  EvdStreamThrottle *input_throttle;
+  EvdStreamThrottle *output_throttle;
+
+
   g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
   g_return_val_if_fail (group == NULL || EVD_IS_IO_STREAM_GROUP (group),
                         FALSE);
@@ -1149,30 +1154,52 @@ evd_connection_set_group (EvdConnection      *self,
 
   if (self->priv->group != NULL)
     {
-      EvdIoStreamGroup *_group;
-
-      _group = self->priv->group;
+      old_group = self->priv->group;
       self->priv->group = NULL;
 
-      if (evd_io_stream_group_remove (_group, G_IO_STREAM (self)))
-        {
-          g_object_unref (group);
+      g_object_get (old_group,
+                    "input-throttle", &input_throttle,
+                    "output-throttle", &output_throttle,
+                    NULL);
 
-          /* @TODO: remove group's throttle objects from thottled streams */
-        }
+      evd_throttled_input_stream_remove_throttle (self->priv->throt_input_stream,
+                                                  input_throttle);
+      evd_throttled_output_stream_remove_throttle (self->priv->throt_output_stream,
+                                                   output_throttle);
+
+      g_object_unref (input_throttle);
+      g_object_unref (output_throttle);
     }
 
   self->priv->group = group;
 
   if (group != NULL)
     {
-      if (evd_io_stream_group_add (group, G_IO_STREAM (self)))
-        {
-          g_object_ref (group);
+      g_object_ref (group);
 
-          /* @TODO: add group's throttle objects to thottled streams */
-        }
+      g_object_get (group,
+                    "input-throttle", &input_throttle,
+                    "output-throttle", &output_throttle,
+                    NULL);
+
+      evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
+                                               input_throttle);
+      evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
+                                                output_throttle);
+
+      g_object_unref (input_throttle);
+      g_object_unref (output_throttle);
     }
+
+  g_signal_emit (self,
+                 evd_connection_signals[SIGNAL_GROUP_CHANGED],
+                 0,
+                 group,
+                 old_group,
+                 NULL);
+
+  if (old_group != NULL)
+    g_object_unref (old_group);
 
   return TRUE;
 }
