@@ -70,9 +70,11 @@ gssize                  evd_buffered_output_stream_write_str_finish  (EvdBuffere
                                                                       GAsyncResult             *result,
                                                                       GError                  **error);
 
-void                    evd_buffered_output_stream_freeze            (EvdBufferedOutputStream *self);
-void                    evd_buffered_output_stream_thaw              (EvdBufferedOutputStream *self,
-                                                                      gint                     priority);
+void                    evd_buffered_output_stream_set_auto_flush    (EvdBufferedOutputStream *self,
+                                                                      gboolean                 auto_flush);
+gboolean                evd_buffered_output_stream_get_auto_flush    (EvdBufferedOutputStream *self);
+
+void                    evd_buffered_output_stream_notify_write      (EvdBufferedOutputStream *self);
 
 G_END_DECLS
 
