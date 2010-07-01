@@ -28,16 +28,20 @@
 
 G_DEFINE_TYPE (EvdBufferedOutputStream,
                evd_buffered_output_stream,
-               G_TYPE_BUFFERED_OUTPUT_STREAM)
+               G_TYPE_FILTER_OUTPUT_STREAM)
 
 #define EVD_BUFFERED_OUTPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                                      EVD_TYPE_BUFFERED_OUTPUT_STREAM, \
                                                      EvdBufferedOutputStreamPrivate))
 
+#define DEFAULT_BUFFER_SIZE 8192
+
 /* private data */
 struct _EvdBufferedOutputStreamPrivate
 {
   GString *buffer;
+  gsize buffer_size;
+  gboolean auto_grow;
 
   gboolean auto_flush;
 
@@ -133,6 +137,8 @@ evd_buffered_output_stream_init (EvdBufferedOutputStream *self)
   self->priv = priv;
 
   priv->buffer = g_string_new ("");
+  priv->buffer_size = DEFAULT_BUFFER_SIZE;
+  priv->auto_grow = TRUE;
 
   priv->auto_flush = TRUE;
 
@@ -212,19 +218,14 @@ evd_buffered_output_stream_fill (EvdBufferedOutputStream  *self,
 {
   gsize buf_size;
 
-  buf_size = g_buffered_output_stream_get_buffer_size (G_BUFFERED_OUTPUT_STREAM (self));
+  buf_size = self->priv->buffer_size;
 
   if (self->priv->buffer->len + size > buf_size)
     {
-      if (g_buffered_output_stream_get_auto_grow (G_BUFFERED_OUTPUT_STREAM (self)))
-        {
-          g_buffered_output_stream_set_buffer_size (G_BUFFERED_OUTPUT_STREAM (self),
-                                                    self->priv->buffer->len + size);
-        }
+      if (self->priv->auto_grow)
+        self->priv->buffer_size = self->priv->buffer->len + size;
       else
-        {
-          size = buf_size - self->priv->buffer->len;
-        }
+        size = buf_size - self->priv->buffer->len;
     }
 
   if (size > 0)

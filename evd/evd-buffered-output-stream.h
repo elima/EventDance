@@ -34,14 +34,14 @@ typedef struct _EvdBufferedOutputStreamPrivate EvdBufferedOutputStreamPrivate;
 
 struct _EvdBufferedOutputStream
 {
-  GBufferedOutputStream parent;
+  GFilterOutputStream parent;
 
   EvdBufferedOutputStreamPrivate *priv;
 };
 
 struct _EvdBufferedOutputStreamClass
 {
-  GBufferedOutputStreamClass parent_class;
+  GFilterOutputStreamClass parent_class;
 };
 
 #define EVD_TYPE_BUFFERED_OUTPUT_STREAM           (evd_buffered_output_stream_get_type ())
