@@ -207,6 +207,8 @@ evd_socket_output_stream_write (GOutputStream  *stream,
         {
           if (error != NULL)
             *error = _error;
+          else
+            g_error_free (_error);
           actual_size = -1;
         }
     }

@@ -228,6 +228,8 @@ evd_socket_input_stream_read (GInputStream  *stream,
         {
           if (error != NULL)
             *error = _error;
+          else
+            g_error_free (_error);
           return -1;
         }
     }

@@ -287,6 +287,7 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
         {
           /* @TODO: Handle transport error */
           g_debug ("TLS session transport error during push: %s", error->message);
+          g_error_free (error);
         }
     }
 
@@ -314,6 +315,7 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
     {
       /* @TODO: handle transport error */
       g_debug ("TLS transport error during pull: %s", error->message);
+      g_error_free (error);
     }
   else if (res == 0)
     {
@@ -406,6 +408,7 @@ evd_tls_session_on_credentials_ready (EvdTlsCredentials *cred,
     {
       /* TODO: handle error */
       g_debug ("error binding credentials");
+      g_error_free (error);
     }
   else if (! evd_tls_session_handshake_internal (self, &error))
     {
@@ -413,6 +416,7 @@ evd_tls_session_on_credentials_ready (EvdTlsCredentials *cred,
         {
           /* TODO: raise error asynchronously, by firing 'error' signal */
           g_debug ("handshake error!: %s", error->message);
+          g_error_free (error);
         }
     }
 }

@@ -558,9 +558,10 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
 {
   if (self->priv->socket == NULL)
     {
-      *error = g_error_new (EVD_ERROR,
-                            EVD_ERROR_NOT_CONNECTED,
-                            "Socket is not connected");
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_CONNECTED,
+                           "Socket is not connected");
 
       return FALSE;
     }
