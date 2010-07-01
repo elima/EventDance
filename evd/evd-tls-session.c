@@ -326,7 +326,7 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
   return res;
 }
 
-static gboolean
+static gint
 evd_tls_session_handshake_internal (EvdTlsSession  *self,
                                     GError        **error)
 {
@@ -334,12 +334,19 @@ evd_tls_session_handshake_internal (EvdTlsSession  *self,
 
   err_code = gnutls_handshake (self->priv->session);
   if (err_code == GNUTLS_E_SUCCESS)
-    return TRUE;
-  else
-    if (gnutls_error_is_fatal (err_code) == 1)
+    {
+      return 1;
+    }
+  else if (gnutls_error_is_fatal (err_code) == 1)
+    {
       evd_tls_build_error (err_code, error);
 
-  return FALSE;
+      return -1;
+    }
+  else
+    {
+      return 0;
+    }
 }
 
 static gboolean
@@ -524,7 +531,7 @@ evd_tls_session_set_transport_push_func (EvdTlsSession         *self,
   self->priv->push_user_data = user_data;
 }
 
-gboolean
+gint
 evd_tls_session_handshake (EvdTlsSession  *self,
                            GError        **error)
 {
@@ -539,7 +546,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
       if (err_code != GNUTLS_E_SUCCESS)
         {
           evd_tls_build_error (err_code, error);
-          return FALSE;
+          return -1;
         }
       else
         {
@@ -550,7 +557,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
           if (err_code != GNUTLS_E_SUCCESS)
             {
               evd_tls_build_error (err_code, error);
-              return FALSE;
+              return -1;
             }
 
           if (self->priv->require_peer_cert &&
@@ -579,12 +586,12 @@ evd_tls_session_handshake (EvdTlsSession  *self,
 
               evd_tls_credentials_prepare (cred, self->priv->mode, error);
 
-              return FALSE;
+              return 0;
             }
           else
             {
               if (! evd_tls_session_bind_credentials (self, cred, error))
-                return FALSE;
+                return -1;
             }
         }
     }
@@ -592,7 +599,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
   if (self->priv->cred_bound)
     return evd_tls_session_handshake_internal (self, error);
   else
-    return FALSE;
+    return 0;
 }
 
 gssize

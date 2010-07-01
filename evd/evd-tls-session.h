@@ -85,7 +85,7 @@ void               evd_tls_session_set_transport_push_func (EvdTlsSession       
                                                             EvdTlsSessionPushFunc  func,
                                                             gpointer               user_data);
 
-gboolean           evd_tls_session_handshake               (EvdTlsSession   *self,
+gint               evd_tls_session_handshake               (EvdTlsSession   *self,
                                                             GError         **error);
 
 gssize             evd_tls_session_read                    (EvdTlsSession  *self,
