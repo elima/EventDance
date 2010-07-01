@@ -513,7 +513,7 @@ evd_connection_socket_on_status_changed (EvdSocket      *socket,
   else if (new_status == EVD_SOCKET_STATE_CLOSED)
     {
       if (self->priv->connected)
-        evd_connection_close_in_idle_cb (self);
+        evd_connection_close_in_idle (self);
     }
 }
 
