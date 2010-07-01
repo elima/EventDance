@@ -500,7 +500,7 @@ evd_service_socket_on_listen (GObject      *obj,
 static void
 evd_service_connection_closed (EvdService *self, EvdConnection *conn)
 {
-  evd_service_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 }
 
 /* public methods */
