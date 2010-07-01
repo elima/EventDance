@@ -555,41 +555,53 @@ evd_connection_tls_handshake (EvdConnection *self)
 {
   GError *error = NULL;
   GIOCondition direction;
+  gint result;
+  GSimpleAsyncResult *res;
 
   direction = evd_tls_session_get_direction (TLS_SESSION (self));
   if ( (direction == G_IO_IN && self->priv->read_src_id != 0) ||
        (direction == G_IO_OUT && self->priv->write_src_id != 0) )
     return;
 
-  if (evd_tls_session_handshake (TLS_SESSION (self), &error))
+  result = evd_tls_session_handshake (TLS_SESSION (self), &error);
+
+  if (result == 0)
+    return;
+
+  self->priv->tls_handshaking = FALSE;
+
+  res = self->priv->starttls_result;
+  self->priv->starttls_result = NULL;
+
+  if (result > 0)
     {
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (evd_socket_watch_condition (self->priv->socket,
-                                      self->priv->watched_cond,
-                                      &error))
+      if (! evd_socket_watch_condition (self->priv->socket,
+                                        self->priv->watched_cond,
+                                        &error))
         {
-          GSimpleAsyncResult *res;
-
-          res = self->priv->starttls_result;
-          self->priv->starttls_result = NULL;
-          self->priv->tls_handshaking = FALSE;
-
-          g_simple_async_result_complete (res);
-          g_object_unref (res);
-
-          evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
-                                                     TRUE);
-
-          return;
+          result = -1;
         }
     }
 
-  if (error != NULL)
+  if (result < 0)
     {
-      g_simple_async_result_set_from_error (self->priv->starttls_result,
-                                            error);
+      g_simple_async_result_set_from_error (res, error);
       g_error_free (error);
-      evd_connection_close_in_idle (self);
+    }
+
+  g_simple_async_result_complete_in_idle (res);
+  g_object_unref (res);
+
+  if (result > 0)
+    {
+      evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
+                                                 TRUE);
+    }
+  else
+    {
+      g_object_ref (self);
+      evd_connection_close_in_idle_cb (self);
     }
 }
 
