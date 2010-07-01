@@ -65,6 +65,8 @@ evd_throttled_output_stream_class_init (EvdThrottledOutputStreamClass *class)
 
   output_stream_class = G_OUTPUT_STREAM_CLASS (class);
   output_stream_class->write_fn = evd_throttled_output_stream_write;
+  output_stream_class->flush_async = NULL;
+  output_stream_class->flush_finish = NULL;
 
   evd_throttled_output_stream_signals[SIGNAL_DELAY_WRITE] =
     g_signal_new ("delay-write",
