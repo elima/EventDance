@@ -85,6 +85,7 @@ gboolean            evd_http_connection_write_response_headers       (EvdHttpCon
                                                                       guint                status_code,
                                                                       gchar               *reason_phrase,
                                                                       SoupMessageHeaders  *headers,
+                                                                      GCancellable        *cancellable,
                                                                       GError             **error);
 
 G_END_DECLS

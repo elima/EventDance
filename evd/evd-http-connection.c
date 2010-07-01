@@ -661,26 +661,26 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
                                             guint                status_code,
                                             gchar               *reason_phrase,
                                             SoupMessageHeaders  *headers,
+                                            GCancellable        *cancellable,
                                             GError             **error)
 {
   GOutputStream *stream;
-  gchar *buf;
+  gboolean result = TRUE;
+
+  gchar *st;
+  GString *buf;
 
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
 
-  if (! g_io_stream_set_pending (G_IO_STREAM (self), error))
-    return FALSE;
-
-  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+  buf = g_string_new ("");
 
   /* send status line */
-  buf = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
-                         version,
-                         status_code,
-                         reason_phrase);
-
-  g_output_stream_write (stream, buf, strlen (buf), NULL, error);
-  g_free (buf);
+  st = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
+                        version,
+                        status_code,
+                        reason_phrase);
+  g_string_append_len (buf, st, strlen (st));
+  g_free (st);
 
   /* send headers, if any */
   if (headers != NULL)
@@ -692,15 +692,19 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
       soup_message_headers_iter_init (&iter, headers);
       while (soup_message_headers_iter_next (&iter, &name, &value))
         {
-          buf = g_strdup_printf ("%s: %s\r\n", name, value);
-          g_output_stream_write (stream, buf, strlen (buf), NULL, error);
-          g_free (buf);
+          st = g_strdup_printf ("%s: %s\r\n", name, value);
+          g_string_append_len (buf, st, strlen (st));
+          g_free (st);
         }
     }
 
-  g_output_stream_write (stream, "\r\n", 2, NULL, error);
+  g_string_append_len (buf, "\r\n", 2);
 
-  g_io_stream_clear_pending (G_IO_STREAM (self));
+  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+  if (g_output_stream_write (stream, buf->str, buf->len, NULL, error) < 0)
+    result = FALSE;
 
-  return TRUE;
+  g_string_free (buf, TRUE);
+
+  return result;
 }
