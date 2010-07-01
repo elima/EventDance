@@ -141,6 +141,13 @@ static void           evd_connection_socket_on_error          (EvdSocket *socket
                                                                gchar     *message,
                                                                gpointer   user_data);
 
+static void           evd_connection_delay_read               (EvdThrottledInputStream *stream,
+                                                               guint                    wait,
+                                                               gpointer                 user_data);
+static void           evd_connection_delay_write              (EvdThrottledOutputStream *stream,
+                                                               guint                     wait,
+                                                               gpointer                  user_data);
+
 static void
 evd_connection_class_init (EvdConnectionClass *class)
 {
@@ -434,6 +441,14 @@ evd_connection_close_internal (GIOStream     *stream,
         }
     }
 
+  g_signal_handlers_disconnect_by_func (self->priv->throt_input_stream,
+                                        evd_connection_delay_read,
+                                        self);
+
+  g_signal_handlers_disconnect_by_func (self->priv->throt_output_stream,
+                                        evd_connection_delay_write,
+                                        self);
+
   g_output_stream_clear_pending (G_OUTPUT_STREAM (self->priv->buf_output_stream));
   if (! g_output_stream_close (G_OUTPUT_STREAM (self->priv->buf_output_stream),
                                NULL,
@@ -456,6 +471,8 @@ evd_connection_close_internal (GIOStream     *stream,
   g_signal_handlers_disconnect_by_func (self->priv->socket,
                                         evd_connection_socket_on_error,
                                         self);
+  evd_socket_set_notify_condition_callback (self->priv->socket, NULL, NULL);
+
   evd_socket_close (self->priv->socket, (_error == NULL) ? &_error : NULL);
 
   if (error)
