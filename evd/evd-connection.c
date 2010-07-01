@@ -480,6 +480,9 @@ evd_connection_socket_on_status_changed (EvdSocket      *socket,
 
       self->priv->connected = TRUE;
 
+      evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
+                                                 TRUE);
+
       self->priv->watched_cond = G_IO_IN | G_IO_OUT;
       if (! evd_socket_watch_condition (self->priv->socket,
                                         self->priv->watched_cond,
@@ -573,6 +576,11 @@ evd_connection_tls_handshake (EvdConnection *self)
 
           g_simple_async_result_complete (res);
           g_object_unref (res);
+
+          evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
+                                                     TRUE);
+
+          return;
         }
     }
 
@@ -601,8 +609,7 @@ evd_connection_manage_write_condition (EvdConnection *self)
   if (self->priv->tls_handshaking)
     evd_connection_tls_handshake (self);
   else
-    evd_buffered_output_stream_thaw (self->priv->buf_output_stream,
-                                     evd_socket_get_priority (self->priv->socket));
+    evd_buffered_output_stream_notify_write (self->priv->buf_output_stream);
 
   if (self->priv->tls_output_stream != NULL)
     evd_tls_output_stream_notify_write (self->priv->tls_output_stream,
@@ -854,13 +861,16 @@ evd_connection_setup_streams (EvdConnection *self)
 
   if (evd_socket_get_status (self->priv->socket) != EVD_SOCKET_STATE_CONNECTED)
     {
+      self->priv->connected = FALSE;
       evd_buffered_input_stream_freeze (self->priv->buf_input_stream);
-      evd_buffered_output_stream_freeze (self->priv->buf_output_stream);
     }
   else
     {
       self->priv->connected = TRUE;
     }
+
+  evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
+                                             self->priv->connected);
 }
 
 static void
@@ -1061,7 +1071,8 @@ evd_connection_starttls_async (EvdConnection       *self,
       G_OUTPUT_STREAM (self->priv->tls_output_stream));
 
   evd_buffered_input_stream_freeze (self->priv->buf_input_stream);
-  evd_buffered_output_stream_freeze (self->priv->buf_output_stream);
+  evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
+                                             FALSE);
 
   self->priv->tls_handshaking = TRUE;
 }
