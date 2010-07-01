@@ -71,10 +71,10 @@ static gssize   evd_long_polling_send                (EvdTransport  *self,
                                                       gsize          size,
                                                       GError       **error);
 
-static void     evd_long_polling_connection_accepted (EvdService    *self,
-                                                      EvdConnection *conn);
+static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_stream_group,
+                                                      GIOStream        *io_stream);
 
-static void     evd_long_polling_connection_closed   (EvdService    *self,
+static void     evd_long_polling_connection_accepted (EvdService    *service,
                                                       EvdConnection *conn);
 
 static void
@@ -83,12 +83,15 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
   EvdTransportClass *transport_class = EVD_TRANSPORT_CLASS (class);
+  EvdIoStreamGroupClass *io_stream_group_class =
+    EVD_IO_STREAM_GROUP_CLASS (class);
 
   obj_class->dispose = evd_long_polling_dispose;
   obj_class->finalize = evd_long_polling_finalize;
 
+  io_stream_group_class->remove = evd_long_polling_remove;
+
   service_class->connection_accepted = evd_long_polling_connection_accepted;
-  service_class->connection_closed = evd_long_polling_connection_closed;
 
   transport_class->send = evd_long_polling_send;
 
@@ -422,8 +425,7 @@ evd_long_polling_send (EvdTransport  *self,
 }
 
 static void
-evd_long_polling_connection_accepted (EvdService    *service,
-                                      EvdConnection *conn)
+evd_long_polling_connection_accepted (EvdService *service, EvdConnection *conn)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (service);
 
@@ -432,10 +434,18 @@ evd_long_polling_connection_accepted (EvdService    *service,
   evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
 }
 
-static void
-evd_long_polling_connection_closed (EvdService *service, EvdConnection *conn)
+static gboolean
+evd_long_polling_remove (EvdIoStreamGroup *io_stream_group,
+                         GIOStream        *io_stream)
 {
+  EvdConnection *conn = EVD_CONNECTION (io_stream);
   EvdPeer *peer;
+
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_long_polling_parent_class)->
+      remove (io_stream_group, io_stream))
+    {
+      return FALSE;
+    }
 
   /* remove conn from Peer's list of conns */
   peer = g_object_get_data (G_OBJECT (conn), CONN_PEER_KEY);
@@ -453,9 +463,7 @@ evd_long_polling_connection_closed (EvdService *service, EvdConnection *conn)
 
   g_object_unref (conn);
 
-  EVD_SERVICE_CLASS (evd_long_polling_parent_class)->connection_closed (service,
-                                                                        conn);
-
+  return TRUE;
 }
 
 /* public methods */
