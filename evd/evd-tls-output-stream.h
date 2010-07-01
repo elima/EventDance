@@ -26,7 +26,8 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include "evd-tls-session.h"
+#include <evd-buffered-output-stream.h>
+#include <evd-tls-session.h>
 
 G_BEGIN_DECLS
 
@@ -36,14 +37,14 @@ typedef struct _EvdTlsOutputStreamPrivate EvdTlsOutputStreamPrivate;
 
 struct _EvdTlsOutputStream
 {
-  GFilterOutputStream parent;
+  EvdBufferedOutputStream parent;
 
   EvdTlsOutputStreamPrivate *priv;
 };
 
 struct _EvdTlsOutputStreamClass
 {
-  GFilterOutputStreamClass parent_class;
+  EvdBufferedOutputStreamClass parent_class;
 };
 
 #define EVD_TYPE_TLS_OUTPUT_STREAM           (evd_tls_output_stream_get_type ())
@@ -58,9 +59,6 @@ GType              evd_tls_output_stream_get_type                     (void) G_G
 
 EvdTlsOutputStream *evd_tls_output_stream_new                         (EvdTlsSession *session,
                                                                        GOutputStream *base_stream);
-
-void                evd_tls_output_stream_notify_write                (EvdTlsOutputStream *self,
-                                                                       gint                priority);
 
 G_END_DECLS
 

@@ -22,7 +22,7 @@
 
 #include "evd-tls-output-stream.h"
 
-G_DEFINE_TYPE (EvdTlsOutputStream, evd_tls_output_stream, G_TYPE_FILTER_OUTPUT_STREAM)
+G_DEFINE_TYPE (EvdTlsOutputStream, evd_tls_output_stream, EVD_TYPE_BUFFERED_OUTPUT_STREAM)
 
 #define EVD_TLS_OUTPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                                 EVD_TYPE_TLS_OUTPUT_STREAM, \
@@ -32,7 +32,6 @@ G_DEFINE_TYPE (EvdTlsOutputStream, evd_tls_output_stream, G_TYPE_FILTER_OUTPUT_S
 struct _EvdTlsOutputStreamPrivate
 {
   EvdTlsSession *session;
-  GString *buf;
 };
 
 /* properties */
@@ -95,16 +94,12 @@ evd_tls_output_stream_init (EvdTlsOutputStream *self)
 
   priv = EVD_TLS_OUTPUT_STREAM_GET_PRIVATE (self);
   self->priv = priv;
-
-  priv->buf = g_string_new ("");
 }
 
 static void
 evd_tls_output_stream_finalize (GObject *obj)
 {
   EvdTlsOutputStream *self = EVD_TLS_OUTPUT_STREAM (obj);
-
-  g_string_free (self->priv->buf, TRUE);
 
   g_object_unref (self->priv->session);
 
@@ -156,20 +151,6 @@ evd_tls_output_stream_get_property (GObject    *obj,
 }
 
 static gssize
-evd_tls_output_stream_real_write (EvdTlsOutputStream  *self,
-                                  const gchar         *buffer,
-                                  gsize                size,
-                                  GError             **error)
-{
-  GOutputStream *base_stream;
-
-  base_stream =
-    g_filter_output_stream_get_base_stream (G_FILTER_OUTPUT_STREAM (self));
-
-  return g_output_stream_write (base_stream, buffer, size, NULL, error);
-}
-
-static gssize
 evd_tls_output_stream_push (EvdTlsSession  *session,
                             const gchar    *buffer,
                             gsize           size,
@@ -182,42 +163,13 @@ evd_tls_output_stream_push (EvdTlsSession  *session,
   if (g_output_stream_is_closed (G_OUTPUT_STREAM (self)))
     return 0;
 
-  /* if we already have data pending to be pushed, just
-     append new data to the tail of the buffer */
-  if (self->priv->buf->len > 0)
-    {
-      g_string_append_len (self->priv->buf,
-                           buffer,
-                           size);
-
-      return size;
-    }
-
-  result = evd_tls_output_stream_real_write (self,
-                                             buffer,
-                                             size,
-                                             error);
-
-  if (result >= 0 && result < size)
-    {
-      g_string_append_len (self->priv->buf,
-                           (const gchar *) ( (guintptr) buffer + result),
-                           size - result);
-
-      if (! g_output_stream_has_pending (G_OUTPUT_STREAM (self)) &&
-          ! g_output_stream_set_pending (G_OUTPUT_STREAM (self), error))
-        {
-          result = -1;
-        }
-      else
-        {
-          result = size;
-        }
-    }
-  else
-    {
-      g_output_stream_clear_pending (G_OUTPUT_STREAM (self));
-    }
+  result =
+    G_OUTPUT_STREAM_CLASS (evd_tls_output_stream_parent_class)->
+    write_fn (G_OUTPUT_STREAM (self),
+              buffer,
+              size,
+              NULL,
+              error);
 
   return result;
 }
@@ -258,30 +210,4 @@ evd_tls_output_stream_new (EvdTlsSession *session,
                                            self);
 
   return self;
-}
-
-void
-evd_tls_output_stream_notify_write (EvdTlsOutputStream *self,
-                                    gint                priority)
-{
-  g_return_if_fail (EVD_IS_TLS_OUTPUT_STREAM (self));
-
-  if (self->priv->buf->len > 0)
-    {
-      gssize actual_size;
-      GError *error = NULL;
-
-      actual_size = evd_tls_output_stream_real_write (self,
-                                                      self->priv->buf->str,
-                                                      self->priv->buf->len,
-                                                      &error);
-
-      if (actual_size > 0)
-        {
-          g_string_erase (self->priv->buf, 0, actual_size);
-
-          if (self->priv->buf->len == 0)
-            g_output_stream_clear_pending (G_OUTPUT_STREAM (self));
-        }
-    }
 }

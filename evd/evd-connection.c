@@ -611,9 +611,8 @@ evd_connection_manage_write_condition (EvdConnection *self)
   else
     evd_buffered_output_stream_notify_write (self->priv->buf_output_stream);
 
-  if (self->priv->tls_output_stream != NULL)
-    evd_tls_output_stream_notify_write (self->priv->tls_output_stream,
-                                        evd_socket_get_priority (self->priv->socket));
+  if (! CLOSED (self) && self->priv->tls_output_stream != NULL)
+    evd_buffered_output_stream_notify_write (EVD_BUFFERED_OUTPUT_STREAM (self->priv->tls_output_stream));
 }
 
 static gboolean
