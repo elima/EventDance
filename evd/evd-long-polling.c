@@ -166,17 +166,36 @@ evd_long_polling_setup_new_peer (EvdLongPolling *self)
 }
 
 static void
+evd_long_polling_connection_shutdown_on_flush (GObject      *obj,
+                                               GAsyncResult *res,
+                                               gpointer      user_data)
+{
+  EvdConnection *conn = EVD_CONNECTION (user_data);
+
+  /* @TODO: do we care about an error here? */
+  g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
+
+  evd_socket_shutdown (evd_connection_get_socket (conn),
+                       TRUE,
+                       TRUE,
+                       NULL);
+
+  g_object_unref (conn);
+}
+
+static void
 evd_long_polling_respond_conn (EvdLongPolling    *self,
                                EvdHttpConnection *conn,
                                EvdPeer           *peer,
                                SoupHTTPVersion    ver,
                                guint              status_code,
                                gchar             *reason_phrase,
+                               gchar             *content,
                                gboolean           send_cookies,
                                gboolean           keep_alive)
 {
-  GError *error = NULL;
   SoupMessageHeaders *headers;
+  GError *error = NULL;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
@@ -186,7 +205,7 @@ evd_long_polling_respond_conn (EvdLongPolling    *self,
       gchar *st;
 
       id = evd_peer_get_id (peer);
-      st = g_strdup_printf ("%s = %s", PEER_ID_COOKIE_NAME, id);
+      st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
       soup_message_headers_append (headers, "Set-Cookie", st);
       g_free (st);
     }
@@ -196,27 +215,37 @@ evd_long_polling_respond_conn (EvdLongPolling    *self,
   else
     soup_message_headers_replace (headers, "Connection", "close");
 
-  if (! evd_http_connection_write_response_headers (conn,
-                                                    ver,
-                                                    status_code,
-                                                    reason_phrase,
-                                                    headers,
-                                                    &error))
+  if (evd_http_connection_write_response_headers (conn,
+                                                  ver,
+                                                  status_code,
+                                                  reason_phrase,
+                                                  headers,
+                                                  NULL,
+                                                  &error))
     {
-      /* @TODO: handle error */
-      g_debug ("error sending HTTP response in EvdLongPolling: %s", error->message);
+      GOutputStream *stream;
 
-      g_error_free (error);
+      stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
 
-      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
+      if (content == NULL ||
+          g_output_stream_write (stream,
+                                 content,
+                                 strlen (content),
+                                 NULL,
+                                 &error) >= 0)
+        {
+          g_object_ref (conn);
+          g_output_stream_flush_async (stream,
+                                       evd_connection_get_priority (EVD_CONNECTION (conn)),
+                                       NULL,
+                                       evd_long_polling_connection_shutdown_on_flush,
+                                       conn);
+        }
     }
-  else
+
+  if (error != NULL)
     {
-      if (! keep_alive)
-        evd_socket_shutdown (evd_connection_get_socket (EVD_CONNECTION (conn)),
-                             TRUE,
-                             TRUE,
-                             NULL);
+      /* @TODO: do we care about an error here? */
     }
 
   soup_message_headers_free (headers);
@@ -304,6 +333,7 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
                                              ver,
                                              200,
                                              "OK",
+                                             NULL,
                                              TRUE,
                                              FALSE);
             }
@@ -320,7 +350,6 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
 
               g_object_ref (conn);
 
-              g_debug ("caching conn for peer %s", evd_peer_get_id (peer));
               /* @TODO: if there is data in the backlog, send it all now */
             }
         }
@@ -358,12 +387,13 @@ evd_long_polling_read_headers (EvdLongPolling     *self,
 }
 
 static gssize
-evd_long_polling_send (EvdTransport  *self,
+evd_long_polling_send (EvdTransport  *transport,
                        EvdPeer       *peer,
                        const gchar   *buffer,
                        gsize          size,
                        GError       **error)
 {
+  EvdLongPolling *self = EVD_LONG_POLLING (transport);
   EvdLongPollingPeerData *data;
 
   data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
@@ -375,43 +405,27 @@ evd_long_polling_send (EvdTransport  *self,
     {
       EvdHttpConnection *conn;
       SoupMessageHeaders *headers;
-      GError *error = NULL;
       gchar *_data;
       gsize _size;
 
       conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
 
-      _data = g_strdup_printf ("document.write (\"%s\");", buffer);
+      _data = g_strdup_printf ("deliver (\"%s\");", buffer);
       _size = strlen (_data);
 
       headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
       soup_message_headers_replace (headers, "Content-type", "text/javascript");
       soup_message_headers_replace (headers, "Connection", "close");
 
-      if (evd_http_connection_write_response_headers (conn,
-                                                      SOUP_HTTP_1_1,
-                                                      SOUP_STATUS_OK,
-                                                      "OK",
-                                                      headers,
-                                                      &error))
-        {
-          GOutputStream *stream;
-
-          stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
-          if (! g_output_stream_write (stream, _data, _size, NULL, &error))
-            {
-              /* @TODO: handle error */
-            }
-
-          evd_socket_shutdown (evd_connection_get_socket (EVD_CONNECTION (conn)),
-                               TRUE,
-                               TRUE,
-                               NULL);
-        }
-      else
-        {
-          /* @TODO: handle error */
-        }
+      evd_long_polling_respond_conn (self,
+                                     conn,
+                                     peer,
+                                     SOUP_HTTP_1_1,
+                                     SOUP_STATUS_OK,
+                                     "OK",
+                                     _data,
+                                     FALSE,
+                                     FALSE);
 
       soup_message_headers_free (headers);
       g_free (_data);
