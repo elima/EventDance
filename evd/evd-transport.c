@@ -30,10 +30,18 @@ G_DEFINE_ABSTRACT_TYPE (EvdTransport, evd_transport, EVD_TYPE_SERVICE)
                                         EVD_TYPE_TRANSPORT, \
                                         EvdTransportPrivate))
 
+#define DEFAULT_PEER_TIMEOUT_INTERVAL  5 /* seconds */
+#define DEFAULT_PEER_CLEANUP_INTERVAL 10 /* seconds */
+
 /* private data */
 struct _EvdTransportPrivate
 {
   GHashTable *peers;
+
+  guint peer_timeout_interval;
+
+  GTimer *peer_cleanup_timer;
+  guint peer_cleanup_interval;
 };
 
 /* signals */
@@ -74,6 +82,11 @@ evd_transport_init (EvdTransport *self)
                                        g_str_equal,
                                        g_free,
                                        g_object_unref);
+
+  priv->peer_timeout_interval = DEFAULT_PEER_TIMEOUT_INTERVAL;
+
+  priv->peer_cleanup_timer = g_timer_new ();
+  priv->peer_cleanup_interval = DEFAULT_PEER_CLEANUP_INTERVAL;
 }
 
 static void
@@ -89,7 +102,49 @@ evd_transport_finalize (GObject *obj)
 
   g_hash_table_destroy (self->priv->peers);
 
+  g_timer_destroy (self->priv->peer_cleanup_timer);
+
   G_OBJECT_CLASS (evd_transport_parent_class)->finalize (obj);
+}
+
+static void
+evd_transport_destroy_peer (EvdTransport *self,
+                            EvdPeer      *peer)
+{
+  /* @TODO: emit signal to notify the world */
+}
+
+static gboolean
+evd_transport_check_peer (gpointer key,
+                          gpointer value,
+                          gpointer user_data)
+{
+  EvdTransport *self = EVD_TRANSPORT (user_data);
+  EvdPeer *peer = EVD_PEER (value);
+
+  if (evd_transport_peer_is_dead (self, peer))
+    {
+      evd_transport_destroy_peer (self, peer);
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
+}
+
+static void
+evd_transport_cleanup_peers (EvdTransport *self)
+{
+  if (g_timer_elapsed (self->priv->peer_cleanup_timer, NULL) <=
+      self->priv->peer_cleanup_interval)
+    return;
+
+  g_timer_start (self->priv->peer_cleanup_timer);
+
+  g_hash_table_foreach_remove (self->priv->peers,
+                               evd_transport_check_peer,
+                               self);
 }
 
 /* protected methods */
@@ -139,9 +194,12 @@ evd_transport_lookup_peer (EvdTransport *self, const gchar *id)
   peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
                                         (gconstpointer) id));
 
-  if (peer != NULL)
+  if (peer != NULL && evd_transport_peer_is_dead (self, peer))
     {
-      /* @TODO: check the peer has timed-out */
+      evd_transport_destroy_peer (self, peer);
+      g_hash_table_remove (self->priv->peers, id);
+
+      peer = NULL;
     }
 
   return peer;
@@ -156,6 +214,8 @@ GList *
 evd_transport_get_all_peers (EvdTransport *self)
 {
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  evd_transport_cleanup_peers (self);
 
   return g_hash_table_get_values (self->priv->peers);
 }
@@ -172,6 +232,8 @@ evd_transport_send (EvdTransport  *self,
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), -1);
   g_return_val_if_fail (EVD_IS_PEER (peer), -1);
 
+  evd_transport_cleanup_peers (self);
+
   /* check the peer is one of our peers */
   if (g_hash_table_lookup (self->priv->peers, evd_peer_get_id (peer)) != peer)
     {
@@ -183,7 +245,18 @@ evd_transport_send (EvdTransport  *self,
       return -1;
     }
 
-  /* @TODO: check peer has not timed-out */
+  /* check peer is not dead */
+  if (evd_transport_peer_is_dead (self, peer))
+    {
+      evd_transport_destroy_peer (self, peer);
+
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_CLOSED,
+                           "Peer has been invalidated due to inactivity");
+
+      return -1;
+    }
 
   class = EVD_TRANSPORT_GET_CLASS (self);
 
