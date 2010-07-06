@@ -708,3 +708,25 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
 
   return result;
 }
+
+gboolean
+evd_http_connection_write_content (EvdHttpConnection  *self,
+                                   const gchar        *buffer,
+                                   gsize               size,
+                                   GCancellable       *cancellable,
+                                   GError            **error)
+{
+  GOutputStream *stream;
+
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+
+  if (size == 0)
+    return TRUE;
+
+  /* @TODO: here we apply necessary transformation to buffer, depending
+     on current state of connection (e.g chunked transfer, gzipped, etc) */
+
+  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+
+  return g_output_stream_write (stream, buffer, size, cancellable, error);
+}

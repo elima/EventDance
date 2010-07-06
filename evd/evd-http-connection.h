@@ -87,6 +87,11 @@ gboolean            evd_http_connection_write_response_headers       (EvdHttpCon
                                                                       SoupMessageHeaders  *headers,
                                                                       GCancellable        *cancellable,
                                                                       GError             **error);
+gboolean            evd_http_connection_write_content                (EvdHttpConnection  *self,
+                                                                      const gchar        *buffer,
+                                                                      gsize               size,
+                                                                      GCancellable       *cancellable,
+                                                                      GError            **error);
 
 G_END_DECLS
 
