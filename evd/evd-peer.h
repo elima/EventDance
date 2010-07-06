@@ -60,6 +60,18 @@ EvdPeer *         evd_peer_new                     (gchar *id);
 
 const gchar *     evd_peer_get_id                  (EvdPeer *self);
 
+gboolean          evd_peer_backlog_push_frame      (EvdPeer      *self,
+                                                    const gchar  *frame,
+                                                    gsize         size,
+                                                    GError      **error);
+gboolean          evd_peer_backlog_unshift_frame   (EvdPeer      *self,
+                                                    const gchar  *frame,
+                                                    gsize         size,
+                                                    GError      **error);
+gchar *           evd_peer_backlog_pop_frame       (EvdPeer *self,
+                                                    gsize   *size);
+guint             evd_peer_backlog_get_length      (EvdPeer *self);
+
 G_END_DECLS
 
 #endif /* __EVD_PEER_H__ */

@@ -31,6 +31,8 @@ G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
 struct _EvdPeerPrivate
 {
   gchar *id;
+
+  GQueue *backlog;
 };
 
 /* signals */
@@ -63,6 +65,8 @@ static void     evd_peer_get_property       (GObject    *obj,
                                              GValue     *value,
                                              GParamSpec *pspec);
 
+static void     evd_peer_backlog_free_frame (gpointer data, gpointer user_data);
+
 static void
 evd_peer_class_init (EvdPeerClass *class)
 {
@@ -92,6 +96,8 @@ evd_peer_init (EvdPeer *self)
 
   priv = EVD_PEER_GET_PRIVATE (self);
   self->priv = priv;
+
+  priv->backlog = g_queue_new ();
 }
 
 static void
@@ -105,11 +111,14 @@ evd_peer_finalize (GObject *obj)
 {
   EvdPeer *self = EVD_PEER (obj);
 
+  g_queue_foreach (self->priv->backlog,
+                   evd_peer_backlog_free_frame,
+                   NULL);
+  g_queue_free (self->priv->backlog);
+
   g_free (self->priv->id);
 
   G_OBJECT_CLASS (evd_peer_parent_class)->finalize (obj);
-
-  g_debug ("peer finalized");
 }
 
 static void
@@ -156,7 +165,11 @@ evd_peer_get_property (GObject    *obj,
     }
 }
 
-/* protected methods */
+static void
+evd_peer_backlog_free_frame (gpointer data, gpointer user_data)
+{
+  g_string_free ((GString *) data, TRUE);
+}
 
 /* public methods */
 
@@ -180,4 +193,73 @@ evd_peer_get_id (EvdPeer *self)
   g_return_val_if_fail (EVD_IS_PEER (self), NULL);
 
   return self->priv->id;
+}
+
+gboolean
+evd_peer_backlog_push_frame (EvdPeer      *self,
+                             const gchar  *frame,
+                             gsize         size,
+                             GError      **error)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+  g_return_val_if_fail (frame != NULL, FALSE);
+
+  /* TODO: check backlog limits here */
+
+  g_queue_push_tail (self->priv->backlog, g_string_new_len (frame, size));
+
+  return TRUE;
+}
+
+gboolean
+evd_peer_backlog_unshift_frame (EvdPeer      *self,
+                                const gchar  *frame,
+                                gsize         size,
+                                GError      **error)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+  g_return_val_if_fail (frame != NULL, FALSE);
+
+  /* TODO: check backlog limits here */
+
+  g_queue_push_head (self->priv->backlog, g_string_new_len (frame, size));
+
+  return TRUE;
+}
+
+gchar *
+evd_peer_backlog_pop_frame (EvdPeer *self,
+                            gsize   *size)
+{
+  GString *frame;
+
+  g_return_val_if_fail (EVD_IS_PEER (self), NULL);
+
+  frame = (GString *) g_queue_pop_head (self->priv->backlog);
+
+  if (frame != NULL)
+    {
+      gchar *str;
+
+      if (size != NULL)
+        *size = frame->len;
+
+      str = frame->str;
+
+      g_string_free (frame, FALSE);
+
+      return str;
+    }
+  else
+    {
+      return NULL;
+    }
+}
+
+guint
+evd_peer_backlog_get_length (EvdPeer *self)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), 0);
+
+  return g_queue_get_length (self->priv->backlog);
 }
