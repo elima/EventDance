@@ -77,6 +77,12 @@ static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_strea
 static void     evd_long_polling_connection_accepted (EvdService    *service,
                                                       EvdConnection *conn);
 
+static gboolean evd_long_polling_actual_send         (EvdLongPolling  *self,
+                                                      EvdPeer         *peer,
+                                                      const gchar     *buffer,
+                                                      gsize            size,
+                                                      GError         **error);
+
 static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
 {
@@ -350,7 +356,12 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
 
               g_object_ref (conn);
 
-              /* @TODO: if there is data in the backlog, send it all now */
+              /* send Peer's backlogged frames */
+              evd_long_polling_actual_send (self,
+                                            peer,
+                                            NULL,
+                                            0,
+                                            NULL);
             }
         }
       else if (g_strcmp0 (method, "POST") == 0)
@@ -386,6 +397,115 @@ evd_long_polling_read_headers (EvdLongPolling     *self,
                                           self);
 }
 
+static gboolean
+evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
+                                       EvdHttpConnection  *conn,
+                                       const gchar        *buf,
+                                       gsize               size,
+                                       GError            **error)
+{
+  gboolean result = TRUE;
+  gchar *_data;
+  gsize _size;
+
+  _data = g_strdup_printf ("deliver (\"%s\");", buf);
+  _size = strlen (_data);
+
+  if (! evd_http_connection_write_content (conn,
+                                           _data,
+                                           _size,
+                                           NULL,
+                                           error))
+    {
+      result = FALSE;
+    }
+
+  g_free (_data);
+
+  return result;
+}
+
+static gboolean
+evd_long_polling_actual_send (EvdLongPolling  *self,
+                              EvdPeer         *peer,
+                              const gchar     *buffer,
+                              gsize            size,
+                              GError         **error)
+{
+  EvdLongPollingPeerData *data;
+  EvdHttpConnection *conn;
+  SoupMessageHeaders *headers;
+  gboolean result = TRUE;
+
+  data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
+  g_return_val_if_fail (data != NULL, FALSE);
+
+  if (g_queue_get_length (data->conns) == 0)
+    return FALSE;
+
+  conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
+
+  /* build and send HTTP headers */
+  headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  soup_message_headers_replace (headers, "Content-type", "text/javascript");
+  soup_message_headers_replace (headers, "Connection", "close");
+
+  if (evd_http_connection_write_response_headers (conn,
+                                                  SOUP_HTTP_1_1,
+                                                  SOUP_STATUS_OK,
+                                                  "OK",
+                                                  headers,
+                                                  NULL,
+                                                  error))
+    {
+      gchar *frame;
+      gsize frame_size;
+      GOutputStream *stream;
+
+      /* send frames in peer's backlog first */
+      while ( result &&
+              (frame = evd_peer_backlog_pop_frame (peer, &frame_size)) != NULL)
+        {
+          if (! evd_long_polling_write_frame_delivery (self,
+                                                       conn,
+                                                       frame,
+                                                       frame_size,
+                                                       NULL))
+            {
+              evd_peer_backlog_unshift_frame (peer, frame, frame_size, NULL);
+
+              result = FALSE;
+            }
+
+          g_free (frame);
+        }
+
+      /* then send the requested frame */
+      if (result && buffer != NULL &&
+          ! evd_long_polling_write_frame_delivery (self,
+                                                   conn,
+                                                   buffer,
+                                                   size,
+                                                   NULL))
+        {
+          result = FALSE;
+        }
+
+      /* flush connection's buffer, and shutdown connection after */
+      g_object_ref (conn);
+      stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
+      g_output_stream_flush_async (stream,
+                                   evd_connection_get_priority (EVD_CONNECTION (conn)),
+                                   NULL,
+                                   evd_long_polling_connection_shutdown_on_flush,
+                                   conn);
+    }
+
+  soup_message_headers_free (headers);
+
+  return result;
+}
+
 static gssize
 evd_long_polling_send (EvdTransport  *transport,
                        EvdPeer       *peer,
@@ -399,43 +519,18 @@ evd_long_polling_send (EvdTransport  *transport,
   data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
   g_return_val_if_fail (data != NULL, -1);
 
-  /* @TODO: if backlog is not empty, append data to backlog */
-
-  if (g_queue_get_length (data->conns) > 0)
+  if (evd_peer_backlog_get_length (peer) > 0 ||
+      ! evd_long_polling_actual_send (self,
+                                      peer,
+                                      buffer,
+                                      size,
+                                      NULL))
     {
-      EvdHttpConnection *conn;
-      SoupMessageHeaders *headers;
-      gchar *_data;
-      gsize _size;
-
-      conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
-
-      _data = g_strdup_printf ("deliver (\"%s\");", buffer);
-      _size = strlen (_data);
-
-      headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
-      soup_message_headers_replace (headers, "Content-type", "text/javascript");
-      soup_message_headers_replace (headers, "Connection", "close");
-
-      evd_long_polling_respond_conn (self,
-                                     conn,
-                                     peer,
-                                     SOUP_HTTP_1_1,
-                                     SOUP_STATUS_OK,
-                                     "OK",
-                                     _data,
-                                     FALSE,
-                                     FALSE);
-
-      soup_message_headers_free (headers);
-      g_free (_data);
-    }
-  else
-    {
-      /* @TODO: add data to backlog */
+      if (! evd_peer_backlog_push_frame (peer, buffer, size, error))
+        return -1;
     }
 
-  return size;
+  return (gssize) size;
 }
 
 static void
