@@ -33,6 +33,8 @@ struct _EvdPeerPrivate
   gchar *id;
 
   GQueue *backlog;
+
+  GTimer *idle_timer;
 };
 
 /* signals */
@@ -98,6 +100,8 @@ evd_peer_init (EvdPeer *self)
   self->priv = priv;
 
   priv->backlog = g_queue_new ();
+
+  priv->idle_timer = g_timer_new ();
 }
 
 static void
@@ -110,6 +114,8 @@ static void
 evd_peer_finalize (GObject *obj)
 {
   EvdPeer *self = EVD_PEER (obj);
+
+  g_timer_destroy (self->priv->idle_timer);
 
   g_queue_foreach (self->priv->backlog,
                    evd_peer_backlog_free_frame,
@@ -262,4 +268,20 @@ evd_peer_backlog_get_length (EvdPeer *self)
   g_return_val_if_fail (EVD_IS_PEER (self), 0);
 
   return g_queue_get_length (self->priv->backlog);
+}
+
+guint
+evd_peer_get_idle_time (EvdPeer *self)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), 0);
+
+  return (guint) g_timer_elapsed (self->priv->idle_timer, NULL);
+}
+
+void
+evd_peer_touch (EvdPeer *self)
+{
+  g_return_if_fail (EVD_IS_PEER (self));
+
+  g_timer_start (self->priv->idle_timer);
 }

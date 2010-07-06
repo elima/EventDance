@@ -72,6 +72,9 @@ gchar *           evd_peer_backlog_pop_frame       (EvdPeer *self,
                                                     gsize   *size);
 guint             evd_peer_backlog_get_length      (EvdPeer *self);
 
+guint             evd_peer_get_idle_time           (EvdPeer *self);
+void              evd_peer_touch                   (EvdPeer *self);
+
 G_END_DECLS
 
 #endif /* __EVD_PEER_H__ */
