@@ -43,11 +43,13 @@ struct _EvdTransportClass
   EvdServiceClass parent_class;
 
   /* virtual methods */
-  gssize (* send) (EvdTransport  *self,
-                   EvdPeer       *peer,
-                   const gchar   *buffer,
-                   gsize          size,
-                   GError       **error);
+  gboolean (* peer_is_connected) (EvdTransport *self,
+                                  EvdPeer      *peer);
+  gboolean (* send)              (EvdTransport  *self,
+                                  EvdPeer       *peer,
+                                  const gchar   *buffer,
+                                  gsize          size,
+                                  GError       **error);
 };
 
 #define EVD_TYPE_TRANSPORT           (evd_transport_get_type ())

@@ -183,10 +183,28 @@ evd_transport_send (EvdTransport  *self,
       return -1;
     }
 
+  /* @TODO: check peer has not timed-out */
+
   class = EVD_TRANSPORT_GET_CLASS (self);
+
+  /* add frame to peer's backlog if peer cannot send it just right now */
+  if (evd_peer_backlog_get_length (peer) > 0 ||
+      class->peer_is_connected == NULL ||
+      ! class->peer_is_connected (self, peer))
+    {
+      if (! evd_peer_backlog_push_frame (peer, buffer, size, error))
+        return -1;
+      else
+        return size;
+    }
+
   if (class->send != NULL)
     {
-      return class->send (self, peer, buffer, size, error);
+      if (! class->send (self, peer, buffer, size, NULL) &&
+          ! evd_peer_backlog_push_frame (peer, buffer, size, error))
+        return -1;
+      else
+        return size;
     }
   else
     {

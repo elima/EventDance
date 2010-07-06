@@ -65,7 +65,7 @@ static void     evd_long_polling_init                (EvdLongPolling *self);
 static void     evd_long_polling_finalize            (GObject *obj);
 static void     evd_long_polling_dispose             (GObject *obj);
 
-static gssize   evd_long_polling_send                (EvdTransport  *self,
+static gboolean evd_long_polling_send                (EvdTransport  *self,
                                                       EvdPeer       *peer,
                                                       const gchar   *buffer,
                                                       gsize          size,
@@ -82,6 +82,9 @@ static gboolean evd_long_polling_actual_send         (EvdLongPolling  *self,
                                                       const gchar     *buffer,
                                                       gsize            size,
                                                       GError         **error);
+static gboolean evd_long_polling_peer_is_connected   (EvdTransport *transport,
+                                                      EvdPeer      *peer);
+
 
 static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
@@ -99,6 +102,7 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
 
   service_class->connection_accepted = evd_long_polling_connection_accepted;
 
+  transport_class->peer_is_connected = evd_long_polling_peer_is_connected;
   transport_class->send = evd_long_polling_send;
 
   /* add private structure */
@@ -426,6 +430,21 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
 }
 
 static gboolean
+evd_long_polling_peer_is_connected (EvdTransport *transport,
+                                    EvdPeer      *peer)
+{
+  EvdLongPollingPeerData *data;
+
+  data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
+                                                       PEER_DATA_KEY);
+
+  if (data == NULL || g_queue_get_length (data->conns) == 0)
+    return FALSE;
+  else
+    return TRUE;
+}
+
+static gboolean
 evd_long_polling_actual_send (EvdLongPolling  *self,
                               EvdPeer         *peer,
                               const gchar     *buffer,
@@ -506,7 +525,7 @@ evd_long_polling_actual_send (EvdLongPolling  *self,
   return result;
 }
 
-static gssize
+static gboolean
 evd_long_polling_send (EvdTransport  *transport,
                        EvdPeer       *peer,
                        const gchar   *buffer,
@@ -514,23 +533,15 @@ evd_long_polling_send (EvdTransport  *transport,
                        GError       **error)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (transport);
-  EvdLongPollingPeerData *data;
 
-  data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
-  g_return_val_if_fail (data != NULL, -1);
-
-  if (evd_peer_backlog_get_length (peer) > 0 ||
-      ! evd_long_polling_actual_send (self,
-                                      peer,
-                                      buffer,
-                                      size,
-                                      NULL))
-    {
-      if (! evd_peer_backlog_push_frame (peer, buffer, size, error))
-        return -1;
-    }
-
-  return (gssize) size;
+  if (evd_long_polling_actual_send (self,
+                                    peer,
+                                    buffer,
+                                    size,
+                                    error))
+    return (gssize) size;
+  else
+    return -1;
 }
 
 static void
