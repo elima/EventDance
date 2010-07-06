@@ -77,6 +77,9 @@ gssize            evd_transport_send                     (EvdTransport  *self,
                                                           gsize          size,
                                                           GError       **error);
 
+gboolean          evd_transport_peer_is_dead             (EvdTransport *self,
+                                                          EvdPeer      *peer);
+
 G_END_DECLS
 
 #endif /* __EVD_TRANSPORT_H__ */

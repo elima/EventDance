@@ -216,3 +216,23 @@ evd_transport_send (EvdTransport  *self,
       return -1;
     }
 }
+
+gboolean
+evd_transport_peer_is_dead (EvdTransport *self,
+                            EvdPeer      *peer)
+{
+  EvdTransportClass *class;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+
+  if (evd_peer_get_idle_time (peer) <= self->priv->peer_timeout_interval)
+    return FALSE;
+
+  class = EVD_TRANSPORT_GET_CLASS (self);
+  if (class->peer_is_connected == NULL ||
+      class->peer_is_connected (self, peer))
+    return FALSE;
+  else
+    return TRUE;
+}
