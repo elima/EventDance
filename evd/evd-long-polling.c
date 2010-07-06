@@ -333,6 +333,8 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
           send_cookies = TRUE;
         }
 
+      evd_peer_touch (peer);
+
       if (g_strcmp0 (method, "GET") == 0)
         {
           if (send_cookies)
@@ -361,11 +363,12 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
               g_object_ref (conn);
 
               /* send Peer's backlogged frames */
-              evd_long_polling_actual_send (self,
-                                            peer,
-                                            NULL,
-                                            0,
-                                            NULL);
+              if (evd_peer_backlog_get_length (peer) > 0)
+                evd_long_polling_actual_send (self,
+                                              peer,
+                                              NULL,
+                                              0,
+                                              NULL);
             }
         }
       else if (g_strcmp0 (method, "POST") == 0)
