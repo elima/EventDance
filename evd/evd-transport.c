@@ -58,6 +58,8 @@ static void     evd_transport_init               (EvdTransport *self);
 static void     evd_transport_finalize           (GObject *obj);
 static void     evd_transport_dispose            (GObject *obj);
 
+static EvdPeer *evd_transport_create_new_peer    (EvdTransport *self);
+
 static void
 evd_transport_class_init (EvdTransportClass *class)
 {
@@ -65,6 +67,8 @@ evd_transport_class_init (EvdTransportClass *class)
 
   obj_class->dispose = evd_transport_dispose;
   obj_class->finalize = evd_transport_finalize;
+
+  class->create_new_peer = evd_transport_create_new_peer;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTransportPrivate));
@@ -147,10 +151,8 @@ evd_transport_cleanup_peers (EvdTransport *self)
                                self);
 }
 
-/* protected methods */
-
-EvdPeer *
-evd_transport_get_new_peer_protected (EvdTransport *self)
+static EvdPeer *
+evd_transport_create_new_peer (EvdTransport *self)
 {
   EvdPeer *peer;
   gchar *id;

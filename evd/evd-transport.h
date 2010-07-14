@@ -43,13 +43,14 @@ struct _EvdTransportClass
   EvdServiceClass parent_class;
 
   /* virtual methods */
-  gboolean (* peer_is_connected) (EvdTransport *self,
-                                  EvdPeer      *peer);
-  gboolean (* send)              (EvdTransport  *self,
-                                  EvdPeer       *peer,
-                                  const gchar   *buffer,
-                                  gsize          size,
-                                  GError       **error);
+  EvdPeer * (* create_new_peer)   (EvdTransport *self);
+  gboolean  (* peer_is_connected) (EvdTransport *self,
+                                   EvdPeer      *peer);
+  gboolean  (* send)              (EvdTransport  *self,
+                                   EvdPeer       *peer,
+                                   const gchar   *buffer,
+                                   gsize          size,
+                                   GError       **error);
 };
 
 #define EVD_TYPE_TRANSPORT           (evd_transport_get_type ())
@@ -68,8 +69,6 @@ EvdPeer          *evd_transport_lookup_peer              (EvdTransport *self,
                                                           const gchar  *id);
 
 GList            *evd_transport_get_all_peers            (EvdTransport *self);
-
-EvdPeer          *evd_transport_get_new_peer_protected   (EvdTransport *self);
 
 gssize            evd_transport_send                     (EvdTransport  *self,
                                                           EvdPeer       *peer,
