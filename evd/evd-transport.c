@@ -19,6 +19,8 @@
  * for more details.
  */
 
+#include <string.h>
+
 #include "evd-transport.h"
 
 #include "evd-utils.h"
@@ -60,6 +62,11 @@ static void     evd_transport_dispose            (GObject *obj);
 
 static EvdPeer *evd_transport_create_new_peer    (EvdTransport *self);
 
+static void     evd_transport_receive            (EvdTransport *self,
+                                                  EvdPeer      *peer,
+                                                  const gchar  *buffer,
+                                                  gsize         size);
+
 static void
 evd_transport_class_init (EvdTransportClass *class)
 {
@@ -69,6 +76,7 @@ evd_transport_class_init (EvdTransportClass *class)
   obj_class->finalize = evd_transport_finalize;
 
   class->create_new_peer = evd_transport_create_new_peer;
+  class->receive = evd_transport_receive;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTransportPrivate));
@@ -161,11 +169,33 @@ evd_transport_create_new_peer (EvdTransport *self)
 
   id = evd_uuid_new ();
 
-  peer = g_object_new (EVD_TYPE_PEER, "id", id, NULL);
+  peer = g_object_new (EVD_TYPE_PEER,
+                       "id", id,
+                       "transport", self,
+                       NULL);
 
   g_hash_table_insert (self->priv->peers, id, peer);
 
   return peer;
+}
+
+static void
+evd_transport_receive (EvdTransport *self,
+                       EvdPeer      *peer,
+                       const gchar  *buffer,
+                       gsize         size)
+{
+  gchar *buf;
+
+  buf = g_new (gchar, size);
+  memcpy (buf, buffer, size);
+
+  if (self->priv->receive_cb != NULL)
+    self->priv->receive_cb (self,
+                            peer,
+                            buf,
+                            size,
+                            self->priv->receive_cb_user_data);
 }
 
 /* public methods */

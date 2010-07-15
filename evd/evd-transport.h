@@ -51,6 +51,10 @@ struct _EvdTransportClass
                                    const gchar   *buffer,
                                    gsize          size,
                                    GError       **error);
+  void      (* receive)           (EvdTransport *self,
+                                   EvdPeer      *peer,
+                                   const gchar  *buffer,
+                                   gsize         size);
 };
 
 #define EVD_TYPE_TRANSPORT           (evd_transport_get_type ())
