@@ -44,6 +44,9 @@ struct _EvdTransportPrivate
 
   GTimer *peer_cleanup_timer;
   guint peer_cleanup_interval;
+
+  EvdTransportReceiveCallback receive_cb;
+  gpointer receive_cb_user_data;
 };
 
 /* signals */
@@ -99,6 +102,9 @@ evd_transport_init (EvdTransport *self)
 
   priv->peer_cleanup_timer = g_timer_new ();
   priv->peer_cleanup_interval = DEFAULT_PEER_CLEANUP_INTERVAL;
+
+  priv->receive_cb = NULL;
+  priv->receive_cb_user_data = NULL;
 }
 
 static void
@@ -340,4 +346,15 @@ evd_transport_peer_is_dead (EvdTransport *self,
     return FALSE;
   else
     return TRUE;
+}
+
+void
+evd_transport_set_receive_callback (EvdTransport                *self,
+                                    EvdTransportReceiveCallback  callback,
+                                    gpointer                     user_data)
+{
+  g_return_if_fail (EVD_IS_TRANSPORT (self));
+
+  self->priv->receive_cb = callback;
+  self->priv->receive_cb_user_data = user_data;
 }

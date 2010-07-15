@@ -31,6 +31,12 @@ typedef struct _EvdTransport EvdTransport;
 typedef struct _EvdTransportClass EvdTransportClass;
 typedef struct _EvdTransportPrivate EvdTransportPrivate;
 
+typedef void (* EvdTransportReceiveCallback) (EvdTransport *self,
+                                              EvdPeer      *peer,
+                                              gchar        *buffer,
+                                              gsize         size,
+                                              gpointer      user_data);
+
 struct _EvdTransport
 {
   EvdService parent;
@@ -82,6 +88,10 @@ gssize            evd_transport_send                     (EvdTransport  *self,
 
 gboolean          evd_transport_peer_is_dead             (EvdTransport *self,
                                                           EvdPeer      *peer);
+
+void              evd_transport_set_receive_callback     (EvdTransport                *self,
+                                                          EvdTransportReceiveCallback  callback,
+                                                          gpointer                     user_data);
 
 G_END_DECLS
 
