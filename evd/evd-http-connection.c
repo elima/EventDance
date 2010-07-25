@@ -730,3 +730,60 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
 
   return g_output_stream_write (stream, buffer, size, cancellable, error);
 }
+gboolean
+evd_http_connection_unread_request_headers (EvdHttpConnection   *self,
+                                            SoupHTTPVersion      version,
+                                            const gchar         *method,
+                                            const gchar         *path,
+                                            SoupMessageHeaders  *headers,
+                                            GCancellable        *cancellable,
+                                            GError             **error)
+{
+  GInputStream *stream;
+  gboolean result = TRUE;
+
+  gchar *st;
+  GString *buf;
+
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+
+  buf = g_string_new ("");
+
+  /* send status line */
+  st = g_strdup_printf ("%s %s HTTP/1.%d\r\n",
+                        method,
+                        path,
+                        version);
+  g_string_append_len (buf, st, strlen (st));
+  g_free (st);
+
+  /* send headers, if any */
+  if (headers != NULL)
+    {
+      SoupMessageHeadersIter iter;
+      const gchar *name;
+      const gchar *value;
+
+      soup_message_headers_iter_init (&iter, headers);
+      while (soup_message_headers_iter_next (&iter, &name, &value))
+        {
+          st = g_strdup_printf ("%s: %s\r\n", name, value);
+          g_string_append_len (buf, st, strlen (st));
+          g_free (st);
+        }
+    }
+
+  g_string_append_len (buf, "\r\n", 2);
+
+  stream = g_io_stream_get_input_stream (G_IO_STREAM (self));
+  if (evd_buffered_input_stream_unread (EVD_BUFFERED_INPUT_STREAM (stream),
+                                        buf->str,
+                                        buf->len,
+                                        NULL,
+                                        error) < 0)
+    result = FALSE;
+
+  g_string_free (buf, TRUE);
+
+  return result;
+}
