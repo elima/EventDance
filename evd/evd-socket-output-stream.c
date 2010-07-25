@@ -212,7 +212,8 @@ evd_socket_output_stream_write (GOutputStream  *stream,
           actual_size = -1;
         }
     }
-  else if (actual_size < size)
+
+  if (actual_size >= 0 && actual_size < size)
     {
       g_object_ref (self);
       g_signal_emit (self,
