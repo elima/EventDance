@@ -93,6 +93,15 @@ gboolean            evd_http_connection_write_content                (EvdHttpCon
                                                                       GCancellable       *cancellable,
                                                                       GError            **error);
 
+void                evd_http_connection_read_all_content_async       (EvdHttpConnection   *self,
+                                                                      GCancellable        *cancellable,
+                                                                      GAsyncReadyCallback  callback,
+                                                                      gpointer             user_data);
+gchar *             evd_http_connection_read_all_content_finish      (EvdHttpConnection  *self,
+                                                                      GAsyncResult       *result,
+                                                                      gssize             *size,
+                                                                      GError            **error);
+
 gboolean            evd_http_connection_unread_request_headers       (EvdHttpConnection   *self,
                                                                       SoupHTTPVersion      version,
                                                                       const gchar         *method,
