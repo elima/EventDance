@@ -53,6 +53,7 @@ struct _EvdConnectionClass
                           EvdIoStreamGroup *new_group,
                           EvdIoStreamGroup *old_group,
                           gpointer          user_data);
+  void (* write)         (EvdConnection *self);
 };
 
 #define EVD_TYPE_CONNECTION           (evd_connection_get_type ())

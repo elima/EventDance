@@ -87,6 +87,7 @@ enum
 {
   SIGNAL_CLOSE,
   SIGNAL_GROUP_CHANGED,
+  SIGNAL_WRITE,
   SIGNAL_LAST
 };
 
@@ -184,6 +185,15 @@ evd_connection_class_init (EvdConnectionClass *class)
                   evd_marshal_VOID__OBJECT_OBJECT,
                   G_TYPE_NONE,
                   2, G_TYPE_OBJECT, G_TYPE_OBJECT);
+
+  evd_connection_signals[SIGNAL_WRITE] =
+    g_signal_new ("write",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdConnectionClass, write),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   g_object_class_install_property (obj_class, PROP_SOCKET,
                                    g_param_spec_object ("socket",
@@ -642,6 +652,12 @@ evd_connection_manage_write_condition (EvdConnection *self)
 
   if (! CLOSED (self) && self->priv->tls_output_stream != NULL)
     evd_buffered_output_stream_notify_write (EVD_BUFFERED_OUTPUT_STREAM (self->priv->tls_output_stream));
+
+  if (! self->priv->tls_handshaking &&
+      evd_connection_get_max_writable (self) > 0)
+    {
+      g_signal_emit (self, evd_connection_signals[SIGNAL_WRITE], 0, NULL);
+    }
 }
 
 static gboolean
