@@ -297,7 +297,6 @@ evd_resolver_request_on_resolver_result (GResolver    *resolver,
           inet_addr = G_INET_ADDRESS (node->data);
 
           addr = g_inet_socket_address_new (inet_addr, self->priv->port);
-          g_object_ref_sink (addr);
           self->priv->socket_addresses = g_list_append (self->priv->socket_addresses,
                                                         (gpointer) addr);
 
