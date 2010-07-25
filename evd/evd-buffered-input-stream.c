@@ -350,7 +350,10 @@ evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
     }
   else
     {
-      g_string_append_len (self->priv->buffer, buffer, size);
+      g_string_prepend_len (self->priv->buffer, buffer, size);
+
+      if (! self->priv->frozen)
+        evd_buffered_input_stream_thaw (self, 0);
 
       return size;
     }
