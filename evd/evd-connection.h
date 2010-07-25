@@ -84,6 +84,9 @@ gboolean           evd_connection_starttls_finish      (EvdConnection  *self,
 
 gboolean           evd_connection_get_tls_active       (EvdConnection *self);
 
+gsize              evd_connection_get_max_readable     (EvdConnection *self);
+gsize              evd_connection_get_max_writable     (EvdConnection *self);
+
 gboolean           evd_connection_is_connected         (EvdConnection *self);
 
 gint               evd_connection_get_priority         (EvdConnection *self);

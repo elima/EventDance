@@ -1138,12 +1138,19 @@ evd_connection_get_max_readable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if (self->priv->throt_input_stream == NULL)
-    return 0;
+  if (self->priv->read_src_id != 0 ||
+      (self->priv->watched_cond & G_IO_IN) > 0 ||
+      self->priv->throt_input_stream == NULL ||
+      g_io_stream_is_closed (G_IO_STREAM (self)))
+    {
+      return 0;
+    }
   else
-    return
-      evd_throttled_input_stream_get_max_readable (self->priv->throt_input_stream,
-                                                   NULL);
+    {
+      return
+        evd_throttled_input_stream_get_max_readable (self->priv->throt_input_stream,
+                                                     NULL);
+    }
 }
 
 gsize
@@ -1151,12 +1158,19 @@ evd_connection_get_max_writable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if (self->priv->throt_output_stream == NULL)
-    return 0;
+  if (self->priv->write_src_id != 0 ||
+      (self->priv->watched_cond & G_IO_OUT) > 0 ||
+      self->priv->throt_output_stream == NULL ||
+      g_io_stream_is_closed (G_IO_STREAM (self)))
+    {
+      return 0;
+    }
   else
-    return
-      evd_throttled_output_stream_get_max_writable (self->priv->throt_output_stream,
-                                                    NULL);
+    {
+      return
+        evd_throttled_output_stream_get_max_writable (self->priv->throt_output_stream,
+                                                      NULL);
+    }
 }
 
 gboolean
