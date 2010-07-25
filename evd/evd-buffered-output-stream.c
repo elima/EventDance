@@ -652,6 +652,25 @@ evd_buffered_output_stream_notify_write (EvdBufferedOutputStream *self)
   if ( self->priv->flushing ||
        (self->priv->auto_flush && self->priv->buffer->len > 0) )
     {
-      evd_buffered_output_stream_flush (G_OUTPUT_STREAM (self), NULL, NULL);
+      GError *error = NULL;
+
+      if (! evd_buffered_output_stream_flush (G_OUTPUT_STREAM (self),
+                                              NULL,
+                                              &error))
+        {
+          if (self->priv->async_result != NULL)
+            {
+              GSimpleAsyncResult *res;
+
+              res = self->priv->async_result;
+              self->priv->async_result = NULL;
+
+              g_simple_async_result_set_from_error (res, error);
+              g_simple_async_result_complete (res);
+              g_object_unref (res);
+            }
+
+          g_error_free (error);
+        }
     }
 }
