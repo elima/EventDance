@@ -21,6 +21,8 @@
 
 #include "evd-peer.h"
 
+#include "evd-transport.h"
+
 G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
 
 #define EVD_PEER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -35,6 +37,8 @@ struct _EvdPeerPrivate
   GQueue *backlog;
 
   GTimer *idle_timer;
+
+  EvdTransport *transport;
 };
 
 /* signals */
@@ -49,7 +53,8 @@ enum
 enum
 {
   PROP_0,
-  PROP_ID
+  PROP_ID,
+  PROP_TRANSPORT
 };
 
 static void     evd_peer_class_init         (EvdPeerClass *class);
@@ -87,6 +92,14 @@ evd_peer_class_init (EvdPeerClass *class)
                                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_TRANSPORT,
+                                   g_param_spec_object ("transport",
+                                                        "Peer's transport",
+                                                        "Transport object which this peer uses for sending and receiving data",
+                                                        EVD_TYPE_TRANSPORT,
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdPeerPrivate));
 }
@@ -107,6 +120,14 @@ evd_peer_init (EvdPeer *self)
 static void
 evd_peer_dispose (GObject *obj)
 {
+  EvdPeer *self = EVD_PEER (obj);
+
+  if (self->priv->transport != NULL)
+    {
+      g_object_unref (self->priv->transport);
+      self->priv->transport = NULL;
+    }
+
   G_OBJECT_CLASS (evd_peer_parent_class)->dispose (obj);
 }
 
@@ -143,6 +164,10 @@ evd_peer_set_property (GObject      *obj,
       self->priv->id = g_value_dup_string (value);
       break;
 
+    case PROP_TRANSPORT:
+      self->priv->transport = g_value_dup_object (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -163,6 +188,10 @@ evd_peer_get_property (GObject    *obj,
     {
     case PROP_ID:
       g_value_set_string (value, evd_peer_get_id (self));
+      break;
+
+    case PROP_TRANSPORT:
+      g_value_set_object (value, self->priv->transport);
       break;
 
     default:
