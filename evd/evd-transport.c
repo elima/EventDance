@@ -45,17 +45,19 @@ struct _EvdTransportPrivate
   GTimer *peer_cleanup_timer;
   guint peer_cleanup_interval;
 
-  EvdTransportReceiveCallback receive_cb;
-  gpointer receive_cb_user_data;
+  EvdPeer *rcv_peer;
+  gchar *rcv_buf;
+  gsize rcv_size;
 };
 
 /* signals */
 enum
 {
+  SIGNAL_RECEIVE,
   SIGNAL_LAST
 };
 
-//static guint evd_transport_signals[SIGNAL_LAST] = { 0 };
+static guint evd_transport_signals[SIGNAL_LAST] = { 0 };
 
 static void     evd_transport_class_init         (EvdTransportClass *class);
 static void     evd_transport_init               (EvdTransport *self);
@@ -65,9 +67,9 @@ static void     evd_transport_dispose            (GObject *obj);
 
 static EvdPeer *evd_transport_create_new_peer    (EvdTransport *self);
 
-static void     evd_transport_receive            (EvdTransport *self,
+static void     evd_transport_receive_internal   (EvdTransport *self,
                                                   EvdPeer      *peer,
-                                                  const gchar  *buffer,
+                                                  gchar        *buffer,
                                                   gsize         size);
 
 static void
@@ -79,7 +81,16 @@ evd_transport_class_init (EvdTransportClass *class)
   obj_class->finalize = evd_transport_finalize;
 
   class->create_new_peer = evd_transport_create_new_peer;
-  class->receive = evd_transport_receive;
+  class->receive = evd_transport_receive_internal;
+
+  evd_transport_signals[SIGNAL_RECEIVE] =
+    g_signal_new ("receive",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdTransportClass, signal_receive),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTransportPrivate));
@@ -103,8 +114,9 @@ evd_transport_init (EvdTransport *self)
   priv->peer_cleanup_timer = g_timer_new ();
   priv->peer_cleanup_interval = DEFAULT_PEER_CLEANUP_INTERVAL;
 
-  priv->receive_cb = NULL;
-  priv->receive_cb_user_data = NULL;
+  priv->rcv_peer = NULL;
+  priv->rcv_buf = NULL;
+  priv->rcv_size = 0;
 }
 
 static void
@@ -186,22 +198,22 @@ evd_transport_create_new_peer (EvdTransport *self)
 }
 
 static void
-evd_transport_receive (EvdTransport *self,
-                       EvdPeer      *peer,
-                       const gchar  *buffer,
-                       gsize         size)
+evd_transport_receive_internal (EvdTransport *self,
+                                EvdPeer      *peer,
+                                gchar        *buffer,
+                                gsize         size)
 {
-  gchar *buf;
+  self->priv->rcv_peer = peer;
+  self->priv->rcv_buf = buffer;
+  self->priv->rcv_size = size;
 
-  buf = g_new (gchar, size);
-  memcpy (buf, buffer, size);
+  g_signal_emit (self, evd_transport_signals[SIGNAL_RECEIVE], 0, NULL);
 
-  if (self->priv->receive_cb != NULL)
-    self->priv->receive_cb (self,
-                            peer,
-                            buf,
-                            size,
-                            self->priv->receive_cb_user_data);
+  self->priv->rcv_peer = NULL;
+  self->priv->rcv_buf = NULL;
+  self->priv->rcv_size = 0;
+
+  g_free (buffer);
 }
 
 /* public methods */
@@ -348,13 +360,25 @@ evd_transport_peer_is_dead (EvdTransport *self,
     return TRUE;
 }
 
-void
-evd_transport_set_receive_callback (EvdTransport                *self,
-                                    EvdTransportReceiveCallback  callback,
-                                    gpointer                     user_data)
+/**
+ * evd_transport_receive:
+ * @peer: (out) (transfer none):
+ * @size: (out):
+ *
+ * Returns: (transfer none):
+ **/
+const gchar *
+evd_transport_receive (EvdTransport  *self,
+                       EvdPeer      **peer,
+                       gsize         *size)
 {
-  g_return_if_fail (EVD_IS_TRANSPORT (self));
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
 
-  self->priv->receive_cb = callback;
-  self->priv->receive_cb_user_data = user_data;
+  if (peer != NULL)
+    *peer = self->priv->rcv_peer;
+
+  if (size != NULL)
+    *size = self->priv->rcv_size;
+
+  return self->priv->rcv_buf;
 }
