@@ -75,6 +75,7 @@ struct _EvdConnectionPrivate
   GSimpleAsyncResult *starttls_result;
 
   gboolean connected;
+  gboolean closing;
 
   EvdIoStreamGroup *group;
 
@@ -268,6 +269,7 @@ evd_connection_init (EvdConnection *self)
   priv->tls_active = FALSE;
 
   priv->connected = FALSE;
+  priv->closing = FALSE;
 
   priv->group = NULL;
 
@@ -400,6 +402,11 @@ evd_connection_close_internal (GIOStream     *stream,
   gboolean result = TRUE;
   GError *_error = NULL;
 
+  if (self->priv->closing)
+    return TRUE;
+
+  self->priv->closing = TRUE;
+
   self->priv->connected = FALSE;
 
   if (self->priv->close_src_id != 0)
@@ -489,6 +496,8 @@ evd_connection_close_internal (GIOStream     *stream,
     (*error) = _error;
 
   g_signal_emit (self, evd_connection_signals[SIGNAL_CLOSE], 0, NULL);
+
+  self->priv->closing = FALSE;
 
   return result;
 }
