@@ -54,7 +54,8 @@ source_c = \
 	evd-http-connection.c \
 	evd-transport.c \
 	evd-peer.c \
-	evd-long-polling.c
+	evd-long-polling.c \
+	evd-connection-pool.c
 
 source_h = \
 	evd.h \
@@ -82,7 +83,8 @@ source_h = \
 	evd-http-connection.h \
 	evd-transport.h \
 	evd-peer.h \
-	evd-long-polling.h
+	evd-long-polling.h \
+	evd-connection-pool.h
 
 source_h_priv = \
 	evd-marshal.h \
