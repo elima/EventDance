@@ -55,7 +55,8 @@ source_c = \
 	evd-transport.c \
 	evd-peer.c \
 	evd-long-polling.c \
-	evd-connection-pool.c
+	evd-connection-pool.c \
+	evd-reproxy.c
 
 source_h = \
 	evd.h \
@@ -84,7 +85,8 @@ source_h = \
 	evd-transport.h \
 	evd-peer.h \
 	evd-long-polling.h \
-	evd-connection-pool.h
+	evd-connection-pool.h \
+	evd-reproxy.h
 
 source_h_priv = \
 	evd-marshal.h \

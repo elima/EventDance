@@ -15,19 +15,16 @@
  * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ * Lesser General Public License at http://www.gnu.org/licenses/lgpl-3.0.txt
+ * for more details.
  */
 
 #ifndef __EVD_REPROXY_H__
 #define __EVD_REPROXY_H__
 
 #include <evd-service.h>
-#include <evd-reproxy-backend.h>
+
+#include <evd-connection-pool.h>
 
 G_BEGIN_DECLS
 
@@ -39,17 +36,12 @@ struct _EvdReproxy
 {
   EvdService parent;
 
-  /* private structure */
   EvdReproxyPrivate *priv;
 };
 
 struct _EvdReproxyClass
 {
   EvdServiceClass parent_class;
-
-  /* virtual methods */
-
-  /* signal prototypes */
 };
 
 #define EVD_TYPE_REPROXY           (evd_reproxy_get_type ())
@@ -60,15 +52,15 @@ struct _EvdReproxyClass
 #define EVD_REPROXY_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_REPROXY, EvdReproxyClass))
 
 
-GType           evd_reproxy_get_type          (void) G_GNUC_CONST;
+GType              evd_reproxy_get_type          (void) G_GNUC_CONST;
 
-EvdReproxy     *evd_reproxy_new               (void);
+EvdReproxy        *evd_reproxy_new               (void);
 
-void            evd_reproxy_add_backend       (EvdReproxy      *self,
-                                               GSocketAddress  *address);
+EvdConnectionPool *evd_reproxy_add_backend       (EvdReproxy  *self,
+                                                  const gchar *address);
 
-void            evd_reproxy_del_backend       (EvdReproxy  *self,
-                                               const gchar *address);
+void               evd_reproxy_remove_backend    (EvdReproxy        *self,
+                                                  EvdConnectionPool *backend);
 
 G_END_DECLS
 
