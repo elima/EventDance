@@ -56,7 +56,8 @@ source_c = \
 	evd-peer.c \
 	evd-long-polling.c \
 	evd-connection-pool.c \
-	evd-reproxy.c
+	evd-reproxy.c \
+	evd-web-selector.c
 
 source_h = \
 	evd.h \
@@ -86,7 +87,8 @@ source_h = \
 	evd-peer.h \
 	evd-long-polling.h \
 	evd-connection-pool.h \
-	evd-reproxy.h
+	evd-reproxy.h \
+	evd-web-selector.h
 
 source_h_priv = \
 	evd-marshal.h \
