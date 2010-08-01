@@ -216,61 +216,7 @@ evd_transport_receive_internal (EvdTransport *self,
   g_free (buffer);
 }
 
-/* public methods */
-
-EvdTransport *
-evd_transport_new (void)
-{
-  EvdTransport *self;
-
-  self = g_object_new (EVD_TYPE_TRANSPORT, NULL);
-
-  return self;
-}
-
-/**
- * evd_transport_lookup_peer:
- *
- * Returns: (transfer none): The #EvdPeer, or NULL if not found.
- **/
-EvdPeer *
-evd_transport_lookup_peer (EvdTransport *self, const gchar *id)
-{
-  EvdPeer *peer;
-
-  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
-  g_return_val_if_fail (id != NULL, NULL);
-
-  peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
-                                        (gconstpointer) id));
-
-  if (peer != NULL && evd_transport_peer_is_dead (self, peer))
-    {
-      evd_transport_destroy_peer (self, peer);
-      g_hash_table_remove (self->priv->peers, id);
-
-      peer = NULL;
-    }
-
-  return peer;
-}
-
-/**
- * evd_transport_get_all_peers:
- *
- * Returns: (transfer container) (element-type Evd.Peer):
- **/
-GList *
-evd_transport_get_all_peers (EvdTransport *self)
-{
-  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
-
-  evd_transport_cleanup_peers (self);
-
-  return g_hash_table_get_values (self->priv->peers);
-}
-
-gssize
+static gssize
 evd_transport_send (EvdTransport  *self,
                     EvdPeer       *peer,
                     const gchar   *buffer,
@@ -338,6 +284,69 @@ evd_transport_send (EvdTransport  *self,
 
       return -1;
     }
+}
+
+/* public methods */
+
+EvdTransport *
+evd_transport_new (void)
+{
+  EvdTransport *self;
+
+  self = g_object_new (EVD_TYPE_TRANSPORT, NULL);
+
+  return self;
+}
+
+/**
+ * evd_transport_lookup_peer:
+ *
+ * Returns: (transfer none): The #EvdPeer, or NULL if not found.
+ **/
+EvdPeer *
+evd_transport_lookup_peer (EvdTransport *self, const gchar *id)
+{
+  EvdPeer *peer;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+  g_return_val_if_fail (id != NULL, NULL);
+
+  peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
+                                        (gconstpointer) id));
+
+  if (peer != NULL && evd_transport_peer_is_dead (self, peer))
+    {
+      evd_transport_destroy_peer (self, peer);
+      g_hash_table_remove (self->priv->peers, id);
+
+      peer = NULL;
+    }
+
+  return peer;
+}
+
+/**
+ * evd_transport_get_all_peers:
+ *
+ * Returns: (transfer container) (element-type Evd.Peer):
+ **/
+GList *
+evd_transport_get_all_peers (EvdTransport *self)
+{
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  evd_transport_cleanup_peers (self);
+
+  return g_hash_table_get_values (self->priv->peers);
+}
+
+gboolean
+evd_transport_send_utf8 (EvdTransport  *self,
+                         EvdPeer       *peer,
+                         const gchar   *str,
+                         GError       **error)
+{
+  return evd_transport_send (self, peer, str, strlen (str), error);
 }
 
 gboolean

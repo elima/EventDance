@@ -77,10 +77,9 @@ EvdPeer          *evd_transport_lookup_peer              (EvdTransport *self,
 
 GList            *evd_transport_get_all_peers            (EvdTransport *self);
 
-gssize            evd_transport_send                     (EvdTransport  *self,
+gboolean          evd_transport_send_utf8                (EvdTransport  *self,
                                                           EvdPeer       *peer,
-                                                          const gchar   *buffer,
-                                                          gsize          size,
+                                                          const gchar   *str,
                                                           GError       **error);
 
 gboolean          evd_transport_peer_is_dead             (EvdTransport *self,

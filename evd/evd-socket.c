@@ -733,11 +733,12 @@ evd_socket_on_address_resolved (GObject      *obj,
                                 gpointer      user_data)
 {
   EvdSocket *self = EVD_SOCKET (user_data);
+  EvdResolver *resolver = EVD_RESOLVER (obj);
   GList *addresses;
   GError *error = NULL;
 
   if (self->priv->status != EVD_SOCKET_STATE_RESOLVING)
-    return;
+    goto free_mem;
 
   if ( (addresses = evd_resolver_resolve_finish (EVD_RESOLVER (obj),
                                                  res,
@@ -835,9 +836,14 @@ evd_socket_on_address_resolved (GObject      *obj,
                                                  TRUE);
           self->priv->async_result = NULL;
         }
+
       evd_socket_throw_error (self, error);
       evd_socket_close (self, NULL);
     }
+
+ free_mem:
+  g_object_unref (self);
+  g_object_unref (resolver);
 }
 
 static void
@@ -849,6 +855,8 @@ evd_socket_resolve_address (EvdSocket       *self,
   self->priv->sub_status = action;
 
   resolver = evd_resolver_get_default ();
+
+  g_object_ref (self);
   evd_resolver_resolve_async (resolver,
                               address,
                               NULL,
