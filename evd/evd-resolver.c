@@ -23,20 +23,25 @@
  * 02110-1301 USA
  */
 
+#ifdef HAVE_GIO_UNIX
+#include <gio/gunixsocketaddress.h>
+#endif
+
 #include "evd-resolver.h"
 
-
 G_DEFINE_TYPE (EvdResolver, evd_resolver, G_TYPE_OBJECT)
+
+typedef struct
+{
+  guint16 port;
+  GList *addresses;
+  EvdResolver *resolver;
+} EvdResolverData;
 
 static void     evd_resolver_class_init         (EvdResolverClass *class);
 static void     evd_resolver_init               (EvdResolver *self);
 
 static void     evd_resolver_finalize           (GObject *obj);
-static void     evd_resolver_dispose            (GObject *obj);
-
-void            evd_resolver_request_set_resolver (EvdResolverRequest *self,
-                                                   gpointer           *resolver);
-
 
 static EvdResolver *evd_resolver_default = NULL;
 
@@ -58,19 +63,12 @@ evd_resolver_class_init (EvdResolverClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_resolver_dispose;
   obj_class->finalize = evd_resolver_finalize;
 }
 
 static void
 evd_resolver_init (EvdResolver *self)
 {
-}
-
-static void
-evd_resolver_dispose (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_resolver_parent_class)->dispose (obj);
 }
 
 static void
@@ -82,25 +80,63 @@ evd_resolver_finalize (GObject *obj)
     evd_resolver_default = NULL;
 }
 
-static GClosure *
-evd_resolver_build_closure (EvdResolver                 *self,
-                            EvdResolverOnResolveHandler  callback,
-                            gpointer                     user_data)
+static void
+evd_resolver_free_data (gpointer _data)
 {
-  GClosure *closure;
+  EvdResolverData *data = (EvdResolverData *) _data;
 
-  closure = g_cclosure_new (G_CALLBACK (callback),
-			    user_data,
-			    NULL);
+  g_object_unref (data->resolver);
 
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+  if (data->addresses != NULL)
     {
-      GClosureMarshal marshal = g_cclosure_marshal_VOID__OBJECT;
-
-      g_closure_set_marshal (closure, marshal);
+      g_list_foreach (data->addresses, (GFunc) g_object_unref, NULL);
+      g_list_free (data->addresses);
     }
 
-  return closure;
+  g_slice_free (EvdResolverData, data);
+}
+
+static void
+evd_resolver_on_resolver_result (GResolver    *resolver,
+                                 GAsyncResult *async_result,
+                                 gpointer      user_data)
+{
+  GList *result = NULL;
+  GError *error = NULL;
+  GSimpleAsyncResult *res;
+  EvdResolverData *data;
+
+  res = G_SIMPLE_ASYNC_RESULT (user_data);
+  data = (EvdResolverData *) g_simple_async_result_get_op_res_gpointer (res);
+
+  if ((result = g_resolver_lookup_by_name_finish (resolver,
+						  async_result,
+						  &error)) != NULL)
+    {
+      GList *node = result;
+      GInetAddress *inet_addr;
+      GSocketAddress *addr;
+
+      while (node != NULL)
+        {
+          inet_addr = G_INET_ADDRESS (node->data);
+
+          addr = g_inet_socket_address_new (inet_addr, data->port);
+          data->addresses = g_list_append (data->addresses, addr);
+
+          node = node->next;
+        }
+
+      g_resolver_free_addresses (result);
+    }
+  else
+    {
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
+    }
+
+  g_simple_async_result_complete (res);
+  g_object_unref (res);
 }
 
 /* public methods */
@@ -116,63 +152,143 @@ evd_resolver_new (void)
 }
 
 void
-evd_resolver_resolve_request (EvdResolver         *self,
-                              EvdResolverRequest  *request)
+evd_resolver_resolve_async (EvdResolver         *self,
+                            const gchar         *address,
+                            GCancellable        *cancellable,
+                            GAsyncReadyCallback  callback,
+                            gpointer             user_data)
 {
-  g_return_if_fail (EVD_IS_RESOLVER (self));
-  g_return_if_fail (EVD_IS_RESOLVER_REQUEST (request));
+  GSimpleAsyncResult *res;
+  EvdResolverData *data;
 
-  evd_resolver_request_set_resolver (request, (gpointer) self);
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_resolver_resolve_async);
 
-  evd_resolver_request_resolve (request);
+  data = g_slice_new0 (EvdResolverData);
+  data->resolver = self;
+  g_object_ref (self);
+
+  g_simple_async_result_set_op_res_gpointer (res,
+                                             data,
+                                             evd_resolver_free_data);
+
+  if (address[0] == '/')
+    {
+#ifdef HAVE_GIO_UNIX
+      GSocketAddress *addr;
+
+      /* assume unix address */
+      /* TODO: improve this detection, seems very naive */
+      addr = (GSocketAddress *) g_unix_socket_address_new (address);
+      data->addresses = g_list_append (data->addresses, addr);
+#else
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_SUPPORTED,
+                                       "Unix socket addresses are not supported");
+#endif
+    }
+  else
+    {
+      GNetworkAddress *net_addr;
+      GSocketConnectable *connectable;
+      gchar *domain;
+      guint16 port;
+      GError *error = NULL;
+
+      if ( (connectable = g_network_address_parse (address, 0, &error)) == NULL)
+        {
+          g_simple_async_result_set_from_error (res, error);
+          g_error_free (error);
+        }
+      else
+        {
+          GInetAddress *inet_addr;
+
+          net_addr = G_NETWORK_ADDRESS (connectable);
+
+          domain = g_strdup (g_network_address_get_hostname (net_addr));
+          port = g_network_address_get_port (net_addr);
+
+          g_object_unref (net_addr);
+
+          /* at this point we have a valid port, and a host to validate,
+             so let's build the request */
+          data->port = port;
+
+          inet_addr = g_inet_address_new_from_string (domain);
+          if (inet_addr != NULL)
+            {
+              GSocketAddress *addr;
+
+              addr = g_inet_socket_address_new (inet_addr, port);
+              g_object_unref (inet_addr);
+              data->addresses = g_list_append (data->addresses, addr);
+
+              g_free (domain);
+            }
+          else
+            {
+              g_resolver_lookup_by_name_async (g_resolver_get_default (),
+                          domain,
+                          cancellable,
+                          (GAsyncReadyCallback) evd_resolver_on_resolver_result,
+                          (gpointer) res);
+
+              g_free (domain);
+
+              return;
+            }
+        }
+    }
+
+  g_simple_async_result_complete_in_idle (res);
+  g_object_unref (res);
 }
 
-EvdResolverRequest *
-evd_resolver_resolve_with_closure (EvdResolver  *self,
-                                   const gchar  *address,
-                                   GClosure     *closure)
+/**
+ * evd_resolver_resolve_finish:
+ *
+ * Returns: (element-type GSocketAddress):
+ **/
+GList *
+evd_resolver_resolve_finish (EvdResolver   *self,
+                             GAsyncResult  *result,
+                             GError       **error)
 {
-  EvdResolverRequest *request;
+  GSimpleAsyncResult *res;
 
   g_return_val_if_fail (EVD_IS_RESOLVER (self), NULL);
-  g_return_val_if_fail (address != NULL, NULL);
-  g_return_val_if_fail (closure != NULL, NULL);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                      G_OBJECT (self),
+                                                      evd_resolver_resolve_async),
+                        NULL);
 
-  request = g_object_new (EVD_TYPE_RESOLVER_REQUEST,
-                          "address", address,
-                          "closure", closure,
-                          NULL);
+  res = G_SIMPLE_ASYNC_RESULT (result);
+  if (! g_simple_async_result_propagate_error (res, error))
+    {
+      EvdResolverData *data;
+      GList *addresses;
 
-  evd_resolver_resolve_request (self, request);
+      data = g_simple_async_result_get_op_res_gpointer (res);
 
-  return request;
+      addresses = data->addresses;
+      data->addresses = NULL;
+
+      return addresses;
+    }
+  else
+    {
+      return NULL;
+    }
 }
 
-EvdResolverRequest *
-evd_resolver_resolve (EvdResolver                  *self,
-                      const gchar                  *address,
-                      EvdResolverOnResolveHandler   callback,
-                      gpointer                      user_data)
-{
-  GClosure *closure;
-
-  g_return_val_if_fail (EVD_IS_RESOLVER (self), FALSE);
-  g_return_val_if_fail (address != NULL, FALSE);
-  g_return_val_if_fail (callback != NULL, FALSE);
-
-  closure = evd_resolver_build_closure (self, callback, user_data);
-
-  return evd_resolver_resolve_with_closure (self,
-                                            address,
-                                            closure);
-}
-
-void
-evd_resolver_cancel (EvdResolverRequest *request)
-{
-  evd_resolver_request_cancel (request);
-}
-
+/**
+ * evd_resolver_free_addresses:
+ * @addresses: (element-type GSocketAddress):
+ **/
 void
 evd_resolver_free_addresses (GList *addresses)
 {

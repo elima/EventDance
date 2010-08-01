@@ -26,19 +26,13 @@
 #ifndef __EVD_RESOLVER_H__
 #define __EVD_RESOLVER_H__
 
-#include <glib.h>
-
-#include <evd-resolver-request.h>
+#include <glib-object.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
-#define EVD_RESDOLVER_DOMAIN_QUARK_STRING "org.eventdance.glib.resolver"
-
 typedef struct _EvdResolver EvdResolver;
 typedef struct _EvdResolverClass EvdResolverClass;
-typedef void (* EvdResolverOnResolveHandler) (EvdResolver         *self,
-                                              EvdResolverRequest  *request,
-                                              gpointer             user_data);
 
 struct _EvdResolver
 {
@@ -57,44 +51,22 @@ struct _EvdResolverClass
 #define EVD_IS_RESOLVER_CLASS(obj)  (G_TYPE_CHECK_CLASS_TYPE ((obj), EVD_TYPE_RESOLVER))
 #define EVD_RESOLVER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_RESOLVER, EvdResolverClass))
 
-/**
- * evd_resolver_get_default:
- *
- * Returns: (transfer full): A #EvdResolver.
- */
-EvdResolver        *evd_resolver_get_default          (void);
-
 GType               evd_resolver_get_type             (void) G_GNUC_CONST;
+
+EvdResolver        *evd_resolver_get_default          (void);
 
 EvdResolver        *evd_resolver_new                  (void);
 
-/**
- * evd_resolver_resolve:
- *
- * Returns: (transfer full): A newly created #EvdResolverRequest.
- */
-EvdResolverRequest *evd_resolver_resolve              (EvdResolver                  *self,
-                                                       const gchar                  *address,
-                                                       EvdResolverOnResolveHandler   callback,
-                                                       gpointer                      user_data);
-
-/**
- * evd_resolver_resolve_with_closure:
- *
- * Returns: (transfer full): A newly created #EvdResolverRequest.
- */
-EvdResolverRequest *evd_resolver_resolve_with_closure (EvdResolver  *self,
-                                                       const gchar  *address,
-                                                       GClosure     *closure);
-
-void                evd_resolver_resolve_request      (EvdResolver         *self,
-                                                       EvdResolverRequest  *request);
-
-void                evd_resolver_cancel               (EvdResolverRequest *request);
-
+void                evd_resolver_resolve_async        (EvdResolver         *resolver,
+                                                       const gchar         *address,
+                                                       GCancellable        *cancellable,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             user_data);
+GList              *evd_resolver_resolve_finish       (EvdResolver   *self,
+                                                       GAsyncResult  *result,
+                                                       GError       **error);
 
 void                evd_resolver_free_addresses       (GList *addresses);
-
 
 G_END_DECLS
 
