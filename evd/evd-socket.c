@@ -71,8 +71,6 @@ struct _EvdSocketPrivate
   gint actual_priority;
   gint priority;
 
-  EvdResolverRequest *resolve_request;
-
   gboolean bind_allow_reuse;
 
   guint event_handler_src_id;
@@ -303,8 +301,6 @@ evd_socket_init (EvdSocket *self)
   priv->priority        = G_PRIORITY_DEFAULT;
   priv->actual_priority = G_PRIORITY_DEFAULT;
 
-  priv->resolve_request = NULL;
-
   priv->event_handler_src_id = 0;
   priv->new_cond = 0;
 
@@ -328,12 +324,6 @@ evd_socket_dispose (GObject *obj)
   self->priv->status = EVD_SOCKET_STATE_CLOSED;
 
   evd_socket_cleanup_internal (self, NULL);
-
-  if (self->priv->resolve_request != NULL)
-    {
-      g_object_unref (self->priv->resolve_request);
-      self->priv->resolve_request = NULL;
-    }
 
   if (self->priv->context != NULL)
     {
@@ -738,9 +728,9 @@ evd_socket_connect_addr (EvdSocket        *self,
 }
 
 static void
-evd_socket_on_resolve (EvdResolver         *resolver,
-                       EvdResolverRequest  *request,
-                       gpointer             user_data)
+evd_socket_on_address_resolved (GObject      *obj,
+                                GAsyncResult *res,
+                                gpointer      user_data)
 {
   EvdSocket *self = EVD_SOCKET (user_data);
   GList *addresses;
@@ -749,13 +739,14 @@ evd_socket_on_resolve (EvdResolver         *resolver,
   if (self->priv->status != EVD_SOCKET_STATE_RESOLVING)
     return;
 
-  if ( (addresses = evd_resolver_request_get_result (request, &error)) != NULL)
+  if ( (addresses = evd_resolver_resolve_finish (EVD_RESOLVER (obj),
+                                                 res,
+                                                 &error)) != NULL)
     {
       GSocketAddress *socket_address;
       GList *node = addresses;
       gboolean match = FALSE;
 
-      /* TODO: by now only the first matching address will be used */
       while (node != NULL)
         {
           socket_address = G_SOCKET_ADDRESS (node->data);
@@ -850,30 +841,19 @@ evd_socket_on_resolve (EvdResolver         *resolver,
 }
 
 static void
-evd_socket_resolve_address (EvdSocket      *self,
-                            const gchar    *address,
-                            EvdSocketState  action)
+evd_socket_resolve_address (EvdSocket       *self,
+                            const gchar     *address,
+                            EvdSocketState   action)
 {
   EvdResolver *resolver;
-
   self->priv->sub_status = action;
 
-  if (self->priv->resolve_request == NULL)
-    {
-      resolver = evd_resolver_get_default ();
-      self->priv->resolve_request = evd_resolver_resolve (resolver,
-                                                          address,
-                                                          evd_socket_on_resolve,
-                                                          self);
-      g_object_unref (resolver);
-    }
-  else
-    {
-      g_object_set (self->priv->resolve_request,
-                    "address", address,
-                    NULL);
-      evd_resolver_request_resolve (self->priv->resolve_request);
-    }
+  resolver = evd_resolver_get_default ();
+  evd_resolver_resolve_async (resolver,
+                              address,
+                              NULL,
+                              evd_socket_on_address_resolved,
+                              self);
 }
 
 static void
@@ -1162,10 +1142,6 @@ gboolean
 evd_socket_cleanup (EvdSocket *self, GError **error)
 {
   gboolean result = TRUE;
-
-  if (self->priv->resolve_request != NULL &&
-      evd_resolver_request_is_active (self->priv->resolve_request))
-    evd_resolver_cancel (self->priv->resolve_request);
 
   self->priv->family = G_SOCKET_FAMILY_INVALID;
 
