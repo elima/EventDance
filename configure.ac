@@ -105,6 +105,5 @@ echo "   ====================="
 echo ""
 echo "    Build introspection data:   ${enable_introspection}"
 echo "     Build API documentation:   ${enable_gtk_doc}"
-echo "  Build Javascript libraries:   ${enable_js}"
+echo "     Enable Javascript tests:   ${enable_js}"
 echo ""
-
