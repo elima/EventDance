@@ -3,6 +3,7 @@ MAINTAINERCLEANFILES = \
 
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
+	$(SOUP_CFLAGS) \
 	-Wall -g3 -O0 -ggdb \
 	-I$(top_srcdir)/evd
 
@@ -19,13 +20,12 @@ AM_CFLAGS += \
 	-DHAVE_GIO_UNIX
 endif
 
-noinst_PROGRAMS =
-#	test-all \
-#	test-socket \
-#	test-json-filter \
-#	test-resolver \
-#	test-socket-context
-#	test-http-connection
+noinst_PROGRAMS = \
+	test-all \
+	test-json-filter
+
+TESTS = \
+	test-all
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -61,6 +61,3 @@ test_all_js_CFLAGS = $(AM_CFLAGS) $(GJS_CFLAGS)
 test_all_js_LDADD = $(AM_LIBS) $(GJS_LIBS)
 test_all_js_SOURCES = test-all-js.c
 endif
-
-test: test-all
-	./test-all
