@@ -113,13 +113,15 @@ lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
 	$(UUID_LIBS) \
 	$(SOUP_LIBS) \
-	$(TLS_LIBS)
+	$(TLS_LIBS) \
+	$(JSON_LIBS)
 
 lib@EVD_API_NAME@_la_CFLAGS  = \
 	$(AM_CFLAGS) \
 	$(UUID_CFLAGS) \
 	$(SOUP_CFLAGS) \
-	$(TLS_CFLAGS)
+	$(TLS_CFLAGS) \
+	$(JSON_CFLAGS)
 
 if HAVE_GIO_UNIX
 lib@EVD_API_NAME@_la_LIBADD += \

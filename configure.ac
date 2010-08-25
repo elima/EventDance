@@ -56,15 +56,15 @@ PKG_CHECK_MODULES(GLIB, gio-2.0 >= $GIO_REQUIRED
 		        gthread-2.0 >= 2.23.0
 		        gobject-2.0 >= 2.23.0)
 
-PKG_CHECK_MODULES(SOUP, libsoup-2.4 >= 2.23.0)
-PKG_CHECK_MODULES(UUID, uuid >= 2.16.0)
-
 PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= $GIO_REQUIRED],
         [HAVE_GIO_UNIX=yes],
         [HAVE_GIO_UNIX=no])
 AM_CONDITIONAL(HAVE_GIO_UNIX, test x"$HAVE_GIO_UNIX" = x"yes")
 
 PKG_CHECK_MODULES(TLS, gnutls >= 2.6.5)
+PKG_CHECK_MODULES(SOUP, libsoup-2.4 >= 2.22.0)
+PKG_CHECK_MODULES(UUID, uuid >= 2.16.0)
+PKG_CHECK_MODULES(JSON, json-glib-1.0 >= 0.10.0)
 
 # GObject-Introspection check
 GOBJECT_INTROSPECTION_CHECK([0.6.7])
