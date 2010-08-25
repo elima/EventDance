@@ -21,8 +21,8 @@ m4_define([_JS_CHECK_INTERNAL],
     ],[dnl
         AC_ARG_ENABLE(js,
                   AS_HELP_STRING([--enable-js[=@<:@no/auto/yes@:>@]],
-                                 [Enable Javascript library support using GJS engine and Gobject-Introspection]),,
-                                 [enable_js=auto])
+                                 [Enable server-side Javascript tests and examples using GJS engine and GObject-Introspection [default=no]]),,
+                                 [enable_js=no])
     ])dnl
 
     AC_MSG_CHECKING([for Javascript])
