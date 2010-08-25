@@ -46,24 +46,24 @@ function testX509Import (Assert) {
     Assert.ok (cert.import (rawPem, rawPem.length));
     Assert.equal (cert.type, Evd.TlsCertificateType.X509);
     Assert.equal (cert.get_dn (), "O=EventDance,CN=eventdance.org");
-    Assert.equal (cert.get_expiration_time ().toString (), "Wed Mar 23 2011 15:43:49 GMT+0100 (CET)");
-    Assert.equal (cert.get_activation_time ().toString (), "Tue Mar 23 2010 15:43:49 GMT+0100 (CET)");
+    Assert.equal (cert.get_expiration_time () * 1000, new Date ("Wed Mar 23 2011 15:43:49 GMT+0100 (CET)").valueOf ());
+    Assert.equal (cert.get_activation_time () * 1000, new Date ("Tue Mar 23 2010 15:43:49 GMT+0100 (CET)").valueOf ());
     Assert.equal (cert.verify_validity (), Evd.TlsVerifyState.OK);
 
     let [result, rawPem] = Glib.file_get_contents ("certs/x509-jane.pem");
     Assert.ok (cert.import (rawPem, rawPem.length));
     Assert.equal (cert.type, Evd.TlsCertificateType.X509);
     Assert.equal (cert.get_dn (), "CN=Jane");
-    Assert.equal (cert.get_expiration_time ().toString (), "Wed Mar 23 2011 15:48:25 GMT+0100 (CET)");
-    Assert.equal (cert.get_activation_time ().toString (), "Tue Mar 23 2010 15:48:25 GMT+0100 (CET)");
+    Assert.equal (cert.get_expiration_time () * 1000, new Date ("Wed Mar 23 2011 15:48:25 GMT+0100 (CET)").valueOf ());
+    Assert.equal (cert.get_activation_time () * 1000, new Date ("Tue Mar 23 2010 15:48:25 GMT+0100 (CET)").valueOf ());
     Assert.equal (cert.verify_validity (), Evd.TlsVerifyState.OK);
 
     let [result, rawPem] = Glib.file_get_contents ("certs/openpgp-server.asc");
     Assert.ok (cert.import (rawPem, rawPem.length));
     Assert.equal (cert.type, Evd.TlsCertificateType.OPENPGP);
     Assert.equal (cert.get_dn (), "EventDance (Evd) <test@eventdance.org>");
-    Assert.equal (cert.get_expiration_time ().toString (), "Tue May 12 2015 16:13:11 GMT+0200 (CET)");
-    Assert.equal (cert.get_activation_time ().toString (), "Thu May 13 2010 16:13:11 GMT+0200 (CET)");
+    Assert.equal (cert.get_expiration_time () * 1000, new Date ("Tue May 12 2015 16:13:11 GMT+0200 (CET)").valueOf ());
+    Assert.equal (cert.get_activation_time () * 1000, new Date ("Thu May 13 2010 16:13:11 GMT+0200 (CET)").valueOf ());
     Assert.equal (cert.verify_validity (), Evd.TlsVerifyState.OK);
 }
 
