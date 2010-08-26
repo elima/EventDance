@@ -51,6 +51,7 @@ source_c = \
 	evd-connection.c \
 	evd-io-stream-group.c \
 	evd-http-connection.c \
+	evd-web-service.c \
 	evd-transport.c \
 	evd-peer.c \
 	evd-long-polling.c \
@@ -81,6 +82,7 @@ source_h = \
 	evd-connection.h \
 	evd-io-stream-group.h \
 	evd-http-connection.h \
+	evd-web-service.h \
 	evd-transport.h \
 	evd-peer.h \
 	evd-long-polling.h \
