@@ -19,11 +19,6 @@
  * for more details.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <libsoup/soup-headers.h>
-#include <libsoup/soup-form.h>
-
 #include "evd-web-selector.h"
 
 G_DEFINE_TYPE (EvdWebSelector, evd_web_selector, EVD_TYPE_WEB_SERVICE)
@@ -96,15 +91,28 @@ evd_web_selector_dispose (GObject *obj)
 
   evd_web_selector_set_default_service (self, NULL);
 
+  g_list_foreach (self->priv->candidates,
+                  evd_web_selector_free_candidate,
+                  self);
+  g_list_free (self->priv->candidates);
+  self->priv->candidates = NULL;
+
   G_OBJECT_CLASS (evd_web_selector_parent_class)->dispose (obj);
 }
 
 static void
-evd_web_selector_finalize (GObject *obj)
+evd_web_selector_free_candidate (gpointer data,
+                                 gpointer user_data)
 {
-  //  EvdWebSelector *self = EVD_WEB_SELECTOR (obj);
+  EvdWebSelectorCandidate *candidate = (EvdWebSelectorCandidate *) candidate;
 
-  G_OBJECT_CLASS (evd_web_selector_parent_class)->finalize (obj);
+  if (candidate->domain_pattern != NULL)
+    g_regex_unref (candidate->domain_pattern);
+
+  if (candidate->path_pattern != NULL)
+    g_regex_unref (candidate->path_pattern);
+
+  g_object_unref (candidate->service);
 }
 
 static EvdService *
@@ -233,9 +241,15 @@ evd_web_selector_add_service (EvdWebSelector  *self,
                                  G_REGEX_CASELESS,
                                  0,
                                  error)) == NULL)
-    return FALSE;
+    {
+      if (domain_regex != NULL)
+        g_regex_unref (domain_regex);
+
+      return FALSE;
+    }
 
   candidate = g_new0 (EvdWebSelectorCandidate, 1);
+  g_object_ref (service);
   candidate->service = service;
   candidate->domain_pattern = domain_regex;
   candidate->path_pattern = path_regex;
