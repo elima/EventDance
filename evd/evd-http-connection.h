@@ -110,6 +110,17 @@ gboolean            evd_http_connection_unread_request_headers       (EvdHttpCon
                                                                       GCancellable        *cancellable,
                                                                       GError             **error);
 
+gboolean            evd_http_connection_respond                      (EvdHttpConnection   *self,
+                                                                      SoupHTTPVersion      ver,
+                                                                      guint                status_code,
+                                                                      gchar               *reason_phrase,
+                                                                      SoupMessageHeaders  *headers,
+                                                                      const gchar         *content,
+                                                                      gsize                size,
+                                                                      gboolean             close_after,
+                                                                      GCancellable        *cancellable,
+                                                                      GError             **error);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_CONNECTION_H__ */

@@ -614,6 +614,23 @@ evd_http_connection_read_content_block (EvdHttpConnection *self)
                              self);
 }
 
+static void
+evd_http_connection_shutdown_on_flush (GObject      *obj,
+                                       GAsyncResult *res,
+                                       gpointer      user_data)
+{
+  EvdConnection *conn = EVD_CONNECTION (user_data);
+
+  g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
+
+  evd_socket_shutdown (evd_connection_get_socket (conn),
+                       TRUE,
+                       TRUE,
+                       NULL);
+
+  g_object_unref (conn);
+}
+
 /* public methods */
 
 EvdHttpConnection *
@@ -1004,6 +1021,68 @@ evd_http_connection_unread_request_headers (EvdHttpConnection   *self,
     result = FALSE;
 
   g_string_free (buf, TRUE);
+
+  return result;
+}
+
+gboolean
+evd_http_connection_respond (EvdHttpConnection   *self,
+                             SoupHTTPVersion      ver,
+                             guint                status_code,
+                             gchar               *reason_phrase,
+                             SoupMessageHeaders  *headers,
+                             const gchar         *content,
+                             gsize                size,
+                             gboolean             close_after,
+                             GCancellable        *cancellable,
+                             GError             **error)
+{
+  SoupMessageHeaders *_headers;
+  gboolean result = FALSE;
+
+  if (headers == NULL)
+    _headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  else
+    _headers = headers;
+
+  if (close_after)
+    soup_message_headers_replace (_headers, "Connection", "close");
+
+  if (content != NULL)
+    soup_message_headers_set_content_length (_headers, size);
+
+  if (evd_http_connection_write_response_headers (self,
+                                                  ver,
+                                                  status_code,
+                                                  reason_phrase,
+                                                  _headers,
+                                                  cancellable,
+                                                  error))
+    {
+      if (content == NULL ||
+          evd_http_connection_write_content (self,
+                                             content,
+                                             size,
+                                             cancellable,
+                                             error))
+        {
+          GOutputStream *stream;
+
+          stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+
+          g_object_ref (self);
+          g_output_stream_flush_async (stream,
+                            evd_connection_get_priority (EVD_CONNECTION (self)),
+                            cancellable,
+                            evd_http_connection_shutdown_on_flush,
+                            self);
+
+          result = TRUE;
+        }
+    }
+
+  if (headers == NULL)
+    soup_message_headers_free (_headers);
 
   return result;
 }
