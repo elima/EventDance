@@ -26,9 +26,7 @@
 
 #include "evd-web-selector.h"
 
-#include "evd-http-connection.h"
-
-G_DEFINE_TYPE (EvdWebSelector, evd_web_selector, EVD_TYPE_SERVICE)
+G_DEFINE_TYPE (EvdWebSelector, evd_web_selector, EVD_TYPE_WEB_SERVICE)
 
 #define EVD_WEB_SELECTOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                            EVD_TYPE_WEB_SELECTOR, \
@@ -52,29 +50,27 @@ typedef struct
 static void     evd_web_selector_class_init          (EvdWebSelectorClass *class);
 static void     evd_web_selector_init                (EvdWebSelector *self);
 
-static void     evd_web_selector_finalize            (GObject *obj);
 static void     evd_web_selector_dispose             (GObject *obj);
 
-static gboolean evd_web_selector_remove              (EvdIoStreamGroup *io_stream_group,
-                                                      GIOStream        *io_stream);
+static void     evd_web_selector_headers_read        (EvdWebService      *self,
+                                                      EvdHttpConnection  *conn,
+                                                      SoupHTTPVersion     ver,
+                                                      gchar              *method,
+                                                      gchar              *path,
+                                                      SoupMessageHeaders *headers);
 
-static void     evd_web_selector_connection_accepted (EvdService    *service,
-                                                      EvdConnection *conn);
+static void     evd_web_selector_free_candidate      (gpointer data,
+                                                      gpointer user_data);
 
 static void
 evd_web_selector_class_init (EvdWebSelectorClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
-  EvdIoStreamGroupClass *io_stream_group_class =
-    EVD_IO_STREAM_GROUP_CLASS (class);
+  EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
 
   obj_class->dispose = evd_web_selector_dispose;
-  obj_class->finalize = evd_web_selector_finalize;
 
-  io_stream_group_class->remove = evd_web_selector_remove;
-
-  service_class->connection_accepted = evd_web_selector_connection_accepted;
+  web_service_class->headers_read = evd_web_selector_headers_read;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdWebSelectorPrivate));
@@ -91,8 +87,6 @@ evd_web_selector_init (EvdWebSelector *self)
   priv->candidates = NULL;
 
   priv->default_service = NULL;
-
-  evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 
 static void
@@ -140,114 +134,59 @@ evd_web_selector_find_match (EvdWebSelector *self,
 }
 
 static void
-evd_web_selector_conn_on_headers_read (GObject      *obj,
-                                       GAsyncResult *res,
-                                       gpointer      user_data)
+evd_web_selector_headers_read (EvdWebService      *web_service,
+                               EvdHttpConnection  *conn,
+                               SoupHTTPVersion     ver,
+                               gchar              *method,
+                               gchar              *path,
+                               SoupMessageHeaders *headers)
 {
-  EvdWebSelector *self = EVD_WEB_SELECTOR (user_data);
-  EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
-
-  SoupMessageHeaders *headers;
-  SoupHTTPVersion ver;
-  gchar *method = NULL;
-  gchar *path = NULL;
+  EvdWebSelector *self = EVD_WEB_SELECTOR (web_service);
+  const gchar *domain;
+  EvdService *service;
   GError *error = NULL;
 
-  if ( (headers =
-        evd_http_connection_read_request_headers_finish (conn,
-                                                         res,
-                                                         &ver,
-                                                         &method,
-                                                         &path,
-                                                         &error)) != NULL)
+  domain = soup_message_headers_get_one (headers, "host");
+
+  if ( (service = evd_web_selector_find_match (self, domain, path)) == NULL)
+    service = self->priv->default_service;
+
+  if (service != NULL)
     {
-      const gchar *domain;
-      EvdService *service;
+      /* keep-alive is not supported currently */
+      soup_message_headers_replace (headers, "connection", "close");
+      soup_message_headers_remove (headers, "keep-alive");
 
-      domain = soup_message_headers_get_one (headers, "host");
-
-      if ( (service = evd_web_selector_find_match (self, domain, path)) == NULL)
-        service = self->priv->default_service;
-
-      if (service != NULL)
+      if (evd_http_connection_unread_request_headers (conn,
+                                                      ver,
+                                                      method,
+                                                      path,
+                                                      headers,
+                                                      NULL,
+                                                      &error))
         {
-          soup_message_headers_replace (headers, "connection", "close");
-          soup_message_headers_remove (headers, "keep-alive");
-
-          if (evd_http_connection_unread_request_headers (conn,
-                                                          ver,
-                                                          method,
-                                                          path,
-                                                          headers,
-                                                          NULL,
-                                                          &error))
-            {
-              evd_io_stream_group_add (EVD_IO_STREAM_GROUP (service), G_IO_STREAM (conn));
-            }
+          evd_io_stream_group_add (EVD_IO_STREAM_GROUP (service), G_IO_STREAM (conn));
         }
-      else
-        {
-          /* @TODO: No service found.
-             Respond politely using HTTP, or just drop connection? */
-          g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
-        }
-
-
-      soup_message_headers_free (headers);
-      g_free (method);
-      g_free (path);
     }
-
-  if (error != NULL)
+  else
     {
-      /* @TODO: handle error */
-      g_debug ("error reading request headers: %s", error->message);
-
-      g_error_free (error);
+      /* no service found, respond with a 403 Forbidden message
+         and close the connection */
+      evd_http_connection_respond (conn,
+                                   ver,
+                                   403,
+                                   "Forbidden",
+                                   NULL,
+                                   NULL,
+                                   0,
+                                   TRUE,
+                                   NULL,
+                                   NULL);
     }
 
-  g_object_unref (conn);
-}
-
-static void
-evd_web_selector_read_headers (EvdWebSelector     *self,
-                               EvdHttpConnection  *conn)
-{
-  g_object_ref (conn);
-
-  evd_http_connection_read_request_headers_async (conn,
-                                          NULL,
-                                          evd_web_selector_conn_on_headers_read,
-                                          self);
-}
-
-static void
-evd_web_selector_connection_accepted (EvdService *service, EvdConnection *conn)
-{
-  EvdWebSelector *self = EVD_WEB_SELECTOR (service);
-
-  g_object_ref (conn);
-
-  evd_web_selector_read_headers (self, EVD_HTTP_CONNECTION (conn));
-}
-
-static gboolean
-evd_web_selector_remove (EvdIoStreamGroup *io_stream_group,
-                         GIOStream        *io_stream)
-{
-  EvdConnection *conn = EVD_CONNECTION (io_stream);
-
-  if (! EVD_IO_STREAM_GROUP_CLASS (evd_web_selector_parent_class)->
-      remove (io_stream_group, io_stream))
-    {
-      return FALSE;
-    }
-
-  /* @TODO */
-
-  g_object_unref (conn);
-
-  return TRUE;
+  soup_message_headers_free (headers);
+  g_free (method);
+  g_free (path);
 }
 
 /* public methods */

@@ -22,7 +22,7 @@
 #ifndef __EVD_WEB_SELECTOR_H__
 #define __EVD_WEB_SELECTOR_H__
 
-#include <evd-service.h>
+#include <evd-web-service.h>
 
 G_BEGIN_DECLS
 
@@ -32,14 +32,14 @@ typedef struct _EvdWebSelectorPrivate EvdWebSelectorPrivate;
 
 struct _EvdWebSelector
 {
-  EvdService parent;
+  EvdWebService parent;
 
   EvdWebSelectorPrivate *priv;
 };
 
 struct _EvdWebSelectorClass
 {
-  EvdServiceClass parent_class;
+  EvdWebServiceClass parent_class;
 };
 
 #define EVD_TYPE_WEB_SELECTOR           (evd_web_selector_get_type ())
