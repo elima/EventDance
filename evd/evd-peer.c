@@ -29,6 +29,8 @@ G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
                                    EVD_TYPE_PEER, \
                                    EvdPeerPrivate))
 
+#define DEFAULT_TIMEOUT_INTERVAL 5
+
 /* private data */
 struct _EvdPeerPrivate
 {
@@ -37,6 +39,7 @@ struct _EvdPeerPrivate
   GQueue *backlog;
 
   GTimer *idle_timer;
+  guint timeout_interval;
 
   EvdTransport *transport;
 };
@@ -116,6 +119,7 @@ evd_peer_init (EvdPeer *self)
   priv->backlog = g_queue_new ();
 
   priv->idle_timer = g_timer_new ();
+  priv->timeout_interval = DEFAULT_TIMEOUT_INTERVAL;
 }
 
 static void
@@ -300,18 +304,23 @@ evd_peer_backlog_get_length (EvdPeer *self)
   return g_queue_get_length (self->priv->backlog);
 }
 
-guint
-evd_peer_get_idle_time (EvdPeer *self)
-{
-  g_return_val_if_fail (EVD_IS_PEER (self), 0);
-
-  return (guint) g_timer_elapsed (self->priv->idle_timer, NULL);
-}
-
 void
 evd_peer_touch (EvdPeer *self)
 {
   g_return_if_fail (EVD_IS_PEER (self));
 
   g_timer_start (self->priv->idle_timer);
+}
+
+gboolean
+evd_peer_is_alive (EvdPeer *self)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+
+ if (g_timer_elapsed (self->priv->idle_timer, NULL) <=
+     self->priv->timeout_interval)
+   return TRUE;
+
+ return evd_transport_peer_is_connected (self->priv->transport,
+                                         self);
 }
