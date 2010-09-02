@@ -22,7 +22,7 @@
 #ifndef __EVD_LONG_POLLING_H__
 #define __EVD_LONG_POLLING_H__
 
-#include <evd-transport.h>
+#include <evd-web-service.h>
 
 G_BEGIN_DECLS
 
@@ -32,14 +32,14 @@ typedef struct _EvdLongPollingPrivate EvdLongPollingPrivate;
 
 struct _EvdLongPolling
 {
-  EvdTransport parent;
+  EvdWebService parent;
 
   EvdLongPollingPrivate *priv;
 };
 
 struct _EvdLongPollingClass
 {
-  EvdTransportClass parent_class;
+  EvdWebServiceClass parent_class;
 };
 
 #define EVD_TYPE_LONG_POLLING           (evd_long_polling_get_type ())

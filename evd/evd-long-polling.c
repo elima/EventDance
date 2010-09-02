@@ -24,10 +24,9 @@
 #include <libsoup/soup-headers.h>
 
 #include "evd-long-polling.h"
+#include "evd-transport.h"
 
 #include "evd-http-connection.h"
-
-G_DEFINE_TYPE (EvdLongPolling, evd_long_polling, EVD_TYPE_TRANSPORT)
 
 #define EVD_LONG_POLLING_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                            EVD_TYPE_LONG_POLLING, \
@@ -55,14 +54,10 @@ struct _EvdLongPollingPeerData
 static void     evd_long_polling_class_init          (EvdLongPollingClass *class);
 static void     evd_long_polling_init                (EvdLongPolling *self);
 
+static void     evd_long_polling_transport_iface_init (EvdTransportInterface *iface);
+
 static void     evd_long_polling_finalize            (GObject *obj);
 static void     evd_long_polling_dispose             (GObject *obj);
-
-static gboolean evd_long_polling_send                (EvdTransport  *self,
-                                                      EvdPeer       *peer,
-                                                      const gchar   *buffer,
-                                                      gsize          size,
-                                                      GError       **error);
 
 static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_stream_group,
                                                       GIOStream        *io_stream);
@@ -70,24 +65,31 @@ static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_strea
 static void     evd_long_polling_connection_accepted (EvdService    *service,
                                                       EvdConnection *conn);
 
+static gssize   evd_long_polling_send                (EvdTransport *transport,
+                                                      EvdPeer       *peer,
+                                                      const gchar   *buffer,
+                                                      gsize          size,
+                                                      GError       **error);
+
 static gboolean evd_long_polling_actual_send         (EvdLongPolling     *self,
                                                       EvdPeer            *peer,
                                                       EvdHttpConnection *conn,
                                                       const gchar        *buffer,
                                                       gsize               size,
                                                       GError            **error);
+
 static gboolean evd_long_polling_peer_is_connected   (EvdTransport *transport,
-                                                      EvdPeer      *peer);
+                                                      EvdPeer       *peer);
 
-static EvdPeer *evd_long_polling_create_new_peer     (EvdTransport *transport);
-
+G_DEFINE_TYPE_WITH_CODE (EvdLongPolling, evd_long_polling, EVD_TYPE_WEB_SERVICE,
+                         G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
+                                                evd_long_polling_transport_iface_init));
 
 static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
-  EvdTransportClass *transport_class = EVD_TRANSPORT_CLASS (class);
   EvdIoStreamGroupClass *io_stream_group_class =
     EVD_IO_STREAM_GROUP_CLASS (class);
 
@@ -98,12 +100,15 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
 
   service_class->connection_accepted = evd_long_polling_connection_accepted;
 
-  transport_class->create_new_peer = evd_long_polling_create_new_peer;
-  transport_class->peer_is_connected = evd_long_polling_peer_is_connected;
-  transport_class->send = evd_long_polling_send;
-
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdLongPollingPrivate));
+}
+
+static void
+evd_long_polling_transport_iface_init (EvdTransportInterface *iface)
+{
+  iface->send = evd_long_polling_send;
+  iface->peer_is_connected = evd_long_polling_peer_is_connected;
 }
 
 static void
@@ -156,9 +161,8 @@ evd_long_polling_free_peer_data (gpointer  _data,
 }
 
 static EvdPeer *
-evd_long_polling_create_new_peer (EvdTransport *transport)
+evd_long_polling_create_new_peer (EvdLongPolling *self)
 {
-  EvdLongPolling *self = EVD_LONG_POLLING (transport);
   EvdPeer *peer;
   EvdLongPollingPeerData *data;
 
@@ -182,7 +186,6 @@ evd_long_polling_connection_shutdown_on_flush (GObject      *obj,
 {
   EvdConnection *conn = EVD_CONNECTION (user_data);
 
-  /* @TODO: do we care about an error here? */
   g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
 
   evd_socket_shutdown (evd_connection_get_socket (conn),
@@ -318,7 +321,7 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
                                                                &size,
                                                                &error)) != NULL)
     {
-      EVD_TRANSPORT_CLASS (evd_long_polling_parent_class)->
+      EVD_TRANSPORT_GET_INTERFACE (self)->
         receive (EVD_TRANSPORT (self),
                  peer,
                  content,
@@ -486,7 +489,7 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
 
 static gboolean
 evd_long_polling_peer_is_connected (EvdTransport *transport,
-                                    EvdPeer      *peer)
+                                    EvdPeer       *peer)
 {
   EvdLongPollingPeerData *data;
 
@@ -571,7 +574,7 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
   return result;
 }
 
-static gboolean
+static gssize
 evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
                                        EvdPeer         *peer,
                                        const gchar     *buffer,
@@ -586,20 +589,23 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
   g_return_val_if_fail (data != NULL, FALSE);
 
   if (g_queue_get_length (data->conns) == 0)
-    return FALSE;
+    return 0;
 
   conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
 
-  return evd_long_polling_actual_send (self,
-                                       peer,
-                                       conn,
-                                       buffer,
-                                       size,
-                                       error);
+  if (evd_long_polling_actual_send (self,
+                                    peer,
+                                    conn,
+                                    buffer,
+                                    size,
+                                    error))
+    return size;
+  else
+    return -1;
 }
 
-static gboolean
-evd_long_polling_send (EvdTransport  *transport,
+static gssize
+evd_long_polling_send (EvdTransport *transport,
                        EvdPeer       *peer,
                        const gchar   *buffer,
                        gsize          size,
@@ -607,22 +613,17 @@ evd_long_polling_send (EvdTransport  *transport,
 {
   EvdLongPolling *self = EVD_LONG_POLLING (transport);
 
-  if (evd_long_polling_select_conn_and_send (self,
-                                             peer,
-                                             buffer,
-                                             size,
-                                             error))
-    return (gssize) size;
-  else
-    return -1;
+  return evd_long_polling_select_conn_and_send (self,
+                                                peer,
+                                                buffer,
+                                                size,
+                                                error);
 }
 
 static void
 evd_long_polling_connection_accepted (EvdService *service, EvdConnection *conn)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (service);
-
-  g_object_ref (conn);
 
   evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
 }
@@ -654,8 +655,6 @@ evd_long_polling_remove (EvdIoStreamGroup *io_stream_group,
           g_object_unref (conn);
         }
     }
-
-  g_object_unref (conn);
 
   return TRUE;
 }
