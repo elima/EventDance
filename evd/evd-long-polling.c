@@ -201,68 +201,36 @@ evd_long_polling_connection_shutdown_on_flush (GObject      *obj,
 }
 
 static void
-evd_long_polling_respond_conn (EvdLongPolling    *self,
-                               EvdHttpConnection *conn,
-                               EvdPeer           *peer,
-                               SoupHTTPVersion    ver,
-                               guint              status_code,
-                               gchar             *reason_phrase,
-                               gchar             *content,
-                               gboolean           send_cookies,
-                               gboolean           keep_alive)
+evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
+                                       EvdHttpConnection *conn,
+                                       EvdPeer           *peer,
+                                       SoupHTTPVersion    ver)
 {
   SoupMessageHeaders *headers;
   GError *error = NULL;
+  const gchar *id;
+  gchar *st;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
-  if (peer != NULL && send_cookies)
+  id = evd_peer_get_id (peer);
+  st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
+  soup_message_headers_append (headers, "Set-Cookie", st);
+  g_free (st);
+
+  if (! evd_http_connection_respond (conn,
+                                     ver,
+                                     200,
+                                     "OK",
+                                     headers,
+                                     NULL,
+                                     0,
+                                     TRUE,
+                                     NULL,
+                                     &error))
     {
-      const gchar *id;
-      gchar *st;
-
-      id = evd_peer_get_id (peer);
-      st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
-      soup_message_headers_append (headers, "Set-Cookie", st);
-      g_free (st);
-    }
-
-  if (keep_alive)
-    soup_message_headers_replace (headers, "Connection", "keep-alive");
-  else
-    soup_message_headers_replace (headers, "Connection", "close");
-
-  if (evd_http_connection_write_response_headers (conn,
-                                                  ver,
-                                                  status_code,
-                                                  reason_phrase,
-                                                  headers,
-                                                  NULL,
-                                                  &error))
-    {
-      GOutputStream *stream;
-
-      stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
-
-      if (content == NULL ||
-          g_output_stream_write (stream,
-                                 content,
-                                 strlen (content),
-                                 NULL,
-                                 &error) >= 0)
-        {
-          g_object_ref (conn);
-          g_output_stream_flush_async (stream,
-                                       evd_connection_get_priority (EVD_CONNECTION (conn)),
-                                       NULL,
-                                       evd_long_polling_connection_shutdown_on_flush,
-                                       conn);
-        }
-    }
-
-  if (error != NULL)
-    {
-      /* @TODO: do we care about an error here? */
+      g_debug ("error responding with cookies: %s", error->message);
+      g_error_free (error);
     }
 
   soup_message_headers_free (headers);
@@ -385,15 +353,7 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
 
       if (send_cookies)
         {
-          evd_long_polling_respond_conn (self,
-                                         conn,
-                                         peer,
-                                         ver,
-                                         200,
-                                         "OK",
-                                         NULL,
-                                         TRUE,
-                                         FALSE);
+          evd_long_polling_respond_with_cookies (self, conn, peer, ver);
         }
       else if (g_strcmp0 (method, "GET") == 0)
         {
