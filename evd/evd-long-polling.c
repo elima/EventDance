@@ -27,6 +27,7 @@
 #include "evd-transport.h"
 
 #include "evd-http-connection.h"
+#include "evd-peer-manager.h"
 
 #define EVD_LONG_POLLING_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                            EVD_TYPE_LONG_POLLING, \
@@ -41,7 +42,7 @@
 /* private data */
 struct _EvdLongPollingPrivate
 {
-  GHashTable *listeners;
+  EvdPeerManager *peer_manager;
 };
 
 typedef struct _EvdLongPollingPeerData EvdLongPollingPeerData;
@@ -119,6 +120,8 @@ evd_long_polling_init (EvdLongPolling *self)
   priv = EVD_LONG_POLLING_GET_PRIVATE (self);
   self->priv = priv;
 
+  priv->peer_manager = evd_peer_manager_get_default ();
+
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 
@@ -131,7 +134,9 @@ evd_long_polling_dispose (GObject *obj)
 static void
 evd_long_polling_finalize (GObject *obj)
 {
-  //  EvdLongPolling *self = EVD_LONG_POLLING (obj);
+  EvdLongPolling *self = EVD_LONG_POLLING (obj);
+
+  g_object_unref (self->priv->peer_manager);
 
   G_OBJECT_CLASS (evd_long_polling_parent_class)->finalize (obj);
 }
@@ -166,9 +171,8 @@ evd_long_polling_create_new_peer (EvdLongPolling *self)
   EvdPeer *peer;
   EvdLongPollingPeerData *data;
 
-  peer =
-    EVD_TRANSPORT_CLASS (evd_long_polling_parent_class)->
-    create_new_peer (EVD_TRANSPORT (self));
+  peer = evd_peer_manager_create_new_peer (self->priv->peer_manager,
+                                           EVD_TRANSPORT (self));
 
   data = g_new0 (EvdLongPollingPeerData, 1);
   data->conns = g_queue_new ();
@@ -370,9 +374,10 @@ evd_long_polling_conn_on_headers_read (GObject      *obj,
       /* resolve peer object */
       peer_id = evd_long_polling_resolve_peer_id_from_headers (headers);
       if (peer_id == NULL ||
-          (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), peer_id)) == NULL)
+          (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
+                                                peer_id)) == NULL)
         {
-          peer = evd_long_polling_create_new_peer (EVD_TRANSPORT (self));
+          peer = evd_long_polling_create_new_peer (self);
           send_cookies = TRUE;
         }
 
