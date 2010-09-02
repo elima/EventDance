@@ -96,9 +96,10 @@ evd_peer_class_init (EvdPeerClass *class)
                                    g_param_spec_object ("transport",
                                                         "Peer's transport",
                                                         "Transport object which this peer uses for sending and receiving data",
-                                                        EVD_TYPE_TRANSPORT,
+                                                        G_TYPE_OBJECT,
                                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdPeerPrivate));
@@ -165,7 +166,7 @@ evd_peer_set_property (GObject      *obj,
       break;
 
     case PROP_TRANSPORT:
-      self->priv->transport = g_value_dup_object (value);
+      self->priv->transport = EVD_TRANSPORT (g_value_dup_object (value));
       break;
 
     default:
@@ -191,7 +192,7 @@ evd_peer_get_property (GObject    *obj,
       break;
 
     case PROP_TRANSPORT:
-      g_value_set_object (value, self->priv->transport);
+      g_value_set_object (value, G_OBJECT (self->priv->transport));
       break;
 
     default:
