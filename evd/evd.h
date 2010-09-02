@@ -47,8 +47,8 @@
 #include <evd-connection.h>
 #include <evd-io-stream-group.h>
 #include <evd-http-connection.h>
-#include <evd-transport.h>
 #include <evd-peer.h>
+#include <evd-peer-manager.h>
 #include <evd-long-polling.h>
 #include <evd-connection-pool.h>
 #include <evd-reproxy.h>

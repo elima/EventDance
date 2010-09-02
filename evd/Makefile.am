@@ -54,6 +54,7 @@ source_c = \
 	evd-web-service.c \
 	evd-transport.c \
 	evd-peer.c \
+	evd-peer-manager.c \
 	evd-long-polling.c \
 	evd-connection-pool.c \
 	evd-reproxy.c \
@@ -85,6 +86,7 @@ source_h = \
 	evd-web-service.h \
 	evd-transport.h \
 	evd-peer.h \
+	evd-peer-manager.h \
 	evd-long-polling.h \
 	evd-connection-pool.h \
 	evd-reproxy.h \
