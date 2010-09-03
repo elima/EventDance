@@ -97,7 +97,11 @@ evd_transport_free_peer_msg (gpointer  data,
   msg = g_object_get_data (G_OBJECT (where_the_object_was), PEER_MSG_KEY);
 
   if (msg != NULL)
-    g_slice_free (EvdTransportPeerMessage, msg);
+    {
+      g_slice_free (EvdTransportPeerMessage, msg);
+
+      g_object_set_data (G_OBJECT (where_the_object_was), PEER_MSG_KEY, NULL);
+    }
 }
 
 static void
