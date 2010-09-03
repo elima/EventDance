@@ -60,11 +60,15 @@ static void     evd_long_polling_transport_iface_init (EvdTransportInterface *if
 static void     evd_long_polling_finalize            (GObject *obj);
 static void     evd_long_polling_dispose             (GObject *obj);
 
+static void     evd_long_polling_headers_read        (EvdWebService      *web_service,
+                                                      EvdHttpConnection  *conn,
+                                                      SoupHTTPVersion     ver,
+                                                      gchar              *method,
+                                                      gchar              *path,
+                                                      SoupMessageHeaders *headers);
+
 static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_stream_group,
                                                       GIOStream        *io_stream);
-
-static void     evd_long_polling_connection_accepted (EvdService    *service,
-                                                      EvdConnection *conn);
 
 static gssize   evd_long_polling_send                (EvdTransport *transport,
                                                       EvdPeer       *peer,
@@ -90,16 +94,16 @@ static void
 evd_long_polling_class_init (EvdLongPollingClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
   EvdIoStreamGroupClass *io_stream_group_class =
     EVD_IO_STREAM_GROUP_CLASS (class);
+  EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
 
   obj_class->dispose = evd_long_polling_dispose;
   obj_class->finalize = evd_long_polling_finalize;
 
   io_stream_group_class->remove = evd_long_polling_remove;
 
-  service_class->connection_accepted = evd_long_polling_connection_accepted;
+  web_service_class->headers_read = evd_long_polling_headers_read;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdLongPollingPrivate));
@@ -314,109 +318,75 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
 }
 
 static void
-evd_long_polling_conn_on_headers_read (GObject      *obj,
-                                       GAsyncResult *res,
-                                       gpointer      user_data)
+evd_long_polling_headers_read (EvdWebService      *web_service,
+                               EvdHttpConnection  *conn,
+                               SoupHTTPVersion     ver,
+                               gchar              *method,
+                               gchar              *path,
+                               SoupMessageHeaders *headers)
 {
-  EvdLongPolling *self = EVD_LONG_POLLING (user_data);
-  EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
-
-  SoupMessageHeaders *headers;
-  SoupHTTPVersion ver;
-  gchar *method;
-  gchar *path;
-  GError *error = NULL;
+  EvdLongPolling *self = EVD_LONG_POLLING (web_service);
+  gchar *peer_id = NULL;
+  EvdPeer *peer;
   gboolean send_cookies = FALSE;
 
-  if ( (headers =
-        evd_http_connection_read_request_headers_finish (conn,
-                                                         res,
-                                                         &ver,
-                                                         &method,
-                                                         &path,
-                                                         &error)) != NULL)
+  /* resolve peer object */
+  peer_id = g_strdup (soup_message_headers_get_one (headers,
+                                                    "X-Org-Eventdance-Peer-Id"));
+  if (peer_id == NULL ||
+      (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
+                                            peer_id)) == NULL)
     {
-      gchar *peer_id = NULL;
-      EvdPeer *peer;
+      peer = evd_long_polling_create_new_peer (self);
+      send_cookies = TRUE;
+    }
 
-      /* resolve peer object */
-      peer_id = evd_long_polling_resolve_peer_id_from_headers (headers);
-      if (peer_id == NULL ||
-          (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
-                                                peer_id)) == NULL)
-        {
-          peer = evd_long_polling_create_new_peer (self);
-          send_cookies = TRUE;
-        }
+  evd_peer_touch (peer);
 
-      evd_peer_touch (peer);
+  if (send_cookies)
+    {
+      evd_long_polling_respond_with_cookies (self, conn, peer, ver);
+    }
+  else if (g_strcmp0 (method, "GET") == 0)
+    {
+      EvdLongPollingPeerData *data;
 
-      if (send_cookies)
-        {
-          evd_long_polling_respond_with_cookies (self, conn, peer, ver);
-        }
-      else if (g_strcmp0 (method, "GET") == 0)
-        {
-          EvdLongPollingPeerData *data;
+      data =
+        (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
+                                                      PEER_DATA_KEY);
 
-          data =
-            (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
-                                                          PEER_DATA_KEY);
+      g_object_ref (conn);
+      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
 
-          g_object_ref (conn);
-          g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
+      /* send Peer's backlogged frames */
+      if (evd_peer_backlog_get_length (peer) > 0)
+        evd_long_polling_actual_send (self,
+                                      peer,
+                                      conn,
+                                      NULL,
+                                      0,
+                                      NULL);
+      else
+        g_queue_push_tail (data->conns, conn);
+    }
+  else if (g_strcmp0 (method, "POST") == 0)
+    {
+      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
 
-          /* send Peer's backlogged frames */
-          if (evd_peer_backlog_get_length (peer) > 0)
-            evd_long_polling_actual_send (self,
-                                          peer,
-                                          conn,
-                                          NULL,
-                                          0,
-                                          NULL);
-            else
-              g_queue_push_tail (data->conns, conn);
-        }
-      else if (g_strcmp0 (method, "POST") == 0)
-        {
-          g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
-
-          evd_http_connection_read_all_content_async (conn,
+      evd_http_connection_read_all_content_async (conn,
                                           NULL,
                                           evd_long_polling_conn_on_content_read,
                                           self);
-        }
-      else
-        {
-          /* @TODO: respond with error 405 (Method Not Allowed) */
-        }
-
-      g_free (peer_id);
-      soup_message_headers_free (headers);
-      g_free (method);
-      g_free (path);
     }
   else
     {
-      /* @TODO: handle error */
-      g_debug ("error reading request headers: %s", error->message);
-
-      g_error_free (error);
+      /* @TODO: respond with error 405 (Method Not Allowed) */
     }
 
-  g_object_unref (conn);
-}
-
-static void
-evd_long_polling_read_headers (EvdLongPolling     *self,
-                               EvdHttpConnection  *conn)
-{
-  g_object_ref (conn);
-
-  evd_http_connection_read_request_headers_async (conn,
-                                          NULL,
-                                          evd_long_polling_conn_on_headers_read,
-                                          self);
+  g_free (peer_id);
+  soup_message_headers_free (headers);
+  g_free (method);
+  g_free (path);
 }
 
 static gboolean
@@ -583,14 +553,6 @@ evd_long_polling_send (EvdTransport *transport,
                                                 buffer,
                                                 size,
                                                 error);
-}
-
-static void
-evd_long_polling_connection_accepted (EvdService *service, EvdConnection *conn)
-{
-  EvdLongPolling *self = EVD_LONG_POLLING (service);
-
-  evd_long_polling_read_headers (self, EVD_HTTP_CONNECTION (conn));
 }
 
 static gboolean
