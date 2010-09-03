@@ -213,14 +213,11 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
   SoupMessageHeaders *headers;
   GError *error = NULL;
   const gchar *id;
-  gchar *st;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
   id = evd_peer_get_id (peer);
-  st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
-  soup_message_headers_append (headers, "Set-Cookie", st);
-  g_free (st);
+  soup_message_headers_replace (headers, "X-Org-Eventdance-Peer-Id", id);
 
   if (! evd_http_connection_respond (conn,
                                      ver,
@@ -238,43 +235,6 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
     }
 
   soup_message_headers_free (headers);
-}
-
-gchar *
-evd_long_polling_resolve_peer_id_from_headers (SoupMessageHeaders *headers)
-{
-  gchar *peer_id = NULL;
-  const gchar *cookies;
-  gchar *start;
-  gchar **tokens;
-  gint i;
-
-  cookies = soup_message_headers_get_list (headers, "Cookie");
-  if (cookies == NULL)
-    return NULL;
-
-  tokens = g_strsplit (cookies, ",", 0);
-  for (i=0; tokens[i] != NULL; i++)
-    {
-      start = g_strstr_len (tokens[i], -1, PEER_ID_COOKIE_NAME);
-
-      if (start != NULL)
-        {
-          gsize size;
-
-          size = tokens[i] + strlen (tokens[i]) -
-            start + strlen (PEER_ID_COOKIE_NAME) - 1;
-
-          peer_id = g_new (gchar, size + 1);
-          peer_id[size] = '\0';
-
-          memcpy (peer_id, start + strlen (PEER_ID_COOKIE_NAME) + 1, size);
-        }
-    }
-
-  g_strfreev (tokens);
-
-  return peer_id;
 }
 
 static void
