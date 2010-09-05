@@ -37,8 +37,10 @@ struct _EvdWebSelectorPrivate
 
 typedef struct
 {
-  GRegex *domain_pattern;
-  GRegex *path_pattern;
+  gchar *domain_pattern;
+  gchar *path_pattern;
+  GRegex *domain_regex;
+  GRegex *path_regex;
   EvdService *service;
 } EvdWebSelectorCandidate;
 
@@ -107,10 +109,16 @@ evd_web_selector_free_candidate (gpointer data,
   EvdWebSelectorCandidate *candidate = (EvdWebSelectorCandidate *) candidate;
 
   if (candidate->domain_pattern != NULL)
-    g_regex_unref (candidate->domain_pattern);
+    {
+      g_free (candidate->domain_pattern);
+      g_regex_unref (candidate->domain_regex);
+    }
 
   if (candidate->path_pattern != NULL)
-    g_regex_unref (candidate->path_pattern);
+    {
+      g_free (candidate->path_pattern);
+      g_regex_unref (candidate->path_regex);
+    }
 
   g_object_unref (candidate->service);
 }
@@ -130,9 +138,9 @@ evd_web_selector_find_match (EvdWebSelector *self,
       candidate = (EvdWebSelectorCandidate *) node->data;
 
       if ( (candidate->domain_pattern == NULL ||
-            g_regex_match (candidate->domain_pattern, domain, 0, NULL)) &&
+            g_regex_match (candidate->domain_regex, domain, 0, NULL)) &&
            (candidate->path_pattern == NULL ||
-            g_regex_match (candidate->path_pattern, path, 0, NULL)) )
+            g_regex_match (candidate->path_regex, path, 0, NULL)) )
         return candidate->service;
 
       node = node->next;
@@ -251,8 +259,10 @@ evd_web_selector_add_service (EvdWebSelector  *self,
   candidate = g_new0 (EvdWebSelectorCandidate, 1);
   g_object_ref (service);
   candidate->service = service;
-  candidate->domain_pattern = domain_regex;
-  candidate->path_pattern = path_regex;
+  candidate->domain_pattern = g_strdup (domain_pattern);
+  candidate->path_pattern = g_strdup (path_pattern);
+  candidate->domain_regex = domain_regex;
+  candidate->path_regex = path_regex;
 
   self->priv->candidates = g_list_append (self->priv->candidates, candidate);
 
