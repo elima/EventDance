@@ -59,6 +59,10 @@ gboolean            evd_web_selector_add_service         (EvdWebSelector  *self,
                                                           const gchar     *path_pattern,
                                                           EvdService      *service,
                                                           GError         **error);
+void                evd_web_selector_remove_service      (EvdWebSelector  *self,
+                                                          const gchar     *domain_pattern,
+                                                          const gchar     *path_pattern,
+                                                          EvdService      *service);
 
 void                evd_web_selector_set_default_service (EvdWebSelector *self,
                                                           EvdService     *service);

@@ -269,6 +269,40 @@ evd_web_selector_add_service (EvdWebSelector  *self,
   return TRUE;
 }
 
+void
+evd_web_selector_remove_service (EvdWebSelector  *self,
+                                 const gchar     *domain_pattern,
+                                 const gchar     *path_pattern,
+                                 EvdService      *service)
+{
+  GList *node;
+
+  g_return_if_fail (EVD_IS_WEB_SELECTOR (self));
+  g_return_if_fail (EVD_IS_SERVICE (service));
+
+  node = self->priv->candidates;
+  while (node != NULL)
+    {
+      EvdWebSelectorCandidate *candidate;
+
+      candidate = (EvdWebSelectorCandidate *) node->data;
+      if (g_strcmp0 (candidate->domain_pattern, domain_pattern) == 0 &&
+          g_strcmp0 (candidate->path_pattern, path_pattern) == 0 &&
+          candidate->service == service)
+        {
+          node = node->next;
+          self->priv->candidates = g_list_delete_link (self->priv->candidates,
+                                                       node);
+
+          evd_web_selector_free_candidate (candidate, NULL);
+        }
+      else
+        {
+          node = node->next;
+        }
+    }
+}
+
 /**
  * evd_web_selector_set_default_service:
  * @service: (allow-none):
