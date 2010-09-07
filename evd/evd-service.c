@@ -621,6 +621,10 @@ evd_service_remove_listener (EvdService *self,
   return FALSE;
 }
 
+/**
+ * evd_service_listen_async:
+ * @user_data: (allow-none):
+ **/
 void
 evd_service_listen_async (EvdService          *self,
                           const gchar         *address,
