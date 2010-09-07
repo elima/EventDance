@@ -16,20 +16,14 @@
   <repository type="tarball" name="gnupg.org"
       href="ftp://ftp.gnupg.org/gcrypt/"/>
 
-  <autotools id="glib" autogenargs="--enable-gtk-doc=no">
+  <autotools id="glib">
     <branch repo="git.gnome.org" />
-    <dependencies>
-    </dependencies>
   </autotools>
 
   <autotools id="gobject-introspection">
     <branch repo="git.gnome.org" module="gobject-introspection"/>
-  </autotools>
-
-  <autotools id="gir-repository">
-    <branch repo="git.gnome.org" module="gir-repository"/>
     <dependencies>
-        <dep package="gobject-introspection"/>
+      <dep package="glib"/>
     </dependencies>
   </autotools>
 
@@ -38,9 +32,13 @@
     <dependencies>
       <dep package="gobject-introspection" />
     </dependencies>
-    <after>
-      <dep package="gir-repository"/>
-    </after>
+  </autotools>
+
+  <autotools id="gir-repository" autogenargs="--with-skipped-gir-modules=Gtk,Gst,Poppler,WebKit,GSSDP,Unique,GMenu,Wnck,GooCanvas,Notify,GnomeKeyring">
+    <branch repo="git.gnome.org" module="gir-repository"/>
+    <dependencies>
+        <dep package="gobject-introspection"/>
+    </dependencies>
   </autotools>
 
   <tarball id="libtasn1" version="1.8" supports-non-srcdir-builds="no">
@@ -66,10 +64,9 @@
     </dependencies>
   </autotools>
 
-  <tarball id="gnutls" version="2.6.5">
-    <source href="ftp://ftp.gnu.org/pub/gnu/gnutls/gnutls-2.6.5.tar.bz2"
-            hash="sha256:e78be636072c0ab748ccf1742c4b41fc7aaff98b43166cfbc8df91c7185501cb"
-            md5sum="92b92c36b616aa8bd69a9a0fb2b8eb24" size="5112923" />
+  <tarball id="gnutls" version="2.8.0">
+    <source href="ftp://ftp.gnu.org/pub/gnu/gnutls/gnutls-2.8.0.tar.bz2"
+            md5sum="001c1d778ac7b53118cd5e14c6f9210d" size="6177498" />
     <dependencies>
       <dep package="libgcrypt" />
       <dep package="libtasn1" />
@@ -86,4 +83,5 @@
       <dep package="gnutls"/>
     </dependencies>
   </autotools>
+
 </moduleset>
