@@ -53,5 +53,6 @@
 #include <evd-connection-pool.h>
 #include <evd-reproxy.h>
 #include <evd-web-selector.h>
+#include <evd-web-transport.h>
 
 #endif /* __EVD_H__ */

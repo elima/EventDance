@@ -7,10 +7,13 @@ pkgconfig_DATA = @EVD_API_NAME@.pc
 library_includedir=$(includedir)/@EVD_API_NAME@
 library_include_HEADERS = evd.h
 
+jsdir = $(libdir)/evd/js
+
 CLEANFILES = *~ @EVD_API_NAME@.pc
 
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
-	-DPKGDATADIR="\"$(pkgdatadir)\""
+	-DPKGDATADIR="\"$(pkgdatadir)\"" \
+	-DEVD_JS_PATH="\"$(jsdir)\""
 
 evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \
@@ -58,7 +61,8 @@ source_c = \
 	evd-long-polling.c \
 	evd-connection-pool.c \
 	evd-reproxy.c \
-	evd-web-selector.c
+	evd-web-selector.c \
+	evd-web-transport.c
 
 source_h = \
 	evd.h \
@@ -90,7 +94,8 @@ source_h = \
 	evd-long-polling.h \
 	evd-connection-pool.h \
 	evd-reproxy.h \
-	evd-web-selector.h
+	evd-web-selector.h \
+	evd-web-transport.h
 
 source_h_priv = \
 	evd-marshal.h \
@@ -135,6 +140,8 @@ evd_HEADERS = \
 	$(source_h) \
 	$(source_h_priv)
 
+js_DATA = \
+	js/evdWebTransport.js
 
 # introspection support
 if HAVE_INTROSPECTION
