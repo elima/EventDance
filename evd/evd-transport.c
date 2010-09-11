@@ -173,6 +173,22 @@ evd_transport_send (EvdTransport  *self,
     return TRUE;
 }
 
+gboolean
+evd_transport_send_text (EvdTransport  *self,
+                         EvdPeer       *peer,
+                         const gchar   *text,
+                         GError       **error)
+{
+  gsize size;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+
+  size = strlen (text);
+
+  return evd_transport_send (self, peer, text, size, error);
+}
+
 /**
  * evd_transport_receive:
  * @size: (out):

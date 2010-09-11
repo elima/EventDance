@@ -66,6 +66,10 @@ gboolean        evd_transport_send                          (EvdTransport *self,
                                                              const gchar   *buffer,
                                                              gsize          size,
                                                              GError        **error);
+gboolean        evd_transport_send_text                     (EvdTransport  *self,
+                                                             EvdPeer       *peer,
+                                                             const gchar   *text,
+                                                             GError       **error);
 const gchar    *evd_transport_receive                       (EvdTransport *self,
                                                              EvdPeer      *peer,
                                                              gsize        *size);
