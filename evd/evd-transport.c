@@ -39,9 +39,11 @@ typedef struct
 static guint evd_transport_signals[SIGNAL_LAST] = { 0 };
 
 static void  evd_transport_receive_internal (EvdTransport *self,
-                                             EvdPeer       *peer,
-                                             gchar         *buffer,
-                                             gsize          size);
+                                             EvdPeer      *peer,
+                                             const gchar  *buffer,
+                                             gsize         size);
+static void  evd_transport_notify_receive   (EvdTransport *self,
+                                             EvdPeer      *peer);
 
 static void
 evd_transport_base_init (gpointer g_class)
@@ -51,6 +53,7 @@ evd_transport_base_init (gpointer g_class)
   EvdTransportInterface *iface = (EvdTransportInterface *) g_class;
 
   iface->receive = evd_transport_receive_internal;
+  iface->notify_receive = evd_transport_notify_receive;
 
   if (!is_initialized)
     {
@@ -105,10 +108,16 @@ evd_transport_free_peer_msg (gpointer  data,
 }
 
 static void
+evd_transport_notify_receive (EvdTransport *self, EvdPeer *peer)
+{
+  g_signal_emit (self, evd_transport_signals[SIGNAL_RECEIVE], 0, peer, NULL);
+}
+
+static void
 evd_transport_receive_internal (EvdTransport *self,
-                                EvdPeer       *peer,
-                                gchar         *buffer,
-                                gsize          size)
+                                EvdPeer      *peer,
+                                const gchar  *buffer,
+                                gsize         size)
 {
   EvdTransportPeerMessage *msg;
 
@@ -124,7 +133,7 @@ evd_transport_receive_internal (EvdTransport *self,
   msg->buffer = buffer;
   msg->size = size;
 
-  g_signal_emit (self, evd_transport_signals[SIGNAL_RECEIVE], 0, peer, NULL);
+  evd_transport_notify_receive (self, peer);
 
   msg->buffer = NULL;
   msg->size = 0;

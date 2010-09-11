@@ -41,6 +41,8 @@ struct _EvdTransportInterface
                                   const gchar   *buffer,
                                   gsize          size,
                                   GError        **error);
+  void     (* notify_receive)    (EvdTransport *self,
+                                  EvdPeer       *peer);
   void     (* receive)           (EvdTransport *self,
                                   EvdPeer       *peer,
                                   gchar         *buffer,
