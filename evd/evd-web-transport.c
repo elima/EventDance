@@ -73,6 +73,10 @@ static void     evd_web_transport_get_property         (GObject    *obj,
                                                         GValue     *value,
                                                         GParamSpec *pspec);
 
+static void     evd_web_transport_on_receive           (EvdTransport *transport,
+                                                        EvdPeer      *peer,
+                                                        gpointer      user_data);
+
 static void     evd_web_transport_headers_read         (EvdWebService      *web_service,
                                                         EvdHttpConnection  *conn,
                                                         SoupHTTPVersion     ver,
@@ -155,6 +159,10 @@ evd_web_transport_init (EvdWebTransport *self)
   priv->selector = NULL;
 
   priv->lp = evd_long_polling_new ();
+  g_signal_connect (priv->lp,
+                    "receive",
+                    G_CALLBACK (evd_web_transport_on_receive),
+                    self);
 
   priv->js_code = NULL;
   priv->js_code_size = 0;
@@ -175,6 +183,9 @@ evd_web_transport_finalize (GObject *obj)
 
   g_object_unref (self->priv->peer_manager);
 
+  g_signal_handlers_disconnect_by_func (self->priv->lp,
+                                        evd_web_transport_on_receive,
+                                        self);
   g_object_unref (self->priv->lp);
 
   g_free (self->priv->js_code);
@@ -236,6 +247,17 @@ evd_web_transport_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_web_transport_on_receive (EvdTransport *transport,
+                              EvdPeer      *peer,
+                              gpointer      user_data)
+{
+  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+
+  EVD_TRANSPORT_GET_INTERFACE (self)->
+    notify_receive (EVD_TRANSPORT (self), peer);
 }
 
 static void
