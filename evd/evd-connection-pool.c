@@ -120,6 +120,8 @@ evd_connection_pool_connection_on_close (EvdConnection *conn,
       EvdSocket *socket;
 
       socket = evd_connection_get_socket (conn);
+
+      g_object_ref (socket);
       evd_connection_pool_reuse_socket (self, socket);
     }
 
