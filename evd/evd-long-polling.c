@@ -33,7 +33,8 @@
                                            EVD_TYPE_LONG_POLLING, \
                                            EvdLongPollingPrivate))
 
-#define PEER_ID_COOKIE_NAME "X-evd-peer-id"
+#define PEER_ID_COOKIE_NAME  "X-Org-EventDance-Peer-Id"
+#define PEER_ID_COOKIE_REGEX "X\\-Org\\-EventDance\\-Peer\\-Id=([^;]+)($|;)"
 
 #define PEER_DATA_KEY       "org.eventdance.lib.transports.long-polling"
 #define CONN_PEER_KEY_GET   PEER_DATA_KEY ".get"
@@ -43,6 +44,8 @@
 struct _EvdLongPollingPrivate
 {
   EvdPeerManager *peer_manager;
+
+  GRegex *peer_id_regex;
 };
 
 typedef struct _EvdLongPollingPeerData EvdLongPollingPeerData;
@@ -126,6 +129,8 @@ evd_long_polling_init (EvdLongPolling *self)
 
   priv->peer_manager = evd_peer_manager_get_default ();
 
+  priv->peer_id_regex = g_regex_new (PEER_ID_COOKIE_REGEX, 0, 0, NULL);
+
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 
@@ -141,6 +146,8 @@ evd_long_polling_finalize (GObject *obj)
   EvdLongPolling *self = EVD_LONG_POLLING (obj);
 
   g_object_unref (self->priv->peer_manager);
+
+  g_regex_unref (self->priv->peer_id_regex);
 
   G_OBJECT_CLASS (evd_long_polling_parent_class)->finalize (obj);
 }
@@ -213,11 +220,16 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
   SoupMessageHeaders *headers;
   GError *error = NULL;
   const gchar *id;
+  gchar *st;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
   id = evd_peer_get_id (peer);
   soup_message_headers_replace (headers, "X-Org-Eventdance-Peer-Id", id);
+
+  st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
+  soup_message_headers_append (headers, "Set-Cookie", st);
+  g_free (st);
 
   if (! evd_http_connection_respond (conn,
                                      ver,
@@ -295,6 +307,27 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
                                 NULL);
 }
 
+static gchar *
+evd_long_polling_resolve_peer_id_from_headers (EvdLongPolling     *self,
+                                               SoupMessageHeaders *headers)
+{
+  const gchar *cookies;
+  GMatchInfo *match_info;
+  gchar *peer_id = NULL;
+
+  cookies = soup_message_headers_get_list (headers, "Cookie");
+  if (cookies == NULL)
+    return NULL;
+
+  g_regex_match (self->priv->peer_id_regex, cookies, 0, &match_info);
+  if (g_match_info_matches (match_info))
+      peer_id = g_match_info_fetch (match_info, 1);
+
+  g_match_info_free (match_info);
+
+  return peer_id;
+}
+
 static void
 evd_long_polling_headers_read (EvdWebService      *web_service,
                                EvdHttpConnection  *conn,
@@ -309,8 +342,7 @@ evd_long_polling_headers_read (EvdWebService      *web_service,
   gboolean send_cookies = FALSE;
 
   /* resolve peer object */
-  peer_id = g_strdup (soup_message_headers_get_one (headers,
-                                                    "X-Org-Eventdance-Peer-Id"));
+  peer_id = evd_long_polling_resolve_peer_id_from_headers (self, headers);
   if (peer_id == NULL ||
       (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
                                             peer_id)) == NULL)

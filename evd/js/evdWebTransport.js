@@ -22,7 +22,7 @@ Evd.LongPolling.prototype = {
 
         this._senders = [];
 
-        this._id = null;
+        this._opened = false;
         this._handshaking = false;
 
         for (var i=0; i<this._maxSenders; i++) {
@@ -40,8 +40,7 @@ Evd.LongPolling.prototype = {
             self._handshaking = false;
 
             if (this.status == 200) {
-                self._id = this.getResponseHeader ("X-Org-Eventdance-Peer-Id");
-
+                self._opened = true;
                 self.send ("");
                 self._connect ();
             }
@@ -117,7 +116,6 @@ Evd.LongPolling.prototype = {
 
     _connectXhr: function (xhr) {
         xhr.open ("GET", this.url, true);
-        xhr.setRequestHeader ("X-Org-Eventdance-Peer-Id", this._id);
         xhr.send ();
     },
 
@@ -139,7 +137,6 @@ Evd.LongPolling.prototype = {
 
     _send: function (xhr, data) {
         xhr.open ("POST", this.url, true);
-        xhr.setRequestHeader ("X-Org-Eventdance-Peer-Id", this._id);
         xhr.send (data);
     },
 
@@ -147,7 +144,7 @@ Evd.LongPolling.prototype = {
         if (this._handshaking) {
             this._backlog += (data != "" ? this.FRAME_SEP + data : "");
         }
-        else if (this._id != null) {
+        else if (this._opened) {
             if (data == "" && this._backlog == "")
                 return;
 
