@@ -257,11 +257,29 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
                                                                &size,
                                                                &error)) != NULL)
     {
-      EVD_TRANSPORT_GET_INTERFACE (self)->
-        receive (EVD_TRANSPORT (self),
-                 peer,
-                 content,
-                 (gsize) size);
+      if (size > 0)
+        {
+          gchar *p;
+          gint i;
+          gint last_i = -1;
+
+          p = content;
+          for (i=0; i<=size; i++)
+            {
+              if ( (i < size && p[i] == '\0') || i == size)
+                {
+                  EVD_TRANSPORT_GET_INTERFACE (self)->
+                    receive (EVD_TRANSPORT (self),
+                             peer,
+                             p + last_i + 1,
+                             (gsize) i - last_i - 1);
+
+                  last_i = i;
+                }
+            }
+        }
+
+      g_free (content);
     }
   else
     {
