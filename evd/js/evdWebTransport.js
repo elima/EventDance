@@ -16,9 +16,9 @@ Evd.LongPolling.prototype = {
 
         this._backlog = "";
 
-        this._nrReceivers = 1;
+        this._nrReceivers = 2;
         this._minSenders = 1;
-        this._maxSenders = 1;
+        this._maxSenders = 2;
 
         this._senders = [];
 
