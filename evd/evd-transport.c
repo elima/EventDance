@@ -19,6 +19,8 @@
  * for more details.
  */
 
+#include <string.h>
+
 #include "evd-transport.h"
 
 #define PEER_MSG_KEY "org.eventdance.transport.PeerMessage"
@@ -33,6 +35,7 @@ enum
 typedef struct
 {
   const gchar *buffer;
+  gchar *text_buffer;
   gsize size;
 } EvdTransportPeerMessage;
 
@@ -132,13 +135,17 @@ evd_transport_receive_internal (EvdTransport *self,
 
   msg->buffer = buffer;
   msg->size = size;
+  msg->text_buffer = NULL;
 
   evd_transport_notify_receive (self, peer);
 
+  if (msg->text_buffer != NULL)
+    {
+      g_slice_free1 (msg->size + 1, msg->text_buffer);
+      msg->text_buffer = NULL;
+    }
   msg->buffer = NULL;
   msg->size = 0;
-
-  g_free (buffer);
 }
 
 /* public methods */
@@ -189,6 +196,33 @@ evd_transport_receive (EvdTransport *self,
     *size = msg->size;
 
   return msg->buffer;
+}
+
+/**
+ * evd_transport_receive_text:
+ *
+ * Returns: (transfer none):
+ **/
+const gchar *
+evd_transport_receive_text (EvdTransport *self,
+                            EvdPeer       *peer)
+{
+  EvdTransportPeerMessage *msg;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  msg = g_object_get_data (G_OBJECT (peer), PEER_MSG_KEY);
+  if (msg == NULL)
+    return NULL;
+
+  if (msg->text_buffer == NULL)
+    {
+      msg->text_buffer = g_slice_alloc (msg->size + 1);
+      msg->text_buffer[msg->size] = '\0';
+      memcpy (msg->text_buffer, msg->buffer, msg->size);
+    }
+
+  return msg->text_buffer;
 }
 
 gboolean

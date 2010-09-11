@@ -45,7 +45,7 @@ struct _EvdTransportInterface
                                   EvdPeer       *peer);
   void     (* receive)           (EvdTransport *self,
                                   EvdPeer       *peer,
-                                  gchar         *buffer,
+                                  const gchar   *buffer,
                                   gsize          size);
 
   gboolean (* peer_is_connected) (EvdTransport *self, EvdPeer *peer);
@@ -67,8 +67,10 @@ gboolean        evd_transport_send                          (EvdTransport *self,
                                                              gsize          size,
                                                              GError        **error);
 const gchar    *evd_transport_receive                       (EvdTransport *self,
-                                                             EvdPeer       *peer,
-                                                             gsize         *size);
+                                                             EvdPeer      *peer,
+                                                             gsize        *size);
+const gchar    *evd_transport_receive_text                  (EvdTransport *self,
+                                                             EvdPeer      *peer);
 
 gboolean        evd_transport_peer_is_connected             (EvdTransport *self,
                                                              EvdPeer       *peer);
