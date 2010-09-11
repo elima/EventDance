@@ -140,9 +140,16 @@ Evd.LongPolling.prototype = {
         xhr.send (data);
     },
 
+    _addToBacklog: function (data) {
+        if (this._backlog != "")
+            this._backlog += (data != "" ? this.FRAME_SEP + data : "");
+        else
+            this._backlog = data;
+    },
+
     send: function (data) {
         if (this._handshaking) {
-            this._backlog += (data != "" ? this.FRAME_SEP + data : "");
+            this._addToBacklog (data);
         }
         else if (this._opened) {
             if (data == "" && this._backlog == "")
@@ -158,10 +165,7 @@ Evd.LongPolling.prototype = {
                 this._send (xhr, data);
             }
             else {
-                if (this._backlog)
-                    this._backlog += (data != "" ? this.FRAME_SEP + data : "");
-                else
-                    this._backlog = data;
+                this._addToBacklog (data);
             }
         }
         else {
