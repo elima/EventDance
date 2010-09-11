@@ -45,10 +45,12 @@ struct _EvdPeerManagerPrivate
 /* signals */
 enum
 {
+  SIGNAL_NEW_PEER,
+  SIGNAL_PEER_CLOSED,
   SIGNAL_LAST
 };
 
-//static guint evd_peer_manager_signals[SIGNAL_LAST] = { 0 };
+static guint evd_peer_manager_signals[SIGNAL_LAST] = { 0 };
 
 static EvdPeerManager *evd_peer_manager_default = NULL;
 
@@ -66,7 +68,26 @@ evd_peer_manager_class_init (EvdPeerManagerClass *class)
   obj_class->dispose = evd_peer_manager_dispose;
   obj_class->finalize = evd_peer_manager_finalize;
 
-  /* add private structure */
+  evd_peer_manager_signals[SIGNAL_NEW_PEER] =
+    g_signal_new ("new-peer",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdPeerManagerClass, new_peer),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__OBJECT,
+                  G_TYPE_NONE,
+                  1, EVD_TYPE_PEER);
+
+  evd_peer_manager_signals[SIGNAL_PEER_CLOSED] =
+    g_signal_new ("peer-closed",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdPeerManagerClass, peer_closed),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__OBJECT,
+                  G_TYPE_NONE,
+                  1, EVD_TYPE_PEER);
+
   g_type_class_add_private (obj_class, sizeof (EvdPeerManagerPrivate));
 }
 
@@ -108,19 +129,6 @@ evd_peer_manager_finalize (GObject *obj)
     evd_peer_manager_default = NULL;
 }
 
-static void
-evd_peer_manager_destroy_peer (EvdPeerManager *self,
-                               EvdPeer        *peer)
-{
-  g_hash_table_remove (self->priv->peers, evd_peer_get_id (peer));
-
-  g_debug ("peer destroyed");
-
-  /* @TODO: emit signal to notify the world */
-
-  g_object_unref (peer);
-}
-
 static gboolean
 evd_peer_manager_check_peer (gpointer key,
                              gpointer value,
@@ -129,15 +137,15 @@ evd_peer_manager_check_peer (gpointer key,
   EvdPeerManager *self = EVD_PEER_MANAGER (user_data);
   EvdPeer *peer = EVD_PEER (value);
 
-  if (! evd_peer_is_alive (peer))
+  if (evd_peer_is_alive (peer))
     {
-      evd_peer_manager_destroy_peer (self, peer);
-
-      return TRUE;
+      return FALSE;
     }
   else
     {
-      return FALSE;
+      g_signal_emit (self, evd_peer_manager_signals[SIGNAL_PEER_CLOSED], 0, peer, NULL);
+
+      return TRUE;
     }
 }
 
@@ -194,6 +202,8 @@ evd_peer_manager_create_new_peer (EvdPeerManager *self,
                        NULL);
 
   g_hash_table_insert (self->priv->peers, id, peer);
+
+  g_signal_emit (self, evd_peer_manager_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
 
   return peer;
 }

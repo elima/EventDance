@@ -43,6 +43,14 @@ struct _EvdPeerManager
 struct _EvdPeerManagerClass
 {
   GObjectClass parent_class;
+
+  /* signal prototypes */
+  void (* new_peer)    (EvdPeerManager *self,
+                        EvdPeer        *peer,
+                        gpointer        user_data);
+  void (* peer_closed) (EvdPeerManager *self,
+                        EvdPeer        *peer,
+                        gpointer        user_data);
 };
 
 #define EVD_TYPE_PEER_MANAGER           (evd_peer_manager_get_type ())
