@@ -151,11 +151,11 @@ evd_transport_receive_internal (EvdTransport *self,
 /* public methods */
 
 gboolean
-evd_transport_send (EvdTransport *self,
+evd_transport_send (EvdTransport  *self,
                     EvdPeer       *peer,
                     const gchar   *buffer,
                     gsize          size,
-                    GError        **error)
+                    GError       **error)
 {
   gssize actual_size;
 
