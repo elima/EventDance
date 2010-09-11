@@ -31,7 +31,7 @@ G_DEFINE_TYPE (EvdPeerManager, evd_peer_manager, G_TYPE_OBJECT)
                                            EVD_TYPE_PEER_MANAGER, \
                                            EvdPeerManagerPrivate))
 
-#define DEFAULT_PEER_CLEANUP_INTERVAL 10 /* seconds */
+#define DEFAULT_PEER_CLEANUP_INTERVAL 5 /* seconds */
 
 /* private data */
 struct _EvdPeerManagerPrivate
@@ -165,13 +165,20 @@ evd_peer_manager_cleanup_peers (EvdPeerManager *self)
 
 /* public methods */
 
+/**
+ * evd_peer_manager_get_default: (constructor):
+ *
+ * Returns: (transfer full):
+ **/
 EvdPeerManager *
 evd_peer_manager_get_default (void)
 {
   if (evd_peer_manager_default == NULL)
-    return evd_peer_manager_new ();
+    evd_peer_manager_default = evd_peer_manager_new ();
   else
-    return g_object_ref (evd_peer_manager_default);
+    g_object_ref (evd_peer_manager_default);
+
+  return evd_peer_manager_default;
 }
 
 EvdPeerManager *
@@ -221,15 +228,10 @@ evd_peer_manager_lookup_peer (EvdPeerManager *self, const gchar *id)
   g_return_val_if_fail (EVD_IS_PEER_MANAGER (self), NULL);
   g_return_val_if_fail (id != NULL, NULL);
 
+  evd_peer_manager_cleanup_peers (self);
+
   peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
                                         (gconstpointer) id));
-
-  if (peer != NULL && ! evd_peer_is_alive (peer))
-    {
-      evd_peer_manager_destroy_peer (self, peer);
-
-      peer = NULL;
-    }
 
   return peer;
 }
