@@ -209,11 +209,12 @@ evd_socket_output_stream_write (GOutputStream  *stream,
             *error = _error;
           else
             g_error_free (_error);
-          actual_size = -1;
+
+          return -1;
         }
     }
 
-  if (actual_size >= 0 && actual_size < size)
+  if (actual_size < size)
     {
       g_object_ref (self);
       g_signal_emit (self,
