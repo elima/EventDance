@@ -84,14 +84,14 @@ static void     evd_web_transport_headers_read         (EvdWebService      *web_
                                                         gchar              *path,
                                                         SoupMessageHeaders *headers);
 
-static gssize   evd_web_transport_send                 (EvdTransport *transport,
+static gssize   evd_web_transport_send                 (EvdTransport  *transport,
                                                         EvdPeer       *peer,
                                                         const gchar   *buffer,
                                                         gsize          size,
                                                         GError       **error);
 
 static gboolean evd_web_transport_peer_is_connected    (EvdTransport *transport,
-                                                        EvdPeer       *peer);
+                                                        EvdPeer      *peer);
 
 G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_SERVICE,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
