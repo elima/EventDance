@@ -122,6 +122,7 @@ evd_throttled_output_stream_get_max_writable_priv (EvdThrottledOutputStream *sel
                                                    guint                   *retry_wait)
 {
   GList *node;
+  guint _retry_wait = 0;
 
   node = self->priv->stream_throttles;
   while (node != NULL)
@@ -133,10 +134,22 @@ evd_throttled_output_stream_get_max_writable_priv (EvdThrottledOutputStream *sel
       size = MIN (size,
                   evd_stream_throttle_request (throttle,
                                                size,
-                                               retry_wait));
+                                               &_retry_wait));
 
       node = node->next;
     }
+
+  if (_retry_wait > 0)
+    {
+      g_signal_emit (self,
+                     evd_throttled_output_stream_signals[SIGNAL_DELAY_WRITE],
+                     0,
+                     _retry_wait,
+                     NULL);
+    }
+
+  if (retry_wait != NULL)
+    *retry_wait = _retry_wait;
 
   return size;
 }
@@ -181,15 +194,6 @@ evd_throttled_output_stream_write (GOutputStream  *stream,
                           (GFunc) evd_throttled_output_stream_report_size,
                           &actual_size);
         }
-    }
-
-  if (wait > 0)
-    {
-      g_signal_emit (self,
-                     evd_throttled_output_stream_signals[SIGNAL_DELAY_WRITE],
-                     0,
-                     wait,
-                     NULL);
     }
 
   return actual_size;
