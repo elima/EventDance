@@ -945,6 +945,23 @@ evd_connection_teardown_streams (EvdConnection *self)
   g_object_unref (self->priv->socket_output_stream);
 }
 
+static void
+evd_connection_shutdown_on_flush (GObject      *obj,
+                                  GAsyncResult *res,
+                                  gpointer      user_data)
+{
+  EvdConnection *conn = EVD_CONNECTION (user_data);
+
+  g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
+
+  evd_socket_shutdown (evd_connection_get_socket (conn),
+                       TRUE,
+                       TRUE,
+                       NULL);
+
+  g_object_unref (conn);
+}
+
 /* public methods */
 
 EvdConnection *
@@ -1280,4 +1297,22 @@ evd_connection_set_group (EvdConnection    *self,
     g_object_unref (old_group);
 
   return TRUE;
+}
+
+void
+evd_connection_flush_and_shutdown (EvdConnection  *self,
+                                   GCancellable   *cancellable)
+{
+  GOutputStream *stream;
+
+  g_return_if_fail (EVD_IS_CONNECTION (self));
+
+  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+
+  g_object_ref (self);
+  g_output_stream_flush_async (stream,
+                            evd_connection_get_priority (self),
+                            cancellable,
+                            evd_connection_shutdown_on_flush,
+                            self);
 }
