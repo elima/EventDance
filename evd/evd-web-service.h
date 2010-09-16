@@ -22,11 +22,11 @@
 #ifndef __EVD_WEB_SERVICE_H__
 #define __EVD_WEB_SERVICE_H__
 
-#include <glib-object.h>
 #include <libsoup/soup-headers.h>
 
 #include <evd-service.h>
 #include <evd-http-connection.h>
+#include <evd-http-request.h>
 
 G_BEGIN_DECLS
 
@@ -50,7 +50,9 @@ struct _EvdWebServiceClass
                          gchar              *path,
                          SoupMessageHeaders *headers);
 
-  /* signal prototypes */
+  void (* request_handler) (EvdWebService     *self,
+                            EvdHttpConnection *conn,
+                            EvdHttpRequest    *request);
 };
 
 #define EVD_TYPE_WEB_SERVICE           (evd_web_service_get_type ())
