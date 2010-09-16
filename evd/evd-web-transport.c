@@ -77,12 +77,9 @@ static void     evd_web_transport_on_receive           (EvdTransport *transport,
                                                         EvdPeer      *peer,
                                                         gpointer      user_data);
 
-static void     evd_web_transport_headers_read         (EvdWebService      *web_service,
-                                                        EvdHttpConnection  *conn,
-                                                        SoupHTTPVersion     ver,
-                                                        gchar              *method,
-                                                        gchar              *path,
-                                                        SoupMessageHeaders *headers);
+static void     evd_web_transport_request_handler      (EvdWebService     *web_service,
+                                                        EvdHttpConnection *conn,
+                                                        EvdHttpRequest    *request);
 
 static gssize   evd_web_transport_send                 (EvdTransport  *transport,
                                                         EvdPeer       *peer,
@@ -108,7 +105,7 @@ evd_web_transport_class_init (EvdWebTransportClass *class)
   obj_class->get_property = evd_web_transport_get_property;
   obj_class->set_property = evd_web_transport_set_property;
 
-  web_service_class->headers_read = evd_web_transport_headers_read;
+  web_service_class->request_handler = evd_web_transport_request_handler;
 
   g_object_class_install_property (obj_class, PROP_BASE_PATH,
                                    g_param_spec_string ("base-path",
@@ -261,16 +258,16 @@ evd_web_transport_on_receive (EvdTransport *transport,
 }
 
 static void
-evd_web_transport_headers_read (EvdWebService      *web_service,
-                                EvdHttpConnection  *conn,
-                                SoupHTTPVersion     ver,
-                                gchar              *method,
-                                gchar              *path,
-                                SoupMessageHeaders *headers)
+evd_web_transport_request_handler (EvdWebService     *web_service,
+                                   EvdHttpConnection *conn,
+                                   EvdHttpRequest    *request)
 {
   EvdWebTransport *self = EVD_WEB_TRANSPORT (web_service);
   GError *error = NULL;
   gchar *filename = NULL;
+  SoupHTTPVersion ver;
+
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
   if (self->priv->js_code == NULL)
     {
@@ -328,9 +325,6 @@ evd_web_transport_headers_read (EvdWebService      *web_service,
 
  free_stuff:
   g_free (filename);
-  soup_message_headers_free (headers);
-  g_free (method);
-  g_free (path);
 }
 
 static gboolean
