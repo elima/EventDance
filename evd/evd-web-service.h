@@ -63,9 +63,14 @@ struct _EvdWebServiceClass
 #define EVD_WEB_SERVICE_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_WEB_SERVICE, EvdWebServiceClass))
 
 
-GType             evd_web_service_get_type                (void) G_GNUC_CONST;
+GType             evd_web_service_get_type                    (void) G_GNUC_CONST;
 
-EvdWebService *   evd_web_service_new                     (void);
+EvdWebService *   evd_web_service_new                         (void);
+
+gboolean          evd_web_service_add_connection_with_request (EvdWebService     *self,
+                                                               EvdHttpConnection *conn,
+                                                               EvdHttpRequest    *request,
+                                                               EvdService        *return_to);
 
 G_END_DECLS
 

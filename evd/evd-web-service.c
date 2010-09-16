@@ -180,3 +180,19 @@ evd_web_service_new (void)
 
   return self;
 }
+
+gboolean
+evd_web_service_add_connection_with_request (EvdWebService     *self,
+                                             EvdHttpConnection *conn,
+                                             EvdHttpRequest    *request,
+                                             EvdService        *return_to)
+{
+  g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (request), FALSE);
+
+  evd_http_connection_set_current_request (conn, request);
+
+  return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
+                                  G_IO_STREAM (conn));
+}
