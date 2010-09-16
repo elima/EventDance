@@ -26,6 +26,7 @@
 #include <libsoup/soup-headers.h>
 
 #include <evd-connection.h>
+#include <evd-http-request.h>
 
 G_BEGIN_DECLS
 
@@ -120,6 +121,10 @@ gboolean            evd_http_connection_respond                      (EvdHttpCon
                                                                       gboolean             close_after,
                                                                       GCancellable        *cancellable,
                                                                       GError             **error);
+
+void                evd_http_connection_set_current_request          (EvdHttpConnection *self,
+                                                                      EvdHttpRequest    *request);
+EvdHttpRequest     *evd_http_connection_get_current_request          (EvdHttpConnection *self);
 
 G_END_DECLS
 

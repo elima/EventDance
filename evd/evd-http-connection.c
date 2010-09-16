@@ -54,6 +54,8 @@ struct _EvdHttpConnectionPrivate
   goffset content_len;
   SoupEncoding encoding;
   gsize content_read;
+
+  EvdHttpRequest *current_request;
 };
 
 /* properties */
@@ -144,6 +146,14 @@ evd_http_connection_init (EvdHttpConnection *self)
 static void
 evd_http_connection_dispose (GObject *obj)
 {
+  EvdHttpConnection *self = EVD_HTTP_CONNECTION (obj);
+
+  if (self->priv->current_request != NULL)
+    {
+      g_object_unref (self->priv->current_request);
+      self->priv->current_request = NULL;
+    }
+
   G_OBJECT_CLASS (evd_http_connection_parent_class)->dispose (obj);
 }
 
@@ -1088,4 +1098,35 @@ evd_http_connection_respond (EvdHttpConnection   *self,
     soup_message_headers_free (_headers);
 
   return result;
+}
+
+void
+evd_http_connection_set_current_request (EvdHttpConnection *self,
+                                         EvdHttpRequest    *request)
+{
+  g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
+
+  if (request == self->priv->current_request)
+    return;
+
+  if (self->priv->current_request != NULL)
+    g_object_unref (self->priv->current_request);
+
+  self->priv->current_request = request;
+
+  if (self->priv->current_request != NULL)
+    g_object_ref (self->priv->current_request);
+}
+
+/**
+ * evd_http_connection_get_current_request:
+ *
+ * Returns: (transfer none):
+ **/
+EvdHttpRequest *
+evd_http_connection_get_current_request (EvdHttpConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), NULL);
+
+  return self->priv->current_request;
 }
