@@ -624,23 +624,6 @@ evd_http_connection_read_content_block (EvdHttpConnection *self)
                              self);
 }
 
-static void
-evd_http_connection_shutdown_on_flush (GObject      *obj,
-                                       GAsyncResult *res,
-                                       gpointer      user_data)
-{
-  EvdConnection *conn = EVD_CONNECTION (user_data);
-
-  g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
-
-  evd_socket_shutdown (evd_connection_get_socket (conn),
-                       TRUE,
-                       TRUE,
-                       NULL);
-
-  g_object_unref (conn);
-}
-
 /* public methods */
 
 EvdHttpConnection *
@@ -1079,16 +1062,7 @@ evd_http_connection_respond (EvdHttpConnection   *self,
                                              cancellable,
                                              error))
         {
-          GOutputStream *stream;
-
-          stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
-
-          g_object_ref (self);
-          g_output_stream_flush_async (stream,
-                            evd_connection_get_priority (EVD_CONNECTION (self)),
-                            cancellable,
-                            evd_http_connection_shutdown_on_flush,
-                            self);
+          evd_connection_flush_and_shutdown (EVD_CONNECTION (self), NULL);
 
           result = TRUE;
         }
