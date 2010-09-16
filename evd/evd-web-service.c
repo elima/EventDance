@@ -44,6 +44,52 @@ evd_web_service_init (EvdWebService *self)
 }
 
 static void
+evd_web_service_invoke_request_handler (EvdWebService     *self,
+                                        EvdHttpConnection *conn,
+                                        EvdHttpRequest    *request)
+{
+  EvdWebServiceClass *class;
+
+  class = EVD_WEB_SERVICE_GET_CLASS (self);
+  if (class->request_handler != NULL)
+    {
+      (* class->request_handler) (self, conn, request);
+    }
+  else
+    {
+      g_object_unref (request);
+    }
+}
+
+SoupURI *
+evd_web_service_build_uri (EvdWebService      *self,
+                           EvdHttpConnection  *conn,
+                           const gchar        *path,
+                           SoupMessageHeaders *headers)
+{
+  gchar *scheme;
+  const gchar *host;
+  gchar *uri_str;
+  SoupURI *uri;
+
+  if (evd_connection_get_tls_active (EVD_CONNECTION (conn)))
+    scheme = g_strdup ("https");
+  else
+    scheme = g_strdup ("http");
+
+  host = soup_message_headers_get_one (headers, "host");
+
+  uri_str = g_strconcat (scheme, "://", host, path, NULL);
+
+  uri = soup_uri_new (uri_str);
+
+  g_free (uri_str);
+  g_free (scheme);
+
+  return uri;
+}
+
+static void
 evd_web_service_conn_on_headers_read (GObject      *obj,
                                       GAsyncResult *res,
                                       gpointer      user_data)
@@ -65,19 +111,28 @@ evd_web_service_conn_on_headers_read (GObject      *obj,
                                                          &error)) != NULL)
     {
       EvdWebService *self = EVD_WEB_SERVICE (user_data);
-      EvdWebServiceClass *class;
+      EvdHttpRequest *request;
+      SoupURI *uri;
 
-      class = EVD_WEB_SERVICE_GET_CLASS (self);
-      if (class->headers_read != NULL)
-        {
-          (* class->headers_read) (self, conn, ver, method, path, headers);
-        }
-      else
-        {
-          soup_message_headers_free (headers);
-          g_free (method);
-          g_free (path);
-        }
+      uri = evd_web_service_build_uri (self, conn, path, headers);
+
+      request = g_object_new (EVD_TYPE_HTTP_REQUEST,
+                              "version", ver,
+                              "method", method,
+                              "path", uri->path,
+                              "headers", headers,
+                              "uri", uri,
+                              NULL);
+
+      soup_uri_free (uri);
+
+      evd_http_connection_set_current_request (conn, request);
+      g_object_unref (request);
+
+      g_free (method);
+      g_free (path);
+
+      evd_web_service_invoke_request_handler (self, conn, request);
     }
   else
     {
@@ -94,12 +149,24 @@ static void
 evd_web_service_connection_accepted (EvdService *service, EvdConnection *conn)
 {
   EvdWebService *self = EVD_WEB_SERVICE (service);
+  EvdHttpRequest *request;
 
-  g_object_ref (conn);
-  evd_http_connection_read_request_headers_async (EVD_HTTP_CONNECTION (conn),
-                                          NULL,
-                                          evd_web_service_conn_on_headers_read,
-                                          self);
+  request = evd_http_connection_get_current_request (EVD_HTTP_CONNECTION (conn));
+
+  if (request != NULL)
+    {
+      evd_web_service_invoke_request_handler (self,
+                                              EVD_HTTP_CONNECTION (conn),
+                                              request);
+    }
+  else
+    {
+      g_object_ref (conn);
+      evd_http_connection_read_request_headers_async (EVD_HTTP_CONNECTION (conn),
+                                           NULL,
+                                           evd_web_service_conn_on_headers_read,
+                                           self);
+    }
 }
 
 /* public methods */
