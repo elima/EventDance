@@ -63,7 +63,8 @@ source_c = \
 	evd-reproxy.c \
 	evd-web-selector.c \
 	evd-web-transport.c \
-	evd-http-message.c
+	evd-http-message.c \
+	evd-http-request.c
 
 source_h = \
 	evd.h \
@@ -97,7 +98,8 @@ source_h = \
 	evd-reproxy.h \
 	evd-web-selector.h \
 	evd-web-transport.h \
-	evd-http-message.h
+	evd-http-message.h \
+	evd-http-request.h
 
 source_h_priv = \
 	evd-marshal.h \
