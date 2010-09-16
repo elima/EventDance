@@ -49,12 +49,9 @@ static void     evd_web_selector_init                (EvdWebSelector *self);
 
 static void     evd_web_selector_dispose             (GObject *obj);
 
-static void     evd_web_selector_headers_read        (EvdWebService      *self,
-                                                      EvdHttpConnection  *conn,
-                                                      SoupHTTPVersion     ver,
-                                                      gchar              *method,
-                                                      gchar              *path,
-                                                      SoupMessageHeaders *headers);
+static void     evd_web_selector_request_handler     (EvdWebService     *web_service,
+                                                      EvdHttpConnection *conn,
+                                                      EvdHttpRequest    *request);
 
 static void     evd_web_selector_free_candidate      (gpointer data,
                                                       gpointer user_data);
@@ -67,7 +64,7 @@ evd_web_selector_class_init (EvdWebSelectorClass *class)
 
   obj_class->dispose = evd_web_selector_dispose;
 
-  web_service_class->headers_read = evd_web_selector_headers_read;
+  web_service_class->request_handler = evd_web_selector_request_handler;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdWebSelectorPrivate));
@@ -150,17 +147,26 @@ evd_web_selector_find_match (EvdWebSelector *self,
 }
 
 static void
-evd_web_selector_headers_read (EvdWebService      *web_service,
-                               EvdHttpConnection  *conn,
-                               SoupHTTPVersion     ver,
-                               gchar              *method,
-                               gchar              *path,
-                               SoupMessageHeaders *headers)
+evd_web_selector_request_handler (EvdWebService     *web_service,
+                                  EvdHttpConnection *conn,
+                                  EvdHttpRequest    *request)
 {
   EvdWebSelector *self = EVD_WEB_SELECTOR (web_service);
-  const gchar *domain;
   EvdService *service;
+
+  SoupHTTPVersion ver;
+  const gchar *method;
+  const gchar *path;
+  SoupMessageHeaders *headers;
+
+  const gchar *domain;
+
   GError *error = NULL;
+
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+  method = evd_http_request_get_method (request);
+  path = evd_http_request_get_path (request);
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
   domain = soup_message_headers_get_one (headers, "host");
 
@@ -173,15 +179,28 @@ evd_web_selector_headers_read (EvdWebService      *web_service,
       soup_message_headers_replace (headers, "connection", "close");
       soup_message_headers_remove (headers, "keep-alive");
 
-      if (evd_http_connection_unread_request_headers (conn,
-                                                      ver,
-                                                      method,
-                                                      path,
-                                                      headers,
-                                                      NULL,
-                                                      &error))
+      if (EVD_IS_WEB_SERVICE (service))
         {
-          evd_io_stream_group_add (EVD_IO_STREAM_GROUP (service), G_IO_STREAM (conn));
+          evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (service),
+                                                       conn,
+                                                       request,
+                                                       EVD_SERVICE (self));
+
+          return;
+        }
+      else
+        {
+          if (evd_http_connection_unread_request_headers (conn,
+                                                          ver,
+                                                          method,
+                                                          path,
+                                                          headers,
+                                                          NULL,
+                                                          &error))
+            {
+              evd_io_stream_group_add (EVD_IO_STREAM_GROUP (service),
+                                       G_IO_STREAM (conn));
+            }
         }
     }
   else
@@ -199,10 +218,6 @@ evd_web_selector_headers_read (EvdWebService      *web_service,
                                    NULL,
                                    NULL);
     }
-
-  soup_message_headers_free (headers);
-  g_free (method);
-  g_free (path);
 }
 
 /* public methods */
