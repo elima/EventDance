@@ -23,6 +23,7 @@
 
 #include "evd-utils.h"
 #include "evd-buffered-input-stream.h"
+#include "evd-connection.h"
 
 G_DEFINE_TYPE (EvdReproxy, evd_reproxy, EVD_TYPE_SERVICE)
 
@@ -305,6 +306,10 @@ evd_reproxy_bridge_read (gpointer user_data)
                                  evd_reproxy_bridge_on_read,
                                  conn0);
     }
+  else
+    {
+      evd_connection_lock_close (EVD_CONNECTION (conn0));
+    }
 
   return FALSE;
 }
@@ -312,6 +317,7 @@ evd_reproxy_bridge_read (gpointer user_data)
 static void
 evd_reproxy_bridge_on_write (EvdConnection *bridge, gpointer user_data)
 {
+  evd_connection_unlock_close (EVD_CONNECTION (user_data));
   evd_reproxy_bridge_read (EVD_CONNECTION (user_data));
 }
 
