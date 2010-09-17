@@ -64,7 +64,8 @@ source_c = \
 	evd-web-selector.c \
 	evd-web-transport.c \
 	evd-http-message.c \
-	evd-http-request.c
+	evd-http-request.c \
+	evd-web-dir.c
 
 source_h = \
 	evd.h \
@@ -99,7 +100,8 @@ source_h = \
 	evd-web-selector.h \
 	evd-web-transport.h \
 	evd-http-message.h \
-	evd-http-request.h
+	evd-http-request.h \
+	evd-web-dir.h
 
 source_h_priv = \
 	evd-marshal.h \
