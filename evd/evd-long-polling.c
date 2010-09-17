@@ -63,12 +63,9 @@ static void     evd_long_polling_transport_iface_init (EvdTransportInterface *if
 static void     evd_long_polling_finalize            (GObject *obj);
 static void     evd_long_polling_dispose             (GObject *obj);
 
-static void     evd_long_polling_headers_read        (EvdWebService      *web_service,
-                                                      EvdHttpConnection  *conn,
-                                                      SoupHTTPVersion     ver,
-                                                      gchar              *method,
-                                                      gchar              *path,
-                                                      SoupMessageHeaders *headers);
+static void     evd_long_polling_request_handler     (EvdWebService     *web_service,
+                                                      EvdHttpConnection *conn,
+                                                      EvdHttpRequest    *request);
 
 static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_stream_group,
                                                       GIOStream        *io_stream);
@@ -106,7 +103,7 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
 
   io_stream_group_class->remove = evd_long_polling_remove;
 
-  web_service_class->headers_read = evd_long_polling_headers_read;
+  web_service_class->request_handler = evd_long_polling_request_handler;
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdLongPollingPrivate));
@@ -215,14 +212,16 @@ static void
 evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
                                        EvdHttpConnection *conn,
                                        EvdPeer           *peer,
-                                       SoupHTTPVersion    ver)
+                                       EvdHttpRequest    *request)
 {
   SoupMessageHeaders *headers;
   GError *error = NULL;
   const gchar *id;
   gchar *st;
+  SoupHTTPVersion ver;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
   id = evd_peer_get_id (peer);
   soup_message_headers_replace (headers, "X-Org-Eventdance-Peer-Id", id);
@@ -329,17 +328,22 @@ evd_long_polling_resolve_peer_id_from_headers (EvdLongPolling     *self,
 }
 
 static void
-evd_long_polling_headers_read (EvdWebService      *web_service,
-                               EvdHttpConnection  *conn,
-                               SoupHTTPVersion     ver,
-                               gchar              *method,
-                               gchar              *path,
-                               SoupMessageHeaders *headers)
+evd_long_polling_request_handler (EvdWebService     *web_service,
+                                  EvdHttpConnection *conn,
+                                  EvdHttpRequest    *request)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (web_service);
   gchar *peer_id = NULL;
   EvdPeer *peer;
   gboolean send_cookies = FALSE;
+
+  const gchar *method;
+  SoupURI *uri;
+  SoupMessageHeaders *headers;
+
+  method = evd_http_request_get_method (request);
+  uri = evd_http_request_get_uri (request);
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
   /* resolve peer object */
   peer_id = evd_long_polling_resolve_peer_id_from_headers (self, headers);
@@ -355,7 +359,7 @@ evd_long_polling_headers_read (EvdWebService      *web_service,
 
   if (send_cookies)
     {
-      evd_long_polling_respond_with_cookies (self, conn, peer, ver);
+      evd_long_polling_respond_with_cookies (self, conn, peer, request);
     }
   else if (g_strcmp0 (method, "GET") == 0)
     {
@@ -394,9 +398,6 @@ evd_long_polling_headers_read (EvdWebService      *web_service,
     }
 
   g_free (peer_id);
-  soup_message_headers_free (headers);
-  g_free (method);
-  g_free (path);
 }
 
 static gboolean
