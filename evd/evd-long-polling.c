@@ -26,6 +26,7 @@
 #include "evd-long-polling.h"
 #include "evd-transport.h"
 
+#include "evd-error.h"
 #include "evd-http-connection.h"
 #include "evd-peer-manager.h"
 
@@ -532,7 +533,15 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
 
   data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
                                                        PEER_DATA_KEY);
-  g_return_val_if_fail (data != NULL, FALSE);
+  if (data == NULL)
+    {
+      g_set_error (error,
+                   EVD_ERROR,
+                   EVD_ERROR_INVALID_DATA,
+                   "Unable to associate peer with long-polling transport");
+
+      return -1;
+    }
 
   if (g_queue_get_length (data->conns) == 0)
     return 0;
