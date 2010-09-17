@@ -43,13 +43,6 @@ struct _EvdWebServiceClass
   EvdServiceClass parent_class;
 
   /* virtual methods */
-  void (* headers_read) (EvdWebService      *self,
-                         EvdHttpConnection  *conn,
-                         SoupHTTPVersion     ver,
-                         gchar              *method,
-                         gchar              *path,
-                         SoupMessageHeaders *headers);
-
   void (* request_handler) (EvdWebService     *self,
                             EvdHttpConnection *conn,
                             EvdHttpRequest    *request);
