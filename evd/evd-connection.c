@@ -64,6 +64,7 @@ struct _EvdConnectionPrivate
   GIOCondition watched_cond;
 
   gboolean delayed_close;
+  gboolean close_locked;
 
   gint read_src_id;
   gint write_src_id;
@@ -258,7 +259,9 @@ evd_connection_init (EvdConnection *self)
   priv->watched_cond = 0;
 
   priv->tls_handshaking = FALSE;
+
   priv->delayed_close = FALSE;
+  priv->close_locked = FALSE;
 
   priv->read_src_id = 0;
   priv->write_src_id = 0;
@@ -732,7 +735,8 @@ evd_connection_socket_on_condition (EvdSocket    *socket,
 
   if (condition & G_IO_HUP)
     {
-      if (self->priv->read_src_id != 0 ||
+      if (self->priv->close_locked ||
+          self->priv->read_src_id != 0 ||
           (condition & G_IO_IN) > 0 ||
           READ_PENDING (self))
         {
@@ -1180,8 +1184,7 @@ evd_connection_get_max_readable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if (self->priv->read_src_id != 0 ||
-      (self->priv->watched_cond & G_IO_IN) > 0 ||
+  if ((self->priv->watched_cond & G_IO_IN) > 0 ||
       self->priv->throt_input_stream == NULL ||
       g_io_stream_is_closed (G_IO_STREAM (self)))
     {
@@ -1200,8 +1203,7 @@ evd_connection_get_max_writable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if (self->priv->write_src_id != 0 ||
-      (self->priv->watched_cond & G_IO_OUT) > 0 ||
+  if ((self->priv->watched_cond & G_IO_OUT) > 0 ||
       self->priv->throt_output_stream == NULL ||
       g_io_stream_is_closed (G_IO_STREAM (self)))
     {
@@ -1297,6 +1299,22 @@ evd_connection_set_group (EvdConnection    *self,
     g_object_unref (old_group);
 
   return TRUE;
+}
+
+void
+evd_connection_lock_close (EvdConnection *self)
+{
+  g_return_if_fail (EVD_IS_CONNECTION (self));
+
+  self->priv->close_locked = TRUE;
+}
+
+void
+evd_connection_unlock_close (EvdConnection *self)
+{
+  g_return_if_fail (EVD_IS_CONNECTION (self));
+
+  self->priv->close_locked = FALSE;
 }
 
 void

@@ -95,6 +95,9 @@ gint               evd_connection_get_priority         (EvdConnection *self);
 gboolean           evd_connection_set_group            (EvdConnection    *self,
                                                         EvdIoStreamGroup *group);
 
+void               evd_connection_lock_close           (EvdConnection *self);
+void               evd_connection_unlock_close         (EvdConnection *self);
+
 void               evd_connection_flush_and_shutdown   (EvdConnection  *self,
                                                         GCancellable   *cancellable);
 
