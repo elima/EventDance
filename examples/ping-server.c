@@ -72,7 +72,7 @@ main (gint argc, gchar *argv[])
                     NULL);
 
   /* web dir */
-  web_dir = evd_web_dir_new ("../common");
+  web_dir = evd_web_dir_new ("./common");
 
   /* web selector */
   selector = evd_web_selector_new ();
