@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Ping - EventDance examples</title>
+  <style>
+    table {
+        width: 150px;
+    }
+    .topic {
+        font-weight: bold;
+        padding-top: 10px;
+    }
+    .field, .value {
+        text-align: right;
+        white-space: nowrap;
+    }
+  </style>
+  <script type="text/javascript" src="/transport"></script>
+  <script type="text/javascript">
+
+var interval = 1;
+var second = 0;
+
+var stat;
+
+function $ (id) {
+    return document.getElementById (id);
+}
+
+function init () {
+    stat = {
+        totalPacketsSent: 0,
+        totalPacketsReceived: 0,
+        totalPacketsLost: 0,
+        packetsReceivedLastSecond: 0,
+
+        maxRoundtripTime: 0,
+        minRoundtripTime: 1000000,
+        sumRoundtripTime: 0,
+        meanRoundtripTime: 0
+    };
+}
+
+function receive (data) {
+    stat.totalPacketsReceived++;
+    if (data != stat.totalPacketsSent)
+        stat.totalPacketsLost++;
+
+    var time = (new Date ()).valueOf ();
+    var latency = time - stat.lastSentTime.valueOf ();
+    if (latency > stat.maxRoundtripTime)
+        stat.maxRoundtripTime = latency;
+    if (latency < stat.minRoundtripTime)
+        stat.minRoundtripTime = latency;
+    stat.sumRoundtripTime += latency;
+    var mean = Math.floor ( (stat.sumRoundtripTime / stat.totalPacketsReceived) * 100) / 100;
+
+    var lost = stat.totalPacketsLost;
+    var percentageLost = lost / stat.totalPacketsSent * 100;
+
+    var _second = Math.floor (time / 1000);
+    if (_second > second) {
+        second = _second;
+        var ppp = stat.totalPacketsReceived - stat.packetsReceivedLastSecond;
+        stat.packetsReceivedLastSecond = stat.totalPacketsReceived;
+        $ ("packetsPerSecond").innerHTML = ppp;
+    }
+
+    $ ("totalPongs").innerHTML = stat.totalPacketsReceived;
+    $ ("totalLost").innerHTML = lost + " (" + percentageLost + "%)";
+
+    $ ("roundtripTime").innerHTML = latency;
+    $ ("maxRoundtripTime").innerHTML = stat.maxRoundtripTime;
+    $ ("minRoundtripTime").innerHTML = stat.minRoundtripTime;
+    $ ("meanRoundtripTime").innerHTML = mean;
+
+    setTimeout (send, interval);
+}
+
+function start () {
+    init ();
+    Evd.transport.setOnReceive (receive, null);
+
+    send ();
+}
+
+function send () {
+    stat.totalPacketsSent++;
+    stat.lastSentTime = new Date ();
+
+    document.getElementById ("totalPings").innerHTML = stat.totalPacketsSent;
+
+    var msg = stat.totalPacketsSent + "";
+    Evd.transport.send (msg);
+}
+
+  </script>
+</head>
+
+<body onload="start ()">
+  <h3>Packets</h3>
+  <table>
+    <tr>
+      <td class="field">Sent:</td>
+      <td class="value" id="totalPings"></td>
+    </tr>
+    <tr>
+      <td class="field">Received:</td>
+      <td class="value" id="totalPongs"></td>
+    </tr>
+    <tr>
+      <td class="field">Lost:</td>
+      <td class="value" id="totalLost"></td>
+    </tr>
+    <tr>
+      <td class="field">Per second:</td>
+      <td class="value" id="packetsPerSecond"></td>
+    </tr>
+
+  </table>
+  <h3>Round-trip time (miliseconds)</h3>
+  <table>
+    <tr>
+      <td class="field">Last:</td>
+      <td class="value" id="roundtripTime"></td>
+    </tr>
+    <tr>
+      <td class="field">Min:</td>
+      <td class="value" id="minRoundtripTime"></td>
+    </tr>
+    <tr>
+      <td class="field">Max:</td>
+      <td class="value" id="maxRoundtripTime"></td>
+    </tr>
+    <tr>
+      <td class="field">Mean:</td>
+      <td class="value" id="meanRoundtripTime"></td>
+    </tr>
+  </table>
+
+</body>
+</html>

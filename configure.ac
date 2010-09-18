@@ -97,6 +97,7 @@ AC_OUTPUT([
 	tests/Makefile
         doc/Makefile
         doc/reference/Makefile
+        examples/Makefile
 ])
 
 echo ""

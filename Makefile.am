@@ -1,6 +1,7 @@
 SUBDIRS = \
 	evd \
-	tests
+	tests \
+	examples
 
 if BUILD_GTK_DOC
 SUBDIRS += doc
@@ -9,7 +10,8 @@ endif
 DIST_SUBDIRS = \
 	evd \
 	tests \
-	doc
+	doc \
+	examples
 
 EXTRA_DIST = \
 	autogen.sh \
