@@ -398,7 +398,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                     binding);
 
   g_file_query_info_async (file,
-                           "standard::content-type,standard::size",
+                           "standard::fast-content-type,standard::size",
                            G_FILE_QUERY_INFO_NONE,
                            evd_connection_get_priority (EVD_CONNECTION (conn)),
                            NULL,
