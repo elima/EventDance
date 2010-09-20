@@ -6,8 +6,6 @@ Evd.LongPolling = function (config) {
 };
 
 Evd.LongPolling.prototype = {
-    FRAME_SEP: String.fromCharCode (0),
-
     _init: function (config) {
         this.url = config.url;
         if (this.url.charAt (this.url.length-1) != "/")
@@ -41,7 +39,10 @@ Evd.LongPolling.prototype = {
 
             if (this.status == 200) {
                 self._opened = true;
-                self.send ("");
+
+                if (self._backlog != "")
+                    self.send ("");
+
                 self._connect ();
             }
             else {
@@ -58,18 +59,52 @@ Evd.LongPolling.prototype = {
         xhr.send ();
     },
 
+    _readMsgHeader: function (data) {
+        var hdr_len, msg_len;
+        var hdr = data.charCodeAt (0) / 1;
+
+        if (hdr <= 0x7F - 2) {
+            hdr_len = 1;
+            msg_len = hdr;
+        }
+        else if (hdr == 0x7F - 1) {
+            hdr_len = 5;
+
+            var len_st = data.substr (1, 4);
+            msg_len = parseInt (len_st, 16);
+        }
+        else {
+            hdr_len = 17;
+
+            var len_st = data.substr (1, 16);
+            msg_len = parseInt (len_st, 16);
+        }
+
+        return [hdr_len, msg_len];
+    },
+
     _xhrOnLoad: function () {
         var self = this._owner;
         var data = this.responseText + "";
 
-        if (data != "") {
-            var frames = data.split (self.FRAME_SEP);
-            for (var i=0; i<frames.length-1; i++) {
-                self._deliver (frames[i]);
+        if (self._opened)
+            self._recycleXhr (this);
+
+        var hdr_len, msg_len, msg, t;
+        while (data != "") {
+            t = self._readMsgHeader (data);
+            hdr_len = t[0];
+            msg_len = t[1];
+
+            msg = data.substr (hdr_len, msg_len);
+            data = data.substr (hdr_len + msg_len);
+
+            try {
+                self._deliver (msg);
+            }
+            catch (e) {
             }
         }
-
-        self._recycleXhr (this);
     },
 
     _xhrOnAbort: function () {
@@ -141,26 +176,55 @@ Evd.LongPolling.prototype = {
     },
 
     _addToBacklog: function (data) {
-        if (this._backlog != "")
-            this._backlog += (data != "" ? this.FRAME_SEP + data : "");
-        else
-            this._backlog = data;
+        this._backlog += data;
+    },
+
+    _addMsgHeader: function (msg) {
+        var hdr = [];
+        var len = msg.length;
+        var hdr_st = "";
+
+        if (len <= 0x7F - 2) {
+            hdr_st = String.fromCharCode (len);
+        }
+        else if (len <= 0xFFFF) {
+            hdr_st = String.fromCharCode (0x7F - 1);
+
+            var len_st = len.toString (16);
+            while (len_st.length < 4)
+                len_st = "0" + len_st;
+
+            hdr_st += len_st;
+        }
+        else {
+            hdr_st = String.fromCharCode (0x7F);
+
+            var len_st = len.toString (16);
+            while (len_st.length < 16)
+                len_st = "0" + len_st;
+
+            hdr_st += len_st;
+        }
+
+        return hdr_st + msg;
     },
 
     send: function (data) {
         if (this._handshaking) {
+            data = this._addMsgHeader (data);
             this._addToBacklog (data);
         }
         else if (this._opened) {
             if (data == "" && this._backlog == "")
                 return;
 
+            if (data)
+                data = this._addMsgHeader (data);
+
             var xhr = this._senders.shift ();
             if (xhr) {
-                if (this._backlog != "") {
-                    data = this._backlog + (data != "" ? this.FRAME_SEP + data : "");
-                    this._backlog = "";
-                }
+                data = this._backlog + data;
+                this._backlog = "";
 
                 this._send (xhr, data);
             }

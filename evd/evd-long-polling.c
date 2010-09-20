@@ -250,6 +250,48 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
 }
 
 static void
+evd_long_polling_read_msg_header (const gchar *buf,
+                                  gsize       *hdr_len,
+                                  gsize       *msg_len,
+                                  gboolean    *more_fragments)
+{
+  const gchar MORE_BIT = 0x80;
+
+  gchar hdr;
+
+  hdr = buf[0];
+
+  if (more_fragments != NULL)
+    *more_fragments = (hdr & MORE_BIT) > 0;
+  hdr &= ~MORE_BIT;
+
+  if (hdr <= 0x7F - 2)
+    {
+      if (hdr_len != NULL)
+        *hdr_len = 1;
+
+      if (msg_len != NULL)
+        *msg_len = hdr;
+    }
+  else if (hdr == 0x7F - 1)
+    {
+      if (hdr_len != NULL)
+        *hdr_len = 5;
+
+      if (msg_len != NULL)
+        sscanf (buf + 1, "%04x", msg_len);
+    }
+  else
+    {
+      if (hdr_len != NULL)
+        *hdr_len = 17;
+
+      if (msg_len != NULL)
+        sscanf (buf + 1, "%16x", msg_len);
+    }
+}
+
+static void
 evd_long_polling_conn_on_content_read (GObject      *obj,
                                        GAsyncResult *res,
                                        gpointer      user_data)
@@ -271,23 +313,27 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
     {
       if (size > 0)
         {
-          gchar *p;
+          EvdTransportInterface *iface;
           gint i;
-          gint last_i = -1;
+          gsize hdr_len = 0;
+          gsize msg_len = 0;
 
-          p = content;
-          for (i=0; i<=size; i++)
+          iface = EVD_TRANSPORT_GET_INTERFACE (self);
+
+          i = 0;
+          while (i < size)
             {
-              if ( (i < size && p[i] == '\0') || i == size)
-                {
-                  EVD_TRANSPORT_GET_INTERFACE (self)->
-                    receive (EVD_TRANSPORT (self),
-                             peer,
-                             p + last_i + 1,
-                             (gsize) i - last_i - 1);
+              evd_long_polling_read_msg_header (content + i,
+                                                &hdr_len,
+                                                &msg_len,
+                                                NULL);
 
-                  last_i = i;
-                }
+              iface->receive (EVD_TRANSPORT (self),
+                              peer,
+                              content + i + hdr_len,
+                              (gsize) msg_len);
+
+              i += msg_len + hdr_len;
             }
         }
 
@@ -409,27 +455,47 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
                                        GError            **error)
 {
   gboolean result = TRUE;
-  gchar *_data;
-  gsize _size;
+  guint8 hdr[17];
+  gsize hdr_len = 1;
+  gchar *len_st;
 
-  _data = g_strdup_printf ("%s", buf);
-  _size = strlen (_data);
+  if (size <= 0x7F - 2)
+    {
+      hdr_len = 1;
+      hdr[0] = (guint8) size;
+    }
+  else if (size <= 0xFFFF)
+    {
+      hdr[0] = 0x7F - 1;
+      hdr_len = 5;
+
+      len_st = g_strdup_printf ("%04x", size);
+      g_memmove (hdr + 1, len_st, 4);
+      g_free (len_st);
+    }
+  else
+    {
+      hdr[0] = 0x7F;
+      hdr_len = 17;
+
+      len_st = g_strdup_printf ("%16x", size);
+      g_memmove (hdr + 1, len_st, 16);
+      g_free (len_st);
+    }
 
   if (! evd_http_connection_write_content (conn,
-                                           _data,
-                                           _size,
+                                           (gchar *) hdr,
+                                           hdr_len,
                                            NULL,
                                            error) ||
       ! evd_http_connection_write_content (conn,
-                                           "\0",
-                                           1,
+                                           buf,
+                                           size,
                                            NULL,
                                            error))
     {
       result = FALSE;
     }
-
-  g_free (_data);
 
   return result;
 }
