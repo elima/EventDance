@@ -279,7 +279,7 @@ evd_long_polling_read_msg_header (const gchar *buf,
         *hdr_len = 5;
 
       if (msg_len != NULL)
-        sscanf (buf + 1, "%04x", msg_len);
+        sscanf (buf + 1, "%04x", (uint *) msg_len);
     }
   else
     {
@@ -287,7 +287,7 @@ evd_long_polling_read_msg_header (const gchar *buf,
         *hdr_len = 17;
 
       if (msg_len != NULL)
-        sscanf (buf + 1, "%16x", msg_len);
+        sscanf (buf + 1, "%16x", (uint *) msg_len);
     }
 }
 
@@ -469,7 +469,7 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
       hdr[0] = 0x7F - 1;
       hdr_len = 5;
 
-      len_st = g_strdup_printf ("%04x", size);
+      len_st = g_strdup_printf ("%04x", (uint) size);
       g_memmove (hdr + 1, len_st, 4);
       g_free (len_st);
     }
@@ -478,7 +478,7 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
       hdr[0] = 0x7F;
       hdr_len = 17;
 
-      len_st = g_strdup_printf ("%16x", size);
+      len_st = g_strdup_printf ("%16x", (uint) size);
       g_memmove (hdr + 1, len_st, 16);
       g_free (len_st);
     }
