@@ -21,6 +21,8 @@
 
 var interval = 1;
 var second = 0;
+var payloadSize = 1024;
+var payload = "";
 
 var stat;
 
@@ -40,12 +42,25 @@ function init () {
         sumRoundtripTime: 0,
         meanRoundtripTime: 0
     };
+
+    payload = "";
+    for (var i=0; i<payloadSize; i++)
+       payload += String.fromCharCode (33 + Math.floor (Math.random () * 64));
 }
 
 function receive (data) {
+    var tokens = data.split (" ");
+    var num = tokens[0];
+    var _payload = tokens[1];
+
     stat.totalPacketsReceived++;
-    if (data != stat.totalPacketsSent)
+    if (num != stat.totalPacketsSent)
         stat.totalPacketsLost++;
+
+    if (_payload != payload) {
+        alert ("payload corrupted!");
+        return;
+    }
 
     var time = (new Date ()).valueOf ();
     var latency = time - stat.lastSentTime.valueOf ();
@@ -91,7 +106,7 @@ function send () {
 
     document.getElementById ("totalPings").innerHTML = stat.totalPacketsSent;
 
-    var msg = stat.totalPacketsSent + "";
+    var msg = stat.totalPacketsSent + " " + payload;
     Evd.transport.send (msg);
 }
 
