@@ -191,10 +191,7 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
       else
         {
           if (evd_http_connection_unread_request_headers (conn,
-                                                          ver,
-                                                          method,
-                                                          path,
-                                                          headers,
+                                                          request,
                                                           NULL,
                                                           &error))
             {

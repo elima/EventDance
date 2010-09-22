@@ -101,10 +101,7 @@ gchar *             evd_http_connection_read_all_content_finish      (EvdHttpCon
                                                                       GError            **error);
 
 gboolean            evd_http_connection_unread_request_headers       (EvdHttpConnection   *self,
-                                                                      SoupHTTPVersion      version,
-                                                                      const gchar         *method,
-                                                                      const gchar         *path,
-                                                                      SoupMessageHeaders  *headers,
+                                                                      EvdHttpRequest      *request,
                                                                       GCancellable        *cancellable,
                                                                       GError             **error);
 
