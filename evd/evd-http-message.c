@@ -132,6 +132,8 @@ evd_http_message_set_property (GObject      *obj,
       break;
 
     case PROP_HEADERS:
+      if (self->priv->headers != NULL)
+        soup_message_headers_free (self->priv->headers);
       self->priv->headers = g_value_get_boxed (value);
       break;
 
@@ -158,9 +160,7 @@ evd_http_message_get_property (GObject    *obj,
       break;
 
     case PROP_HEADERS:
-      if (self->priv->headers != NULL)
-        soup_message_headers_free (self->priv->headers);
-      g_value_set_boxed (value, self->priv->headers);
+      g_value_set_boxed (value, evd_http_message_get_headers (self));
       break;
 
     default:
