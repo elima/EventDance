@@ -86,6 +86,7 @@ source_c = \
 	evd-web-transport-server.c \
 	evd-http-message.c \
 	evd-http-request.c \
+	evd-http-response.c \
 	evd-web-dir.c \
 	evd-ipc-mechanism.c \
 	evd-dbus-agent.c \
@@ -133,6 +134,7 @@ source_h = \
 	evd-web-transport-server.h \
 	evd-http-message.h \
 	evd-http-request.h \
+	evd-http-response.h \
 	evd-web-dir.h \
 	evd-ipc-mechanism.h \
 	evd-dbus-bridge.h \

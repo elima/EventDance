@@ -30,6 +30,7 @@
 #include <libsoup/soup-uri.h>
 
 #include "evd-http-message.h"
+#include "evd-http-response.h"
 
 G_BEGIN_DECLS
 
@@ -67,6 +68,8 @@ const gchar             *evd_http_request_get_method        (EvdHttpRequest *sel
  gchar                  *evd_http_request_get_path          (EvdHttpRequest *self);
 
 SoupURI                 *evd_http_request_get_uri           (EvdHttpRequest *self);
+
+EvdHttpResponse         *evd_http_request_get_response      (EvdHttpRequest *self);
 
 gchar                   *evd_http_request_to_string         (EvdHttpRequest *self,
                                                              gsize          *size);

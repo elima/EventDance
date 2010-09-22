@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -43,6 +43,8 @@ struct _EvdHttpMessage
 struct _EvdHttpMessageClass
 {
   GObjectClass parent_class;
+
+  SoupMessageHeadersType type;
 };
 
 #define EVD_TYPE_HTTP_MESSAGE           (evd_http_message_get_type ())
@@ -55,8 +57,7 @@ struct _EvdHttpMessageClass
 
 GType                    evd_http_message_get_type          (void) G_GNUC_CONST;
 
-EvdHttpMessage          *evd_http_message_new               (SoupHTTPVersion     version,
-                                                             SoupMessageHeaders *headers);
+EvdHttpMessage          *evd_http_message_new               (void);
 
 
 SoupHTTPVersion          evd_http_message_get_version       (EvdHttpMessage *self);

@@ -72,6 +72,8 @@ evd_http_message_class_init (EvdHttpMessageClass *class)
   obj_class->get_property = evd_http_message_get_property;
   obj_class->set_property = evd_http_message_set_property;
 
+  class->type = SOUP_MESSAGE_HEADERS_REQUEST;
+
   g_object_class_install_property (obj_class, PROP_VERSION,
                                    g_param_spec_enum ("version",
                                                       "HTTP Version",
@@ -175,15 +177,11 @@ evd_http_message_get_property (GObject    *obj,
 /* public methods */
 
 EvdHttpMessage *
-evd_http_message_new (SoupHTTPVersion     version,
-                      SoupMessageHeaders *headers)
+evd_http_message_new ()
 {
   EvdHttpMessage *self;
 
-  self = g_object_new (EVD_TYPE_HTTP_MESSAGE,
-                       "version", version,
-                       "headers", headers,
-                       NULL);
+  self = g_object_new (EVD_TYPE_HTTP_MESSAGE, NULL);
 
   return self;
 }
@@ -207,7 +205,13 @@ evd_http_message_get_headers (EvdHttpMessage *self)
   g_return_val_if_fail (EVD_IS_HTTP_MESSAGE (self), NULL);
 
   if (self->priv->headers == NULL)
-    self->priv->headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_REQUEST);
+    {
+      EvdHttpMessageClass *class;
+
+      class = EVD_HTTP_MESSAGE_GET_CLASS (self);
+
+      self->priv->headers = soup_message_headers_new (class->type);
+    }
 
   return self->priv->headers;
 }
