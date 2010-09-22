@@ -19,6 +19,8 @@
  * for more details.
  */
 
+#include <string.h>
+
 #include "evd-http-message.h"
 
 #include "evd-http-connection.h"
@@ -204,4 +206,46 @@ evd_http_message_get_headers (EvdHttpMessage *self)
   g_return_val_if_fail (EVD_IS_HTTP_MESSAGE (self), NULL);
 
   return self->priv->headers;
+}
+
+/**
+ * evd_http_message_headers_to_string:
+ * @size: (out):
+ *
+ * Returns: (transfer full):
+ **/
+gchar *
+evd_http_message_headers_to_string (EvdHttpMessage *self,
+                                    gsize          *size)
+{
+  SoupMessageHeaders *headers;
+  SoupMessageHeadersIter iter;
+  const gchar *name;
+  const gchar *value;
+
+  gchar *st;
+  GString *buf;
+  gchar *result;
+
+  g_return_val_if_fail (EVD_IS_HTTP_MESSAGE (self), NULL);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  buf = g_string_new ("");
+
+  soup_message_headers_iter_init (&iter, headers);
+  while (soup_message_headers_iter_next (&iter, &name, &value))
+    {
+      st = g_strdup_printf ("%s: %s\r\n", name, value);
+      g_string_append_len (buf, st, strlen (st));
+      g_free (st);
+    }
+
+  if (size != NULL)
+    *size = buf->len;
+
+  result = buf->str;
+  g_string_free (buf, FALSE);
+
+  return result;
 }

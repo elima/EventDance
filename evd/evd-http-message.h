@@ -62,6 +62,9 @@ SoupHTTPVersion          evd_http_message_get_version       (EvdHttpMessage *sel
 
 SoupMessageHeaders      *evd_http_message_get_headers       (EvdHttpMessage *self);
 
+gchar                   *evd_http_message_headers_to_string (EvdHttpMessage *self,
+                                                             gsize          *size);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_MESSAGE_H__ */
