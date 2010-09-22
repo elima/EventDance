@@ -516,9 +516,9 @@ evd_http_connection_read_headers_block (EvdHttpConnection *self)
 static void
 evd_http_connection_read_headers_async (EvdHttpConnection   *self,
                                         GCancellable        *cancellable,
-                                        GAsyncReadyCallback callback,
-                                        gpointer            user_data,
-                                        gpointer            source_tag)
+                                        GAsyncReadyCallback  callback,
+                                        gpointer             user_data,
+                                        gpointer             source_tag)
 {
   GError *error = NULL;
 
