@@ -19,6 +19,8 @@
  * for more details.
  */
 
+#include <string.h>
+
 #include <libsoup/soup-method.h>
 
 #include "evd-http-request.h"
@@ -226,4 +228,53 @@ evd_http_request_get_uri (EvdHttpRequest *self)
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
   return self->priv->uri;
+}
+
+/**
+ * evd_http_request_to_string:
+ * @size: (out):
+ *
+ * Returns: (transfer full):
+ **/
+gchar *
+evd_http_request_to_string (EvdHttpRequest *self,
+                            gsize          *size)
+{
+  SoupHTTPVersion version;
+
+  gchar *headers_st;
+  gsize headers_size;
+
+  gchar *st;
+  GString *buf;
+  gchar *result;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
+
+  version = evd_http_message_get_version (EVD_HTTP_MESSAGE (self));
+
+  buf = g_string_new ("");
+
+  /* send status line */
+  st = g_strdup_printf ("%s %s HTTP/1.%d\r\n",
+                        self->priv->method,
+                        self->priv->path,
+                        version);
+  g_string_append_len (buf, st, strlen (st));
+  g_free (st);
+
+  headers_st = evd_http_message_headers_to_string (EVD_HTTP_MESSAGE (self),
+                                                   &headers_size);
+  g_string_append_len (buf, headers_st, headers_size);
+  g_free (headers_st);
+
+  g_string_append_len (buf, "\r\n", 2);
+
+  if (size != NULL)
+    *size = buf->len;
+
+  result = buf->str;
+  g_string_free (buf, FALSE);
+
+  return result;
 }

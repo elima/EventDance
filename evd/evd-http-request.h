@@ -62,6 +62,9 @@ const gchar             *evd_http_request_get_path          (EvdHttpRequest *sel
 
 SoupURI                 *evd_http_request_get_uri           (EvdHttpRequest *self);
 
+gchar                   *evd_http_request_to_string         (EvdHttpRequest *self,
+                                                             gsize          *size);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_REQUEST_H__ */
