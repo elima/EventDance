@@ -64,14 +64,6 @@ enum
   PROP_0
 };
 
-struct EvdHttpConnectionRequestHeaders
-{
-  SoupMessageHeaders *headers;
-  SoupHTTPVersion version;
-  gchar *method;
-  gchar *path;
-};
-
 struct EvdHttpConnectionResponseHeaders
 {
   SoupMessageHeaders *headers;
@@ -235,23 +227,6 @@ evd_http_connection_close (GIOStream     *stream,
 }
 
 static void
-evd_http_connection_request_headers_destroy (gpointer data)
-{
-  struct EvdHttpConnectionRequestHeaders *request;
-
-  request = (struct EvdHttpConnectionRequestHeaders *) data;
-
-  if (request->headers != NULL)
-    soup_message_headers_free (request->headers);
-  if (request->method != NULL)
-    g_free (request->method);
-  if (request->path != NULL)
-    g_free (request->path);
-
-  g_free (request);
-}
-
-static void
 evd_http_connection_response_headers_destroy (gpointer data)
 {
   struct EvdHttpConnectionResponseHeaders *response;
@@ -264,6 +239,33 @@ evd_http_connection_response_headers_destroy (gpointer data)
     g_free (response->reason_phrase);
 
   g_free (response);
+}
+
+SoupURI *
+evd_http_connection_build_uri (EvdHttpConnection  *self,
+                               const gchar        *path,
+                               SoupMessageHeaders *headers)
+{
+  gchar *scheme;
+  const gchar *host;
+  gchar *uri_str;
+  SoupURI *uri;
+
+  if (evd_connection_get_tls_active (EVD_CONNECTION (self)))
+    scheme = g_strdup ("https");
+  else
+    scheme = g_strdup ("http");
+
+  host = soup_message_headers_get_one (headers, "host");
+
+  uri_str = g_strconcat (scheme, "://", host, path, NULL);
+
+  uri = soup_uri_new (uri_str);
+
+  g_free (uri_str);
+  g_free (scheme);
+
+  return uri;
 }
 
 static void
@@ -284,27 +286,43 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
 
   if (source_tag == evd_http_connection_read_request_headers_async)
     {
-      struct EvdHttpConnectionRequestHeaders *response;
+      SoupMessageHeaders *headers;
+      gchar *method = NULL;
+      gchar *path = NULL;
+      SoupHTTPVersion version;
 
-      response = g_new0 (struct EvdHttpConnectionRequestHeaders, 1);
-      response->headers =
-        soup_message_headers_new (SOUP_MESSAGE_HEADERS_REQUEST);
+      headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_REQUEST);
 
       if (soup_headers_parse_request (buf->str,
                                       buf->len - 2,
-                                      response->headers,
-                                      &response->method,
-                                      &response->path,
-                                      &response->version))
+                                      headers,
+                                      &method,
+                                      &path,
+                                      &version))
         {
-          g_simple_async_result_set_op_res_gpointer (res,
-                                  response,
-                                  evd_http_connection_request_headers_destroy);
+          EvdHttpRequest *request;
+          SoupURI *uri;
+
+          uri = evd_http_connection_build_uri (self, path, headers);
+
+          request = g_object_new (EVD_TYPE_HTTP_REQUEST,
+                                  "version", version,
+                                  "headers", headers,
+                                  "method", method,
+                                  "path", path,
+                                  "uri", uri,
+                                  NULL);
+
+          soup_uri_free (uri);
+
+          evd_http_connection_set_current_request (self, request);
+
+          g_simple_async_result_set_op_res_gpointer (res, request, g_object_unref);
 
           self->priv->encoding =
-            soup_message_headers_get_encoding (response->headers);
+            soup_message_headers_get_encoding (headers);
           self->priv->content_len =
-            soup_message_headers_get_content_length (response->headers);
+            soup_message_headers_get_content_length (headers);
         }
       else
         {
@@ -313,6 +331,9 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
                                            EVD_ERROR_INVALID_DATA,
                                            "Failed to parse HTTP request headers");
         }
+
+      g_free (method);
+      g_free (path);
     }
   else if (source_tag == evd_http_connection_read_response_headers_async)
     {
@@ -724,20 +745,14 @@ evd_http_connection_read_request_headers_async (EvdHttpConnection   *self,
 /**
  * evd_http_connection_read_request_headers_finish:
  * @result: The #GAsyncResult object passed to the callback.
- * @version: (out):
- * @method: (out):
- * @path: (out):
  * @error:
  *
- * Returns: (transfer full) (type Soup.MessageHeaders):
+ * Returns: (transfer full):
  **/
-SoupMessageHeaders *
-evd_http_connection_read_request_headers_finish (EvdHttpConnection   *self,
-                                                 GAsyncResult        *result,
-                                                 SoupHTTPVersion     *version,
-                                                 gchar              **method,
-                                                 gchar              **path,
-                                                 GError             **error)
+EvdHttpRequest *
+evd_http_connection_read_request_headers_finish (EvdHttpConnection  *self,
+                                                 GAsyncResult       *result,
+                                                 GError            **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), NULL);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
@@ -748,34 +763,7 @@ evd_http_connection_read_request_headers_finish (EvdHttpConnection   *self,
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
                                                error))
     {
-      struct EvdHttpConnectionRequestHeaders *response;
-      SoupMessageHeaders *headers = NULL;
-
-      response =
-        g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
-
-      if (response->headers != NULL)
-        {
-          headers = response->headers;
-          response->headers = NULL;
-        }
-
-      if (version != NULL)
-        *version = response->version;
-
-      if (method != NULL)
-        {
-          *method = response->method;
-          response->method = NULL;
-        }
-
-      if (path != NULL)
-        {
-          *path = response->path;
-          response->path = NULL;
-        }
-
-      return headers;
+      return g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
     }
   else
     {

@@ -74,11 +74,8 @@ void                evd_http_connection_read_request_headers_async   (EvdHttpCon
                                                                       GAsyncReadyCallback callback,
                                                                       gpointer            user_data);
 
-SoupMessageHeaders *evd_http_connection_read_request_headers_finish  (EvdHttpConnection   *self,
+EvdHttpRequest     *evd_http_connection_read_request_headers_finish  (EvdHttpConnection   *self,
                                                                       GAsyncResult        *result,
-                                                                      SoupHTTPVersion     *version,
-                                                                      gchar              **method,
-                                                                      gchar              **path,
                                                                       GError             **error);
 
 gboolean            evd_http_connection_write_response_headers       (EvdHttpConnection   *self,
