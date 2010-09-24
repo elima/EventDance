@@ -39,6 +39,7 @@ struct _EvdWebDirPrivate
 
 typedef struct
 {
+  EvdWebDir *web_dir;
   GFile *file;
   GIOStream *io_stream;
   EvdHttpConnection *conn;
@@ -175,10 +176,12 @@ evd_web_dir_get_property (GObject    *obj,
 static void
 evd_web_dir_finish_request (EvdWebDirBinding *binding)
 {
+  EvdWebDir *self;
   EvdHttpConnection *conn;
 
   /* @TODO: consider caching the GFile for future requests */
 
+  self = binding->web_dir;
   conn = binding->conn;
   g_signal_handlers_disconnect_by_func (conn,
                                         evd_web_dir_conn_on_write,
@@ -190,7 +193,8 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
 
   g_slice_free (EvdWebDirBinding, binding);
 
-  evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
+  EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
+    return_connection (EVD_WEB_SERVICE (self), conn);
 
   g_object_unref (conn);
 }
@@ -387,6 +391,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
 
   binding = g_slice_new0 (EvdWebDirBinding);
 
+  binding->web_dir = self;
   binding->file = file;
   binding->buffer = g_slice_alloc (BLOCK_SIZE);
 
