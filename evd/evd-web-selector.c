@@ -154,16 +154,13 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
   EvdWebSelector *self = EVD_WEB_SELECTOR (web_service);
   EvdService *service;
 
-  SoupHTTPVersion ver;
   const gchar *method;
   const gchar *path;
   SoupMessageHeaders *headers;
-
   const gchar *domain;
 
   GError *error = NULL;
 
-  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
   method = evd_http_request_get_method (request);
   path = evd_http_request_get_path (request);
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
@@ -198,8 +195,12 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
     }
   else
     {
+      SoupHTTPVersion ver;
+
       /* no service found, respond with a 403 Forbidden message
          and close the connection */
+
+      ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
       evd_http_connection_respond (conn,
                                    ver,
                                    403,
