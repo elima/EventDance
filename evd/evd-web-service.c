@@ -23,16 +23,23 @@
 
 G_DEFINE_ABSTRACT_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 
+#define RETURN_DATA_KEY "org.eventdance.lib.WebService.RETURN_TO"
+
 static void     evd_web_service_class_init          (EvdWebServiceClass *class);
 static void     evd_web_service_init                (EvdWebService *self);
 
 static void     evd_web_service_connection_accepted (EvdService    *service,
                                                      EvdConnection *conn);
 
+static void     evd_web_service_return_connection   (EvdWebService     *self,
+                                                     EvdHttpConnection *conn);
+
 static void
 evd_web_service_class_init (EvdWebServiceClass *class)
 {
   EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
+
+  class->return_connection = evd_web_service_return_connection;
 
   service_class->connection_accepted = evd_web_service_connection_accepted;
 }
@@ -113,6 +120,52 @@ evd_web_service_connection_accepted (EvdService *service, EvdConnection *conn)
     }
 }
 
+static void
+evd_web_service_return_connection (EvdWebService     *self,
+                                   EvdHttpConnection *conn)
+{
+  EvdService *return_to;
+
+  return_to = EVD_SERVICE (g_object_get_data (G_OBJECT (conn),
+                                              RETURN_DATA_KEY));
+  if (return_to != NULL)
+    {
+      g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, NULL);
+      evd_http_connection_set_current_request (conn, NULL);
+
+      evd_io_stream_group_add (EVD_IO_STREAM_GROUP (return_to),
+                               G_IO_STREAM (conn));
+    }
+  else
+    {
+      evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
+    }
+}
+
+static void
+evd_web_service_on_service_destroyed (gpointer  data,
+                                      GObject  *where_the_object_was)
+{
+  EvdHttpConnection *conn = EVD_HTTP_CONNECTION (data);
+
+  g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, NULL);
+}
+
+static void
+evd_web_service_on_conn_destroyed (gpointer  data,
+                                   GObject  *where_the_object_was)
+{
+  EvdHttpConnection *conn = EVD_HTTP_CONNECTION (where_the_object_was);
+  EvdService *service;
+
+  service = EVD_SERVICE (g_object_get_data (G_OBJECT (conn), RETURN_DATA_KEY));
+
+  if (service != NULL)
+    g_object_weak_unref (G_OBJECT (service),
+                         evd_web_service_on_service_destroyed,
+                         conn);
+}
+
 /* public methods */
 
 EvdWebService *
@@ -131,11 +184,31 @@ evd_web_service_add_connection_with_request (EvdWebService     *self,
                                              EvdHttpRequest    *request,
                                              EvdService        *return_to)
 {
+  EvdService *old_service;
+
   g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (request), FALSE);
 
   evd_http_connection_set_current_request (conn, request);
+
+  old_service = EVD_SERVICE (g_object_get_data (G_OBJECT (conn),
+                                                RETURN_DATA_KEY));
+  if (old_service != NULL)
+    g_object_weak_unref (G_OBJECT (old_service),
+                         evd_web_service_on_service_destroyed,
+                         conn);
+
+  g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, return_to);
+
+  g_object_weak_ref (G_OBJECT (conn),
+                     evd_web_service_on_conn_destroyed,
+                     NULL);
+
+  if (return_to != NULL)
+    g_object_weak_ref (G_OBJECT (return_to),
+                       evd_web_service_on_service_destroyed,
+                       conn);
 
   return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                                   G_IO_STREAM (conn));

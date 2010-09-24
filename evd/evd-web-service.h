@@ -43,9 +43,12 @@ struct _EvdWebServiceClass
   EvdServiceClass parent_class;
 
   /* virtual methods */
-  void (* request_handler) (EvdWebService     *self,
-                            EvdHttpConnection *conn,
-                            EvdHttpRequest    *request);
+  void (* request_handler)   (EvdWebService     *self,
+                              EvdHttpConnection *conn,
+                              EvdHttpRequest    *request);
+
+  void (* return_connection) (EvdWebService     *self,
+                              EvdHttpConnection *conn);
 };
 
 #define EVD_TYPE_WEB_SERVICE           (evd_web_service_get_type ())
