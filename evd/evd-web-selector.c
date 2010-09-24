@@ -175,10 +175,6 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
 
   if (service != NULL)
     {
-      /* keep-alive is not supported currently */
-      soup_message_headers_replace (headers, "connection", "close");
-      soup_message_headers_remove (headers, "keep-alive");
-
       if (EVD_IS_WEB_SERVICE (service))
         {
           evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (service),
