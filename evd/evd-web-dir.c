@@ -422,3 +422,23 @@ evd_web_dir_new ()
 
   return self;
 }
+
+void
+evd_web_dir_set_root (EvdWebDir *self, const gchar *root)
+{
+  g_return_if_fail (EVD_IS_WEB_DIR (self));
+  g_return_if_fail (root != NULL);
+
+  if (self->priv->root != NULL)
+    g_free (self->priv->root);
+
+  self->priv->root = g_strdup (root);
+}
+
+const gchar *
+evd_web_dir_get_root (EvdWebDir *self)
+{
+  g_return_val_if_fail (EVD_IS_WEB_DIR (self), NULL);
+
+  return self->priv->root;
+}

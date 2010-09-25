@@ -54,6 +54,10 @@ GType               evd_web_dir_get_type          (void) G_GNUC_CONST;
 
 EvdWebDir          *evd_web_dir_new               (void);
 
+void                evd_web_dir_set_root          (EvdWebDir   *self,
+                                                   const gchar *root);
+const gchar        *evd_web_dir_get_root          (EvdWebDir *self);
+
 G_END_DECLS
 
 #endif /* __EVD_WEB_DIR_H__ */
