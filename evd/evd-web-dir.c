@@ -414,16 +414,11 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
 /* public methods */
 
 EvdWebDir *
-evd_web_dir_new (const gchar *root)
+evd_web_dir_new ()
 {
   EvdWebDir *self;
 
-  if (root == NULL)
-    root = DEFAULT_ROOT_PATH;
-
-  self = g_object_new (EVD_TYPE_WEB_DIR,
-                       "root", root,
-                       NULL);
+  self = g_object_new (EVD_TYPE_WEB_DIR, NULL);
 
   return self;
 }

@@ -52,7 +52,7 @@ struct _EvdWebDirClass
 
 GType               evd_web_dir_get_type          (void) G_GNUC_CONST;
 
-EvdWebDir          *evd_web_dir_new               (const gchar *root);
+EvdWebDir          *evd_web_dir_new               (void);
 
 G_END_DECLS
 
