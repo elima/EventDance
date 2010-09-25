@@ -188,7 +188,8 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
                                         binding);
 
   g_object_unref (binding->file);
-  g_object_unref (binding->io_stream);
+  if (binding->io_stream != NULL)
+    g_object_unref (binding->io_stream);
   g_slice_free1 (BLOCK_SIZE, binding->buffer);
 
   g_slice_free (EvdWebDirBinding, binding);
@@ -197,6 +198,44 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
     return_connection (EVD_WEB_SERVICE (self), conn);
 
   g_object_unref (conn);
+}
+
+static void
+evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
+                                  GError           *error)
+{
+  guint status_code;
+  gchar *reason_phrase;
+  SoupHTTPVersion ver;
+  EvdHttpRequest *request;
+
+  if (error->code == G_IO_ERROR_NOT_FOUND)
+    {
+      status_code = SOUP_STATUS_NOT_FOUND;
+      reason_phrase = g_strdup ("Not Found");
+    }
+  else
+    {
+      status_code = SOUP_STATUS_IO_ERROR;
+      reason_phrase = g_strdup ("IO Error");
+    }
+
+  request = evd_http_connection_get_current_request (binding->conn);
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+  evd_http_connection_respond (binding->conn,
+                               ver,
+                               status_code,
+                               reason_phrase,
+                               NULL,
+                               NULL,
+                               0,
+                               FALSE,
+                               NULL,
+                               NULL);
+
+  g_free (reason_phrase);
+
+  evd_web_dir_finish_request (binding);
 }
 
 static void
@@ -235,8 +274,7 @@ evd_web_dir_file_on_block_read (GObject      *object,
     }
   else
     {
-      /* handle error reading file */
-      g_debug ("error reading file: %s", error->message);
+      evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
     }
 }
@@ -279,8 +317,7 @@ evd_web_dir_file_on_open (GObject      *object,
     }
   else
     {
-      /* handle error with file */
-      g_debug ("error openning file: %s", error->message);
+      evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
     }
 }
@@ -342,19 +379,8 @@ evd_web_dir_file_on_info (GObject      *object,
     }
   else
     {
-      /* handle error with file */
-
+      evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
-      evd_http_connection_respond (conn,
-                                   ver,
-                                   404,
-                                   "Not Found",
-                                   NULL,
-                                   NULL,
-                                   0,
-                                   TRUE,
-                                   NULL,
-                                   NULL);
     }
 }
 
