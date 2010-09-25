@@ -1002,8 +1002,7 @@ evd_http_connection_respond (EvdHttpConnection   *self,
   if (close_after)
     soup_message_headers_replace (_headers, "Connection", "close");
 
-  if (content != NULL)
-    soup_message_headers_set_content_length (_headers, size);
+  soup_message_headers_set_content_length (_headers, size);
 
   if (evd_http_connection_write_response_headers (self,
                                                   ver,
