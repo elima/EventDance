@@ -21,6 +21,8 @@
 
 #include "evd-web-service.h"
 
+#include "evd-error.h"
+
 G_DEFINE_ABSTRACT_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 
 #define RETURN_DATA_KEY "org.eventdance.lib.WebService.RETURN_TO"
@@ -87,7 +89,9 @@ evd_web_service_conn_on_headers_read (GObject      *obj,
     }
   else
     {
-      g_debug ("error reading request headers: %s", error->message);
+      if (error->domain != EVD_ERROR || error->code != EVD_ERROR_CLOSED)
+        g_debug ("error reading request headers: %s", error->message);
+
       g_error_free (error);
 
       g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
