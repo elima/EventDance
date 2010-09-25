@@ -81,7 +81,7 @@ EvdHttpRequest     *evd_http_connection_read_request_headers_finish  (EvdHttpCon
 gboolean            evd_http_connection_write_response_headers       (EvdHttpConnection   *self,
                                                                       SoupHTTPVersion      version,
                                                                       guint                status_code,
-                                                                      gchar               *reason_phrase,
+                                                                      const gchar         *reason_phrase,
                                                                       SoupMessageHeaders  *headers,
                                                                       GCancellable        *cancellable,
                                                                       GError             **error);
@@ -108,7 +108,7 @@ gboolean            evd_http_connection_unread_request_headers       (EvdHttpCon
 gboolean            evd_http_connection_respond                      (EvdHttpConnection   *self,
                                                                       SoupHTTPVersion      ver,
                                                                       guint                status_code,
-                                                                      gchar               *reason_phrase,
+                                                                      const gchar         *reason_phrase,
                                                                       SoupMessageHeaders  *headers,
                                                                       const gchar         *content,
                                                                       gsize                size,
