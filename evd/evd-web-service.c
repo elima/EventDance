@@ -36,12 +36,21 @@ static void     evd_web_service_connection_accepted (EvdService    *service,
 static void     evd_web_service_return_connection   (EvdWebService     *self,
                                                      EvdHttpConnection *conn);
 
+static gboolean evd_web_service_respond             (EvdWebService       *self,
+                                                     EvdHttpConnection   *conn,
+                                                     guint                status_code,
+                                                     SoupMessageHeaders  *headers,
+                                                     gchar               *content,
+                                                     gsize                size,
+                                                     GError             **error);
+
 static void
 evd_web_service_class_init (EvdWebServiceClass *class)
 {
   EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
 
   class->return_connection = evd_web_service_return_connection;
+  class->respond = evd_web_service_respond;
 
   service_class->connection_accepted = evd_web_service_connection_accepted;
 }
@@ -143,6 +152,50 @@ evd_web_service_return_connection (EvdWebService     *self,
   else
     {
       evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
+    }
+}
+
+static gboolean
+evd_web_service_respond (EvdWebService       *self,
+                         EvdHttpConnection   *conn,
+                         guint                status_code,
+                         SoupMessageHeaders  *headers,
+                         gchar               *content,
+                         gsize                size,
+                         GError             **error)
+{
+  EvdHttpRequest *request;
+  SoupHTTPVersion ver;
+  const gchar *reason_phrase;
+
+  request = evd_http_connection_get_current_request (conn);
+  if (request == NULL)
+    ver = SOUP_HTTP_1_1;
+  else
+    ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+
+  reason_phrase = soup_status_get_phrase (status_code);
+
+  if (evd_http_connection_respond (conn,
+                                   ver,
+                                   status_code,
+                                   reason_phrase,
+                                   headers,
+                                   content,
+                                   size,
+                                   FALSE,
+                                   NULL,
+                                   error))
+    {
+      EVD_WEB_SERVICE_GET_CLASS (self)->return_connection (self, conn);
+
+      return TRUE;
+    }
+  else
+    {
+      evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
+
+      return FALSE;
     }
 }
 
