@@ -29,12 +29,16 @@ G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
 
 #define DEFAULT_ROOT_PATH "."
 
+#define DEFAULT_ALLOW_PUT FALSE
+
 #define BLOCK_SIZE 0xFFFF
 
 /* private data */
 struct _EvdWebDirPrivate
 {
   gchar *root;
+
+  gboolean allow_put;
 };
 
 typedef struct
@@ -51,7 +55,8 @@ typedef struct
 enum
 {
   PROP_0,
-  PROP_ROOT
+  PROP_ROOT,
+  PROP_ALLOW_PUT
 };
 
 static void     evd_web_dir_class_init           (EvdWebDirClass *class);
@@ -99,6 +104,14 @@ evd_web_dir_class_init (EvdWebDirClass *class)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class, PROP_ALLOW_PUT,
+                                   g_param_spec_boolean ("allow-put",
+                                                         "Allow PUT method",
+                                                         "Sets/gets whether to allow HTTP PUT method",
+                                                         DEFAULT_ALLOW_PUT,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   g_type_class_add_private (obj_class, sizeof (EvdWebDirPrivate));
 }
 
@@ -109,6 +122,8 @@ evd_web_dir_init (EvdWebDir *self)
 
   priv = EVD_WEB_DIR_GET_PRIVATE (self);
   self->priv = priv;
+
+  priv->allow_put = DEFAULT_ALLOW_PUT;
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
@@ -145,6 +160,10 @@ evd_web_dir_set_property (GObject      *obj,
       self->priv->root = g_value_dup_string (value);
       break;
 
+    case PROP_ALLOW_PUT:
+      self->priv->allow_put = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -165,6 +184,10 @@ evd_web_dir_get_property (GObject    *obj,
     {
     case PROP_ROOT:
       g_value_set_string (value, self->priv->root);
+      break;
+
+    case PROP_ALLOW_PUT:
+      g_value_set_boolean (value, self->priv->allow_put);
       break;
 
     default:
