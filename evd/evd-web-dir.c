@@ -228,35 +228,26 @@ evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
                                   GError           *error)
 {
   guint status_code;
-  gchar *reason_phrase;
-  SoupHTTPVersion ver;
-  EvdHttpRequest *request;
 
-  if (error->code == G_IO_ERROR_NOT_FOUND)
+  switch (error->code)
     {
+    case G_IO_ERROR_NOT_FOUND:
       status_code = SOUP_STATUS_NOT_FOUND;
-      reason_phrase = g_strdup ("Not Found");
-    }
-  else
-    {
+      break;
+
+    default:
       status_code = SOUP_STATUS_IO_ERROR;
-      reason_phrase = g_strdup ("IO Error");
+      break;
     }
 
-  request = evd_http_connection_get_current_request (binding->conn);
-  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
-  evd_http_connection_respond (binding->conn,
-                               ver,
-                               status_code,
-                               reason_phrase,
-                               NULL,
-                               NULL,
-                               0,
-                               FALSE,
-                               NULL,
-                               NULL);
-
-  g_free (reason_phrase);
+  EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
+    respond (EVD_WEB_SERVICE (binding->web_dir),
+             binding->conn,
+             status_code,
+             NULL,
+             NULL,
+             0,
+             NULL);
 
   evd_web_dir_finish_request (binding);
 }
