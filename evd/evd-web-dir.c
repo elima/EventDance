@@ -416,6 +416,13 @@ evd_web_dir_conn_on_write (EvdConnection *conn, gpointer user_data)
     evd_web_dir_file_read_block (binding);
 }
 
+static gboolean
+evd_web_dir_method_allowed (EvdWebDir *self, const gchar *method)
+{
+  return g_strcmp0 (method, "GET") == 0
+    || (g_strcmp0 (method, "PUT") == 0 && self->priv->allow_put);
+}
+
 static void
 evd_web_dir_request_handler (EvdWebService     *web_service,
                              EvdHttpConnection *conn,
@@ -425,11 +432,21 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
   gchar *filename = NULL;
   GFile *file;
   EvdWebDirBinding *binding;
-  SoupURI *uri;
 
-  /* @TODO: filter method (only HEAD, GET and POST currently supported) */
+  if (! evd_web_dir_method_allowed (self,
+                                    evd_http_request_get_method (request)))
+    {
+      EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
+        respond (web_service,
+                 conn,
+                 SOUP_STATUS_METHOD_NOT_ALLOWED,
+                 NULL,
+                 NULL,
+                 0,
+                 NULL);
 
-  uri = evd_http_request_get_uri (request);
+      return;
+    }
 
   filename = g_strconcat (self->priv->root,
                           "/",
