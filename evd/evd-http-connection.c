@@ -298,7 +298,9 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
                                       headers,
                                       &method,
                                       &path,
-                                      &version))
+                                      &version)
+          && method != NULL
+          && version <= SOUP_HTTP_1_1)
         {
           EvdHttpRequest *request;
           SoupURI *uri;
@@ -326,6 +328,8 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
         }
       else
         {
+          soup_message_headers_free (headers);
+
           g_simple_async_result_set_error (res,
                                            EVD_ERROR,
                                            EVD_ERROR_INVALID_DATA,
