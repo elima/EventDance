@@ -1296,6 +1296,14 @@ evd_socket_watch_condition (EvdSocket *self, GIOCondition cond, GError **error)
     }
 }
 
+GIOCondition
+evd_socket_get_condition (EvdSocket *self)
+{
+  g_return_val_if_fail (EVD_IS_SOCKET (self), 0);
+
+  return self->priv->cond;
+}
+
 /**
  * evd_socket_set_notify_condition_callback:
  * @callback: (allow-none):

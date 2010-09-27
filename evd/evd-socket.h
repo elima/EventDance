@@ -121,6 +121,7 @@ gboolean        evd_socket_shutdown                      (EvdSocket  *self,
 gboolean        evd_socket_watch_condition               (EvdSocket     *self,
                                                           GIOCondition   cond,
                                                           GError       **error);
+GIOCondition    evd_socket_get_condition                 (EvdSocket *self);
 
 void            evd_socket_set_notify_condition_callback (EvdSocket                        *self,
                                                           EvdSocketNotifyConditionCallback  callback,
