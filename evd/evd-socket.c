@@ -38,7 +38,7 @@
 #include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-error.h"
-#include "evd-socket-manager.h"
+#include "evd-poll.h"
 #include "evd-resolver.h"
 #include "evd-connection.h"
 
@@ -65,17 +65,11 @@ struct _EvdSocketPrivate
   GMainContext *context;
 
   GIOCondition cond;
-  GIOCondition watched_cond;
-  gboolean watched;
 
   gint actual_priority;
   gint priority;
 
   gboolean bind_allow_reuse;
-
-  guint event_handler_src_id;
-  GIOCondition new_cond;
-  GMutex *mutex;
 
   EvdSocketNotifyConditionCallback notify_cond_cb;
   gpointer notify_cond_user_data;
@@ -85,6 +79,9 @@ struct _EvdSocketPrivate
 
   gboolean has_pending;
   GSimpleAsyncResult *async_result;
+
+  EvdPoll *poll;
+  EvdPollSession *poll_session;
 };
 
 /* signals */
@@ -291,29 +288,25 @@ evd_socket_init (EvdSocket *self)
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
   priv->context = g_main_context_get_thread_default ();
-  if (priv->context != NULL)
-    g_main_context_ref (priv->context);
+  if (priv->context == NULL)
+    priv->context = g_main_context_default ();
+  g_main_context_ref (priv->context);
 
   priv->cond = 0;
-  priv->watched_cond = G_IO_IN | G_IO_OUT;
-  priv->watched = FALSE;
 
   priv->priority        = G_PRIORITY_DEFAULT;
   priv->actual_priority = G_PRIORITY_DEFAULT;
-
-  priv->event_handler_src_id = 0;
-  priv->new_cond = 0;
-
-  priv->mutex = g_mutex_new ();
 
   priv->notify_cond_cb = NULL;
   priv->notify_cond_user_data = NULL;
 
   priv->io_stream_type = EVD_TYPE_CONNECTION;
-  priv->io_stream = NULL;
 
   priv->has_pending = FALSE;
   priv->async_result = NULL;
+
+  priv->poll = evd_poll_get_default ();
+  priv->poll_session = NULL;
 }
 
 static void
@@ -339,9 +332,7 @@ evd_socket_finalize (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
-  g_mutex_lock (self->priv->mutex);
-  g_mutex_unlock (self->priv->mutex);
-  g_mutex_free (self->priv->mutex);
+  g_object_unref (self->priv->poll);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
@@ -481,29 +472,54 @@ evd_socket_setup (EvdSocket  *self,
   return TRUE;
 }
 
+static GIOCondition
+evd_socket_on_condition (EvdPoll      *poll,
+                         GIOCondition  cond,
+                         gpointer      user_data)
+{
+  EvdSocket *self = EVD_SOCKET (user_data);
+
+  evd_socket_handle_condition (self, cond);
+
+  return cond;
+}
+
 gboolean
 static evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
 {
-  if ( (! self->priv->watched &&
-        evd_socket_manager_add_socket (self, cond, error)) ||
-       (self->priv->watched &&
-        evd_socket_manager_mod_socket (self, cond, error)) )
+  self->priv->cond = 0;
+
+  if (self->priv->poll_session == NULL)
     {
-      self->priv->watched = TRUE;
-      return TRUE;
+      self->priv->poll_session =
+        evd_poll_add (self->priv->poll,
+                      g_socket_get_fd (self->priv->socket),
+                      cond,
+                      self->priv->context,
+                      self->priv->actual_priority,
+                      evd_socket_on_condition,
+                      self,
+                      error);
+
+      return (self->priv->poll_session != NULL);
     }
   else
     {
-      return FALSE;
+      return evd_poll_mod (self->priv->poll,
+                           self->priv->poll_session,
+                           cond,
+                           error);
     }
 }
 
 static gboolean
 evd_socket_unwatch (EvdSocket *self, GError **error)
 {
-  if (evd_socket_manager_del_socket (self, error))
+  if (self->priv->poll_session == NULL
+      || evd_poll_del (self->priv->poll,
+                          self->priv->poll_session,
+                          error))
     {
-      self->priv->watched = FALSE;
       return TRUE;
     }
   else
@@ -651,8 +667,7 @@ evd_socket_listen_addr_internal (EvdSocket *self, GSocketAddress *address, GErro
   g_socket_set_listen_backlog (self->priv->socket, 10000); /* TODO: change by a max-conn prop */
   if (g_socket_listen (self->priv->socket, error))
     {
-      self->priv->watched_cond = G_IO_IN;
-      if (evd_socket_watch (self, self->priv->watched_cond, error))
+      if (evd_socket_watch (self, G_IO_IN, error))
         {
           self->priv->cond = 0;
           self->priv->actual_priority = G_PRIORITY_HIGH + 1;
@@ -714,7 +729,7 @@ evd_socket_connect_addr (EvdSocket        *self,
       _error = NULL;
     }
 
-  if (! evd_socket_watch (self, G_IO_OUT, error))
+  if (! evd_socket_watch (self, G_IO_IN | G_IO_OUT, error))
     {
       return FALSE;
     }
@@ -865,38 +880,6 @@ evd_socket_resolve_address (EvdSocket       *self,
 }
 
 static void
-evd_socket_handle_condition_internal (EvdSocket *self)
-{
-  EvdSocketClass *class;
-  GIOCondition cond;
-
-  g_mutex_lock (self->priv->mutex);
-
-  self->priv->event_handler_src_id = 0;
-  cond = self->priv->new_cond;
-  self->priv->new_cond = 0;
-
-  g_mutex_unlock (self->priv->mutex);
-
-  class = EVD_SOCKET_GET_CLASS (self);
-  if (class->handle_condition != NULL)
-    class->handle_condition (self, cond);
-  else
-    evd_socket_handle_condition (self, cond);
-}
-
-static gboolean
-evd_socket_handle_condition_cb (gpointer data)
-{
-  EvdSocket *self = EVD_SOCKET (data);
-
-  if (EVD_IS_SOCKET (self) && self->priv->watched)
-    evd_socket_handle_condition_internal (self);
-
-  return FALSE;
-}
-
-static void
 evd_socket_copy_properties (EvdSocket *self, EvdSocket *target)
 {
   evd_socket_set_priority (target, self->priv->priority);
@@ -969,38 +952,14 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
 }
 
 void
-evd_socket_notify_condition (EvdSocket    *self,
-                             GIOCondition  cond)
-{
-  /* ATTENTION! this runs in socket manager's thread */
-
-  g_mutex_lock (self->priv->mutex);
-
-  self->priv->new_cond |= cond;
-
-  if (self->priv->event_handler_src_id == 0)
-    {
-      GSource *src;
-
-      src = g_idle_source_new ();
-      g_source_set_priority (src, self->priv->actual_priority);
-      g_source_set_callback (src,
-                             evd_socket_handle_condition_cb,
-                             (gpointer) self,
-                             NULL);
-      self->priv->event_handler_src_id =
-        g_source_attach (src, self->priv->context);
-
-      g_source_unref (src);
-    }
-
-  g_mutex_unlock (self->priv->mutex);
-}
-
-void
 evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 {
   GError *error = NULL;
+
+  if (condition == self->priv->cond)
+    return;
+
+  self->priv->cond = condition;
 
   g_object_ref (self);
 
@@ -1008,6 +967,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
     {
       EvdSocket *client;
       GIOStream *conn;
+
+      self->priv->cond &= ~G_IO_IN;
 
       while ( (self->priv->status == EVD_SOCKET_STATE_LISTENING) &&
               ((client = evd_socket_accept (self, &error)) != NULL) )
@@ -1037,12 +998,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
               error->code = EVD_ERROR_SOCKET_ACCEPT;
               evd_socket_throw_error (self, error);
 
-              self->priv->new_cond |= condition;
-              evd_timeout_add (self->priv->context,
-                               0,
-                               self->priv->actual_priority,
-                               evd_socket_handle_condition_cb,
-                               self);
+              /* @TODO: even on error, we should continue
+                 accepting new connection until EAGAIN */
             }
           else
             {
@@ -1074,6 +1031,7 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
                                    EVD_ERROR_UNKNOWN,
                                    "Unknown socket error");
             }
+
           evd_socket_throw_error (self, error);
           evd_socket_close (self, NULL);
         }
@@ -1082,60 +1040,29 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           /* write condition */
           if (condition & G_IO_OUT)
             {
-              self->priv->watched_cond &= (~G_IO_OUT);
-              if (evd_socket_watch (self, self->priv->watched_cond, &error))
+              if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
                 {
-                  if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
+                  /* socket has just connected! */
+                  self->priv->has_pending = FALSE;
+
+                  /* restore priority */
+                  self->priv->actual_priority = self->priv->priority;
+
+                  evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
+
+                  if (self->priv->async_result != NULL)
                     {
-                      /* socket has just connected! */
-                      self->priv->has_pending = FALSE;
+                      GSimpleAsyncResult *res;
 
-                      /* restore priority */
-                      self->priv->actual_priority = self->priv->priority;
+                      res = self->priv->async_result;
+                      self->priv->async_result = NULL;
 
-                      self->priv->cond |= G_IO_OUT;
-                      evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
-                      self->priv->cond &= ~G_IO_OUT;
-
-                      if (self->priv->async_result != NULL)
-                        {
-                          GSimpleAsyncResult *res;
-
-                          res = self->priv->async_result;
-                          self->priv->async_result = NULL;
-
-                          g_simple_async_result_complete_in_idle (res);
-                          g_object_unref (res);
-                        }
+                      g_simple_async_result_complete_in_idle (res);
+                      g_object_unref (res);
                     }
-
-                  if ( (self->priv->cond & G_IO_OUT) == 0)
-                    self->priv->cond |= G_IO_OUT;
-                }
-              else
-                {
-                  evd_socket_throw_error (self, error);
-                }
-            }
-
-          /* read condition */
-          if (condition & G_IO_IN)
-            {
-              self->priv->watched_cond &= ~G_IO_IN;
-              if (! evd_socket_watch (self,
-                                      self->priv->watched_cond,
-                                      &error))
-                {
-                  evd_socket_throw_error (self, error);
-                }
-              else if ( (self->priv->cond & G_IO_IN) == 0)
-                {
-                  if ( (condition & G_IO_HUP) == 0)
-                    self->priv->cond |= G_IO_IN;
                 }
             }
         }
-
     }
 
   if (SOCKET_ACTIVE (self) && self->priv->notify_cond_cb != NULL)
@@ -1153,24 +1080,14 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 
   self->priv->family = G_SOCKET_FAMILY_INVALID;
 
-  self->priv->watched_cond = 0;
   self->priv->cond = 0;
-
-  g_mutex_lock (self->priv->mutex);
-  if (self->priv->event_handler_src_id != 0)
-    {
-      g_source_remove (self->priv->event_handler_src_id);
-      self->priv->event_handler_src_id = 0;
-      self->priv->new_cond = 0;
-    }
-  g_mutex_unlock (self->priv->mutex);
 
   if (self->priv->socket != NULL)
     {
       if (! g_socket_is_closed (self->priv->socket))
         {
-          if ( (self->priv->watched && ! evd_socket_unwatch (self, error)) ||
-               (! g_socket_close (self->priv->socket, error)) )
+          if (! evd_socket_unwatch (self, error) ||
+              ! g_socket_close (self->priv->socket, error))
             {
               result = FALSE;
             }
@@ -1179,9 +1096,12 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
       g_object_unref (self->priv->socket);
       self->priv->socket = NULL;
     }
-  self->priv->watched = FALSE;
 
-  self->priv->io_stream = NULL;
+  if (self->priv->poll_session != NULL)
+    {
+      evd_poll_free_session (self->priv->poll_session);
+      self->priv->poll_session = NULL;
+    }
 
   self->priv->has_pending = FALSE;
 
@@ -1201,8 +1121,7 @@ evd_socket_accept (EvdSocket *self, GError **error)
       client = EVD_SOCKET (g_object_new (G_OBJECT_TYPE (self), NULL, NULL));
       evd_socket_set_socket (client, client_socket);
 
-      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (evd_socket_watch (client, self->priv->watched_cond, error))
+      if (evd_socket_watch (client, G_IO_IN | G_IO_OUT, error))
         {
           evd_socket_set_status (client, EVD_SOCKET_STATE_CONNECTED);
 
@@ -1362,12 +1281,18 @@ evd_socket_watch_condition (EvdSocket *self, GIOCondition cond, GError **error)
 
   if (SOCKET_ACTIVE (self))
     {
-      self->priv->watched_cond = cond;
-      return evd_socket_watch (self, self->priv->watched_cond, error);
+      self->priv->cond = ~cond;
+
+      return TRUE;
     }
   else
     {
-      return TRUE;
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_CONNECTED,
+                           "Socket is not active");
+
+      return FALSE;
     }
 }
 
