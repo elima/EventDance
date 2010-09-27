@@ -33,8 +33,8 @@ source_c = \
 	evd-utils.c \
 	evd-marshal.c \
 	evd-resolver.c \
+	evd-poll.c \
 	evd-socket.c \
-	evd-socket-manager.c \
 	evd-socket-input-stream.c \
 	evd-socket-output-stream.c \
 	evd-tls-input-stream.c \
@@ -105,7 +105,7 @@ source_h = \
 
 source_h_priv = \
 	evd-marshal.h \
-	evd-socket-manager.h \
+	evd-poll.h \
 	evd-socket-protected.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h
