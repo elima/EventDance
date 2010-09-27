@@ -61,7 +61,7 @@ struct _EvdConnectionPrivate
   EvdThrottledInputStream *throt_input_stream;
   EvdThrottledOutputStream *throt_output_stream;
 
-  GIOCondition watched_cond;
+  GIOCondition cond;
 
   gboolean delayed_close;
   gboolean close_locked;
@@ -256,8 +256,6 @@ evd_connection_init (EvdConnection *self)
   priv = EVD_CONNECTION_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->watched_cond = 0;
-
   priv->tls_handshaking = FALSE;
 
   priv->delayed_close = FALSE;
@@ -278,6 +276,8 @@ evd_connection_init (EvdConnection *self)
 
   priv->input_throttle = evd_stream_throttle_new ();
   priv->output_throttle = evd_stream_throttle_new ();
+
+  priv->cond = 0;
 }
 
 static void
@@ -515,22 +515,10 @@ evd_connection_socket_on_status_changed (EvdSocket      *socket,
 
   if (new_status == EVD_SOCKET_STATE_CONNECTED)
     {
-      GError *error = NULL;
-
       self->priv->connected = TRUE;
 
       evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
                                                  TRUE);
-
-      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (! evd_socket_watch_condition (self->priv->socket,
-                                        self->priv->watched_cond,
-                                        &error))
-        {
-          /* @TODO: handle error */
-
-          g_error_free (error);
-        }
     }
   else if (new_status == EVD_SOCKET_STATE_CLOSED)
     {
@@ -611,17 +599,6 @@ evd_connection_tls_handshake (EvdConnection *self)
 
   res = self->priv->starttls_result;
   self->priv->starttls_result = NULL;
-
-  if (result > 0)
-    {
-      self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-      if (! evd_socket_watch_condition (self->priv->socket,
-                                        self->priv->watched_cond,
-                                        &error))
-        {
-          result = -1;
-        }
-    }
 
   if (result < 0)
     {
@@ -719,26 +696,16 @@ evd_connection_socket_on_condition (EvdSocket    *socket,
   if (CLOSED (self))
     return;
 
-  if (condition & G_IO_IN)
-    {
-      self->priv->watched_cond &= ~G_IO_IN;
-      if (self->priv->read_src_id == 0)
-        evd_connection_manage_read_condition (self);
-    }
+  self->priv->cond = condition;
 
-  if (condition & G_IO_OUT)
-    {
-      self->priv->watched_cond &= ~G_IO_OUT;
-      if (self->priv->write_src_id == 0)
-        evd_connection_manage_write_condition (self);
-    }
+  if ( (condition & G_IO_IN) > 0 && self->priv->read_src_id == 0)
+    evd_connection_manage_read_condition (self);
 
   if (condition & G_IO_HUP)
     {
-      if (self->priv->close_locked ||
-          self->priv->read_src_id != 0 ||
-          (condition & G_IO_IN) > 0 ||
-          READ_PENDING (self))
+      if (self->priv->close_locked
+          || self->priv->read_src_id != 0
+          || READ_PENDING (self))
         {
           self->priv->delayed_close = TRUE;
         }
@@ -747,18 +714,9 @@ evd_connection_socket_on_condition (EvdSocket    *socket,
           evd_connection_close_in_idle (self);
         }
     }
-
-  if (self->priv->watched_cond != condition)
+  else if ( (condition & G_IO_OUT) > 0 && self->priv->write_src_id == 0)
     {
-      GError *error = NULL;
-
-      if (! evd_socket_watch_condition (self->priv->socket,
-                                        self->priv->watched_cond,
-                                        &error))
-        {
-          /* @TODO: handle error */
-          g_error_free (error);
-        }
+      evd_connection_manage_write_condition (self);
     }
 }
 
@@ -767,7 +725,6 @@ evd_connection_socket_input_stream_drained (GInputStream *stream,
                                             gpointer      user_data)
 {
   EvdConnection *self = EVD_CONNECTION (user_data);
-  GError *error = NULL;
 
   if (CLOSED (self))
     return;
@@ -778,12 +735,14 @@ evd_connection_socket_input_stream_drained (GInputStream *stream,
     }
   else
     {
-      self->priv->watched_cond |= G_IO_IN;
+      GError *error = NULL;
+      self->priv->cond &= ~G_IO_IN;
+
       if (! evd_socket_watch_condition (self->priv->socket,
-                                        self->priv->watched_cond,
+                                        ~self->priv->cond,
                                         &error))
         {
-          /* @TODO: handle error */
+          // @TODO: handle error
           g_error_free (error);
         }
     }
@@ -799,12 +758,12 @@ evd_connection_socket_output_stream_filled (GOutputStream *stream,
   if (CLOSED (self))
     return;
 
-  self->priv->watched_cond |= G_IO_OUT;
+  self->priv->cond &= ~G_IO_OUT;
   if (! evd_socket_watch_condition (self->priv->socket,
-                                    self->priv->watched_cond,
+                                    ~self->priv->cond,
                                     &error))
     {
-      /* @TODO: handle error */
+      // @TODO: handle error
       g_error_free (error);
     }
 }
@@ -1018,11 +977,6 @@ evd_connection_set_socket (EvdConnection *self,
   self->priv->tls_handshaking = FALSE;
   self->priv->tls_active = FALSE;
 
-  self->priv->watched_cond = G_IO_IN | G_IO_OUT;
-  evd_socket_watch_condition (self->priv->socket,
-                              self->priv->watched_cond,
-                              NULL);
-
   if (self->priv->socket_input_stream == NULL)
     {
         /* create streams for the first time */
@@ -1047,6 +1001,10 @@ evd_connection_set_socket (EvdConnection *self,
       evd_socket_output_stream_set_socket (self->priv->socket_output_stream,
                                            self->priv->socket);
     }
+
+  evd_connection_socket_on_condition (self->priv->socket,
+                                  evd_socket_get_condition (self->priv->socket),
+                                  self);
 }
 
 /**
@@ -1184,7 +1142,7 @@ evd_connection_get_max_readable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if ((self->priv->watched_cond & G_IO_IN) > 0 ||
+  if ((self->priv->cond & G_IO_IN) == 0 ||
       self->priv->throt_input_stream == NULL ||
       g_io_stream_is_closed (G_IO_STREAM (self)))
     {
@@ -1203,7 +1161,7 @@ evd_connection_get_max_writable (EvdConnection *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
-  if ((self->priv->watched_cond & G_IO_OUT) > 0 ||
+  if ((self->priv->cond & G_IO_OUT) == 0 ||
       self->priv->throt_output_stream == NULL ||
       g_io_stream_is_closed (G_IO_STREAM (self)))
     {
