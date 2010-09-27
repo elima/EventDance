@@ -298,13 +298,14 @@ evd_reproxy_bridge_read (gpointer user_data)
 
       stream = g_io_stream_get_input_stream (G_IO_STREAM (conn0));
 
-      g_input_stream_read_async (stream,
-                                 bridge->buf,
-                                 BRIDGE_BLOCK_SIZE,
-                                 evd_connection_get_priority (conn0),
-                                 NULL,
-                                 evd_reproxy_bridge_on_read,
-                                 conn0);
+      if (! g_input_stream_has_pending (stream))
+        g_input_stream_read_async (stream,
+                                   bridge->buf,
+                                   BRIDGE_BLOCK_SIZE,
+                                   evd_connection_get_priority (conn0),
+                                   NULL,
+                                   evd_reproxy_bridge_on_read,
+                                   conn0);
     }
   else
     {
