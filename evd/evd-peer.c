@@ -29,7 +29,7 @@ G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
                                    EVD_TYPE_PEER, \
                                    EvdPeerPrivate))
 
-#define DEFAULT_TIMEOUT_INTERVAL 5
+#define DEFAULT_TIMEOUT_INTERVAL 15
 
 /* private data */
 struct _EvdPeerPrivate
