@@ -33,7 +33,7 @@
 
 #define UNIX_ADDR              "/this-is-any-unix-addr"
 #define IPV4_1                 "192.168.0.1:1234"
-#define IPV6_1                 "::1:4321"
+#define IPV6_1                 "[::1]:4321"
 #define RESOLVE_GOOD_LOCALHOST "localhost:80"
 #define CANCEL                 "172.16.1.1:22"
 #define RESOLVE_CANCEL         "localhost:80"
@@ -42,9 +42,8 @@
 
 typedef struct
 {
-  GMainLoop          *main_loop;
-  EvdResolver        *resolver;
-  EvdResolverRequest *request;
+  GMainLoop   *main_loop;
+  EvdResolver *resolver;
 } Fixture;
 
 static void
@@ -60,23 +59,10 @@ fixture_teardown (Fixture       *f,
                   gconstpointer  test_data)
 {
   g_object_unref (f->resolver);
-  if (f->request != NULL)
-    g_object_unref (f->request);
   g_main_loop_unref (f->main_loop);
 }
 
-static void
-validate_basic_on_resolve_data (EvdResolver        *resolver,
-                                EvdResolverRequest *request,
-                                Fixture            *f)
-{
-  g_assert (EVD_IS_RESOLVER (resolver));
-  g_assert (f->resolver == resolver);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (request));
-  g_assert (f->request == request);
-}
-
+/*
 static gboolean
 terminate_loop (gpointer user_data)
 {
@@ -84,6 +70,7 @@ terminate_loop (gpointer user_data)
 
   return FALSE;
 }
+*/
 
 static void
 get_default (Fixture       *f,
@@ -106,21 +93,24 @@ get_default (Fixture       *f,
 /* unix-addr */
 
 static void
-unix_addr_on_resolve (EvdResolver        *self,
-                      EvdResolverRequest *request,
-                      gpointer            user_data)
+unix_addr_on_resolve (GObject      *obj,
+                      GAsyncResult *res,
+                      gpointer      user_data)
 {
+  EvdResolver *resolver;
   Fixture *f = (Fixture *) user_data;
   GError *error = NULL;
   GList *addresses;
   GSocketAddress *addr;
 
-  validate_basic_on_resolve_data (self, request, f);
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
 
-  addresses = evd_resolver_request_get_result (request, &error);
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
+  g_assert (addresses != NULL);
   g_assert_no_error (error);
 
-  g_assert (addresses != NULL);
   g_assert_cmpint (g_list_length (addresses), ==, 1);
 
   addr = G_SOCKET_ADDRESS (addresses->data);
@@ -141,12 +131,11 @@ static void
 unix_addr (Fixture       *f,
            gconstpointer  test_data)
 {
-  f->request = evd_resolver_resolve (f->resolver,
-                                     UNIX_ADDR,
-                                     unix_addr_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              UNIX_ADDR,
+                              NULL,
+                              unix_addr_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -156,10 +145,11 @@ unix_addr (Fixture       *f,
 /* ipv4 */
 
 static void
-ipv4_on_resolve (EvdResolver         *self,
-                 EvdResolverRequest  *request,
-                 gpointer             user_data)
+ipv4_on_resolve (GObject      *obj,
+                 GAsyncResult *res,
+                 gpointer      user_data)
 {
+  EvdResolver *resolver;
   Fixture *f = (Fixture *) user_data;
   GError *error = NULL;
   GList *addresses;
@@ -167,12 +157,14 @@ ipv4_on_resolve (EvdResolver         *self,
   GInetAddress *inet_addr;
   gchar *addr_str;
 
-  validate_basic_on_resolve_data (self, request, f);
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
 
-  addresses = evd_resolver_request_get_result (request, &error);
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
+  g_assert (addresses != NULL);
   g_assert_no_error (error);
 
-  g_assert (addresses != NULL);
   g_assert_cmpint (g_list_length (addresses), ==, 1);
 
   addr = G_SOCKET_ADDRESS (addresses->data);
@@ -199,12 +191,11 @@ static void
 ipv4 (Fixture       *f,
       gconstpointer  test_data)
 {
-  f->request = evd_resolver_resolve (f->resolver,
-                                     IPV4_1,
-                                     ipv4_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              IPV4_1,
+                              NULL,
+                              ipv4_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -212,10 +203,11 @@ ipv4 (Fixture       *f,
 /* ipv6 */
 
 static void
-ipv6_on_resolve (EvdResolver         *self,
-                 EvdResolverRequest  *request,
-                 gpointer             user_data)
+ipv6_on_resolve (GObject      *obj,
+                 GAsyncResult *res,
+                 gpointer      user_data)
 {
+  EvdResolver *resolver;
   Fixture *f = (Fixture *) user_data;
   GError *error = NULL;
   GList *addresses;
@@ -223,12 +215,14 @@ ipv6_on_resolve (EvdResolver         *self,
   GInetAddress *inet_addr;
   gchar *addr_str;
 
-  validate_basic_on_resolve_data (self, request, f);
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
 
-  addresses = evd_resolver_request_get_result (request, &error);
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
+  g_assert (addresses != NULL);
   g_assert_no_error (error);
 
-  g_assert (addresses != NULL);
   g_assert_cmpint (g_list_length (addresses), ==, 1);
 
   addr = G_SOCKET_ADDRESS (addresses->data);
@@ -255,12 +249,11 @@ static void
 ipv6 (Fixture       *f,
       gconstpointer  test_data)
 {
-  f->request = evd_resolver_resolve (f->resolver,
-                                     IPV6_1,
-                                     ipv6_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              IPV6_1,
+                              NULL,
+                              ipv6_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -268,21 +261,23 @@ ipv6 (Fixture       *f,
 /* resolve good localhost */
 
 static void
-resolve_good_localhost_on_resolve (EvdResolver         *self,
-                                   EvdResolverRequest  *request,
-                                   gpointer             user_data)
+resolve_good_localhost_on_resolve (GObject      *obj,
+                                   GAsyncResult *res,
+                                   gpointer      user_data)
 {
+  EvdResolver *resolver;
   Fixture *f = (Fixture *) user_data;
   GError *error = NULL;
   GList *addresses;
 
-  validate_basic_on_resolve_data (self, request, f);
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
 
-  addresses = evd_resolver_request_get_result (request, &error);
-
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
+  g_assert (addresses != NULL);
   g_assert_no_error (error);
 
-  g_assert (addresses != NULL);
   g_assert_cmpint (g_list_length (addresses), >=, 1);
 
   g_main_loop_quit (f->main_loop);
@@ -292,78 +287,67 @@ static void
 resolve_good_localhost (Fixture       *f,
                         gconstpointer  test_data)
 {
-  f->request = evd_resolver_resolve (f->resolver,
-                                     RESOLVE_GOOD_LOCALHOST,
-                                     resolve_good_localhost_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              RESOLVE_GOOD_LOCALHOST,
+                              NULL,
+                              resolve_good_localhost_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 }
 
 /* cancel */
 
+/*
 static void
-resolve_cancel_on_resolve (EvdResolver         *self,
-                           EvdResolverRequest  *request,
-                           gpointer             user_data)
+resolve_cancel_on_resolve (GObject      *obj,
+                           GAsyncResult *res,
+                           gpointer      user_data)
 {
-  g_assert_not_reached ();
+  EvdResolver *resolver;
+  Fixture *f = (Fixture *) user_data;
+  GError *error = NULL;
+  GList *addresses;
+
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
+
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
+
+  g_assert (addresses == NULL);
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+
+  g_error_free (error);
+
+  g_main_loop_quit (f->main_loop);
 }
+*/
 
 static void
 resolve_cancel (Fixture       *f,
                 gconstpointer  test_data)
 {
-  /* cancel */
-  f->request = evd_resolver_resolve (f->resolver,
-                                     CANCEL,
-                                     resolve_cancel_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
-
-  evd_resolver_cancel (f->request);
-
-  g_timeout_add (100, terminate_loop, (gpointer) f->main_loop);
-
-  g_main_loop_run (f->main_loop);
-
-  g_object_unref (f->request);
-
-
-  /* resolve cancel */
-  f->request = evd_resolver_resolve (f->resolver,
-                                     RESOLVE_CANCEL,
-                                     resolve_cancel_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
-
-  evd_resolver_cancel (f->request);
-
-  g_timeout_add (100, terminate_loop, (gpointer) f->main_loop);
-
-  g_main_loop_run (f->main_loop);
+  /* @TODO: completes this test once EvdResolver supports cancelling */
 }
 
 /* error */
 
-/* cancel */
-
 static void
-resolve_error_on_resolve (EvdResolver         *self,
-                          EvdResolverRequest  *request,
-                          gpointer             user_data)
+resolve_error_on_resolve (GObject      *obj,
+                          GAsyncResult *res,
+                          gpointer      user_data)
 {
+  EvdResolver *resolver;
   Fixture *f = (Fixture *) user_data;
   GList *addresses;
   GError *error = NULL;
 
-  validate_basic_on_resolve_data (self, request, f);
+  g_assert (EVD_IS_RESOLVER (obj));
+  resolver = EVD_RESOLVER (obj);
+  g_assert (resolver == f->resolver);
 
-  addresses = evd_resolver_request_get_result (request, &error);
+  addresses = evd_resolver_resolve_finish (resolver, res, &error);
 
   g_assert (addresses == NULL);
   g_assert_error (error, G_RESOLVER_ERROR, G_RESOLVER_ERROR_NOT_FOUND);
@@ -377,22 +361,19 @@ static void
 resolve_error (Fixture       *f,
                gconstpointer  test_data)
 {
-  f->request = evd_resolver_resolve (f->resolver,
-                                     NONEXISTANT_1,
-                                     resolve_error_on_resolve,
-                                     f);
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              NONEXISTANT_1,
+                              NULL,
+                              resolve_error_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 
-  g_object_unref (f->request);
-
-  f->request = evd_resolver_resolve (f->resolver,
-                                     NONEXISTANT_2,
-                                     resolve_error_on_resolve,
-                                     f);
-
-  g_assert (EVD_IS_RESOLVER_REQUEST (f->request));
+  evd_resolver_resolve_async (f->resolver,
+                              NONEXISTANT_2,
+                              NULL,
+                              resolve_error_on_resolve,
+                              f);
 
   g_main_loop_run (f->main_loop);
 }

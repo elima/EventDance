@@ -22,10 +22,12 @@ endif
 
 noinst_PROGRAMS = \
 	test-all \
-	test-json-filter
+	test-json-filter \
+	test-resolver
 
 TESTS = \
-	test-all
+	test-json-filter \
+	test-resolver
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
