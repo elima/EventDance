@@ -33,7 +33,6 @@
  **/
 
 #include "evd-socket.h"
-#include "evd-socket-protected.h"
 
 #include "evd-utils.h"
 #include "evd-marshal.h"
@@ -109,42 +108,50 @@ enum
   PROP_IO_STREAM_TYPE
 };
 
-static void     evd_socket_class_init                 (EvdSocketClass *class);
-static void     evd_socket_init                       (EvdSocket *self);
+static void       evd_socket_class_init                 (EvdSocketClass *class);
+static void       evd_socket_init                       (EvdSocket *self);
 
-static void     evd_socket_finalize                   (GObject *obj);
-static void     evd_socket_dispose                    (GObject *obj);
+static void       evd_socket_finalize                   (GObject *obj);
+static void       evd_socket_dispose                    (GObject *obj);
 
-static void     evd_socket_set_property               (GObject      *obj,
-                                                       guint         prop_id,
-                                                       const GValue *value,
-                                                       GParamSpec   *pspec);
-static void     evd_socket_get_property               (GObject    *obj,
-                                                       guint       prop_id,
-                                                       GValue     *value,
-                                                       GParamSpec *pspec);
+static void       evd_socket_set_property               (GObject      *obj,
+                                                         guint         prop_id,
+                                                         const GValue *value,
+                                                         GParamSpec   *pspec);
+static void       evd_socket_get_property               (GObject    *obj,
+                                                         guint       prop_id,
+                                                         GValue     *value,
+                                                         GParamSpec *pspec);
 
-static gboolean evd_socket_cleanup                    (EvdSocket  *self,
-                                                       GError    **error);
+static gboolean   evd_socket_cleanup                    (EvdSocket  *self,
+                                                         GError    **error);
+static gboolean   evd_socket_cleanup_internal           (EvdSocket  *self,
+                                                         GError    **error);
 
-static gboolean evd_socket_cleanup_internal           (EvdSocket  *self,
-                                                       GError    **error);
+static void       evd_socket_set_status                 (EvdSocket      *self,
+                                                         EvdSocketState  status);
 
-static void     evd_socket_set_status                 (EvdSocket      *self,
-                                                       EvdSocketState  status);
+static void       evd_socket_copy_properties            (EvdSocket *self,
+                                                         EvdSocket *target);
 
-static void     evd_socket_copy_properties            (EvdSocket *self,
-                                                       EvdSocket *target);
+static void       evd_socket_deliver_async_result_error (EvdSocket           *self,
+                                                         GSimpleAsyncResult  *res,
+                                                         GError              *error,
+                                                         GAsyncReadyCallback  callback,
+                                                         gpointer             user_data,
+                                                         gboolean             in_idle);
 
-static void     evd_socket_deliver_async_result_error (EvdSocket           *self,
-                                                       GSimpleAsyncResult  *res,
-                                                       GError              *error,
-                                                       GAsyncReadyCallback  callback,
-                                                       gpointer             user_data,
-                                                       gboolean             in_idle);
+static gboolean   evd_socket_check_availability         (EvdSocket  *self,
+                                                         GError    **error);
 
-static gboolean evd_socket_check_availability         (EvdSocket  *self,
-                                                       GError    **error);
+static void       evd_socket_throw_error                (EvdSocket *self,
+                                                         GError    *error);
+
+static void       evd_socket_handle_condition           (EvdSocket    *self,
+                                                         GIOCondition  condition);
+
+static EvdSocket *evd_socket_accept                     (EvdSocket  *self,
+                                                         GError    **error);
 
 static void
 evd_socket_class_init (EvdSocketClass *class)
@@ -159,6 +166,7 @@ evd_socket_class_init (EvdSocketClass *class)
   obj_class->set_property = evd_socket_set_property;
 
   class->handle_condition = NULL;
+  class->cleanup = evd_socket_cleanup_internal;
 
   /* install signals */
   evd_socket_signals[SIGNAL_ERROR] =
@@ -316,7 +324,7 @@ evd_socket_dispose (GObject *obj)
 
   self->priv->status = EVD_SOCKET_STATE_CLOSED;
 
-  evd_socket_cleanup_internal (self, NULL);
+  evd_socket_cleanup (self, NULL);
 
   if (self->priv->context != NULL)
     {
@@ -576,7 +584,7 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
 }
 
 static gboolean
-evd_socket_cleanup_internal (EvdSocket *self, GError **error)
+evd_socket_cleanup (EvdSocket *self, GError **error)
 {
   EvdSocketClass *class = EVD_SOCKET_GET_CLASS (self);
 
@@ -675,7 +683,7 @@ evd_socket_listen_addr_internal (EvdSocket *self, GSocketAddress *address, GErro
         }
       else
         {
-          evd_socket_cleanup_internal (self, NULL);
+          evd_socket_cleanup (self, NULL);
 
           return FALSE;
         }
@@ -933,9 +941,7 @@ evd_socket_set_status (EvdSocket *self, EvdSocketState status)
                  NULL);
 }
 
-/* protected methods */
-
-void
+static void
 evd_socket_throw_error (EvdSocket *self, GError *error)
 {
   g_object_ref (self);
@@ -951,7 +957,7 @@ evd_socket_throw_error (EvdSocket *self, GError *error)
   g_error_free (error);
 }
 
-void
+static void
 evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 {
   GError *error = NULL;
@@ -1073,8 +1079,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
   g_object_unref (self);
 }
 
-gboolean
-evd_socket_cleanup (EvdSocket *self, GError **error)
+static gboolean
+evd_socket_cleanup_internal (EvdSocket *self, GError **error)
 {
   gboolean result = TRUE;
 
@@ -1108,7 +1114,7 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
   return result;
 }
 
-EvdSocket *
+static EvdSocket *
 evd_socket_accept (EvdSocket *self, GError **error)
 {
   EvdSocket *client = NULL;
@@ -1221,7 +1227,7 @@ evd_socket_close (EvdSocket *self, GError **error)
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
       self->priv->status != EVD_SOCKET_STATE_CLOSING)
     {
-      if (! evd_socket_cleanup_internal (self, error))
+      if (! evd_socket_cleanup (self, error))
         result = FALSE;
 
       g_object_ref (self);

@@ -106,7 +106,6 @@ source_h = \
 source_h_priv = \
 	evd-marshal.h \
 	evd-poll.h \
-	evd-socket-protected.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h
 
