@@ -51,7 +51,9 @@ struct _EvdTransportInterface
   gboolean (* peer_is_connected) (EvdTransport *self, EvdPeer *peer);
 
   /* signals */
-  void (* signal_receive) (EvdTransport *self, gpointer user_data);
+  void (* signal_receive) (EvdTransport *self,
+                           EvdPeer      *peer,
+                           gpointer      user_data);
 };
 
 #define EVD_TYPE_TRANSPORT                 (evd_transport_get_type ())
