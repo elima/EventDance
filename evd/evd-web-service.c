@@ -22,10 +22,20 @@
 #include "evd-web-service.h"
 
 #include "evd-error.h"
+#include "evd-marshal.h"
 
 G_DEFINE_ABSTRACT_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 
 #define RETURN_DATA_KEY "org.eventdance.lib.WebService.RETURN_TO"
+
+/* signals */
+enum
+{
+  SIGNAL_REQUEST_HEADERS,
+  SIGNAL_LAST
+};
+
+static guint evd_web_service_signals[SIGNAL_LAST] = { 0 };
 
 static void     evd_web_service_class_init          (EvdWebServiceClass *class);
 static void     evd_web_service_init                (EvdWebService *self);
@@ -48,11 +58,23 @@ static void
 evd_web_service_class_init (EvdWebServiceClass *class)
 {
   EvdServiceClass *service_class = EVD_SERVICE_CLASS (class);
+  GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
   class->return_connection = evd_web_service_return_connection;
   class->respond = evd_web_service_respond;
 
   service_class->connection_accepted = evd_web_service_connection_accepted;
+
+  evd_web_service_signals[SIGNAL_REQUEST_HEADERS] =
+    g_signal_new ("request-headers",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdWebServiceClass, signal_request_headers),
+                  NULL, NULL,
+                  evd_marshal_VOID__OBJECT_OBJECT,
+                  G_TYPE_NONE, 2,
+                  EVD_TYPE_HTTP_CONNECTION,
+                  EVD_TYPE_HTTP_REQUEST);
 }
 
 static void
@@ -73,10 +95,13 @@ evd_web_service_invoke_request_handler (EvdWebService     *self,
     {
       (* class->request_handler) (self, conn, request);
     }
-  else
-    {
-      g_object_unref (request);
-    }
+
+  g_signal_emit (self,
+                 evd_web_service_signals[SIGNAL_REQUEST_HEADERS],
+                 0,
+                 conn,
+                 request,
+                 NULL);
 }
 
 static void

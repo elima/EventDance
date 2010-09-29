@@ -57,6 +57,12 @@ struct _EvdWebServiceClass
                                   gchar               *content,
                                   gsize                size,
                                   GError             **error);
+
+  /* signals */
+  void (* signal_request_headers) (EvdWebService *self,
+                                   EvdHttpConnection *connection,
+                                   EvdHttpRequest *request,
+                                   gpointer user_data);
 };
 
 #define EVD_TYPE_WEB_SERVICE           (evd_web_service_get_type ())
