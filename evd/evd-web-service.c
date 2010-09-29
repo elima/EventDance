@@ -24,7 +24,7 @@
 #include "evd-error.h"
 #include "evd-marshal.h"
 
-G_DEFINE_ABSTRACT_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
+G_DEFINE_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 
 #define RETURN_DATA_KEY "org.eventdance.lib.WebService.RETURN_TO"
 
