@@ -177,8 +177,8 @@ evd_long_polling_create_new_peer (EvdLongPolling *self)
   EvdPeer *peer;
   EvdLongPollingPeerData *data;
 
-  peer = evd_peer_manager_create_new_peer (self->priv->peer_manager,
-                                           EVD_TRANSPORT (self));
+  peer = EVD_TRANSPORT_GET_INTERFACE (self)->
+    create_new_peer (EVD_TRANSPORT (self));
 
   data = g_new0 (EvdLongPollingPeerData, 1);
   data->conns = g_queue_new ();
