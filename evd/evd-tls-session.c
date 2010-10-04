@@ -24,6 +24,7 @@
  */
 
 #include <errno.h>
+#include <string.h>
 
 #include "evd-error.h"
 #include "evd-tls-common.h"
@@ -60,6 +61,8 @@ struct _EvdTlsSessionPrivate
   gboolean require_peer_cert;
 
   gboolean write_shutdown;
+
+  gchar *server_name;
 };
 
 
@@ -164,6 +167,8 @@ evd_tls_session_init (EvdTlsSession *self)
   priv->require_peer_cert = FALSE;
 
   priv->write_shutdown = FALSE;
+
+  priv->server_name = NULL;
 }
 
 static void
@@ -447,6 +452,32 @@ evd_tls_session_shutdown (EvdTlsSession           *self,
         }
 
       self->priv->write_shutdown = TRUE;
+    }
+
+  return TRUE;
+}
+
+static gboolean
+evd_tls_session_set_server_name_internal (EvdTlsSession  *self,
+                                          GError        **error)
+{
+  if (self->priv->session != NULL
+      && self->priv->server_name != NULL
+      && self->priv->mode == EVD_TLS_MODE_CLIENT)
+    {
+      gint err_code;
+
+      err_code = gnutls_server_name_set (self->priv->session,
+                                         GNUTLS_NAME_DNS,
+                                         self->priv->server_name,
+                                         strlen (self->priv->server_name));
+
+      if (err_code != GNUTLS_E_SUCCESS)
+        {
+          evd_tls_build_error (err_code, error);
+
+          return FALSE;
+        }
     }
 
   return TRUE;
@@ -858,4 +889,29 @@ evd_tls_session_reset (EvdTlsSession *self)
       gnutls_deinit (self->priv->session);
       self->priv->session = NULL;
     }
+
+  if (self->priv->server_name != NULL)
+    {
+      g_free (self->priv->server_name);
+      self->priv->server_name = NULL;
+    }
+}
+
+gboolean
+evd_tls_session_set_server_name (EvdTlsSession  *self,
+                                 const gchar    *server_name,
+                                 GError        **error)
+{
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), FALSE);
+
+  if (self->priv->server_name != NULL)
+    {
+      g_free (self->priv->server_name);
+      self->priv->server_name = NULL;
+    }
+
+  if (server_name != NULL)
+    self->priv->server_name = g_strdup (server_name);
+
+  return evd_tls_session_set_server_name_internal (self, error);
 }

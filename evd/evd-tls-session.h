@@ -116,6 +116,10 @@ gint               evd_tls_session_verify_peer             (EvdTlsSession  *self
 
 void               evd_tls_session_reset                   (EvdTlsSession *self);
 
+gboolean           evd_tls_session_set_server_name         (EvdTlsSession  *self,
+                                                            const gchar    *server_name,
+                                                            GError        **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_SESSION_H__ */
