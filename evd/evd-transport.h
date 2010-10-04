@@ -52,6 +52,13 @@ struct _EvdTransportInterface
   void      (* notify_new_peer)   (EvdTransport *self, EvdPeer *peer);
   EvdPeer * (* create_new_peer)   (EvdTransport *self);
 
+  void      (* notify_peer_closed) (EvdTransport *self,
+                                    EvdPeer      *peer,
+                                    gboolean      gracefully);
+  void      (* peer_closed)        (EvdTransport *self,
+                                    EvdPeer      *peer,
+                                    gboolean      gracefully);
+
   gboolean  (* peer_is_connected) (EvdTransport *self, EvdPeer *peer);
 
   /* signals */
