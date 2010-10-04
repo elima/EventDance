@@ -326,12 +326,6 @@ evd_socket_dispose (GObject *obj)
 
   evd_socket_cleanup (self, NULL);
 
-  if (self->priv->context != NULL)
-    {
-      g_main_context_unref (self->priv->context);
-      self->priv->context = NULL;
-    }
-
   G_OBJECT_CLASS (evd_socket_parent_class)->dispose (obj);
 }
 
@@ -340,7 +334,10 @@ evd_socket_finalize (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
-  g_object_unref (self->priv->poll);
+  evd_poll_unref (self->priv->poll);
+
+  if (self->priv->context != NULL)
+    g_main_context_unref (self->priv->context);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
@@ -516,6 +513,7 @@ static evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
       return evd_poll_mod (self->priv->poll,
                            self->priv->poll_session,
                            cond,
+                           self->priv->actual_priority,
                            error);
     }
 }
@@ -1105,7 +1103,7 @@ evd_socket_cleanup_internal (EvdSocket *self, GError **error)
 
   if (self->priv->poll_session != NULL)
     {
-      evd_poll_free_session (self->priv->poll_session);
+      evd_poll_session_unref (self->priv->poll_session);
       self->priv->poll_session = NULL;
     }
 
