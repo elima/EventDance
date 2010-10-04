@@ -55,31 +55,36 @@ struct _EvdPollClass
 #define EVD_POLL_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_POLL, EvdPollClass))
 
 
-GType              evd_poll_get_type     (void) G_GNUC_CONST;
+GType              evd_poll_get_type      (void) G_GNUC_CONST;
 
-EvdPoll           *evd_poll_new          (void);
+EvdPoll           *evd_poll_new           (void);
 
-EvdPoll           *evd_poll_get_default  (void);
+EvdPoll           *evd_poll_get_default   (void);
 
-EvdPollSession    *evd_poll_add          (EvdPoll          *self,
-                                          gint              fd,
-                                          GIOCondition      condition,
-                                          GMainContext     *main_context,
-                                          guint             priority,
-                                          EvdPollCallback   callback,
-                                          gpointer          user_data,
-                                          GError          **error);
+void               evd_poll_ref           (EvdPoll *self);
+void               evd_poll_unref         (EvdPoll *self);
 
-gboolean           evd_poll_mod          (EvdPoll         *self,
-                                          EvdPollSession  *session,
-                                          GIOCondition     condition,
-                                          GError         **error);
+EvdPollSession    *evd_poll_add           (EvdPoll          *self,
+                                           gint              fd,
+                                           GIOCondition      condition,
+                                           GMainContext     *main_context,
+                                           guint             priority,
+                                           EvdPollCallback   callback,
+                                           gpointer          user_data,
+                                           GError          **error);
 
-gboolean           evd_poll_del          (EvdPoll         *self,
-                                          EvdPollSession  *session,
-                                          GError         **error);
+gboolean           evd_poll_mod           (EvdPoll         *self,
+                                           EvdPollSession  *session,
+                                           GIOCondition     condition,
+                                           guint            priority,
+                                           GError         **error);
 
-void               evd_poll_free_session (EvdPollSession *session);
+gboolean           evd_poll_del           (EvdPoll         *self,
+                                           EvdPollSession  *session,
+                                           GError         **error);
+
+void               evd_poll_session_ref   (EvdPollSession *session);
+void               evd_poll_session_unref (EvdPollSession *session);
 
 G_END_DECLS
 
