@@ -438,7 +438,7 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
           gsize unread_size;
 
           /* unread data beyond HTTP headers, back to the stream */
-          unread_buf = (void *) ( ((guintptr) self->priv->buf->str) + pos);
+          unread_buf = self->priv->buf->str + pos;
           unread_size = self->priv->buf->len - pos;
 
           if (evd_buffered_input_stream_unread (EVD_BUFFERED_INPUT_STREAM (obj),
@@ -498,12 +498,16 @@ evd_http_connection_read_headers_block (EvdHttpConnection *self)
   new_block_size = MIN (MAX_HEADERS_SIZE, self->priv->buf->len + HEADER_BLOCK_SIZE)
     - self->priv->buf->len;
 
-  /* enlarge buffer */
-  g_string_set_size (self->priv->buf,
-                     self->priv->buf->len + HEADER_BLOCK_SIZE);
+  if (new_block_size <= 0)
+    {
+      /* @TODO: handle error, max header size reached */
+      return;
+    }
 
-  buf = (void *) ( ((guintptr) self->priv->buf->str)
-                   + self->priv->buf->len - new_block_size);
+  g_string_set_size (self->priv->buf,
+                     self->priv->buf->len + new_block_size);
+
+  buf = self->priv->buf->str + self->priv->buf->len - new_block_size;
 
   stream = g_io_stream_get_input_stream (G_IO_STREAM (self));
 
