@@ -91,6 +91,17 @@ gboolean            evd_http_connection_write_content                (EvdHttpCon
                                                                       GCancellable       *cancellable,
                                                                       GError            **error);
 
+void                evd_http_connection_read_content_async           (EvdHttpConnection   *self,
+                                                                      gchar               *buffer,
+                                                                      gsize                size,
+                                                                      GCancellable        *cancellable,
+                                                                      GAsyncReadyCallback  callback,
+                                                                      gpointer             user_data);
+gssize              evd_http_connection_read_content_finish          (EvdHttpConnection  *self,
+                                                                      GAsyncResult       *result,
+                                                                      gboolean           *more,
+                                                                      GError            **error);
+
 void                evd_http_connection_read_all_content_async       (EvdHttpConnection   *self,
                                                                       GCancellable        *cancellable,
                                                                       GAsyncReadyCallback  callback,

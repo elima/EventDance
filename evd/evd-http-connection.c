@@ -43,7 +43,6 @@ struct _EvdHttpConnectionPrivate
   GSimpleAsyncResult *async_result;
 
   GString *buf;
-  GString *block;
 
   gint priority;
 
@@ -72,6 +71,12 @@ struct EvdHttpConnectionResponseHeaders
   gchar *reason_phrase;
 };
 
+struct ContentReadData
+{
+  gssize size;
+  gboolean more;
+};
+
 static void     evd_http_connection_class_init         (EvdHttpConnectionClass *class);
 static void     evd_http_connection_init               (EvdHttpConnection *self);
 
@@ -93,7 +98,10 @@ static gboolean evd_http_connection_close              (GIOStream     *stream,
 
 static void     evd_http_connection_read_headers_block (EvdHttpConnection *self);
 
-static void     evd_http_connection_read_content_block (EvdHttpConnection *self);
+static void     evd_http_connection_read_content_block (EvdHttpConnection *self,
+                                                        void              *buf,
+                                                        gsize              size);
+
 
 
 static void
@@ -560,6 +568,28 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
 }
 
 static void
+evd_http_connection_read_next_content_block (EvdHttpConnection *self)
+{
+  void *buf;
+  gsize new_block_size;
+
+  if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH)
+    new_block_size = MIN (self->priv->content_len - self->priv->content_read,
+                          CONTENT_BLOCK_SIZE);
+  else
+    new_block_size = CONTENT_BLOCK_SIZE;
+
+  /* enlarge buffer, if necessary */
+  if (self->priv->buf->len < self->priv->content_read + new_block_size)
+    g_string_set_size (self->priv->buf,
+                       self->priv->content_read + new_block_size);
+
+  buf = self->priv->buf->str + self->priv->buf->len - new_block_size;
+
+  evd_http_connection_read_content_block (self, buf, new_block_size);
+}
+
+static void
 evd_http_connection_on_read_content_block (GObject      *obj,
                                            GAsyncResult *res,
                                            gpointer      user_data)
@@ -568,6 +598,7 @@ evd_http_connection_on_read_content_block (GObject      *obj,
   GError *error = NULL;
   gssize size;
   gboolean done = FALSE;
+  gpointer source_tag;
 
   if ( (size = g_input_stream_read_finish (G_INPUT_STREAM (obj),
                                            res,
@@ -575,17 +606,13 @@ evd_http_connection_on_read_content_block (GObject      *obj,
     {
       self->priv->content_read += size;
 
-      /* continue reading? */
-      if ( evd_connection_is_connected (EVD_CONNECTION (self)) &&
+      /* are we done reading? */
+      if (! evd_connection_is_connected (EVD_CONNECTION (self))
 
-           ( (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
-              self->priv->content_read < self->priv->content_len) ||
+          || ( (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH
+                && self->priv->content_read >= self->priv->content_len)
 
-             (self->priv->encoding == SOUP_ENCODING_EOF) ) )
-        {
-          evd_http_connection_read_content_block (self);
-        }
-      else
+               && (self->priv->encoding != SOUP_ENCODING_EOF) ) )
         {
           done = TRUE;
         }
@@ -602,6 +629,36 @@ evd_http_connection_on_read_content_block (GObject      *obj,
       done = TRUE;
     }
 
+  source_tag =
+    g_simple_async_result_get_source_tag (self->priv->async_result);
+
+  if (source_tag == evd_http_connection_read_all_content_async)
+    {
+      if (done)
+        g_string_set_size (self->priv->buf, self->priv->content_read);
+      else
+        {
+          evd_http_connection_read_next_content_block (self);
+        }
+    }
+  else if (source_tag == evd_http_connection_read_content_async)
+    {
+      if (size >= 0)
+        {
+          struct ContentReadData *data;
+
+          data = g_new0 (struct ContentReadData, 1);
+          data->size = size;
+          data->more = ! done;
+
+          g_simple_async_result_set_op_res_gpointer (self->priv->async_result,
+                                                     data,
+                                                     g_free);
+        }
+
+      done = TRUE;
+    }
+
   if (done)
     {
       GSimpleAsyncResult *res;
@@ -611,8 +668,6 @@ evd_http_connection_on_read_content_block (GObject      *obj,
 
       g_io_stream_clear_pending (G_IO_STREAM (self));
 
-      g_string_set_size (self->priv->buf, self->priv->content_read);
-
       g_simple_async_result_complete (res);
       g_object_unref (res);
     }
@@ -621,32 +676,18 @@ evd_http_connection_on_read_content_block (GObject      *obj,
 }
 
 static void
-evd_http_connection_read_content_block (EvdHttpConnection *self)
+evd_http_connection_read_content_block (EvdHttpConnection *self,
+                                        void              *buf,
+                                        gsize              size)
 {
   GInputStream *stream;
-  void *buf;
-  gsize new_block_size;
-
-  if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH)
-    new_block_size = MIN (self->priv->content_len - self->priv->content_read,
-                          CONTENT_BLOCK_SIZE);
-  else
-    new_block_size = CONTENT_BLOCK_SIZE;
-
-  /* enlarge buffer, if necessary */
-  if (self->priv->buf->len < self->priv->content_read + new_block_size)
-    g_string_set_size (self->priv->buf,
-                       self->priv->content_read + new_block_size);
-
-  buf = (void *) ( ((guintptr) self->priv->buf->str)
-                   + self->priv->buf->len - new_block_size);
 
   stream = g_io_stream_get_input_stream (G_IO_STREAM (self));
 
   g_object_ref (self);
   g_input_stream_read_async (stream,
                              buf,
-                             new_block_size,
+                             size,
                              evd_connection_get_priority (EVD_CONNECTION (self)),
                              NULL,
                              evd_http_connection_on_read_content_block,
@@ -861,23 +902,25 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
 }
 
 void
-evd_http_connection_read_all_content_async (EvdHttpConnection   *self,
-                                            GCancellable        *cancellable,
-                                            GAsyncReadyCallback  callback,
-                                            gpointer             user_data)
+evd_http_connection_read_content_async (EvdHttpConnection   *self,
+                                        gchar               *buffer,
+                                        gsize                size,
+                                        GCancellable        *cancellable,
+                                        GAsyncReadyCallback  callback,
+                                        gpointer             user_data)
 {
   GError *error = NULL;
+  GSimpleAsyncResult *res;
 
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
 
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_http_connection_read_content_async);
+
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      GSimpleAsyncResult *res;
-
-      res = g_simple_async_result_new (G_OBJECT (self),
-                                    callback,
-                                    user_data,
-                                    evd_http_connection_read_all_content_async);
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);
 
@@ -891,13 +934,91 @@ evd_http_connection_read_all_content_async (EvdHttpConnection   *self,
       (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
        self->priv->content_len == 0) )
     {
-      GSimpleAsyncResult *res;
+      g_simple_async_result_set_op_res_gssize (res, 0);
 
-      res =
-        g_simple_async_result_new (G_OBJECT (self),
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+
+      return;
+    }
+
+  /* @TODO: consider chunked encoding */
+  if (self->priv->encoding == SOUP_ENCODING_UNRECOGNIZED
+      || self->priv->encoding == SOUP_ENCODING_CHUNKED)
+    self->priv->encoding = SOUP_ENCODING_EOF;
+
+  self->priv->async_result = res;
+  evd_http_connection_read_content_block (self, buffer, size);
+}
+
+/**
+ * evd_http_connection_read_content_finish:
+ * @more: (out) (allow-none):
+ *
+ * Returns:
+ **/
+gssize
+evd_http_connection_read_content_finish (EvdHttpConnection  *self,
+                                         GAsyncResult       *result,
+                                         gboolean           *more,
+                                         GError            **error)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), -1);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                        G_OBJECT (self),
+                                        evd_http_connection_read_content_async),
+                        -1);
+
+  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                               error))
+    {
+      struct ContentReadData *data;
+
+      data =
+        g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
+
+      if (more != NULL)
+        *more = data->more;
+
+      return data->size;
+    }
+  else
+    {
+      return -1;
+    }
+}
+
+void
+evd_http_connection_read_all_content_async (EvdHttpConnection   *self,
+                                            GCancellable        *cancellable,
+                                            GAsyncReadyCallback  callback,
+                                            gpointer             user_data)
+{
+  GError *error = NULL;
+  GSimpleAsyncResult *res;
+
+  g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
+
+  res = g_simple_async_result_new (G_OBJECT (self),
                                    callback,
                                    user_data,
                                    evd_http_connection_read_all_content_async);
+
+  if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
+    {
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
+
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+
+      return;
+    }
+
+  if (self->priv->encoding == SOUP_ENCODING_NONE ||
+      (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
+       self->priv->content_len == 0) )
+    {
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
 
@@ -912,13 +1033,8 @@ evd_http_connection_read_all_content_async (EvdHttpConnection   *self,
   self->priv->content_read = 0;
   g_string_set_size (self->priv->buf, 0);
 
-  self->priv->async_result =
-    g_simple_async_result_new (G_OBJECT (self),
-                               callback,
-                               user_data,
-                               evd_http_connection_read_all_content_async);
-
-  evd_http_connection_read_content_block (self);
+  self->priv->async_result = res;
+  evd_http_connection_read_next_content_block (self);
 }
 
 /**
