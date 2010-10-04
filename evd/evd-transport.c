@@ -24,6 +24,9 @@
 
 #include "evd-transport.h"
 
+#include "evd-utils.h"
+#include "evd-peer-manager.h"
+
 #define PEER_MSG_KEY "org.eventdance.transport.PeerMessage"
 
 /* signals */
@@ -43,12 +46,16 @@ typedef struct
 
 static guint evd_transport_signals[SIGNAL_LAST] = { 0 };
 
-static void  evd_transport_receive_internal (EvdTransport *self,
-                                             EvdPeer      *peer,
-                                             const gchar  *buffer,
-                                             gsize         size);
-static void  evd_transport_notify_receive   (EvdTransport *self,
-                                             EvdPeer      *peer);
+static void     evd_transport_receive_internal (EvdTransport *self,
+                                                EvdPeer      *peer,
+                                                const gchar  *buffer,
+                                                gsize         size);
+static void     evd_transport_notify_receive   (EvdTransport *self,
+                                                EvdPeer      *peer);
+
+static void     evd_transport_notify_new_peer  (EvdTransport *self,
+                                                EvdPeer      *peer);
+static EvdPeer *evd_transport_create_new_peer  (EvdTransport *self);
 
 static void
 evd_transport_base_init (gpointer g_class)
@@ -59,8 +66,10 @@ evd_transport_base_init (gpointer g_class)
 
   iface->receive = evd_transport_receive_internal;
   iface->notify_receive = evd_transport_notify_receive;
+  iface->create_new_peer = evd_transport_create_new_peer;
+  iface->notify_new_peer = evd_transport_notify_new_peer;
 
-  if (!is_initialized)
+  if (! is_initialized)
     {
       evd_transport_signals[SIGNAL_RECEIVE] =
         g_signal_new ("receive",
@@ -158,6 +167,56 @@ evd_transport_receive_internal (EvdTransport *self,
     }
   msg->buffer = NULL;
   msg->size = 0;
+}
+
+static void
+evd_transport_notify_new_peer (EvdTransport *self,
+                               EvdPeer      *peer)
+{
+  g_signal_emit (self, evd_transport_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
+}
+
+static gboolean
+evd_transport_notify_new_peer_cb (gpointer user_data)
+{
+  EvdPeer *peer =  EVD_PEER (user_data);
+  EvdTransport *self;
+
+  /* @TODO: check if peer is still open */
+
+  g_object_get (peer, "transport", &self, NULL);
+
+  evd_transport_notify_new_peer (self, peer);
+
+  g_object_unref (self);
+
+  g_object_unref (peer);
+  g_object_unref (self);
+
+  return FALSE;
+}
+
+static EvdPeer *
+evd_transport_create_new_peer (EvdTransport *self)
+{
+  EvdPeerManager *peer_manager;
+  EvdPeer *peer;
+
+  peer_manager = evd_peer_manager_get_default ();
+
+  peer = evd_peer_manager_create_new_peer (peer_manager, self);
+
+  g_object_unref (peer_manager);
+
+  g_object_ref (peer);
+  g_object_ref (self);
+  evd_timeout_add (g_main_context_get_thread_default (),
+                   0,
+                   G_PRIORITY_DEFAULT,
+                   evd_transport_notify_new_peer_cb,
+                   peer);
+
+  return peer;
 }
 
 /* public methods */

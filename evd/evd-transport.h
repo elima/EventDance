@@ -37,19 +37,22 @@ struct _EvdTransportInterface
   GTypeInterface parent_iface;
 
   /* virtual methods */
-  gssize   (* send)              (EvdTransport *self,
-                                  EvdPeer       *peer,
-                                  const gchar   *buffer,
-                                  gsize          size,
-                                  GError        **error);
-  void     (* notify_receive)    (EvdTransport *self,
-                                  EvdPeer       *peer);
-  void     (* receive)           (EvdTransport *self,
-                                  EvdPeer       *peer,
-                                  const gchar   *buffer,
-                                  gsize          size);
+  gssize    (* send)              (EvdTransport  *self,
+                                   EvdPeer       *peer,
+                                   const gchar   *buffer,
+                                   gsize          size,
+                                   GError       **error);
+  void      (* notify_receive)    (EvdTransport *self,
+                                   EvdPeer      *peer);
+  void      (* receive)           (EvdTransport *self,
+                                   EvdPeer      *peer,
+                                   const gchar  *buffer,
+                                   gsize         size);
 
-  gboolean (* peer_is_connected) (EvdTransport *self, EvdPeer *peer);
+  void      (* notify_new_peer)   (EvdTransport *self, EvdPeer *peer);
+  EvdPeer * (* create_new_peer)   (EvdTransport *self);
+
+  gboolean  (* peer_is_connected) (EvdTransport *self, EvdPeer *peer);
 
   /* signals */
   void (* signal_receive)  (EvdTransport *self,
