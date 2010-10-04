@@ -30,6 +30,7 @@
 enum
 {
   SIGNAL_RECEIVE,
+  SIGNAL_NEW_PEER,
   SIGNAL_LAST
 };
 
@@ -66,6 +67,16 @@ evd_transport_base_init (gpointer g_class)
                       G_TYPE_FROM_CLASS (g_class),
                       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                       G_STRUCT_OFFSET (EvdTransportInterface, signal_receive),
+                      NULL, NULL,
+                      g_cclosure_marshal_VOID__OBJECT,
+                      G_TYPE_NONE, 1,
+                      EVD_TYPE_PEER);
+
+      evd_transport_signals[SIGNAL_NEW_PEER] =
+        g_signal_new ("new-peer",
+                      G_TYPE_FROM_CLASS (g_class),
+                      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                      G_STRUCT_OFFSET (EvdTransportInterface, signal_new_peer),
                       NULL, NULL,
                       g_cclosure_marshal_VOID__OBJECT,
                       G_TYPE_NONE, 1,
