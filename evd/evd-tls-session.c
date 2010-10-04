@@ -458,6 +458,24 @@ evd_tls_session_shutdown (EvdTlsSession           *self,
 }
 
 static gboolean
+evd_tls_session_check_initialized (EvdTlsSession *self, GError **error)
+{
+  if (self->priv->session == NULL)
+    {
+      g_set_error_literal (error,
+                           EVD_ERROR,
+                           EVD_ERROR_NOT_INITIALIZED,
+                           "SSL/TLS session not yet initialized");
+
+      return FALSE;
+    }
+  else
+    {
+      return TRUE;
+    }
+}
+
+static gboolean
 evd_tls_session_set_server_name_internal (EvdTlsSession  *self,
                                           GError        **error)
 {
@@ -581,6 +599,9 @@ evd_tls_session_handshake (EvdTlsSession  *self,
         }
       else
         {
+          if (! evd_tls_session_set_server_name_internal (self, error))
+            return -1;
+
           err_code = gnutls_priority_set_direct (self->priv->session,
                                                  self->priv->priority,
                                                  NULL);
@@ -758,7 +779,7 @@ evd_tls_session_get_peer_certificates (EvdTlsSession *self, GError **error)
 
   g_return_val_if_fail (EVD_IS_TLS_SESSION (self), NULL);
 
-  if (self->priv->session == NULL)
+  if (! evd_tls_session_check_initialized (self, error))
     return NULL;
 
   raw_certs_list = gnutls_certificate_get_peers (self->priv->session, &raw_certs_len);
@@ -802,15 +823,8 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
 
   g_return_val_if_fail (EVD_IS_TLS_SESSION (self), -1);
 
-  if (self->priv->session == NULL)
-    {
-      if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_INITIALIZED,
-                              "SSL/TLS session not yet initialized");
-
-      return -1;
-    }
+  if (! evd_tls_session_check_initialized (self, error))
+    return -1;
 
   /* basic verification */
   err_code = gnutls_certificate_verify_peers2 (self->priv->session, &status);
