@@ -25,6 +25,7 @@
 #include "evd-transport.h"
 
 #include "evd-utils.h"
+#include "evd-marshal.h"
 #include "evd-peer-manager.h"
 
 #define PEER_MSG_KEY "org.eventdance.transport.PeerMessage"
@@ -34,6 +35,7 @@ enum
 {
   SIGNAL_RECEIVE,
   SIGNAL_NEW_PEER,
+  SIGNAL_PEER_CLOSED,
   SIGNAL_LAST
 };
 
@@ -90,6 +92,17 @@ evd_transport_base_init (gpointer g_class)
                       g_cclosure_marshal_VOID__OBJECT,
                       G_TYPE_NONE, 1,
                       EVD_TYPE_PEER);
+
+      evd_transport_signals[SIGNAL_PEER_CLOSED] =
+        g_signal_new ("peer-closed",
+                      G_TYPE_FROM_CLASS (g_class),
+                      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                      G_STRUCT_OFFSET (EvdTransportInterface, signal_peer_closed),
+                      NULL, NULL,
+                      evd_marshal_VOID__OBJECT_BOOLEAN,
+                      G_TYPE_NONE, 2,
+                      EVD_TYPE_PEER,
+                      G_TYPE_BOOLEAN);
 
       is_initialized = TRUE;
     }
