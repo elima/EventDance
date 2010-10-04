@@ -291,8 +291,6 @@ evd_service_accept_connection_priv (EvdService    *self,
 {
   EvdServiceClass *class;
 
-  g_object_ref (conn);
-
   class = EVD_SERVICE_GET_CLASS (self);
   if (class->connection_accepted != NULL)
     class->connection_accepted (self, conn);
@@ -466,8 +464,6 @@ evd_service_remove (EvdIoStreamGroup *group, GIOStream *io_stream)
   g_signal_handlers_disconnect_by_func (io_stream,
                                         evd_service_connection_on_close,
                                         group);
-
-  g_object_unref (io_stream);
 
   return TRUE;
 }
