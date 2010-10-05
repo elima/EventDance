@@ -193,23 +193,6 @@ evd_long_polling_create_new_peer (EvdLongPolling *self)
 }
 
 static void
-evd_long_polling_connection_shutdown_on_flush (GObject      *obj,
-                                               GAsyncResult *res,
-                                               gpointer      user_data)
-{
-  EvdConnection *conn = EVD_CONNECTION (user_data);
-
-  g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
-
-  evd_socket_shutdown (evd_connection_get_socket (conn),
-                       TRUE,
-                       TRUE,
-                       NULL);
-
-  g_object_unref (conn);
-}
-
-static void
 evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
                                        EvdHttpConnection *conn,
                                        EvdPeer           *peer,
@@ -541,7 +524,6 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
     {
       gchar *frame;
       gsize frame_size;
-      GOutputStream *stream;
 
       /* send frames in peer's backlog first */
       while ( result &&
@@ -573,13 +555,7 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
         }
 
       /* flush connection's buffer, and shutdown connection after */
-      g_object_ref (conn);
-      stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
-      g_output_stream_flush_async (stream,
-                                   evd_connection_get_priority (EVD_CONNECTION (conn)),
-                                   NULL,
-                                   evd_long_polling_connection_shutdown_on_flush,
-                                   conn);
+      evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
     }
 
   soup_message_headers_free (headers);
