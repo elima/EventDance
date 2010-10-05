@@ -320,3 +320,15 @@ evd_peer_manager_get_all_peers (EvdPeerManager *self)
 
   return g_hash_table_get_values (self->priv->peers);
 }
+
+void
+evd_peer_manager_close_peer (EvdPeerManager *self,
+                             EvdPeer        *peer,
+                             gboolean        gracefully)
+{
+  g_return_if_fail (EVD_IS_PEER_MANAGER (self));
+  g_return_if_fail (EVD_IS_PEER (peer));
+
+  if (g_hash_table_remove (self->priv->peers, evd_peer_get_id (peer)))
+    evd_peer_manager_close_peer_internal (self, peer, gracefully);
+}

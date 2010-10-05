@@ -76,6 +76,10 @@ EvdPeer            *evd_peer_manager_lookup_peer              (EvdPeerManager *s
 
 GList              *evd_peer_manager_get_all_peers            (EvdPeerManager *self);
 
+void                evd_peer_manager_close_peer               (EvdPeerManager *self,
+                                                               EvdPeer        *peer,
+                                                               gboolean        gracefully);
+
 G_END_DECLS
 
 #endif /* __EVD_PEER_MANAGER_H__ */
