@@ -31,27 +31,6 @@ sis.setPeerOnUpdate (
     }, null);
 
 
-/* peer manager */
-let peerManager = Evd.PeerManager.get_default ();
-
-function peerOnClose (peerManager, peer) {
-    let index = sis.releaseViewport (peer);
-    print ("Release viewport " +  index + " by peer " + peer.id);
-}
-
-function peerOnOpen (peerManager, peer) {
-    let index = sis.acquireViewport (peer);
-    print ("New peer " + peer.id + " acquired viewport " + index);
-
-/*
-    let msg = '["set-index", '+index+']';
-    peer.transport.send_text (peer, msg);
-*/
-}
-
-peerManager.connect ("new-peer", peerOnOpen);
-peerManager.connect ("peer-closed", peerOnClose);
-
 /* web transport */
 let transport = new Evd.WebTransport ();
 
@@ -81,7 +60,24 @@ function peerOnReceive (t, peer) {
     }
 }
 
+function peerOnOpen (transport, peer) {
+    let index = sis.acquireViewport (peer);
+    print ("New peer " + peer.id + " acquired viewport " + index);
+
+/*
+    let msg = '["set-index", '+index+']';
+    peer.transport.send_text (peer, msg);
+*/
+}
+
+function peerOnClose (transport, peer) {
+    let index = sis.releaseViewport (peer);
+    print ("Release viewport " +  index + " by peer " + peer.id);
+}
+
 transport.connect ("receive", peerOnReceive);
+transport.connect ("new-peer", peerOnOpen);
+transport.connect ("peer-closed", peerOnClose);
 
 /* web dir */
 let webDir = new Evd.WebDir ({ root: "../common" });
