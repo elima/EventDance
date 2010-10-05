@@ -59,6 +59,7 @@ function receive (data) {
 
     if (_payload != payload) {
         alert ("payload corrupted!");
+        Evd.transport.setOnReceive (null, null);
         return;
     }
 
