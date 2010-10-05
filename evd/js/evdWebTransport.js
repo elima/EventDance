@@ -14,7 +14,7 @@ Evd.LongPolling.prototype = {
 
         this._backlog = "";
 
-        this._nrReceivers = 2;
+        this._nrReceivers = 1;
         this._minSenders = 1;
         this._maxSenders = 2;
 
@@ -83,16 +83,12 @@ Evd.LongPolling.prototype = {
         return [hdr_len, msg_len];
     },
 
-    _xhrOnLoad: function () {
-        var self = this._owner;
-        var data = this.responseText + "";
-
-        if (self._opened)
-            self._recycleXhr (this);
+    _xhrOnLoad: function (xhr) {
+        var data = xhr.responseText + "";
 
         var hdr_len, msg_len, msg, t;
         while (data != "") {
-            t = self._readMsgHeader (data);
+            t = this._readMsgHeader (data);
             hdr_len = t[0];
             msg_len = t[1];
 
@@ -100,15 +96,11 @@ Evd.LongPolling.prototype = {
             data = data.substr (hdr_len + msg_len);
 
             try {
-                self._deliver (msg);
+                this._deliver (msg);
             }
             catch (e) {
             }
         }
-    },
-
-    _xhrOnAbort: function () {
-        xhr._owner._recycleXhr (this);
     },
 
     _setupNewXhr: function (sender) {
@@ -116,10 +108,26 @@ Evd.LongPolling.prototype = {
 
         var xhr = new XMLHttpRequest ();
         xhr._sender = sender;
-        xhr._owner = this;
 
-        xhr.onload = this._xhrOnLoad;
-        xhr.onabort = this._xhrOnAbort;
+        xhr.onabort = function () {
+            self._recycleXhr (this);
+        };
+
+        xhr.onreadystatechange = function () {
+            if (this.readyState == 4) {
+                if (this.status == 200) {
+                    self._xhrOnLoad (this);
+                    self._recycleXhr (this);
+                }
+                else {
+                    var xhr = this;
+                    setTimeout (function () {
+                                    self._recycleXhr (xhr);
+                                    xhr = null;
+                                }, 100);
+                }
+            }
+        };
 
         return xhr;
     },
