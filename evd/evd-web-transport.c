@@ -358,21 +358,26 @@ evd_web_transport_send (EvdTransport  *transport,
 
   g_object_get (peer, "transport", &_transport, NULL);
 
-  if (! evd_web_transport_validate_peer_transport (self, transport, error))
-    result = -1;
+  if (! evd_web_transport_validate_peer_transport (self, _transport, error)
+      || ! evd_transport_send (_transport,
+                               peer,
+                               buffer,
+                               size,
+                               error))
+    {
+      result = -1;
+    }
   else
-    result = evd_transport_send (_transport,
-                                 peer,
-                                 buffer,
-                                 size,
-                                 error);
+    {
+      result = size;
+    }
 
   g_object_unref (_transport);
 
   return result;
 }
 
-gboolean
+static gboolean
 evd_web_transport_peer_is_connected (EvdTransport *transport,
                                      EvdPeer      *peer)
 {
