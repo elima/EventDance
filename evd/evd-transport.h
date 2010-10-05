@@ -100,6 +100,11 @@ const gchar    *evd_transport_receive_text                  (EvdTransport *self,
 gboolean        evd_transport_peer_is_connected             (EvdTransport *self,
                                                              EvdPeer       *peer);
 
+gboolean        evd_transport_close_peer                    (EvdTransport  *self,
+                                                             EvdPeer       *peer,
+                                                             gboolean       gracefully,
+                                                             GError       **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TRANSPORT_H__ */
