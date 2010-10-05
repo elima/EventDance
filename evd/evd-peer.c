@@ -37,6 +37,8 @@ struct _EvdPeerPrivate
 {
   gchar *id;
 
+  gboolean closed;
+
   GQueue *backlog;
 
   GTimer *idle_timer;
@@ -116,6 +118,8 @@ evd_peer_init (EvdPeer *self)
 
   priv = EVD_PEER_GET_PRIVATE (self);
   self->priv = priv;
+
+  self->priv->closed = FALSE;
 
   priv->backlog = g_queue_new ();
 
@@ -352,4 +356,20 @@ evd_peer_send_text (EvdPeer      *self,
                                   self,
                                   buffer,
                                   error);
+}
+
+void
+evd_peer_close (EvdPeer *self, gboolean gracefully)
+{
+  g_return_if_fail (EVD_IS_PEER (self));
+
+  if (! self->priv->closed)
+    {
+      self->priv->closed = TRUE;
+
+      evd_transport_close_peer (self->priv->transport,
+                                self,
+                                gracefully,
+                                NULL);
+    }
 }

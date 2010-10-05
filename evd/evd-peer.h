@@ -84,6 +84,9 @@ gboolean          evd_peer_send_text               (EvdPeer      *self,
                                                     const gchar  *buffer,
                                                     GError      **error);
 
+void              evd_peer_close                   (EvdPeer   *self,
+                                                    gboolean   gracefully);
+
 G_END_DECLS
 
 #endif /* __EVD_PEER_H__ */
