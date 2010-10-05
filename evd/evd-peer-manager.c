@@ -41,6 +41,8 @@ struct _EvdPeerManagerPrivate
 
   GTimer *peer_cleanup_timer;
   guint peer_cleanup_interval;
+
+  GQueue *removal_list;
 };
 
 /* signals */
@@ -55,11 +57,15 @@ static guint evd_peer_manager_signals[SIGNAL_LAST] = { 0 };
 
 static EvdPeerManager *evd_peer_manager_default = NULL;
 
-static void     evd_peer_manager_class_init         (EvdPeerManagerClass *class);
-static void     evd_peer_manager_init               (EvdPeerManager *self);
+static void     evd_peer_manager_class_init          (EvdPeerManagerClass *class);
+static void     evd_peer_manager_init                (EvdPeerManager *self);
 
-static void     evd_peer_manager_finalize           (GObject *obj);
-static void     evd_peer_manager_dispose            (GObject *obj);
+static void     evd_peer_manager_finalize            (GObject *obj);
+static void     evd_peer_manager_dispose             (GObject *obj);
+
+static void     evd_peer_manager_close_peer_internal (EvdPeerManager *self,
+                                                      EvdPeer        *peer,
+                                                      gboolean        gracefully);
 
 static void
 evd_peer_manager_class_init (EvdPeerManagerClass *class)
@@ -103,10 +109,12 @@ evd_peer_manager_init (EvdPeerManager *self)
   priv->peers = g_hash_table_new_full (g_str_hash,
                                        g_str_equal,
                                        g_free,
-                                       g_object_unref);
+                                       NULL);
 
   priv->peer_cleanup_timer = g_timer_new ();
   priv->peer_cleanup_interval = DEFAULT_PEER_CLEANUP_INTERVAL;
+
+  priv->removal_list = g_queue_new ();
 }
 
 static void
@@ -120,6 +128,15 @@ evd_peer_manager_finalize (GObject *obj)
 {
   EvdPeerManager *self = EVD_PEER_MANAGER (obj);
 
+  while (g_queue_get_length (self->priv->removal_list) > 0)
+    {
+      EvdPeer *peer;
+
+      peer = EVD_PEER (g_queue_pop_head (self->priv->removal_list));
+      evd_peer_manager_close_peer_internal (self, peer, FALSE);
+    }
+  g_queue_free (self->priv->removal_list);
+
   g_hash_table_destroy (self->priv->peers);
 
   g_timer_destroy (self->priv->peer_cleanup_timer);
@@ -128,6 +145,22 @@ evd_peer_manager_finalize (GObject *obj)
 
   if (self == evd_peer_manager_default)
     evd_peer_manager_default = NULL;
+}
+
+static void
+evd_peer_manager_close_peer_internal (EvdPeerManager *self,
+                                      EvdPeer        *peer,
+                                      gboolean        gracefully)
+{
+  evd_peer_close (peer, gracefully);
+
+  g_signal_emit (self,
+                 evd_peer_manager_signals[SIGNAL_PEER_CLOSED],
+                 0,
+                 peer,
+                 NULL);
+
+  g_object_unref (peer);
 }
 
 static gboolean
@@ -144,7 +177,7 @@ evd_peer_manager_check_peer (gpointer key,
     }
   else
     {
-      g_signal_emit (self, evd_peer_manager_signals[SIGNAL_PEER_CLOSED], 0, peer, NULL);
+      g_queue_push_tail (self->priv->removal_list, peer);
 
       return TRUE;
     }
@@ -162,6 +195,15 @@ evd_peer_manager_cleanup_peers (EvdPeerManager *self)
   g_hash_table_foreach_remove (self->priv->peers,
                                evd_peer_manager_check_peer,
                                self);
+
+  while (g_queue_get_length (self->priv->removal_list) > 0)
+    {
+      EvdPeer *peer;
+
+      peer = EVD_PEER (g_queue_pop_head (self->priv->removal_list));
+
+      evd_peer_manager_close_peer_internal (self, peer, FALSE);
+    }
 }
 
 /* public methods */
