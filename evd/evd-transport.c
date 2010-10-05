@@ -157,20 +157,22 @@ evd_transport_send (EvdTransport  *self,
                     gsize          size,
                     GError       **error)
 {
-  gssize actual_size;
-
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
   g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
 
-  if ( (actual_size = EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
-                                                                peer,
-                                                                buffer,
-                                                                size,
-                                                                NULL)) <= 0 &&
-       ! evd_peer_backlog_push_frame (peer, buffer, size, error))
-    return FALSE;
+  if (EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
+                                                peer,
+                                                buffer,
+                                                size,
+                                                NULL) <= 0
+      && ! evd_peer_backlog_push_frame (peer, buffer, size, error))
+    {
+      return FALSE;
+    }
   else
-    return TRUE;
+    {
+      return TRUE;
+    }
 }
 
 gboolean
