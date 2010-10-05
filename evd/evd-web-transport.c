@@ -82,6 +82,11 @@ static void     evd_web_transport_on_new_peer          (EvdTransport *transport,
                                                         EvdPeer      *peer,
                                                         gpointer      user_data);
 
+static void     evd_web_transport_on_peer_closed       (EvdTransport *transport,
+                                                        EvdPeer      *peer,
+                                                        gboolean      gracefully,
+                                                        gpointer      user_data);
+
 static void     evd_web_transport_request_handler      (EvdWebService     *web_service,
                                                         EvdHttpConnection *conn,
                                                         EvdHttpRequest    *request);
@@ -168,6 +173,10 @@ evd_web_transport_init (EvdWebTransport *self)
   g_signal_connect (priv->lp,
                     "new-peer",
                     G_CALLBACK (evd_web_transport_on_new_peer),
+                    self);
+  g_signal_connect (priv->lp,
+                    "peer-closed",
+                    G_CALLBACK (evd_web_transport_on_peer_closed),
                     self);
 
   priv->js_code = NULL;
@@ -275,6 +284,18 @@ evd_web_transport_on_new_peer (EvdTransport *transport,
 
   EVD_TRANSPORT_GET_INTERFACE (self)->
     notify_new_peer (EVD_TRANSPORT (self), peer);
+}
+
+static void
+evd_web_transport_on_peer_closed (EvdTransport *transport,
+                                  EvdPeer      *peer,
+                                  gboolean      gracefully,
+                                  gpointer      user_data)
+{
+  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+
+  EVD_TRANSPORT_GET_INTERFACE (self)->
+    notify_peer_closed (EVD_TRANSPORT (self), peer, gracefully);
 }
 
 static void
