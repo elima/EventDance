@@ -324,3 +324,31 @@ evd_peer_is_alive (EvdPeer *self)
  return evd_transport_peer_is_connected (self->priv->transport,
                                          self);
 }
+
+gboolean
+evd_peer_send (EvdPeer      *self,
+               const gchar  *buffer,
+               gsize         size,
+               GError      **error)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+
+  return evd_transport_send (self->priv->transport,
+                             self,
+                             buffer,
+                             size,
+                             error);
+}
+
+gboolean
+evd_peer_send_text (EvdPeer      *self,
+                    const gchar  *buffer,
+                    GError      **error)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+
+  return evd_transport_send_text (self->priv->transport,
+                                  self,
+                                  buffer,
+                                  error);
+}

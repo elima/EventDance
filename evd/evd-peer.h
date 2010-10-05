@@ -75,6 +75,13 @@ guint             evd_peer_backlog_get_length      (EvdPeer *self);
 void              evd_peer_touch                   (EvdPeer *self);
 gboolean          evd_peer_is_alive                (EvdPeer *self);
 
+gboolean          evd_peer_send                    (EvdPeer      *self,
+                                                    const gchar  *buffer,
+                                                    gsize         size,
+                                                    GError      **error);
+gboolean          evd_peer_send_text               (EvdPeer      *self,
+                                                    const gchar  *buffer,
+                                                    GError      **error);
 
 G_END_DECLS
 
