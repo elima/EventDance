@@ -24,6 +24,7 @@
 
 #include "evd-peer-manager.h"
 
+#include "evd-marshal.h"
 #include "evd-utils.h"
 
 G_DEFINE_TYPE (EvdPeerManager, evd_peer_manager, G_TYPE_OBJECT)
@@ -91,9 +92,10 @@ evd_peer_manager_class_init (EvdPeerManagerClass *class)
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
                   G_STRUCT_OFFSET (EvdPeerManagerClass, peer_closed),
                   NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
+                  evd_marshal_VOID__OBJECT_BOOLEAN,
                   G_TYPE_NONE,
-                  1, EVD_TYPE_PEER);
+                  2, EVD_TYPE_PEER,
+                  G_TYPE_BOOLEAN);
 
   g_type_class_add_private (obj_class, sizeof (EvdPeerManagerPrivate));
 }
@@ -158,6 +160,7 @@ evd_peer_manager_close_peer_internal (EvdPeerManager *self,
                  evd_peer_manager_signals[SIGNAL_PEER_CLOSED],
                  0,
                  peer,
+                 gracefully,
                  NULL);
 
   g_object_unref (peer);

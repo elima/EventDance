@@ -51,6 +51,7 @@ struct _EvdPeerManagerClass
                         gpointer        user_data);
   void (* peer_closed) (EvdPeerManager *self,
                         EvdPeer        *peer,
+                        gboolean        gracefully,
                         gpointer        user_data);
 };
 
