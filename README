@@ -1,16 +1,21 @@
 EventDance 0.1 README
 =====================
 
-Event distribution framework.
+Peer-to-peer inter-process communication library.
 
 EventDance is an open source library for interconnecting heterogeneous
-applications in a fast, scalable and low-latency fashion. It uses a
-high-level, publish/subscribe-based event delivery mechanism to achieve
-reliable communication among local and remote systems.
+applications in a simple, secure and scalable fashion. It provides
+a nice API to send and receive data among distributed applications over
+different types of transports. This and other features like cryptography,
+make EventDance a perfect choice for peer-to-peer application
+development.
 
 EventDance currently requires:
 
-  * GLib >= 2.16.0
+  * GLib >= 2.23.0
+  * libsoup-2.4 >= 2.23.0
+  * gnutls >= 2.6.5
+  * uuid >= 2.16.0
 
 If you are building the API reference you will also need:
 
@@ -18,7 +23,7 @@ If you are building the API reference you will also need:
 
 If you are building the Introspection data you will also need:
 
-  * GObject-Introspection >= 0.6.3
+  * GObject-Introspection >= 0.6.7
 
 If you are building the Javascript support you will also need:
 
@@ -31,7 +36,7 @@ The EventDance blog is at:
    http://blogs.igalia.com/elima
 
 To subscribe to the EventDance mailing list, send mail to:
-   (no mailing list yet, working on it)
+   (no mailing list yet)
 
 The official mailing list archive is:
    (no mailing-list archive yet)
@@ -40,7 +45,7 @@ Bug reporting and tracking:
    (by now, just mail elima@igalia.com)
 
 EventDance is licensed under the terms of the GNU Lesser General Public
-License, version 3 or (at your option) later.
+License, version 3 or (at your option) later. See COPYING for more information.
 
 INSTALLATION
 ============
@@ -61,7 +66,7 @@ in autogen.sh:
         present on system.
 
  --enable-js
-        install the Javascript bindings library. Requires GJS, and
+        enable server-side Javascript tests and examples. Requires GJS, and
         GObject-Introspection present on system and enabled in build
         options.
 
