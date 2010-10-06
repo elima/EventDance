@@ -162,6 +162,9 @@ static void
 evd_web_service_return_connection (EvdWebService     *self,
                                    EvdHttpConnection *conn)
 {
+  /* @TODO: if connection is keep-alive then return it,
+     otherwise close it */
+  /*
   EvdService *return_to;
 
   return_to = EVD_SERVICE (g_object_get_data (G_OBJECT (conn),
@@ -175,6 +178,7 @@ evd_web_service_return_connection (EvdWebService     *self,
                                G_IO_STREAM (conn));
     }
   else
+  */
     {
       evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
     }
