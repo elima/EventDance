@@ -1,16 +1,17 @@
 /*
  * evd-web-service.c
  *
- * EventDance project - An event distribution framework (http://eventdance.org)
+ * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009, Igalia S.L.
+ * Copyright (C) 2009/2010, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
- * version 3 as published by the Free Software Foundation.
+ * version 3, or (at your option) any later version as published by
+ * the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
