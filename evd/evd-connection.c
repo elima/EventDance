@@ -913,16 +913,19 @@ evd_connection_shutdown_on_flush (GObject      *obj,
                                   GAsyncResult *res,
                                   gpointer      user_data)
 {
-  EvdConnection *conn = EVD_CONNECTION (user_data);
+  EvdConnection *self = EVD_CONNECTION (user_data);
 
   g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
 
-  evd_socket_shutdown (evd_connection_get_socket (conn),
+  if (self->priv->tls_active)
+    evd_tls_session_close (self->priv->tls_session, NULL);
+
+  evd_socket_shutdown (evd_connection_get_socket (self),
                        TRUE,
                        TRUE,
                        NULL);
 
-  g_object_unref (conn);
+  g_object_unref (self);
 }
 
 /* public methods */
