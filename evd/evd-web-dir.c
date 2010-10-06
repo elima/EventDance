@@ -423,6 +423,8 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
   gchar *filename = NULL;
   GFile *file;
   EvdWebDirBinding *binding;
+  const gchar *FILE_ATTRS =
+    "standard::fast-content-type,standard::content-type,standard::size";
 
   if (! evd_web_dir_method_allowed (self,
                                     evd_http_request_get_method (request)))
@@ -460,7 +462,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                     binding);
 
   g_file_query_info_async (file,
-                           "standard::fast-content-type,standard::size",
+                           FILE_ATTRS,
                            G_FILE_QUERY_INFO_NONE,
                            evd_connection_get_priority (EVD_CONNECTION (conn)),
                            NULL,
