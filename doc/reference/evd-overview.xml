@@ -5,12 +5,12 @@
   <partintro>
 
     <para>
-      EventDance is a framework to build fast, secure and scalable network applications
-      that require interconnecting heterogeneous contexts in an asynchronous, secure and
-      reliable fashion. EventDance provides a set of easy to use network components together
-      with a high level inter-process communication mechanism (not implemented yet) strongly
-      inspired in <ulink type="http" url="http://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink>
-      but fully decentralized, to ease interaction between remote objects.
+      EventDance is an open source library for interconnecting heterogeneous
+      applications in a simple, secure and scalable fashion. It provides
+      a nice API to send and receive data among distributed applications over
+      different types of transports. This and other features like cryptography,
+      make EventDance a perfect choice for peer-to-peer application
+      development.
     </para>
 
   </partintro>
@@ -19,21 +19,21 @@
     <title>Key design features</title>
 
     <para>
-      This chapter discuss the basic design concepts behind the EventDance framework.
+      This chapter discuss the basic design concepts behind EventDance.
       Not all features are implemented at the moment, but they surely will be at some point.
       Thus, by now some of the items in the following list should be considered a declaration
       of intentions, or goals.
     </para>
 
     <para>
-      The EventDance framework should be:
+      EventDance should be:
     </para>
 
     <itemizedlist>
       <listitem>
         <emphasis>Asynchronous</emphasis>
         <para>
-          All EventDance activity is driven by a main, thread-safe event loop, which no routine
+          All activity is driven by a main event loop, which no routine
           should block under any circumstance. If some blocking operation is to be
           performed, a separate thread shall be spawned for it. All network and disk IO is
           expected to be non-blocking, both in the core of EventDance and in programs using it.
@@ -41,21 +41,27 @@
       </listitem>
 
       <listitem>
+        <emphasis>Secure</emphasis>
+        <para>
+          Basic API should be provided for peer authentication and data privacy/integrity
+          at a cryptographic level.
+        </para>
+      </listitem>
+
+      <listitem>
         <emphasis>Scalable</emphasis>
         <para>
-          All components in the framework should scale reasonably well under high-concurrency situations,
+          All components should scale reasonably well under high-concurrency situations,
           and support graceful service degradation in case of excessive load. Any mechanism
           available in the platform to optimize responsiveness should be used to guarantee
-          scalability. It's expected that clients in the range of 1 to 2 tens of thousands
-          can be simultaneously handled reasonably fast, in a single computer with average
-          resources.
+          scalability.
         </para>
       </listitem>
 
       <listitem>
         <emphasis>Introspection friendly</emphasis>
         <para>
-          EventDance libraries are designed to work fine with
+          Libraries are designed to work fine with
           <ulink type="http" url="http://live.gnome.org/GObjectIntrospection">GObject-Introspection</ulink>.
           APIs are well-thought to be used in high level scripting languages like Javascript and Python.
           Thus, it's a design requirement to have introspection friendly and easy to use APIs, and to always
@@ -63,22 +69,23 @@
         </para>
       </listitem>
 
+<!--
       <listitem>
         <emphasis>Hot-plug configurable</emphasis>
         <para>
-          Framework components should provide means to change any configuration option on-the-fly,
-          without restarting the main service. For that, a management service is provided, together
-          with a management interface class that all configuration-sensitive objects should
-          implement. Examples of this are adding/removing listening interfaces on network services,
-          changing URLs to resources, adjusting limits like number of connections, bandwidth
-          usage, etc.
+          Configuration-sensitive components should provide means to change any option
+          on-the-fly, without needing to restart the main service. For that, a management interface
+          should be provided and all configuration-sensitive objects should
+          implement it. Examples of this are adding/removing listening interfaces on network services,
+          changing URLs to resources, adjusting limits like number of connections, bandwidth, etc.
         </para>
       </listitem>
+-->
 
       <listitem>
         <emphasis>Extensible</emphasis>
         <para>
-          EventDance libraries should be designed so that developers can efficiently modify or
+          Libraries should be designed so that developers can efficiently modify or
           extend its behavior, reusing as much code as possible. For that, relevant parts of
           libraries' internal logic is published as well. See chapter
           <link linkend="extending">Extending EventDance</link> for more information.
@@ -93,8 +100,6 @@
           for a condition change, unnecessarily feeding the event loop at intervals. Instead,
           these operations should be moved to a thread and blocked permanently when possible,
           until a notification of a condition change wakes up the thread.
-          EventDance services also target mobile environments where resources,
-          specially energy, are limited.
         </para>
       </listitem>
 

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
                "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
-<!ENTITY version "0.1.0 (unreleased)">
+<!ENTITY version "0.1.2 (unreleased)">
 ]>
 
 <book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
@@ -10,7 +10,7 @@
     <releaseinfo>Version &version;</releaseinfo>
 
     <copyright>
-      <year>2009</year>
+      <year>2009/2010</year>
       <holder><![CDATA[Eduardo Lima Mitev <elima at igalia dot com>]]></holder>
     </copyright>
 
@@ -44,26 +44,73 @@
 
     <chapter>
       <title>Abstract classes and interfaces</title>
-      <xi:include href="xml/evd-stream.xml"/>
-      <xi:include href="xml/evd-socket-stream.xml"/>
+      <xi:include href="xml/evd-transport.xml"/>
+      <xi:include href="xml/evd-http-message.xml"/>
     </chapter>
 
     <chapter>
-      <title>Base classes</title>
+      <title>Core</title>
       <xi:include href="xml/evd-socket.xml"/>
-      <xi:include href="xml/evd-socket-group.xml"/>
+
+      <xi:include href="xml/evd-socket-input-stream.xml"/>
+      <xi:include href="xml/evd-socket-output-stream.xml"/>
+
+      <xi:include href="xml/evd-stream-throttle.xml"/>
+
+      <xi:include href="xml/evd-throttled-input-stream.xml"/>
+      <xi:include href="xml/evd-throttled-output-stream.xml"/>
+
+      <xi:include href="xml/evd-buffered-input-stream.xml"/>
+      <xi:include href="xml/evd-buffered-output-stream.xml"/>
+
+      <xi:include href="xml/evd-connection.xml"/>
+
+      <xi:include href="xml/evd-tls-certificate.xml"/>
+      <xi:include href="xml/evd-tls-credentials.xml"/>
+      <xi:include href="xml/evd-tls-session.xml"/>
+
+      <xi:include href="xml/evd-tls-input-stream.xml"/>
+      <xi:include href="xml/evd-tls-output-stream.xml"/>
+
+      <xi:include href="xml/evd-http-request.xml"/>
+      <xi:include href="xml/evd-http-connection.xml"/>
+
+      <xi:include href="xml/evd-io-stream-group.xml"/>
+      <xi:include href="xml/evd-connection-pool.xml"/>
       <xi:include href="xml/evd-service.xml"/>
       <xi:include href="xml/evd-reproxy.xml"/>
-      <xi:include href="xml/evd-reproxy-backend.xml"/>
-      <xi:include href="xml/evd-json-filter.xml"/>
-      <xi:include href="xml/evd-resolver.xml"/>
-      <xi:include href="xml/evd-resolver-request.xml"/>
-      <xi:include href="xml/evd-tls-session.xml"/>
-      <xi:include href="xml/evd-tls-credentials.xml"/>
-      <xi:include href="xml/evd-tls-certificate.xml"/>
+      <xi:include href="xml/evd-web-service.xml"/>
+      <xi:include href="xml/evd-web-selector.xml"/>
+      <xi:include href="xml/evd-web-dir.xml"/>
+      <xi:include href="xml/evd-peer.xml"/>
+      <xi:include href="xml/evd-peer-manager.xml"/>
     </chapter>
+
+    <chapter>
+      <title>Transports</title>
+      <para>
+        All transport classes implement <ulink type="http" url="EvdTransport.html">EvdTransport</ulink>
+        interface.
+      </para>
+      <xi:include href="xml/evd-web-transport.xml"/>
+      <xi:include href="xml/evd-long-polling.xml"/>
+    </chapter>
+
+    <chapter>
+      <title>Utils and micellaneous</title>
+      <xi:include href="xml/evd-poll.xml"/>
+      <xi:include href="xml/evd-resolver.xml"/>
+      <xi:include href="xml/evd-json-filter.xml"/>
+      <xi:include href="xml/evd-tls-dh-generator.xml"/>
+      <xi:include href="xml/evd-utils.xml"/>
+      <xi:include href="xml/evd-error.xml"/>
+      <xi:include href="xml/evd-marshal.xml"/>
+      <xi:include href="xml/evd-tls-common.xml"/>
+    </chapter>
+
   </part>
 
+<!--
   <part id="using">
     <title>Using EventDance in Javascript</title>
 
@@ -78,6 +125,7 @@
     </partintro>
 
   </part>
+-->
 
   <part id="extending">
     <title>Extending EventDance</title>
@@ -92,17 +140,6 @@
       <para>@TODO</para>
     </chapter>
 
-    <chapter>
-      <title>Protected symbols</title>
-      <para></para>
-
-      <xi:include href="xml/evd-socket-manager.xml"/>
-      <xi:include href="xml/evd-stream-protected.xml"/>
-      <xi:include href="xml/evd-socket-protected.xml"/>
-      <xi:include href="xml/evd-socket-group-protected.xml"/>
-      <xi:include href="xml/evd-service-protected.xml"/>
-      <xi:include href="xml/evd-reproxy-protected.xml"/>
-    </chapter>
   </part>
 
   <part id="evdobjects">
