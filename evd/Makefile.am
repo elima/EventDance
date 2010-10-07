@@ -7,13 +7,13 @@ pkgconfig_DATA = @EVD_API_NAME@.pc
 library_includedir=$(includedir)/@EVD_API_NAME@
 library_include_HEADERS = evd.h
 
-jsdir = $(libdir)/evd/js
+jslibdir = $(libdir)/evd/js
 
 CLEANFILES = *~ @EVD_API_NAME@.pc
 
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
 	-DPKGDATADIR="\"$(pkgdatadir)\"" \
-	-DEVD_JS_PATH="\"$(jsdir)\""
+	-DJSLIBDIR="\"$(jslibdir)\""
 
 evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \
@@ -145,7 +145,7 @@ evd_HEADERS = \
 	$(source_h) \
 	$(source_h_priv)
 
-js_DATA = \
+jslib_DATA = \
 	js/evdWebTransport.js
 
 # introspection support

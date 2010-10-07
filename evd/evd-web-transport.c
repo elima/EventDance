@@ -274,9 +274,9 @@ evd_web_transport_request_handler (EvdWebService     *web_service,
     {
       const gchar *js_path;
 
-      js_path = g_getenv ("EVD_JS_PATH");
+      js_path = g_getenv ("JSLIBDIR");
       if (js_path == NULL)
-        js_path = EVD_JS_PATH;
+        js_path = JSLIBDIR;
 
       filename = g_strconcat (js_path, "/evdWebTransport.js", NULL);
 
