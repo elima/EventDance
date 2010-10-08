@@ -1147,8 +1147,6 @@ evd_http_connection_respond (EvdHttpConnection   *self,
                                              size,
                                              error))
         {
-          evd_connection_flush_and_shutdown (EVD_CONNECTION (self), NULL);
-
           result = TRUE;
         }
     }
