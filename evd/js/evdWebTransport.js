@@ -6,6 +6,8 @@ Evd.LongPolling = function (config) {
 };
 
 Evd.LongPolling.prototype = {
+    PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
+
     _init: function (config) {
         this.url = config.url;
         if (this.url.charAt (this.url.length-1) != "/")
@@ -16,12 +18,14 @@ Evd.LongPolling.prototype = {
 
         this._nrReceivers = 1;
         this._minSenders = 1;
-        this._maxSenders = 2;
+        this._maxSenders = 1;
 
         this._senders = [];
 
         this._opened = false;
         this._handshaking = false;
+
+        this.peerId = null;
 
         for (var i=0; i<this._maxSenders; i++) {
             var xhr = this._setupNewXhr (true);
@@ -34,11 +38,15 @@ Evd.LongPolling.prototype = {
 
         var xhr = new XMLHttpRequest ();
 
-        xhr.onload = function () {
+        xhr.onreadystatechange = function () {
+            if (this.readyState != 4)
+                return;
+
             self._handshaking = false;
 
             if (this.status == 200) {
                 self._opened = true;
+                self.peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
 
                 if (self._backlog != "")
                     self.send ("");
@@ -53,9 +61,10 @@ Evd.LongPolling.prototype = {
             this.onload = null;
         };
 
+        this._opened = false;
         this._handshaking = true;
 
-        xhr.open ("POST", this.url, true);
+        xhr.open ("POST", this.url + "/handshake", true);
         xhr.send ();
     },
 
@@ -119,6 +128,13 @@ Evd.LongPolling.prototype = {
                     self._xhrOnLoad (this);
                     self._recycleXhr (this);
                 }
+                else if (this.status == 404) {
+                    // @TODO: close peer before re-handshaking
+                    setTimeout (function () {
+                                    self._handshake ();
+                                    xhr = null;
+                                }, 1);
+                }
                 else {
                     var xhr = this;
                     setTimeout (function () {
@@ -158,7 +174,8 @@ Evd.LongPolling.prototype = {
     },
 
     _connectXhr: function (xhr) {
-        xhr.open ("GET", this.url, true);
+        xhr.open ("GET", this.url + "/receive", true);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peerId);
         xhr.send ();
     },
 
@@ -179,7 +196,8 @@ Evd.LongPolling.prototype = {
     },
 
     _send: function (xhr, data) {
-        xhr.open ("POST", this.url, true);
+        xhr.open ("POST", this.url + "/send", true);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peerId);
         xhr.send (data);
     },
 

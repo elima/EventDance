@@ -35,26 +35,27 @@
                                            EVD_TYPE_LONG_POLLING, \
                                            EvdLongPollingPrivate))
 
-#define PEER_ID_COOKIE_NAME  "X-Org-EventDance-Peer-Id"
-#define PEER_ID_COOKIE_REGEX "X\\-Org\\-EventDance\\-Peer\\-Id=([^;]+)($|;)"
+#define PEER_ID_HEADER_NAME  "X-Org-EventDance-Peer-Id"
 
-#define PEER_DATA_KEY       "org.eventdance.lib.transports.long-polling"
-#define CONN_PEER_KEY_GET   PEER_DATA_KEY ".get"
-#define CONN_PEER_KEY_POST  PEER_DATA_KEY ".post"
+#define PEER_DATA_KEY       "org.eventdance.lib.LongPolling"
+#define CONN_PEER_KEY_GET   PEER_DATA_KEY ".GET"
+#define CONN_PEER_KEY_POST  PEER_DATA_KEY ".POST"
+
+#define ACTION_HANDSHAKE "handshake"
+#define ACTION_RECEIVE   "receive"
+#define ACTION_SEND      "send"
+#define ACTION_CLOSE     "close"
 
 /* private data */
 struct _EvdLongPollingPrivate
 {
   EvdPeerManager *peer_manager;
-
-  GRegex *peer_id_regex;
 };
 
 typedef struct _EvdLongPollingPeerData EvdLongPollingPeerData;
 struct _EvdLongPollingPeerData
 {
   GQueue *conns;
-  gboolean send_cookies;
 };
 
 static void     evd_long_polling_class_init          (EvdLongPollingClass *class);
@@ -107,7 +108,6 @@ evd_long_polling_class_init (EvdLongPollingClass *class)
 
   web_service_class->request_handler = evd_long_polling_request_handler;
 
-  /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdLongPollingPrivate));
 }
 
@@ -128,8 +128,6 @@ evd_long_polling_init (EvdLongPolling *self)
 
   priv->peer_manager = evd_peer_manager_get_default ();
 
-  priv->peer_id_regex = g_regex_new (PEER_ID_COOKIE_REGEX, 0, 0, NULL);
-
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 
@@ -145,8 +143,6 @@ evd_long_polling_finalize (GObject *obj)
   EvdLongPolling *self = EVD_LONG_POLLING (obj);
 
   g_object_unref (self->priv->peer_manager);
-
-  g_regex_unref (self->priv->peer_id_regex);
 
   G_OBJECT_CLASS (evd_long_polling_parent_class)->finalize (obj);
 }
@@ -202,23 +198,18 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
   SoupMessageHeaders *headers;
   GError *error = NULL;
   const gchar *id;
-  gchar *st;
   SoupHTTPVersion ver;
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
   ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
   id = evd_peer_get_id (peer);
-  soup_message_headers_replace (headers, "X-Org-Eventdance-Peer-Id", id);
-
-  st = g_strdup_printf ("%s=%s", PEER_ID_COOKIE_NAME, id);
-  soup_message_headers_append (headers, "Set-Cookie", st);
-  g_free (st);
+  soup_message_headers_replace (headers, PEER_ID_HEADER_NAME, id);
 
   if (! evd_http_connection_respond (conn,
                                      ver,
                                      200,
-                                     "OK",
+                                     NULL,
                                      headers,
                                      NULL,
                                      0,
@@ -338,24 +329,42 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
 }
 
 static gchar *
-evd_long_polling_resolve_peer_id_from_headers (EvdLongPolling     *self,
-                                               SoupMessageHeaders *headers)
+evd_long_polling_resolve_action (EvdLongPolling *self,
+                                 EvdHttpRequest *request)
 {
-  const gchar *cookies;
-  GMatchInfo *match_info;
-  gchar *peer_id = NULL;
+  SoupURI *uri;
+  const gchar *path;
+  gchar **tokens;
+  gint i;
+  gchar *action = NULL;
 
-  cookies = soup_message_headers_get_list (headers, "Cookie");
-  if (cookies == NULL)
-    return NULL;
+  uri = evd_http_request_get_uri (request);
+  path = uri->path;
 
-  g_regex_match (self->priv->peer_id_regex, cookies, 0, &match_info);
-  if (g_match_info_matches (match_info))
-      peer_id = g_match_info_fetch (match_info, 1);
+  tokens = g_strsplit (path, "/", 32);
 
-  g_match_info_free (match_info);
+  i = 0;
+  while (tokens[i] != NULL)
+    i++;
 
-  return peer_id;
+  action = g_strdup (tokens[i-1]);
+
+  g_strfreev (tokens);
+
+  return action;
+}
+
+static void
+evd_long_polling_handshake (EvdLongPolling    *self,
+                            EvdHttpConnection *conn,
+                            EvdHttpRequest    *request)
+{
+  EvdPeer *peer;
+
+  /* @TODO: validate handshake */
+
+  peer = evd_long_polling_create_new_peer (self);
+  evd_long_polling_respond_with_cookies (self, conn, peer, request);
 }
 
 static void
@@ -364,71 +373,86 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
                                   EvdHttpRequest    *request)
 {
   EvdLongPolling *self = EVD_LONG_POLLING (web_service);
-  gchar *peer_id = NULL;
-  EvdPeer *peer;
-  gboolean send_cookies = FALSE;
+  gchar *action;
 
-  const gchar *method;
-  SoupURI *uri;
-  SoupMessageHeaders *headers;
+  action = evd_long_polling_resolve_action (self, request);
 
-  method = evd_http_request_get_method (request);
-  uri = evd_http_request_get_uri (request);
-  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
-
-  /* resolve peer object */
-  peer_id = evd_long_polling_resolve_peer_id_from_headers (self, headers);
-  if (peer_id == NULL ||
-      (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
-                                            peer_id)) == NULL)
+  /* handshake? */
+  if (g_strcmp0 (action, ACTION_HANDSHAKE) == 0)
     {
-      peer = evd_long_polling_create_new_peer (self);
-      send_cookies = TRUE;
-    }
-
-  evd_peer_touch (peer);
-
-  if (send_cookies)
-    {
-      evd_long_polling_respond_with_cookies (self, conn, peer, request);
-    }
-  else if (g_strcmp0 (method, "GET") == 0)
-    {
-      EvdLongPollingPeerData *data;
-
-      data =
-        (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
-                                                      PEER_DATA_KEY);
-
-      g_object_ref (conn);
-      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
-
-      /* send Peer's backlogged frames */
-      if (evd_peer_backlog_get_length (peer) > 0)
-        evd_long_polling_actual_send (self,
-                                      peer,
-                                      conn,
-                                      NULL,
-                                      0,
-                                      NULL);
-      else
-        g_queue_push_tail (data->conns, conn);
-    }
-  else if (g_strcmp0 (method, "POST") == 0)
-    {
-      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
-
-      evd_http_connection_read_all_content_async (conn,
-                                          NULL,
-                                          evd_long_polling_conn_on_content_read,
-                                          self);
+      evd_long_polling_handshake (self, conn, request);
     }
   else
     {
-      /* @TODO: respond with error 405 (Method Not Allowed) */
+      SoupMessageHeaders *headers;
+      const gchar *peer_id = NULL;
+      EvdPeer *peer;
+
+      headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
+
+      /* resolve peer object */
+      peer_id = soup_message_headers_get_one (headers, PEER_ID_HEADER_NAME);
+      if (peer_id == NULL ||
+          (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
+                                                peer_id)) == NULL)
+        {
+          /* respond with 404 Not Found, forcing client to re-handshake */
+          EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
+                                                     conn,
+                                                     404,
+                                                     NULL,
+                                                     NULL,
+                                                     0,
+                                                     NULL);
+        }
+      else
+        {
+          evd_peer_touch (peer);
+
+          /* receive? */
+          if (g_strcmp0 (action, ACTION_RECEIVE) == 0)
+            {
+              EvdLongPollingPeerData *data;
+
+              data =
+                (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
+                                                              PEER_DATA_KEY);
+
+              g_object_ref (conn);
+              g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
+
+              /* send Peer's backlogged frames */
+              if (evd_peer_backlog_get_length (peer) > 0)
+                evd_long_polling_actual_send (self,
+                                              peer,
+                                              conn,
+                                              NULL,
+                                              0,
+                                              NULL);
+              else
+                g_queue_push_tail (data->conns, conn);
+            }
+
+          /* send? */
+          else if (g_strcmp0 (action, ACTION_SEND) == 0)
+            {
+              g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
+
+              evd_http_connection_read_all_content_async (conn,
+                                          NULL,
+                                          evd_long_polling_conn_on_content_read,
+                                          self);
+            }
+
+          /* close? */
+          else if (g_strcmp0 (action, ACTION_CLOSE) == 0)
+            {
+              /* @TODO */
+            }
+        }
     }
 
-  g_free (peer_id);
+  g_free (action);
 }
 
 static gboolean
