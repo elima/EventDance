@@ -376,6 +376,8 @@ evd_transport_close_peer (EvdTransport  *self,
   g_object_ref (self);
   g_object_set_data (G_OBJECT (peer), PEER_CLOSING_KEY, self);
 
+  g_object_ref (peer);
+
   peer_manager = evd_peer_manager_get_default ();
   evd_peer_manager_close_peer (peer_manager, peer, gracefully);
   g_object_unref (peer_manager);
@@ -391,6 +393,8 @@ evd_transport_close_peer (EvdTransport  *self,
 
   g_object_set_data (G_OBJECT (peer), PEER_CLOSING_KEY, NULL);
   g_object_unref (self);
+
+  g_object_unref (peer);
 
   return TRUE;
 }
