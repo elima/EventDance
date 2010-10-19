@@ -1,9 +1,54 @@
 if (! window["Evd"] || typeof (window["Evd"]) != "object")
     window["Evd"] = {};
 
-Evd.LongPolling = function (config) {
-    this._init (config);
-};
+if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
+    // Evd.Constructor
+    Evd.Constructor = function (args) {
+        return function (args) {
+            if (! args || typeof (args) != "object" || args.constructor != Object)
+                args = {};
+
+            this._init (args);
+        };
+    };
+
+    // Evd.Object
+    Evd.Object = function () {
+        var eventListeners = {};
+
+        this.addEventListener = function (eventName, handler) {
+            if (! eventListeners[eventName])
+                eventListeners[eventName] = [];
+
+            eventListeners[eventName].push (handler);
+        };
+
+        this.removeEventListener = function (eventName, handler) {
+            if (! eventListeners[eventName])
+                return;
+
+            var i = 0;
+            while (i < eventListeners[eventName].length)
+                if (eventListeners[eventName][i] == handler)
+                    eventListeners[eventName].splice (i, 1);
+                else
+                    i++;
+        };
+
+        this._fireEvent = function (eventName, args) {
+            if (! eventListeners[eventName])
+                return;
+
+            for (var i=0; i<eventListeners[eventName].length; i++)
+                eventListeners[eventName][i].apply (this, args);
+        };
+    };
+
+    Evd.Object.extend = function (prototype1, prototype2) {
+        for (var key in prototype2)
+            prototype1[key] = prototype2[key];
+    };
+}
 
 Evd.LongPolling.prototype = {
     PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
