@@ -83,29 +83,38 @@ Evd.Object.extend (Evd.Peer.prototype, {
     }
 });
 
-Evd.LongPolling.prototype = {
+// Evd.LongPolling
+Evd.LongPolling = new Evd.Constructor ();
+Evd.LongPolling.prototype = new Evd.Object ();
+
+Evd.Object.extend (Evd.LongPolling.prototype, {
+    PEER_DATA_KEY: "org.eventdance.lib.LongPolling",
     PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
 
-    _init: function (config) {
-        this.url = config.url;
-        if (this.url.charAt (this.url.length-1) != "/")
-            this.url += "/";
+    _init: function (args) {
+        if (! args.url) {
+            this.url = "/";
+        }
+        else {
+            this.url = args.url;
+            if (this.url.charAt (this.url.length-1) != "/")
+                this.url += "/";
+        }
         this.url += "lp";
 
-        this._backlog = "";
-
         this._nrReceivers = 1;
-        this._minSenders = 1;
-        this._maxSenders = 1;
+        this._nrSenders = 1;
 
         this._senders = [];
 
         this._opened = false;
         this._handshaking = false;
 
-        this.peerId = null;
+        this.peer = null;
 
-        for (var i=0; i<this._maxSenders; i++) {
+        this._activeXhrs = [];
+
+        for (var i=0; i<this._nrSenders; i++) {
             var xhr = this._setupNewXhr (true);
             this._senders.push (xhr);
         }
@@ -124,16 +133,29 @@ Evd.LongPolling.prototype = {
 
             if (this.status == 200) {
                 self._opened = true;
-                self.peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
 
-                if (self._backlog != "")
-                    self.send ("");
+                var peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
+
+                // create new peer
+                var peer = new Evd.Peer ({
+                    id: this.getResponseHeader (self.PEER_ID_HEADER_NAME),
+                    transport: self
+                });
+                peer.getRemoteId = function () {
+                    return peerId;
+                };
+                peer[self.PEER_DATA_KEY] = {};
+
+                // @TODO: by now it is assumed that only one peer can use
+                // this transport
+                self.peer = peer;
+
+                self._fireEvent ("new-peer", [peer]);
 
                 self._connect ();
             }
             else {
-                /* @TODO: raise error */
-                alert ("error handshaking: " + this.statusText);
+                throw ("error handshaking: " + this.statusText);
             }
 
             this.onload = null;
@@ -173,6 +195,10 @@ Evd.LongPolling.prototype = {
     _xhrOnLoad: function (xhr) {
         var data = xhr.responseText + "";
 
+        var peer = this.peer;
+        if (! peer)
+            return;
+
         var hdr_len, msg_len, msg, t;
         while (data != "") {
             t = this._readMsgHeader (data);
@@ -182,11 +208,14 @@ Evd.LongPolling.prototype = {
             msg = data.substr (hdr_len, msg_len);
             data = data.substr (hdr_len + msg_len);
 
+            peer[this.PEER_DATA_KEY]["msg"] = msg;
             try {
-                this._deliver (msg);
+                this._fireEvent ("receive", [peer]);
             }
             catch (e) {
+                alert (e);
             }
+            delete (peer[this.PEER_DATA_KEY]["msg"]);
         }
     },
 
@@ -202,16 +231,16 @@ Evd.LongPolling.prototype = {
 
         xhr.onreadystatechange = function () {
             if (this.readyState == 4) {
+                // remove xhr from list of actives
+                if (self._activeXhrs.indexOf (this) >= 0)
+                    self._activeXhrs.splice (self._activeXhrs.indexOf (this));
+
                 if (this.status == 200) {
                     self._xhrOnLoad (this);
                     self._recycleXhr (this);
                 }
                 else if (this.status == 404) {
-                    // @TODO: close peer before re-handshaking
-                    setTimeout (function () {
-                                    self._handshake ();
-                                    xhr = null;
-                                }, 1);
+                    self._closePeer (self.peer, false);
                 }
                 else {
                     var xhr = this;
@@ -235,30 +264,24 @@ Evd.LongPolling.prototype = {
             }, 1);
         }
         else {
-            if (self._backlog) {
-                var data = this._backlog;
-                this._backlog = "";
-                this._send (xhr, data);
-            }
-            else {
-                this._senders.push (xhr);
-            }
+            this._senders.push (xhr);
+            if (this.peer.backlog.length > 0)
+                this.sendText (this.peer, "");
         }
-    },
-
-    _deliver: function (data) {
-        if (this._callback)
-            this._callback (data, this._callbackData);
     },
 
     _connectXhr: function (xhr) {
         xhr.open ("GET", this.url + "/receive", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peerId);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peer.getRemoteId ());
+
+        this._activeXhrs.push (xhr);
+
         xhr.send ();
     },
 
     open: function () {
-        this._handshake ();
+        if (! this.opened)
+            this._handshake ();
     },
 
     _connect: function () {
@@ -268,23 +291,19 @@ Evd.LongPolling.prototype = {
         }
     },
 
-    setOnReceive: function (callback, userData) {
-        this._callback = callback;
-        this._callbackData = userData;
-    },
-
-    _send: function (xhr, data) {
+    _send: function (peer, xhr, data) {
         xhr.open ("POST", this.url + "/send", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peerId);
-        xhr.send (data);
-    },
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, peer.getRemoteId ());
 
-    _addToBacklog: function (data) {
-        this._backlog += data;
+        this._activeXhrs.push (xhr);
+
+        xhr.send (data);
     },
 
     _addMsgHeader: function (msg) {
         var hdr = [];
+        // @TODO: calculate message length accurately, considering that
+        // it is UTF-16. By now, use 'length' property.
         var len = msg.length;
         var hdr_st = "";
 
@@ -313,35 +332,77 @@ Evd.LongPolling.prototype = {
         return hdr_st + msg;
     },
 
-    send: function (data) {
-        if (this._handshaking) {
-            data = this._addMsgHeader (data);
-            this._addToBacklog (data);
+    send: function (peer, data, size) {
+        throw ("Sending raw data is not implemented. Use 'sendText()' instead");
+    },
+
+    sendText: function (peer, data) {
+        if (this._handshaking || this._senders.length == 0) {
+            peer.backlog.push (data);
         }
         else if (this._opened) {
-            if (data == "" && this._backlog == "")
-                return;
+            var buf = "";
+            var msg;
+            while (peer.backlog.length > 0) {
+                msg = peer.backlog.shift ();
+                buf += this._addMsgHeader (msg);
+            }
 
             if (data)
-                data = this._addMsgHeader (data);
+                buf += this._addMsgHeader (data);
 
-            var xhr = this._senders.shift ();
-            if (xhr) {
-                data = this._backlog + data;
-                this._backlog = "";
-
-                this._send (xhr, data);
-            }
-            else {
-                this._addToBacklog (data);
+            if (buf) {
+                var xhr = this._senders.shift ();
+                this._send (peer, xhr, buf);
             }
         }
         else {
             throw ("Failed to send, long-polling transport is closed");
         }
+    },
+
+    receive: function (peer) {
+        throw ("Receiving raw data is not implemented. Use 'receiveText()' instead");
+    },
+
+    receiveText: function (peer) {
+        var data = peer[this.PEER_DATA_KEY];
+        if (! data || typeof (data) != "object")
+            return null;
+        else
+            return data["msg"];
+    },
+
+    _closePeer: function (peer, gracefully) {
+        if (! this._opened)
+            return;
+
+        this._opened = false;
+        this._handshaking = false;
+        this.peer = null;
+
+        // send a 'close' command
+        xhr = new XMLHttpRequest ();
+        xhr.open ("POST", this.url + "/close", false);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, peer.getRemoteId ());
+        xhr.send ();
+
+        // cancel all active XHRs
+        for (var xhr in this._activeXhrs)
+            xhr.abort ();
+        this._activeXhrs = [];
+
+        this._fireEvent ("peer-closed", [peer, gracefully]);
+    },
+
+    closePeer: function (peer) {
+        this._closePeer (peer, true);
+    },
+
+    close: function () {
+        if (! this._opened)
+            return;
+
+        this.closePeer (this.peer);
     }
-};
-
-Evd.transport = new Evd.LongPolling ({ url: "/transport" });
-
-Evd.transport.open ();
+});
