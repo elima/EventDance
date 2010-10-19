@@ -19,6 +19,8 @@
   <script type="text/javascript" src="/transport"></script>
   <script type="text/javascript">
 
+var peer;
+
 var interval = 1;
 var second = 0;
 var payloadSize = 1024;
@@ -48,7 +50,9 @@ function init () {
        payload += String.fromCharCode (33 + Math.floor (Math.random () * 64));
 }
 
-function receive (data) {
+function onPeerReceive (peer) {
+    var data = peer.receiveText ();
+
     var tokens = data.split (" ");
     var num = tokens[0];
     var _payload = tokens[1];
@@ -59,7 +63,6 @@ function receive (data) {
 
     if (_payload != payload) {
         alert ("payload corrupted!");
-        Evd.transport.setOnReceive (null, null);
         return;
     }
 
@@ -94,27 +97,42 @@ function receive (data) {
     setTimeout (send, interval);
 }
 
-function start () {
-    init ();
-    Evd.transport.setOnReceive (receive, null);
+function onNewPeer (p) {
+    peer = p;
 
     send ();
+}
+
+function onPeerClosed (peer, gracefully) {
+}
+
+function start () {
+    init ();
+
+    var transport = new Evd.LongPolling ({url: "/transport"});
+
+    transport.addEventListener ("new-peer", onNewPeer);
+    transport.addEventListener ("peer-closed", onPeerClosed);
+    transport.addEventListener ("receive", onPeerReceive);
+
+    transport.open ();
 }
 
 function send () {
     stat.totalPacketsSent++;
     stat.lastSentTime = new Date ();
 
-    document.getElementById ("totalPings").innerHTML = stat.totalPacketsSent;
+    $ ("totalPings").innerHTML = stat.totalPacketsSent;
 
     var msg = stat.totalPacketsSent + " " + payload;
-    Evd.transport.send (msg);
+
+    peer.sendText (msg);
 }
 
   </script>
 </head>
 
-<body onload="start ()">
+<body onload="start ()" onunload="peer.close ()">
   <h3>Packets</h3>
   <table>
     <tr>
@@ -154,6 +172,5 @@ function send () {
       <td class="value" id="meanRoundtripTime"></td>
     </tr>
   </table>
-
 </body>
 </html>
