@@ -447,7 +447,18 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
           /* close? */
           else if (g_strcmp0 (action, ACTION_CLOSE) == 0)
             {
-              /* @TODO */
+              EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
+                                                         conn,
+                                                         200,
+                                                         NULL,
+                                                         NULL,
+                                                         0,
+                                                         NULL);
+
+              evd_transport_close_peer (EVD_TRANSPORT (self),
+                                        peer,
+                                        TRUE,
+                                        NULL);
             }
         }
     }
