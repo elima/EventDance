@@ -50,6 +50,39 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
     };
 }
 
+// Evd.Peer
+Evd.Peer = new Evd.Constructor ();
+Evd.Peer.prototype = new Evd.Object ();
+
+Evd.Object.extend (Evd.Peer.prototype, {
+    _init: function (args) {
+        this.id = args.id;
+        this.transport = args.transport;
+
+        this.backlog = [];
+    },
+
+    send: function (msg, size) {
+        return this.transport.send (this, msg, size);
+    },
+
+    sendText: function (msg) {
+        return this.transport.sendText (this, msg);
+    },
+
+    receive: function () {
+        return this.transport.receive (this);
+    },
+
+    receiveText: function () {
+        return this.transport.receiveText (this);
+    },
+
+    close: function () {
+        return this.transport.closePeer (this);
+    }
+});
+
 Evd.LongPolling.prototype = {
     PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
 
