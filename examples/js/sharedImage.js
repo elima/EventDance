@@ -13,7 +13,6 @@ imports.searchPath.unshift ("../common");
 const MainLoop = imports.mainloop;
 const Lang = imports.lang;
 const Evd = imports.gi.Evd;
-const Json = imports.json.Json;
 const SharedImageServer = imports.sharedImageServer.SharedImageServer;
 
 const PORT = 8080;
@@ -26,7 +25,7 @@ let sis = new SharedImageServer ({rotate: true});
 sis.setPeerOnUpdate (
     function (peer, updateObj) {
         let cmd = ["update", updateObj];
-        let msg = Json.encode (cmd);
+        let msg = JSON.stringify (cmd);
         peer.transport.send_text (peer, msg);
     }, null);
 
@@ -37,7 +36,7 @@ let transport = new Evd.WebTransport ();
 function peerOnReceive (t, peer) {
     let data = peer.transport.receive_text (peer);
 
-    let cmd = Json.decode (data, true);
+    let cmd = JSON.parse (data, true);
     if (cmd === null)
         return;
 
