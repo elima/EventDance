@@ -424,6 +424,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
   gchar *filename = NULL;
   GFile *file;
   EvdWebDirBinding *binding;
+  SoupURI *uri;
   const gchar *FILE_ATTRS =
     "standard::fast-content-type,standard::content-type,standard::size";
 
@@ -442,9 +443,10 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
       return;
     }
 
+  uri = evd_http_request_get_uri (request);
   filename = g_strconcat (self->priv->root,
                           "/",
-                          evd_http_request_get_path (request),
+                          uri->path,
                           NULL);
   file = g_file_new_for_path (filename);
   g_free (filename);
