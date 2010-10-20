@@ -230,6 +230,9 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         };
 
         xhr.onreadystatechange = function () {
+            // @TODO: figure out how to prevent Firefox from breaking
+            // the transport when user press ESC
+
             if (this.readyState == 4) {
                 // remove xhr from list of actives
                 if (self._activeXhrs.indexOf (this) >= 0)
@@ -258,6 +261,9 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     _recycleXhr: function (xhr) {
         var self = this;
 
+        if (! this._opened)
+            return;
+
         if (! xhr._sender) {
             setTimeout (function () {
                 self._connectXhr (xhr);
@@ -280,7 +286,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     },
 
     open: function () {
-        if (! this.opened)
+        if (! this._opened)
             this._handshake ();
     },
 
