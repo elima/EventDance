@@ -7,14 +7,14 @@
  *   Eduardo Lima Mitev <elima@igalia.com>
  */
 
-function SharedImage (container, onReady) {
-    this._init (container, onReady);
+function SharedImage (args) {
+    this._init (args);
 }
 
 SharedImage.prototype = {
-    _init: function (container, onReady) {
-        this._cnt = container;
-        this._onReady = onReady;
+    _init: function (args) {
+        this._cnt = args.container;
+        this._peer = args.peer;
 
         this._createElements ();
 
@@ -37,23 +37,23 @@ SharedImage.prototype = {
             this.grab_y = e.y;
 
             var cmd = ["grab", {x: e.clientX, y: e.clientY}];
-            var msg = Json.encode (cmd);
-            Evd.transport.send (msg);
+            var msg = JSON.stringify (cmd);
+            self._peer.sendText (msg);
         };
 
         this._wrapper.onmousemove = function (e) {
             if (this.grabbed) {
                 var cmd = ["move", {x: e.clientX, y: e.clientY}];
-                var msg = Json.encode (cmd);
-                Evd.transport.send (msg);
+                var msg = JSON.stringify (cmd);
+                self._peer.sendText (msg);
             }
         };
 
         function ungrab () {
             if (this.grabbed) {
                 var cmd = ["ungrab"];
-                var msg = Json.encode (cmd);
-                Evd.transport.send (msg);
+                var msg = JSON.stringify (cmd);
+                self._peer.sendText (msg);
 
                 this.grabbed = false;
             }
@@ -76,9 +76,6 @@ SharedImage.prototype = {
         this._img = new Image ();
         this._img.onload = function () {
             self._aspectRatio = this.width / this.height;
-
-            if (self._onReady)
-                self._onReady ();
 
             self._requestUpdate ();
         };
@@ -123,7 +120,7 @@ SharedImage.prototype = {
 
     _requestUpdate: function () {
         var msg = '["req-update"]';
-        Evd.transport.send (msg);
+        this._peer.sendText (msg);
     },
 
     setViewportIndex: function (index) {

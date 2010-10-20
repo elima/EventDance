@@ -39,15 +39,17 @@
     }
 
   </style>
-  <script type="text/javascript" src="json.js"></script>
   <script type="text/javascript" src="sharedImage.js"></script>
   <script type="text/javascript" src="/transport"></script>
   <script type="text/javascript">
 
 var sharedImage;
+var transport;
 
-function receive (data) {
-    var cmd = Json.decode (data);
+function receive (peer) {
+    var data = peer.receiveText ();
+
+    var cmd = JSON.parse (data);
     switch (cmd[0]) {
        case "update":
            sharedImage.update (cmd[1]);
@@ -58,15 +60,25 @@ function receive (data) {
     }
 }
 
-function start () {
-    Evd.transport.setOnReceive (receive, null);
+function onNewPeer (peer) {
+    sharedImage = new SharedImage ({
+        container: document.body,
+        peer: peer
+    });
+}
 
-    sharedImage = new SharedImage (document.body);
+function start () {
+    transport = new Evd.LongPolling ({url: "/transport"});
+
+    transport.addEventListener ("new-peer", onNewPeer);
+    transport.addEventListener ("receive", receive);
+
+    transport.open ();
 }
 
   </script>
 </head>
 
-<body onload="start ()">
+<body onload="start ()" onunload="transport.close ()">
 </body>
 </html>
