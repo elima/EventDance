@@ -196,7 +196,6 @@ evd_web_service_respond (EvdWebService       *self,
 {
   EvdHttpRequest *request;
   SoupHTTPVersion ver;
-  const gchar *reason_phrase;
 
   request = evd_http_connection_get_current_request (conn);
   if (request == NULL)
@@ -204,12 +203,10 @@ evd_web_service_respond (EvdWebService       *self,
   else
     ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
-  reason_phrase = soup_status_get_phrase (status_code);
-
   if (evd_http_connection_respond (conn,
                                    ver,
                                    status_code,
-                                   reason_phrase,
+                                   NULL,
                                    headers,
                                    content,
                                    size,

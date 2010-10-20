@@ -844,6 +844,9 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
 
   buf = g_string_new ("");
 
+  if (reason_phrase == NULL)
+    reason_phrase = soup_status_get_phrase (status_code);
+
   /* send status line */
   st = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
                         version,
