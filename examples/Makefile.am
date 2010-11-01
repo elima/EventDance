@@ -3,12 +3,19 @@ MAINTAINERCLEANFILES = \
 
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
+	$(TLS_CFLAGS) \
+	$(UUID_CFLAGS) \
+	$(JSON_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	-Wall -g3 -O0 -ggdb \
 	-I$(top_srcdir)/evd
 
 AM_LIBS = \
 	$(GLIB_LIBS) \
+	$(TLS_LIBS) \
+	$(UUID_LIBS) \
+	$(JSON_LIBS) \
+	$(SOUP_LIBS) \
 	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
 
 if HAVE_GIO_UNIX
