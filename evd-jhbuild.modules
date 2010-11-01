@@ -27,10 +27,17 @@
     </dependencies>
   </autotools>
 
-  <autotools id="gjs">
-    <branch repo="git.gnome.org" module="gjs"/>
+  <autotools id="libsoup" autogenargs="--without-gnome">
+    <branch repo="git.gnome.org" module="libsoup"/>
     <dependencies>
-      <dep package="gobject-introspection" />
+        <dep package="glib"/>
+    </dependencies>
+  </autotools>
+
+  <autotools id="json-glib">
+    <branch repo="git.gnome.org" module="json-glib"/>
+    <dependencies>
+        <dep package="glib"/>
     </dependencies>
   </autotools>
 
@@ -38,6 +45,13 @@
     <branch repo="git.gnome.org" module="gir-repository"/>
     <dependencies>
         <dep package="gobject-introspection"/>
+    </dependencies>
+  </autotools>
+
+  <autotools id="gjs">
+    <branch repo="git.gnome.org" module="gjs"/>
+    <dependencies>
+      <dep package="gobject-introspection" />
     </dependencies>
   </autotools>
 
@@ -78,8 +92,9 @@
     <dependencies>
       <dep package="glib"/>
       <dep package="gobject-introspection"/>
+      <dep package="json-glib"/>
+      <dep package="libsoup"/>
       <dep package="gir-repository"/>
-      <dep package="gjs"/>
       <dep package="gnutls"/>
     </dependencies>
   </autotools>
