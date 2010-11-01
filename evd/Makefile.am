@@ -163,7 +163,7 @@ introspection_sources = $(evd_HEADERS) $(source_c)
 
 @EVD_GIR_API_NAME@.gir: lib@EVD_API_NAME@.la Makefile
 @EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0 Soup-2.4
-@EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES)
+@EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES) $(JSON_CFLAGS)
 @EVD_GIR_TARGET_NAME@_LIBS = lib@EVD_API_NAME@.la uuid
 @EVD_GIR_TARGET_NAME@_FILES = $(addprefix $(srcdir)/,$(introspection_sources))
 
