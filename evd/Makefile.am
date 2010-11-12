@@ -66,7 +66,8 @@ source_c = \
 	evd-web-transport.c \
 	evd-http-message.c \
 	evd-http-request.c \
-	evd-web-dir.c
+	evd-web-dir.c \
+	evd-dbus-agent.c
 
 source_h = \
 	evd.h \
@@ -102,7 +103,8 @@ source_h = \
 	evd-web-transport.h \
 	evd-http-message.h \
 	evd-http-request.h \
-	evd-web-dir.h
+	evd-web-dir.h \
+	evd-dbus-agent.h
 
 source_h_priv = \
 	evd-marshal.h \
