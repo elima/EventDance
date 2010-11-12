@@ -34,8 +34,17 @@
     </dependencies>
   </autotools>
 
+<!--
   <autotools id="json-glib">
     <branch repo="git.gnome.org" module="json-glib"/>
+    <dependencies>
+        <dep package="glib"/>
+    </dependencies>
+  </autotools>
+-->
+
+  <autotools id="json-glib">
+    <branch repo="gitorious" module="eventdance/json-glib-elima" revision="gvariant" />
     <dependencies>
         <dep package="glib"/>
     </dependencies>
