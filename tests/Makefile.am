@@ -20,6 +20,8 @@ AM_CFLAGS += \
 	-DHAVE_GIO_UNIX
 endif
 
+if ENABLE_TESTS
+
 noinst_PROGRAMS = \
 	test-all \
 	test-json-filter \
@@ -63,3 +65,5 @@ test_all_js_CFLAGS = $(AM_CFLAGS) $(GJS_CFLAGS)
 test_all_js_LDADD = $(AM_LIBS) $(GJS_LIBS)
 test_all_js_SOURCES = test-all-js.c
 endif
+
+endif # ENABLE_TESTS

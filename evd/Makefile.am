@@ -13,7 +13,8 @@ CLEANFILES = *~ @EVD_API_NAME@.pc
 
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
 	-DPKGDATADIR="\"$(pkgdatadir)\"" \
-	-DJSLIBDIR="\"$(jslibdir)\""
+	-DJSLIBDIR="\"$(jslibdir)\"" \
+	-DENABLE_TESTS="\"$(enable_tests)\""
 
 evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \

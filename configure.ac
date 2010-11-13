@@ -89,6 +89,14 @@ AM_CONDITIONAL([BUILD_GTK_DOC], [test "x$enable_gtk_doc" = "xyes" || test ! -f "
 # Silent build
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
+# Tests
+AC_ARG_ENABLE(tests,
+        AS_HELP_STRING([--enable-tests[=@<:@no/yes@:>@]],
+                [Enable automated unit and functional tests [default=yes]]),,
+                [enable_tests=yes])
+
+AM_CONDITIONAL(ENABLE_TESTS, test x"${enable_tests}" = x"yes")
+
 # Output files
 AC_OUTPUT([
 	Makefile
@@ -106,5 +114,6 @@ echo "   ====================="
 echo ""
 echo "    Build introspection data:   ${enable_introspection}"
 echo "     Build API documentation:   ${enable_gtk_doc}"
+echo "      Enable automated tests:   ${enable_tests}"
 echo "     Enable Javascript tests:   ${enable_js}"
 echo ""
