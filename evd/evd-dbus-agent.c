@@ -214,8 +214,12 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
   GDBusConnection *dbus_conn;
   GError *error = NULL;
   GSimpleAsyncResult *result;
+  ObjectData *data;
 
   result = G_SIMPLE_ASYNC_RESULT (user_data);
+
+  data =
+    (ObjectData *) g_simple_async_result_get_op_res_gpointer (result);
 
   if ( (dbus_conn = g_dbus_connection_new_for_address_finish (res,
                                                               &error)) == NULL)
@@ -226,10 +230,6 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
   else
     {
       gint *conn_id;
-      ObjectData *data;
-
-      data =
-       (ObjectData *) g_simple_async_result_get_op_res_gpointer (result);
 
       conn_id = evd_dbus_agent_bind_connection_to_object (data, dbus_conn);
 
@@ -243,9 +243,9 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
         }
 
       g_simple_async_result_set_op_res_gpointer (result, conn_id, NULL);
-
-      g_free (data->tmp_addr);
     }
+
+  g_free (data->tmp_addr);
 
   g_simple_async_result_complete (result);
   g_object_unref (result);
