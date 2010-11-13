@@ -32,11 +32,13 @@ if ENABLE_TESTS
 noinst_PROGRAMS = \
 	test-all \
 	test-json-filter \
-	test-resolver
+	test-resolver \
+	test-dbus-bridge
 
 TESTS = \
 	test-json-filter \
-	test-resolver
+	test-resolver \
+	test-dbus-bridge
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -62,6 +64,11 @@ test_resolver_SOURCES = test-resolver.c
 test_json_filter_CFLAGS = $(AM_CFLAGS)
 test_json_filter_LDADD = $(AM_LIBS)
 test_json_filter_SOURCES = test-json-filter.c
+
+# test-json-filter
+test_dbus_bridge_CFLAGS = $(AM_CFLAGS)
+test_dbus_bridge_LDADD = $(AM_LIBS)
+test_dbus_bridge_SOURCES = test-dbus-bridge.c
 
 
 if HAVE_JS
