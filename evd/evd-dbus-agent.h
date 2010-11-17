@@ -96,6 +96,20 @@ gboolean          evd_dbus_agent_watch_proxy_property_changes (GObject          
                                                                gpointer                               user_data,
                                                                GError                               **error);
 
+guint             evd_dbus_agent_register_object              (GObject             *object,
+                                                               gint                 connection_id,
+                                                               const gchar         *object_path,
+                                                               GDBusInterfaceInfo  *interface_info,
+                                                               GError             **error);
+gboolean          evd_dbus_agent_unregister_object            (GObject  *object,
+                                                               gint      connection_id,
+                                                               guint     registration_id,
+                                                               GError  **error);
+
+void              evd_dbus_agent_set_object_vtable            (GObject             *object,
+                                                               EvdDBusAgentVTable  *vtable,
+                                                               gpointer             user_data);
+
 G_END_DECLS
 
 #endif /* __EVD_DBUS_AGENT_H__ */

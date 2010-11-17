@@ -33,9 +33,13 @@ typedef struct
   gint conn_counter;
   GHashTable *proxies;
   gint proxy_counter;
+  GHashTable *reg_objs;
+  GHashTable *reg_objs_by_id;
   GHashTable *addr_aliases;
   gchar *tmp_addr;
   gboolean reuse_connection;
+  EvdDBusAgentVTable *vtable;
+  gpointer vtable_user_data;
 } ObjectData;
 
 typedef struct
@@ -46,6 +50,14 @@ typedef struct
   EvdDBusAgentProxySignalCb signal_cb;
   gpointer signal_user_data;
 } ProxyData;
+
+typedef struct
+{
+  gchar *reg_str_id;
+  guint reg_id;
+  guint64 serial;
+  GHashTable *invocations;
+} RegObjData;
 
 static void     evd_dbus_agent_on_object_connection_closed   (GDBusConnection *connection,
                                                               gboolean         remote_peer_vanished,
@@ -65,6 +77,14 @@ static void     evd_dbus_agent_on_proxy_properties_changed   (GDBusProxy *proxy,
                                                               GStrv      *invalidated_properties,
                                                               gpointer    user_data);
 
+
+static const GDBusInterfaceVTable evd_dbus_agent_iface_vtable =
+  {
+    NULL,
+    NULL,
+    NULL
+  };
+
 static ObjectData *
 evd_dbus_agent_get_object_data (GObject *obj)
 {
@@ -80,6 +100,16 @@ evd_dbus_agent_free_proxy_data (gpointer data)
   g_object_unref (proxy_data->proxy);
 
   g_slice_free (ProxyData, proxy_data);
+}
+
+static void
+evd_dbus_agent_free_reg_obj_data (gpointer data)
+{
+  RegObjData *reg_obj_data = (RegObjData *) data;
+
+  g_hash_table_destroy (reg_obj_data->invocations);
+
+  g_slice_free (RegObjData, reg_obj_data);
 }
 
 static gboolean
@@ -109,6 +139,8 @@ evd_dbus_agent_on_object_destroyed (gpointer  user_data,
 
   g_hash_table_destroy (data->proxies);
   g_hash_table_destroy (data->addr_aliases);
+  g_hash_table_destroy (data->reg_objs);
+  g_hash_table_destroy (data->reg_objs_by_id);
 
   g_slice_free (ObjectData, data);
 }
@@ -136,6 +168,15 @@ evd_dbus_agent_setup_object_data (GObject *obj)
                                          g_free,
                                          evd_dbus_agent_free_proxy_data);
   data->proxy_counter = 0;
+
+  data->reg_objs = g_hash_table_new_full (g_str_hash,
+                                          g_str_equal,
+                                          g_free,
+                                          evd_dbus_agent_free_reg_obj_data);
+  data->reg_objs_by_id = g_hash_table_new_full (g_str_hash,
+                                                g_str_equal,
+                                                NULL,
+                                                NULL);
 
   data->addr_aliases = g_hash_table_new_full (g_str_hash,
                                               g_str_equal,
@@ -777,6 +818,23 @@ evd_dbus_agent_watch_proxy_signals (GObject                    *object,
   return TRUE;
 }
 
+void
+evd_dbus_agent_set_object_vtable (GObject             *object,
+                                  EvdDBusAgentVTable  *vtable,
+                                  gpointer             user_data)
+{
+  ObjectData *data;
+
+  g_return_if_fail (G_IS_OBJECT (object));
+
+  data = evd_dbus_agent_get_object_data (object);
+  if (data == NULL)
+    data = evd_dbus_agent_setup_object_data (object);
+
+  data->vtable = vtable;
+  data->vtable_user_data = user_data;
+}
+
 gboolean
 evd_dbus_agent_watch_proxy_property_changes (GObject                               *object,
                                              gint                                   proxy_id,
@@ -812,6 +870,97 @@ evd_dbus_agent_watch_proxy_property_changes (GObject                            
                         "g-properties-changed",
                         G_CALLBACK (evd_dbus_agent_on_proxy_properties_changed),
                         data);
+    }
+
+  return TRUE;
+}
+
+guint
+evd_dbus_agent_register_object (GObject             *object,
+                                gint                 connection_id,
+                                const gchar         *object_path,
+                                GDBusInterfaceInfo  *interface_info,
+                                GError             **error)
+{
+  GDBusConnection *dbus_conn;
+  guint reg_id = 0;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), 0);
+  g_return_val_if_fail (connection_id > 0, 0);
+  g_return_val_if_fail (object_path != NULL, 0);
+  g_return_val_if_fail (interface_info != NULL, 0);
+
+  if ( (dbus_conn = evd_dbus_agent_get_connection (object,
+                                                   connection_id,
+                                                   error)) == NULL)
+    {
+      return 0;
+    }
+
+  reg_id = g_dbus_connection_register_object (dbus_conn,
+                                              object_path,
+                                              interface_info,
+                                              &evd_dbus_agent_iface_vtable,
+                                              object,
+                                              NULL,
+                                              error);
+  if (reg_id > 0)
+    {
+      gchar *key;
+      ObjectData *data;
+      RegObjData *reg_obj_data;
+
+      data = evd_dbus_agent_get_object_data (object);
+      g_assert (data != NULL);
+
+      key = g_strdup_printf ("%s<%s>", object_path, interface_info->name);
+
+      reg_obj_data = g_slice_new (RegObjData);
+      reg_obj_data->reg_id = reg_id;
+      reg_obj_data->serial = 0;
+      reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
+                                                         g_int64_equal,
+                                                         NULL,
+                                                         g_object_unref);
+
+      g_hash_table_insert (data->reg_objs, key, reg_obj_data);
+      g_hash_table_insert (data->reg_objs_by_id, &reg_id, reg_obj_data);
+    }
+
+  return reg_id;
+}
+
+gboolean
+evd_dbus_agent_unregister_object (GObject  *object,
+                                  gint      connection_id,
+                                  guint     registration_id,
+                                  GError  **error)
+{
+  GDBusConnection *dbus_conn;
+  ObjectData *data;
+  RegObjData *reg_obj_data;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (connection_id > 0, FALSE);
+  g_return_val_if_fail (registration_id > 0, FALSE);
+
+  if ( (dbus_conn = evd_dbus_agent_get_connection (object,
+                                                   connection_id,
+                                                   error)) == NULL)
+    {
+      return FALSE;
+    }
+
+  g_dbus_connection_unregister_object (dbus_conn, registration_id);
+
+  data = evd_dbus_agent_get_object_data (object);
+  g_assert (data != NULL);
+
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &registration_id);
+  if (reg_obj_data != NULL)
+    {
+      g_hash_table_remove (data->reg_objs_by_id, &registration_id);
+      g_hash_table_remove (data->reg_objs, reg_obj_data->reg_str_id);
     }
 
   return TRUE;
