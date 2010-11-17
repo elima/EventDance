@@ -263,9 +263,14 @@ evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
 static void
 evd_dbus_bridge_send (EvdDBusBridge *self,
                       GObject       *obj,
-                      const gchar   *json)
+                      guint8         cmd,
+                      guint64        serial,
+                      guint32        subject,
+                      const gchar   *args)
 {
-  //  g_debug ("respond: %s", json);
+  gchar *json;
+
+  json = g_strdup_printf ("[%u,%lu,%u,\"[%s]\"]", cmd, serial, subject, args);
 
 #ifdef ENABLE_TESTS
   if (self->priv->send_msg_callback != NULL)
@@ -276,6 +281,49 @@ evd_dbus_bridge_send (EvdDBusBridge *self,
                                      self->priv->send_msg_user_data);
     }
 #endif
+
+  g_free (json);
+}
+
+static gboolean
+evd_dbus_bridge_on_idle_send (gpointer user_data)
+{
+  MsgClosure *closure = (MsgClosure *) user_data;
+
+  evd_dbus_bridge_send (closure->bridge,
+                        closure->obj,
+                        closure->cmd,
+                        closure->serial,
+                        closure->subject,
+                        closure->args);
+
+  evd_dbus_bridge_free_msg_closure (closure);
+
+  return FALSE;
+}
+
+static void
+evd_dbus_bridge_send_in_idle (EvdDBusBridge *self,
+                              GObject       *obj,
+                              guint8         cmd,
+                              guint64        serial,
+                              guint32        subject,
+                              const gchar   *args)
+{
+  MsgClosure *closure;
+
+  closure = evd_dbus_bridge_new_msg_closure (self,
+                                             obj,
+                                             cmd,
+                                             serial,
+                                             subject,
+                                             args,
+                                             0);
+
+  evd_timeout_add (NULL,
+                   0,
+                   G_PRIORITY_DEFAULT,
+                   evd_dbus_bridge_on_idle_send, closure);
 }
 
 static void
@@ -286,23 +334,20 @@ evd_dbus_bridge_send_error (EvdDBusBridge *self,
                             gint           err_code,
                             const gchar   *err_msg)
 {
-  gchar *json;
   gchar *args;
 
   if (err_msg != NULL)
-    args = g_strdup_printf ("[%d,\\\"%s\\\"]", err_code, err_msg);
+    args = g_strdup_printf ("%d,\\\"%s\\\"", err_code, err_msg);
   else
-    args = g_strdup_printf ("[%d]", err_code);
+    args = g_strdup_printf ("%d", err_code);
 
-  json = g_strdup_printf ("[%u,%lu,%u,\"%s\"]",
-                          EVD_DBUS_BRIDGE_CMD_ERROR,
-                          serial,
-                          subject,
-                          args);
-  evd_dbus_bridge_send (self, obj, json);
-
+  evd_dbus_bridge_send (self,
+                        obj,
+                        EVD_DBUS_BRIDGE_CMD_ERROR,
+                        serial,
+                        subject,
+                        args);
   g_free (args);
-  g_free (json);
 }
 
 static gboolean
@@ -373,14 +418,16 @@ evd_dbus_bridge_on_new_connection (GObject      *obj,
     }
   else
     {
-      gchar *json;
+      gchar *args;
 
-      json = g_strdup_printf ("[%u,%lu,0,\"[%u]\"]",
-                              EVD_DBUS_BRIDGE_CMD_REPLY,
-                              closure->serial,
-                              (guint32) conn_id);
-      evd_dbus_bridge_send (closure->bridge, closure->obj, json);
-      g_free (json);
+      args = g_strdup_printf ("%u", (guint32) conn_id);
+      evd_dbus_bridge_send (closure->bridge,
+                            closure->obj,
+                            EVD_DBUS_BRIDGE_CMD_REPLY,
+                            closure->serial,
+                            closure->subject,
+                            args);
+      g_free (args);
     }
 
   evd_dbus_bridge_free_msg_closure (closure);
@@ -438,14 +485,12 @@ evd_dbus_bridge_close_connection (EvdDBusBridge *self,
 
   if (evd_dbus_agent_close_connection (obj, subject, &error))
     {
-      gchar *json;
-
-      json = g_strdup_printf ("[%u,%lu,%u,\"[]\"]",
-                              EVD_DBUS_BRIDGE_CMD_REPLY,
-                              serial,
-                              subject);
-      evd_dbus_bridge_send (self, obj, json);
-      g_free (json);
+      evd_dbus_bridge_send_in_idle (self,
+                                    obj,
+                                    EVD_DBUS_BRIDGE_CMD_REPLY,
+                                    serial,
+                                    subject,
+                                    "");
     }
   else
     {
@@ -480,7 +525,7 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
                              gsize          length)
 {
   GVariant *variant_msg;
-  gint8 cmd;
+  guint8 cmd;
   guint64 serial;
   guint32 subject;
   gchar *args;
