@@ -20,7 +20,8 @@ static const gchar *addr_alias = "alias:abstract=/org/eventdance/lib/demo/dbus-b
 typedef struct
 {
   gchar *test_name;
-  gchar *phrases[20];
+  gchar *send[10];
+  gchar *expect[10];
 } TestCase;
 
 struct Fixture
@@ -29,6 +30,7 @@ struct Fixture
   GObject *obj1;
   GObject *obj2;
   gint i;
+  gint j;
   TestCase *test_case;
   GMainLoop *main_loop;
 };
@@ -38,12 +40,14 @@ static const TestCase test_cases[] =
     { "error/invalid-message",
       {
         "",
-        "[1,0,0,\"[1]\"]",
         "[]",
-        "[1,0,0,\"[1]\"]",
         "[0,0,0,0]",
-        "[1,0,0,\"[1]\"]",
         "[3,1,0,0]",
+      },
+      {
+        "[1,0,0,\"[1]\"]",
+        "[1,0,0,\"[1]\"]",
+        "[1,0,0,\"[1]\"]",
         "[1,0,0,\"[1]\"]"
       }
     },
@@ -51,8 +55,10 @@ static const TestCase test_cases[] =
     { "error/invalid-command",
       {
         "[0,1,0,\"\"]",
-        "[1,1,0,\"[2]\"]",
         "[100,16,0,\"\"]",
+      },
+      {
+        "[1,1,0,\"[2]\"]",
         "[1,16,0,\"[2]\"]",
       }
     },
@@ -60,6 +66,8 @@ static const TestCase test_cases[] =
     { "error/invalid-arguments",
       {
         "[3,1,0,\"\"]",
+      },
+      {
         "[1,1,0,\"[4]\"]"
       }
     },
@@ -67,6 +75,8 @@ static const TestCase test_cases[] =
     { "new-connection/error",
       {
         "[3,1,0,'[\"invalid:address=error\"]']",
+      },
+      {
         "[1,1,0,\"[5,\\\"Unknown or unsupported transport `invalid' for address `invalid:address=error'\\\"]\"]"
       }
     },
@@ -74,15 +84,19 @@ static const TestCase test_cases[] =
     { "new-connection/success",
       {
         "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
-        "[2,1,0,\"[1]\"]",
         "[3,2,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
+      },
+      {
+        "[2,1,0,\"[1]\"]",
         "[2,2,0,\"[2]\"]"
       }
     },
 
     { "close-connection/error",
       {
-        "[4,2,1,'[]']",
+        "[4,2,1,'[]']"
+      },
+      {
         "[1,2,1,\"[3,\\\"Object doesn't hold specified connection\\\"]\"]"
       }
     },
@@ -90,9 +104,29 @@ static const TestCase test_cases[] =
     { "close-connection/success",
       {
         "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
+        "[4,2,1,'[]']"
+      },
+      {
         "[2,1,0,\"[1]\"]",
-        "[4,2,1,'[]']",
         "[2,2,1,\"[]\"]"
+      }
+    },
+
+    { "own-name",
+      {
+        "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']", /* new-connection */
+        "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
+        NULL,
+        "[6,3,1,'[1]']", /* unown-name */
+        "[5,4,1,'[\"org.eventdance.lib.tests1\", 0]']", /* own-name again */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[2,3,1,\"[]\"]", /* unown-name response */
+        "[2,4,1,\"[2]\"]", /* own-name response */
+        "[7,0,1,\"[2]\"]", /* name-acquired signal again */
       }
     }
 
@@ -113,6 +147,7 @@ test_fixture_setup (struct Fixture *f,
   f->main_loop = g_main_loop_new (NULL, FALSE);
 
   f->i = 0;
+  f->j = 0;
 }
 
 static void
@@ -126,6 +161,19 @@ test_fixture_teardown (struct Fixture *f,
   g_main_loop_unref (f->main_loop);
 }
 
+static gboolean
+on_send_in_idle (gpointer user_data)
+{
+  struct Fixture *f = (struct Fixture *) user_data;
+
+  evd_dbus_bridge_process_msg (f->bridge,
+                               f->obj1,
+                               f->test_case->send[f->i-1],
+                               -1);
+
+  return FALSE;
+}
+
 static void
 on_bridge_send_msg (EvdDBusBridge *self,
                     GObject       *object,
@@ -137,7 +185,9 @@ on_bridge_send_msg (EvdDBusBridge *self,
   JsonParser *parser;
   GError *error = NULL;
 
-  expected_json = f->test_case->phrases[f->i];
+  expected_json = f->test_case->expect[f->j];
+  f->j++;
+  f->i++;
 
   //  g_debug ("%s", json);
   g_assert_cmpstr (expected_json, ==, json);
@@ -150,16 +200,11 @@ on_bridge_send_msg (EvdDBusBridge *self,
   g_assert_no_error (error);
   g_object_unref (parser);
 
-  f->i++;
-  if (f->test_case->phrases[f->i] != NULL)
-    {
-      f->i++;
-      evd_dbus_bridge_process_msg (f->bridge,
-                                   f->obj1,
-                                   f->test_case->phrases[f->i - 1],
-                                   -1);
-    }
-  else
+  if (f->test_case->send[f->i-1] != NULL)
+    g_idle_add (on_send_in_idle, f);
+
+  if (f->test_case->send[f->i] == NULL
+      && f->test_case->expect[f->j] == NULL)
     {
       g_main_loop_quit (f->main_loop);
     }
@@ -176,11 +221,11 @@ test_func (struct Fixture *f,
                                          on_bridge_send_msg,
                                          f);
 
-  f->i++;
   evd_dbus_bridge_process_msg (f->bridge,
                                f->obj1,
-                               test_case->phrases[f->i-1],
+                               test_case->send[f->i],
                                -1);
+  f->i++;
 
   g_main_loop_run (f->main_loop);
 }
