@@ -560,12 +560,12 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
   variant_args = json_data_to_gvariant (args, -1, "(su)", NULL);
   if (variant_args == NULL)
     {
-      evd_dbus_bridge_send_error_in_idle (self,
-                                          obj,
-                                          serial,
-                                          0,
-                                          EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                          NULL);
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
       return;
     }
 
@@ -631,12 +631,12 @@ evd_dbus_bridge_unown_name (EvdDBusBridge *self,
   variant_args = json_data_to_gvariant (args, -1, "(u)", NULL);
   if (variant_args == NULL)
     {
-      evd_dbus_bridge_send_error_in_idle (self,
-                                          obj,
-                                          serial,
-                                          0,
-                                          EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                          NULL);
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
       return;
     }
 
