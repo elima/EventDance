@@ -47,6 +47,8 @@ enum EvdDBusBridgeCmd
   EVD_DBUS_BRIDGE_CMD_NAME_LOST,
   EVD_DBUS_BRIDGE_CMD_REGISTER_OBJECT,
   EVD_DBUS_BRIDGE_CMD_UNREGISTER_OBJECT,
+  EVD_DBUS_BRIDGE_CMD_NEW_PROXY,
+  EVD_DBUS_BRIDGE_CMD_CLOSE_PROXY,
 
   EVD_DBUS_BRIDGE_CMD_PAD0,
   EVD_DBUS_BRIDGE_CMD_PAD1,
@@ -65,7 +67,8 @@ enum EvdDBusBridgeErr
   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
   EVD_DBUS_BRIDGE_ERR_CONNECTION_FAILED,
-  EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED
+  EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED,
+  EVD_DBUS_BRIDGE_ERR_PROXY_FAILED
 };
 
 /* private data */
@@ -782,6 +785,128 @@ evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
   g_variant_unref (variant_args);
 }
 
+static void
+evd_dbus_bridge_on_new_proxy (GObject      *obj,
+                              GAsyncResult *res,
+                              gpointer      user_data)
+{
+  MsgClosure *closure = (MsgClosure *) user_data;
+  guint proxy_id;
+  GError *error = NULL;
+
+  if ( (proxy_id = evd_dbus_agent_new_proxy_finish (obj, res, &error)) > 0)
+    {
+      gchar *args;
+
+      args = g_strdup_printf ("%u", proxy_id);
+      evd_dbus_bridge_send (closure->bridge,
+                            closure->obj,
+                            EVD_DBUS_BRIDGE_CMD_REPLY,
+                            closure->serial,
+                            closure->subject,
+                            args);
+      g_free (args);
+    }
+  else
+    {
+      evd_dbus_bridge_send_error (closure->bridge,
+                                  closure->obj,
+                                  closure->serial,
+                                  closure->subject,
+                                  EVD_DBUS_BRIDGE_ERR_PROXY_FAILED,
+                                  error->message);
+      g_error_free (error);
+    }
+
+  evd_dbus_bridge_free_msg_closure (closure);
+}
+
+static void
+evd_dbus_bridge_new_proxy (EvdDBusBridge *self,
+                           GObject       *obj,
+                           guint64        serial,
+                           guint32        subject,
+                           const gchar   *args)
+{
+  GVariant *variant_args;
+  guint flags;
+  gchar *name;
+  gchar *obj_path;
+  gchar *iface_name;
+  MsgClosure *closure;
+
+  variant_args = json_data_to_gvariant (args, -1, "(sssu)", NULL);
+  if (variant_args == NULL)
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+      return;
+    }
+
+  g_variant_get (variant_args, "(sssu)",
+                 &name,
+                 &obj_path,
+                 &iface_name,
+                 &flags);
+
+  closure = evd_dbus_bridge_new_msg_closure (self,
+                                             obj,
+                                             EVD_DBUS_BRIDGE_CMD_NEW_PROXY,
+                                             serial,
+                                             subject,
+                                             NULL,
+                                             0);
+
+  evd_dbus_agent_new_proxy (obj,
+                            subject,
+                            flags,
+                            name,
+                            obj_path,
+                            iface_name,
+                            NULL,
+                            evd_dbus_bridge_on_new_proxy,
+                            closure);
+
+  g_free (iface_name);
+  g_free (obj_path);
+  g_free (name);
+  g_variant_unref (variant_args);
+}
+
+static void
+evd_dbus_bridge_close_proxy (EvdDBusBridge *self,
+                             GObject       *obj,
+                             guint64        serial,
+                             guint32        subject,
+                             const gchar   *args)
+{
+  GError *error = NULL;
+
+  if (evd_dbus_agent_close_proxy (obj, subject, &error))
+    {
+      evd_dbus_bridge_send (self,
+                            obj,
+                            EVD_DBUS_BRIDGE_CMD_REPLY,
+                            serial,
+                            subject,
+                            "");
+    }
+  else
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  subject,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
+                                  NULL);
+      g_error_free (error);
+    }
+}
+
 /* public methods */
 
 EvdDBusBridge *
@@ -850,6 +975,14 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
 
     case EVD_DBUS_BRIDGE_CMD_UNREGISTER_OBJECT:
       evd_dbus_bridge_unregister_object (self, object, serial, subject, args);
+      break;
+
+    case EVD_DBUS_BRIDGE_CMD_NEW_PROXY:
+      evd_dbus_bridge_new_proxy (self, object, serial, subject, args);
+      break;
+
+    case EVD_DBUS_BRIDGE_CMD_CLOSE_PROXY:
+      evd_dbus_bridge_close_proxy (self, object, serial, subject, args);
       break;
 
     default:
