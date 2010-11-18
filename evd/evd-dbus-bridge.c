@@ -406,14 +406,14 @@ evd_dbus_bridge_on_new_connection (GObject      *obj,
 {
   EvdDBusBridge *self;
   MsgClosure *closure = (MsgClosure *) user_data;
-  gint conn_id;
+  guint conn_id;
   GError *error = NULL;
 
   self = closure->bridge;
 
   if ( (conn_id = evd_dbus_agent_new_connection_finish (obj,
                                                         res,
-                                                        &error)) < 0)
+                                                        &error)) == 0)
     {
       evd_dbus_bridge_send_error (self,
                                   obj,

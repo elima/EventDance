@@ -56,18 +56,18 @@ void              evd_dbus_agent_new_connection               (GObject          
                                                                GCancellable        *cancellable,
                                                                GAsyncReadyCallback  callback,
                                                                gpointer             user_data);
-gint              evd_dbus_agent_new_connection_finish        (GObject       *object,
+guint             evd_dbus_agent_new_connection_finish        (GObject       *object,
                                                                GAsyncResult  *result,
                                                                GError       **error);
 gboolean          evd_dbus_agent_close_connection             (GObject  *object,
-                                                               gint      conn_id,
+                                                               guint     connection_id,
                                                                GError  **error);
 GDBusConnection * evd_dbus_agent_get_connection               (GObject  *obj,
-                                                               gint      conn_id,
+                                                               guint     connection_id,
                                                                GError  **error);
 
 void              evd_dbus_agent_new_proxy                    (GObject             *object,
-                                                               gint                 conn_id,
+                                                               guint                conn_id,
                                                                GDBusProxyFlags      flags,
                                                                const gchar         *name,
                                                                const gchar         *object_path,
@@ -97,12 +97,12 @@ gboolean          evd_dbus_agent_watch_proxy_property_changes (GObject          
                                                                GError                               **error);
 
 guint             evd_dbus_agent_register_object              (GObject             *object,
-                                                               gint                 connection_id,
+                                                               guint                connection_id,
                                                                const gchar         *object_path,
                                                                GDBusInterfaceInfo  *interface_info,
                                                                GError             **error);
 gboolean          evd_dbus_agent_unregister_object            (GObject  *object,
-                                                               gint      connection_id,
+                                                               guint     connection_id,
                                                                guint     registration_id,
                                                                GError  **error);
 

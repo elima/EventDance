@@ -30,9 +30,9 @@ typedef struct
 {
   GObject *obj;
   GHashTable *conns;
-  gint conn_counter;
+  guint conn_counter;
   GHashTable *proxies;
-  gint proxy_counter;
+  guint proxy_counter;
   GHashTable *reg_objs;
   GHashTable *reg_objs_by_id;
   GHashTable *addr_aliases;
@@ -224,15 +224,15 @@ evd_dbus_agent_unbind_connection_from_object (ObjectData      *data,
   g_object_unref (conn);
 }
 
-static gint *
+static guint *
 evd_dbus_agent_bind_connection_to_object (ObjectData      *data,
                                           GDBusConnection *conn)
 {
-  gint *conn_id;
+  guint *conn_id;
 
   data->conn_counter ++;
 
-  conn_id = g_new (gint, 1);
+  conn_id = g_new (guint, 1);
   *conn_id = data->conn_counter;
 
   g_hash_table_insert (data->conns, conn_id, conn);
@@ -270,7 +270,7 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
     }
   else
     {
-      gint *conn_id;
+      guint *conn_id;
 
       conn_id = evd_dbus_agent_bind_connection_to_object (data, dbus_conn);
 
@@ -501,7 +501,7 @@ evd_dbus_agent_new_connection (GObject             *object,
 
       if (dbus_conn != NULL)
         {
-          gint *conn_id;
+          guint *conn_id;
 
           conn_id = evd_dbus_agent_bind_connection_to_object (data, dbus_conn);
 
@@ -527,21 +527,21 @@ evd_dbus_agent_new_connection (GObject             *object,
                                 res);
 }
 
-gint
+guint
 evd_dbus_agent_new_connection_finish (GObject       *object,
                                       GAsyncResult  *result,
                                       GError       **error)
 {
-  g_return_val_if_fail (G_IS_OBJECT (object), -1);
+  g_return_val_if_fail (G_IS_OBJECT (object), 0);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                 object,
                                                 evd_dbus_agent_new_connection),
-                        -1);
+                        0);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
                                                error))
     {
-      gint *conn_id;
+      guint *conn_id;
 
       conn_id =
         g_simple_async_result_get_op_res_gpointer
@@ -551,19 +551,19 @@ evd_dbus_agent_new_connection_finish (GObject       *object,
     }
   else
     {
-      return -1;
+      return 0;
     }
 }
 
 gboolean
 evd_dbus_agent_close_connection (GObject  *object,
-                                 gint      conn_id,
+                                 guint     connection_id,
                                  GError  **error)
 {
   GDBusConnection *conn;
 
   if ( (conn = evd_dbus_agent_get_connection (object,
-                                              conn_id,
+                                              connection_id,
                                               error)) != NULL)
     {
       ObjectData *data;
@@ -575,7 +575,7 @@ evd_dbus_agent_close_connection (GObject  *object,
          reference in object data */
       evd_dbus_agent_unbind_connection_from_object (data, conn);
 
-      g_hash_table_remove (data->conns, &conn_id);
+      g_hash_table_remove (data->conns, &connection_id);
 
       return TRUE;
     }
@@ -592,7 +592,7 @@ evd_dbus_agent_close_connection (GObject  *object,
  **/
 GDBusConnection *
 evd_dbus_agent_get_connection (GObject  *obj,
-                               gint      conn_id,
+                               guint     connection_id,
                                GError  **error)
 {
   ObjectData *data;
@@ -609,7 +609,7 @@ evd_dbus_agent_get_connection (GObject  *obj,
       return NULL;
     }
 
-  conn = G_DBUS_CONNECTION (g_hash_table_lookup (data->conns, &conn_id));
+  conn = G_DBUS_CONNECTION (g_hash_table_lookup (data->conns, &connection_id));
   if (conn != NULL)
     {
       return conn;
@@ -627,7 +627,7 @@ evd_dbus_agent_get_connection (GObject  *obj,
 
 void
 evd_dbus_agent_new_proxy (GObject             *object,
-                          gint                 conn_id,
+                          guint                connection_id,
                           GDBusProxyFlags      flags,
                           const gchar         *name,
                           const gchar         *object_path,
@@ -641,7 +641,7 @@ evd_dbus_agent_new_proxy (GObject             *object,
   GError *error = NULL;
 
   g_return_if_fail (G_IS_OBJECT (object));
-  g_return_if_fail (conn_id > 0);
+  g_return_if_fail (connection_id > 0);
 
   res = g_simple_async_result_new (object,
                                    callback,
@@ -649,7 +649,7 @@ evd_dbus_agent_new_proxy (GObject             *object,
                                    evd_dbus_agent_new_proxy);
 
   if ( (conn = evd_dbus_agent_get_connection (object,
-                                              conn_id,
+                                              connection_id,
                                               &error)) != NULL)
     {
       ObjectData *data;
@@ -877,7 +877,7 @@ evd_dbus_agent_watch_proxy_property_changes (GObject                            
 
 guint
 evd_dbus_agent_register_object (GObject             *object,
-                                gint                 connection_id,
+                                guint                connection_id,
                                 const gchar         *object_path,
                                 GDBusInterfaceInfo  *interface_info,
                                 GError             **error)
@@ -932,7 +932,7 @@ evd_dbus_agent_register_object (GObject             *object,
 
 gboolean
 evd_dbus_agent_unregister_object (GObject  *object,
-                                  gint      connection_id,
+                                  guint     connection_id,
                                   guint     registration_id,
                                   GError  **error)
 {
