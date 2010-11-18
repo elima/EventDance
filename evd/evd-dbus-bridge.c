@@ -808,6 +808,8 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
   guint32 subject;
   gchar *args;
 
+  evd_dbus_agent_set_object_vtable (object, &self->priv->agent_vtable, self);
+
   variant_msg = json_data_to_gvariant (msg, length, "(ytus)", NULL);
   if (variant_msg == NULL)
     {
