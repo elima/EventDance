@@ -30,8 +30,8 @@
 G_DEFINE_TYPE (EvdDBusBridge, evd_dbus_bridge, G_TYPE_OBJECT)
 
 #define EVD_DBUS_BRIDGE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                   EVD_TYPE_DBUS_BRIDGE, \
-                                   EvdDBusBridgePrivate))
+                                          EVD_TYPE_DBUS_BRIDGE, \
+                                          EvdDBusBridgePrivate))
 
 enum EvdDBusBridgeCmd
 {
@@ -45,6 +45,8 @@ enum EvdDBusBridgeCmd
   EVD_DBUS_BRIDGE_CMD_UNOWN_NAME,
   EVD_DBUS_BRIDGE_CMD_NAME_ACQUIRED,
   EVD_DBUS_BRIDGE_CMD_NAME_LOST,
+  EVD_DBUS_BRIDGE_CMD_REGISTER_OBJECT,
+  EVD_DBUS_BRIDGE_CMD_UNREGISTER_OBJECT,
 
   EVD_DBUS_BRIDGE_CMD_PAD0,
   EVD_DBUS_BRIDGE_CMD_PAD1,
@@ -62,7 +64,8 @@ enum EvdDBusBridgeErr
   EVD_DBUS_BRIDGE_ERR_UNKNOW_COMMAND,
   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-  EVD_DBUS_BRIDGE_ERR_CONNECTION_FAILED
+  EVD_DBUS_BRIDGE_ERR_CONNECTION_FAILED,
+  EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED
 };
 
 /* private data */
@@ -651,6 +654,134 @@ evd_dbus_bridge_unown_name (EvdDBusBridge *self,
   g_variant_unref (variant_args);
 }
 
+static void
+evd_dbus_bridge_register_object (EvdDBusBridge *self,
+                                 GObject       *obj,
+                                 guint64        serial,
+                                 guint32        subject,
+                                 const gchar   *args)
+{
+  GVariant *variant_args;
+  gchar *object_path;
+  gchar *iface_data;
+  gchar *node_data;
+  guint reg_id = 0;
+  GDBusNodeInfo *node_info = NULL;
+  GError *error = NULL;
+
+  variant_args = json_data_to_gvariant (args, -1, "(ss)", NULL);
+  if (variant_args == NULL)
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+      return;
+    }
+
+  g_variant_get (variant_args, "(ss)", &object_path, &iface_data);
+
+  /* create interface info */
+  node_data = g_strdup_printf ("<node>%s</node>", iface_data);
+  node_info = g_dbus_node_info_new_for_xml (node_data, &error);
+  if (node_info != NULL && node_info->interfaces != NULL)
+    {
+      GDBusInterfaceInfo *iface_info;
+
+      iface_info = node_info->interfaces[0];
+
+      reg_id = evd_dbus_agent_register_object (obj,
+                                               (gint) subject,
+                                               object_path,
+                                               iface_info,
+                                               &error);
+
+      if (reg_id > 0)
+        {
+          gchar *args;
+
+          args = g_strdup_printf ("%u", reg_id);
+          evd_dbus_bridge_send (self,
+                                obj,
+                                EVD_DBUS_BRIDGE_CMD_REPLY,
+                                serial,
+                                subject,
+                                args);
+          g_free (args);
+        }
+      else
+        {
+          evd_dbus_bridge_send_error (self,
+                                      obj,
+                                      serial,
+                                      subject,
+                                      EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED,
+                                      NULL);
+          g_error_free (error);
+        }
+    }
+  else
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  subject,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+    }
+
+  if (node_info != NULL)
+    g_dbus_node_info_unref (node_info);
+  g_free (node_data);
+  g_free (iface_data);
+  g_free (object_path);
+  g_variant_unref (variant_args);
+}
+
+static void
+evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
+                                   GObject       *obj,
+                                   guint64        serial,
+                                   guint32        subject,
+                                   const gchar   *args)
+{
+  GVariant *variant_args;
+  guint reg_id = 0;
+  GError *error = NULL;
+
+  variant_args = json_data_to_gvariant (args, -1, "(u)", NULL);
+  if (variant_args == NULL)
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+      return;
+    }
+
+  g_variant_get (variant_args, "(u)", &reg_id);
+
+  if (evd_dbus_agent_unregister_object (obj, subject, reg_id, &error))
+    {
+      evd_dbus_bridge_send (self, obj, EVD_DBUS_BRIDGE_CMD_REPLY, serial, subject, "");
+    }
+  else
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  subject,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
+                                  NULL);
+    }
+
+  g_variant_unref (variant_args);
+}
+
 /* public methods */
 
 EvdDBusBridge *
@@ -709,6 +840,14 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
 
     case EVD_DBUS_BRIDGE_CMD_UNOWN_NAME:
       evd_dbus_bridge_unown_name (self, object, serial, subject, args);
+      break;
+
+    case EVD_DBUS_BRIDGE_CMD_REGISTER_OBJECT:
+      evd_dbus_bridge_register_object (self, object, serial, subject, args);
+      break;
+
+    case EVD_DBUS_BRIDGE_CMD_UNREGISTER_OBJECT:
+      evd_dbus_bridge_unregister_object (self, object, serial, subject, args);
       break;
 
     default:
