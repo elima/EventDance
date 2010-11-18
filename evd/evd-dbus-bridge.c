@@ -120,12 +120,12 @@ static void     evd_dbus_bridge_get_property           (GObject    *obj,
                                                         GParamSpec *pspec);
 
 static void     evd_dbus_bridge_on_proxy_signal        (GObject     *obj,
-                                                        gint         proxy_id,
+                                                        guint        proxy_id,
                                                         const gchar *signal_name,
                                                         GVariant    *parameters,
                                                         gpointer     user_data);
 static void     evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
-                                                        gint         proxy_uuid,
+                                                        guint        proxy_uuid,
                                                         GVariant    *changed_properties,
                                                         GStrv       *invalidated_properties,
                                                         gpointer     user_data);
@@ -249,7 +249,7 @@ evd_dbus_bridge_free_msg_closure (MsgClosure *closure)
 
 static void
 evd_dbus_bridge_on_proxy_signal (GObject     *obj,
-                                 gint         proxy_id,
+                                 guint        proxy_id,
                                  const gchar *signal_name,
                                  GVariant    *parameters,
                                  gpointer     user_data)
@@ -259,7 +259,7 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
 
 static void
 evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
-                                        gint         proxy_id,
+                                        guint        proxy_id,
                                         GVariant    *changed_properties,
                                         GStrv       *invalidated_properties,
                                         gpointer     user_data)

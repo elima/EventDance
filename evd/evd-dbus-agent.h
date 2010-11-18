@@ -29,13 +29,13 @@
 G_BEGIN_DECLS
 
 typedef void (* EvdDBusAgentProxyPropertiesChangedCb) (GObject     *object,
-                                                       gint         proxy_id,
+                                                       guint        proxy_id,
                                                        GVariant    *changed_properties,
                                                        GStrv       *invalidated_properties,
                                                        gpointer     user_data);
 
 typedef void (* EvdDBusAgentProxySignalCb)            (GObject     *object,
-                                                       gint         proxy_id,
+                                                       guint        proxy_id,
                                                        const gchar *signal_name,
                                                        GVariant    *parameters,
                                                        gpointer     user_data);
@@ -75,23 +75,23 @@ void              evd_dbus_agent_new_proxy                    (GObject          
                                                                GCancellable        *cancellable,
                                                                GAsyncReadyCallback  callback,
                                                                gpointer             user_data);
-gint              evd_dbus_agent_new_proxy_finish             (GObject        *object,
+guint             evd_dbus_agent_new_proxy_finish             (GObject        *object,
                                                                GAsyncResult   *result,
                                                                GError        **error);
 gboolean          evd_dbus_agent_close_proxy                  (GObject  *object,
-                                                               gint      proxy_id,
+                                                               guint     proxy_id,
                                                                GError  **error);
 GDBusProxy *      evd_dbus_agent_get_proxy                    (GObject  *obj,
-                                                               gint      proxy_id,
+                                                               guint     proxy_id,
                                                                GError  **error);
 
 gboolean          evd_dbus_agent_watch_proxy_signals          (GObject                    *object,
-                                                               gint                        proxy_id,
+                                                               guint                       proxy_id,
                                                                EvdDBusAgentProxySignalCb  callback,
                                                                gpointer                    user_data,
                                                                GError                    **error);
 gboolean          evd_dbus_agent_watch_proxy_property_changes (GObject                               *object,
-                                                               gint                                   proxy_id,
+                                                               guint                                  proxy_id,
                                                                EvdDBusAgentProxyPropertiesChangedCb   callback,
                                                                gpointer                               user_data,
                                                                GError                               **error);

@@ -292,16 +292,16 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
   g_object_unref (result);
 }
 
-static gint *
+static guint *
 evd_dbus_agent_bind_proxy_to_object (ObjectData *data,
                                      GDBusProxy *proxy)
 {
-  gint *proxy_id;
+  guint *proxy_id;
   ProxyData *proxy_data;
 
   data->proxy_counter++;
 
-  proxy_id = g_new (gint, 1);
+  proxy_id = g_new (guint, 1);
   *proxy_id = data->proxy_counter;
 
   proxy_data = g_slice_new0 (ProxyData);
@@ -346,7 +346,7 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
   if ( (proxy = g_dbus_proxy_new_finish (res, &error)) != NULL)
     {
       ObjectData *data;
-      gint *proxy_id;
+      guint *proxy_id;
 
       data = (ObjectData *)
         g_simple_async_result_get_op_res_gpointer (result);
@@ -368,7 +368,7 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
 static ProxyData *
 evd_dbus_agent_find_proxy_data_by_proxy (ObjectData *data,
                                          GDBusProxy *proxy,
-                                         gint       *proxy_id)
+                                         guint      *proxy_id)
 {
   ProxyData *proxy_data;
   GHashTableIter iter;
@@ -381,7 +381,7 @@ evd_dbus_agent_find_proxy_data_by_proxy (ObjectData *data,
 
       if (proxy_data->proxy == proxy)
         {
-          *proxy_id = * (gint *) key;
+          *proxy_id = * (guint *) key;
           return proxy_data;
         }
     }
@@ -398,7 +398,7 @@ evd_dbus_agent_on_proxy_signal (GDBusProxy *proxy,
 {
   ObjectData *data = (ObjectData *) user_data;
   ProxyData *proxy_data;
-  gint proxy_id = -1;
+  guint proxy_id = 0;
 
   proxy_data = evd_dbus_agent_find_proxy_data_by_proxy (data,
                                                         proxy,
@@ -423,7 +423,7 @@ evd_dbus_agent_on_proxy_properties_changed (GDBusProxy *proxy,
 {
   ObjectData *data = (ObjectData *) user_data;
   ProxyData *proxy_data;
-  gint proxy_id = -1;
+  guint proxy_id = 0;
 
   proxy_data = evd_dbus_agent_find_proxy_data_by_proxy (data,
                                                         proxy,
@@ -678,21 +678,21 @@ evd_dbus_agent_new_proxy (GObject             *object,
     }
 }
 
-gint
+guint
 evd_dbus_agent_new_proxy_finish (GObject       *object,
                                  GAsyncResult  *result,
                                  GError       **error)
 {
-  g_return_val_if_fail (G_IS_OBJECT (object), -1);
+  g_return_val_if_fail (G_IS_OBJECT (object), 0);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                 object,
                                                 evd_dbus_agent_new_proxy),
-                        -1);
+                        0);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
                                                error))
     {
-      gint *proxy_id;
+      guint *proxy_id;
 
       proxy_id =
         g_simple_async_result_get_op_res_gpointer
@@ -702,13 +702,13 @@ evd_dbus_agent_new_proxy_finish (GObject       *object,
     }
   else
     {
-      return -1;
+      return 0;
     }
 }
 
 gboolean
 evd_dbus_agent_close_proxy (GObject  *object,
-                            gint      proxy_id,
+                            guint     proxy_id,
                             GError  **error)
 {
   g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
@@ -742,7 +742,7 @@ evd_dbus_agent_close_proxy (GObject  *object,
  **/
 GDBusProxy *
 evd_dbus_agent_get_proxy (GObject  *object,
-                          gint      proxy_id,
+                          guint     proxy_id,
                           GError  **error)
 {
   ObjectData *data;
@@ -780,7 +780,7 @@ evd_dbus_agent_get_proxy (GObject  *object,
 
 gboolean
 evd_dbus_agent_watch_proxy_signals (GObject                    *object,
-                                    gint                        proxy_id,
+                                    guint                       proxy_id,
                                     EvdDBusAgentProxySignalCb   callback,
                                     gpointer                    user_data,
                                     GError                    **error)
@@ -837,7 +837,7 @@ evd_dbus_agent_set_object_vtable (GObject             *object,
 
 gboolean
 evd_dbus_agent_watch_proxy_property_changes (GObject                               *object,
-                                             gint                                   proxy_id,
+                                             guint                                  proxy_id,
                                              EvdDBusAgentProxyPropertiesChangedCb   callback,
                                              gpointer                               user_data,
                                              GError                               **error)
