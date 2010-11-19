@@ -940,6 +940,7 @@ evd_dbus_agent_unregister_object (GObject  *object,
   GDBusConnection *dbus_conn;
   ObjectData *data;
   RegObjData *reg_obj_data;
+  gint reg_id_key;
 
   g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
   g_return_val_if_fail (connection_id > 0, FALSE);
@@ -957,12 +958,21 @@ evd_dbus_agent_unregister_object (GObject  *object,
   data = evd_dbus_agent_get_object_data (object);
   g_assert (data != NULL);
 
-  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &registration_id);
-  if (reg_obj_data != NULL)
+  reg_id_key = registration_id;
+
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &reg_id_key);
+  if (reg_obj_data == NULL)
     {
-      g_hash_table_remove (data->reg_objs_by_id, &registration_id);
-      g_hash_table_remove (data->reg_objs, reg_obj_data->reg_str_id);
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Object registration id '%u' is invalid",
+                   registration_id);
+      return FALSE;
     }
+
+  g_hash_table_remove (data->reg_objs_by_id, &registration_id);
+  g_hash_table_remove (data->reg_objs, reg_obj_data->reg_str_id);
 
   return TRUE;
 }
