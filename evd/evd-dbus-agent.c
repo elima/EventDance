@@ -918,10 +918,11 @@ evd_dbus_agent_register_object (GObject             *object,
       reg_obj_data = g_slice_new (RegObjData);
       reg_obj_data->reg_id = reg_id;
       reg_obj_data->serial = 0;
+      reg_obj_data->reg_str_id = key;
       reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
                                                          g_int64_equal,
                                                          NULL,
-                                                         g_object_unref);
+                                                         NULL /* @TODO: should not be g_object_unref? */);
 
       g_hash_table_insert (data->reg_objs, key, reg_obj_data);
       g_hash_table_insert (data->reg_objs_by_id, &reg_id, reg_obj_data);
