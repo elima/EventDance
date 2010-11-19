@@ -14,8 +14,28 @@
 
 #include <evd.h>
 
+#define BASE_NAME "org.eventdance.lib.test"
+#define BASE_OBJ_PATH "/org/eventdance/lib/test"
+#define BASE_IFACE_NAME BASE_NAME
+#define DBUS_ADDR "alias:abstract=" BASE_OBJ_PATH "/dbus-bridge"
+#define IFACE_XML \
+  "<interface name=\\\"" BASE_IFACE_NAME ".TestIface\\\">" \
+  "  <method name=\\\"HelloWorld\\\">" \
+  "    <arg type=\\\"s\\\" name=\\\"greeting\\\" direction=\\\"in\\\"/>" \
+  "    <arg type=\\\"s\\\" name=\\\"response\\\" direction=\\\"out\\\"/>" \
+  "  </method>" \
+  "</interface>"
+
 static const gchar *session_bus_addr;
-static const gchar *addr_alias = "alias:abstract=/org/eventdance/lib/demo/dbus-bridge";
+static const gchar *addr_alias = DBUS_ADDR;
+
+static gint test_index = -1;
+static const gchar *self_name;
+
+static GOptionEntry entries[] =
+{
+  { "run-test", 'r', 0, G_OPTION_ARG_INT, &test_index, "Only run specified test case", NULL }
+};
 
 typedef struct
 {
@@ -83,8 +103,8 @@ static const TestCase test_cases[] =
 
     { "new-connection/success",
       {
-        "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
-        "[3,2,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']",
+        "[3,2,0,'[\"" DBUS_ADDR "\"]']",
       },
       {
         "[2,1,0,\"[1]\"]",
@@ -103,7 +123,7 @@ static const TestCase test_cases[] =
 
     { "close-connection/success",
       {
-        "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']",
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']",
         "[4,2,1,'[]']"
       },
       {
@@ -114,11 +134,13 @@ static const TestCase test_cases[] =
 
     { "own-name",
       {
-        "[3,1,0,'[\"alias:abstract=/org/eventdance/lib/demo/dbus-bridge\"]']", /* new-connection */
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
         "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
         NULL,
         "[6,3,1,'[1]']", /* unown-name */
         "[5,4,1,'[\"org.eventdance.lib.tests1\", 0]']", /* own-name again */
+        NULL,
+        "[6,3,1,'[2]']", /* unown-name */
       },
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
@@ -127,9 +149,93 @@ static const TestCase test_cases[] =
         "[2,3,1,\"[]\"]", /* unown-name response */
         "[2,4,1,\"[2]\"]", /* own-name response */
         "[7,0,1,\"[2]\"]", /* name-acquired signal again */
+        "[2,3,1,\"[]\"]", /* unown-name response */
+      }
+    },
+
+    { "register-object",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[5,2,1,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
+        NULL,
+        "[9,3,1,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
+        "[10,4,1,'[1]']", /* unregister-object */
+        "[6,5,1,'[1]']", /* unown-name */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[2,3,1,\"[1]\"]", /* register-object response */
+        "[2,4,1,\"[]\"]", /* unregister-object response */
+        "[2,5,1,\"[]\"]", /* unown-name response */
+      }
+    },
+
+    { "register-object/already-registered",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[5,2,1,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
+        NULL,
+        "[9,3,1,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
+        "[9,4,1,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
+        "[10,5,1,'[2]']", /* unregister-object */
+        "[6,6,1,'[1]']", /* unown-name */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[2,3,1,\"[1]\"]", /* register-object response */
+        "[1,4,1,\"[6]\"]", /* register-object again - error, already registered */
+        "[2,5,1,\"[]\"]", /* unregister-object response */
+        "[2,6,1,\"[]\"]", /* unown-name response */
+      }
+    },
+
+    { "new-proxy",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[5,2,1,'[\"" BASE_NAME ".NewProxy\", 0]']", /* own-name */
+        NULL,
+        "[9,3,1,'[\"" BASE_OBJ_PATH "/NewProxy\",\"" IFACE_XML "\"]']", /* register-object */
+        "[11,4,1,'[\"" BASE_NAME "\",\"" BASE_OBJ_PATH "/NewProxy\",\"" BASE_IFACE_NAME ".TestIface\",0]']", /* new-proxy */
+        "[12,5,1,'[]']", /* close-proxy */
+        "[10,6,1,'[1]']", /* unregister-object */
+        "[6,7,1,'[1]']", /* unown-name */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[2,3,1,\"[1]\"]", /* register-object response */
+        "[2,4,1,\"[1]\"]", /* new-proxy response */
+        "[2,5,1,\"[]\"]", /* close-proxy response */
+        "[2,6,1,\"[]\"]", /* unregister-object response */
+        "[2,7,1,\"[]\"]", /* unown-name response */
+      }
+    },
+
+    { "proxy/call-method",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[5,2,1,'[\"" BASE_NAME ".CallProxyMethod\", 0]']", /* own-name */
+        NULL,
+        "[9,3,1,'[\"" BASE_OBJ_PATH "/CallProxyMethod\",\"" IFACE_XML "\"]']", /* register-object */
+        "[11,4,1,'[\"" BASE_NAME ".CallProxyMethod\",\"" BASE_OBJ_PATH "/CallProxyMethod\",\"" BASE_IFACE_NAME ".TestIface\",0]']", /* new-proxy */
+        "[13,5,1,'[\"HelloWorld\",\"[\\\"Hi there\\\"]\",\"(s)\",0,-1]']", /* call-method on proxy */
+        "[14,1,1,'[\"[\\\"hello world!\\\"]\",\"(s)\"]']", /* call-method-return from registered object */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[2,3,1,\"[1]\"]", /* register-object response */
+        "[2,4,1,\"[1]\"]", /* new-proxy response */
+        "[13,1,1,\"['HelloWorld','[ \\\"Hi there\\\" ]','(s)',0,0]\"]", /* call-method response on registered object */
+        "[14,5,1,\"['[ \\\"hello world!\\\" ]','(s)']\"]", /* call-method on proxy response */
       }
     }
-
 
   };
 
@@ -230,46 +336,97 @@ test_func (struct Fixture *f,
   g_main_loop_run (f->main_loop);
 }
 
+static void
+spawn_test (gconstpointer test_data)
+{
+  gint *test_index = (gint *) test_data;
+  gint exit_status;
+  GError *error = NULL;
+  gchar *cmdline;
+
+  cmdline = g_strdup_printf ("%s -r %d", self_name, *test_index);
+
+  g_spawn_command_line_sync (cmdline,
+                             NULL,
+                             NULL,
+                             &exit_status,
+                             &error);
+
+  g_assert_cmpint (exit_status, ==, 0);
+
+  g_free (cmdline);
+  g_free (test_index);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
   GDBusConnection *dbus_conn;
+  GError *error = NULL;
+  GOptionContext *context;
+
+  self_name = argv[0];
 
   g_type_init ();
   g_test_init (&argc, &argv, NULL);
 
-  /* check D-Bus session bus is active */
+  context = g_option_context_new ("- test tree model performance");
+  g_option_context_add_main_entries (context, entries, NULL);
+  if (! g_option_context_parse (context, &argc, &argv, &error))
+    {
+      g_print ("Error in arguments: %s\n", error->message);
+      return 1;
+    }
+  g_option_context_free (context);
+
   session_bus_addr = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION,
                                                       NULL,
                                                       NULL);
 
-  if ( (dbus_conn = g_dbus_connection_new_for_address_sync (session_bus_addr,
+  if (test_index >= 0 && test_index < sizeof (test_cases) / sizeof (TestCase))
+    {
+      struct Fixture *f;
+
+      f = g_slice_new (struct Fixture);
+      test_fixture_setup (f, &test_cases[test_index]);
+      test_func (f, &test_cases[test_index]);
+      test_fixture_teardown (f, &test_cases[test_index]);
+
+      g_slice_free (struct Fixture, f);
+    }
+  else
+    {
+      /* check D-Bus session bus is active */
+      if ( (dbus_conn =
+            g_dbus_connection_new_for_address_sync (session_bus_addr,
                                 G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION |
                                 G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT,
                                 NULL,
                                 NULL,
                                 NULL)) != NULL)
-    {
-      gint i;
-
-      g_dbus_connection_close_sync (dbus_conn, NULL, NULL);
-      g_object_unref (dbus_conn);
-
-      for (i=0; i<sizeof (test_cases) / sizeof (TestCase); i++)
         {
-          gchar *test_name;
+          gint i;
 
-          test_name =
-            g_strdup_printf ("/evd/dbus/bridge/%s", test_cases[i].test_name);
+          g_dbus_connection_close_sync (dbus_conn, NULL, NULL);
+          g_object_unref (dbus_conn);
 
-          g_test_add (test_name,
-                      struct Fixture,
-                      &test_cases[i],
-                      test_fixture_setup,
-                      test_func,
-                      test_fixture_teardown);
+          for (i=0; i<sizeof (test_cases) / sizeof (TestCase); i++)
+            {
+              gchar *test_name;
+              gint *index;
 
-          g_free (test_name);
+              index = g_new0 (gint, 1);
+              *index = i;
+
+              test_name =
+                g_strdup_printf ("/evd/dbus/bridge/%s", test_cases[i].test_name);
+
+              g_test_add_data_func (test_name,
+                                    index,
+                                    spawn_test);
+
+              g_free (test_name);
+            }
         }
     }
 
