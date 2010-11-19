@@ -119,6 +119,12 @@ void              evd_dbus_agent_set_object_vtable            (GObject          
                                                                EvdDBusAgentVTable  *vtable,
                                                                gpointer             user_data);
 
+gboolean          evd_dbus_agent_method_call_return           (GObject  *object,
+                                                               guint     registration_id,
+                                                               guint64   serial,
+                                                               GVariant  *return_parameters,
+                                                               GError   **error);
+
 G_END_DECLS
 
 #endif /* __EVD_DBUS_AGENT_H__ */

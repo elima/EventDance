@@ -1034,3 +1034,59 @@ evd_dbus_agent_unregister_object (GObject  *object,
 
   return TRUE;
 }
+
+gboolean
+evd_dbus_agent_method_call_return (GObject  *object,
+                                   guint     registration_id,
+                                   guint64   serial,
+                                   GVariant  *return_parameters,
+                                   GError   **error)
+{
+  ObjectData *data;
+  RegObjData *reg_obj_data;
+  GDBusMethodInvocation *invocation;
+  gint reg_id_key;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (registration_id > 0, FALSE);
+  g_return_val_if_fail (return_parameters != NULL, FALSE);
+
+  data = evd_dbus_agent_get_object_data (object);
+  if (data == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_ARGUMENT,
+                           "Object is invalid");
+      return FALSE;
+    }
+
+  reg_id_key = registration_id;
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &reg_id_key);
+  if (reg_obj_data == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Object registration id '%u' is invalid",
+                   registration_id);
+      return FALSE;
+    }
+
+  invocation = g_hash_table_lookup (reg_obj_data->invocations, &serial);
+  if (invocation == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "No method call with serial '%lu'",
+                   serial);
+      return FALSE;
+    }
+
+  g_dbus_method_invocation_return_value (invocation, return_parameters);
+
+  g_hash_table_remove (reg_obj_data->invocations, &serial);
+
+  return TRUE;
+}
