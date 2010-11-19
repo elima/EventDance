@@ -173,8 +173,8 @@ evd_dbus_agent_setup_object_data (GObject *obj)
                                           g_str_equal,
                                           g_free,
                                           evd_dbus_agent_free_reg_obj_data);
-  data->reg_objs_by_id = g_hash_table_new_full (g_str_hash,
-                                                g_str_equal,
+  data->reg_objs_by_id = g_hash_table_new_full (g_int_hash,
+                                                g_int_equal,
                                                 NULL,
                                                 NULL);
 
