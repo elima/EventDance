@@ -77,10 +77,18 @@ static void     evd_dbus_agent_on_proxy_properties_changed   (GDBusProxy *proxy,
                                                               GStrv      *invalidated_properties,
                                                               gpointer    user_data);
 
+static void     evd_dbus_agent_method_called                 (GDBusConnection *connection,
+                                                              const gchar *sender,
+                                                              const gchar *object_path,
+                                                              const gchar *interface_name,
+                                                              const gchar *method_name,
+                                                              GVariant *parameters,
+                                                              GDBusMethodInvocation *invocation,
+                                                              gpointer user_data);
 
 static const GDBusInterfaceVTable evd_dbus_agent_iface_vtable =
   {
-    NULL,
+    evd_dbus_agent_method_called,
     NULL,
     NULL
   };
@@ -437,6 +445,56 @@ evd_dbus_agent_on_proxy_properties_changed (GDBusProxy *proxy,
                                     changed_properties,
                                     invalidated_properties,
                                     proxy_data->props_changed_user_data);
+    }
+}
+
+static void
+evd_dbus_agent_method_called (GDBusConnection *connection,
+                              const gchar *sender,
+                              const gchar *object_path,
+                              const gchar *interface_name,
+                              const gchar *method_name,
+                              GVariant *parameters,
+                              GDBusMethodInvocation *invocation,
+                              gpointer user_data)
+{
+  GObject *obj = G_OBJECT (user_data);
+  ObjectData *data;
+  gchar *key;
+  RegObjData *reg_obj_data;
+
+  data = evd_dbus_agent_get_object_data (obj);
+  g_assert (data != NULL);
+
+  key = g_strdup_printf ("%s<%s>", object_path, interface_name);
+  reg_obj_data = g_hash_table_lookup (data->reg_objs, key);
+  g_free (key);
+
+  g_assert (reg_obj_data != NULL);
+
+  if (data->vtable && data->vtable->method_call != NULL)
+    {
+      /* cache the method invocation object, bound to the serial */
+      reg_obj_data->serial++;
+      g_hash_table_insert (reg_obj_data->invocations,
+                           (gint64 *) &reg_obj_data->serial,
+                           invocation);
+
+      data->vtable->method_call (obj,
+                                 sender,
+                                 method_name,
+                                 reg_obj_data->reg_id,
+                                 parameters,
+                                 reg_obj_data->serial,
+                                 data->vtable_user_data);
+    }
+  else
+    {
+      /* return error to invocation, no way to handle it */
+      g_dbus_method_invocation_return_error_literal (invocation,
+                                                     G_IO_ERROR,
+                                                     G_IO_ERROR_NOT_SUPPORTED,
+                                                     "Method not handled");
     }
 }
 

@@ -40,10 +40,19 @@ typedef void (* EvdDBusAgentProxySignalCb)            (GObject     *object,
                                                        GVariant    *parameters,
                                                        gpointer     user_data);
 
+typedef void (* EvdDBusAgentMethodCallCb)             (GObject     *object,
+                                                       const gchar *sender,
+                                                       const gchar *method_name,
+                                                       guint        registration_id,
+                                                       GVariant    *parameters,
+                                                       guint64      serial,
+                                                       gpointer     user_data);
+
 typedef struct
 {
   EvdDBusAgentProxySignalCb proxy_signal;
   EvdDBusAgentProxyPropertiesChangedCb proxy_properties_changed;
+  EvdDBusAgentMethodCallCb method_call;
 } EvdDBusAgentVTable;
 
 void              evd_dbus_agent_create_address_alias         (GObject     *object,
