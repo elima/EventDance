@@ -515,6 +515,30 @@ evd_dbus_agent_method_called (GDBusConnection *connection,
     }
 }
 
+static gboolean
+evd_dbus_agent_foreach_remove_reg_obj (gpointer key,
+                                       gpointer value,
+                                       gpointer user_data)
+{
+  RegObjData *reg_obj_data = (RegObjData *) value;
+  GDBusConnection *conn = G_DBUS_CONNECTION (user_data);
+
+  return reg_obj_data->dbus_conn == conn;
+}
+
+static gboolean
+evd_dbus_agent_foreach_remove_proxy (gpointer key,
+                                     gpointer value,
+                                     gpointer user_data)
+{
+  ProxyData *proxy_data = (ProxyData *) value;
+  GDBusConnection *conn = G_DBUS_CONNECTION (user_data);
+  GDBusConnection *proxy_conn;
+
+  proxy_conn = g_dbus_proxy_get_connection (proxy_data->proxy);
+  return proxy_conn == conn;
+}
+
 /* public methods */
 
 void
@@ -649,6 +673,16 @@ evd_dbus_agent_close_connection (GObject  *object,
          (implement usage ref-count on connection). By now, just remove the
          reference in object data */
       evd_dbus_agent_unbind_connection_from_object (data, conn);
+
+      /* remove all proxies created over this connection */
+      g_hash_table_foreach_remove (data->proxies,
+                                   evd_dbus_agent_foreach_remove_proxy,
+                                   conn);
+
+      /* remove all objects registered over this connection */
+      g_hash_table_foreach_remove (data->reg_objs_by_id,
+                                   evd_dbus_agent_foreach_remove_reg_obj,
+                                   conn);
 
       g_hash_table_remove (data->conns, &connection_id);
 
