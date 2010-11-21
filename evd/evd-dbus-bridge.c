@@ -298,7 +298,7 @@ evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
 }
 
 static void
-evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
+evd_dbus_bridge_on_reg_obj_call_method (GObject     *obj,
                                         const gchar *sender,
                                         const gchar *method_name,
                                         guint        registration_id,
@@ -322,7 +322,7 @@ evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
                           signature);
 
   evd_dbus_bridge_send (self,
-                        object,
+                        obj,
                         EVD_DBUS_BRIDGE_CMD_CALL_METHOD,
                         serial,
                         registration_id,
@@ -757,7 +757,6 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
       GDBusInterfaceInfo *iface_info;
 
       iface_info = node_info->interfaces[0];
-
       reg_id = evd_dbus_agent_register_object (obj,
                                                (gint) subject,
                                                object_path,
