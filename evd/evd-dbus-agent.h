@@ -100,7 +100,6 @@ guint             evd_dbus_agent_register_object              (GObject          
                                                                GDBusInterfaceInfo  *interface_info,
                                                                GError             **error);
 gboolean          evd_dbus_agent_unregister_object            (GObject  *object,
-                                                               guint     connection_id,
                                                                guint     registration_id,
                                                                GError  **error);
 

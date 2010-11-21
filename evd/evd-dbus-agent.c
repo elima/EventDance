@@ -49,7 +49,11 @@ typedef struct
 
 typedef struct
 {
+  ObjectData *owner_data;
   gchar *reg_str_id;
+  GDBusConnection *dbus_conn;
+  gchar *obj_path;
+  gchar *iface_name;
   guint reg_id;
   guint64 serial;
   GHashTable *invocations;
@@ -116,8 +120,19 @@ evd_dbus_agent_free_proxy_data (gpointer data)
 static void
 evd_dbus_agent_free_reg_obj_data (gpointer data)
 {
+  ObjectData *obj_data;
   RegObjData *reg_obj_data = (RegObjData *) data;
 
+  obj_data = reg_obj_data->owner_data;
+
+  g_dbus_connection_unregister_object (reg_obj_data->dbus_conn,
+                                       reg_obj_data->reg_id);
+
+  g_hash_table_remove (obj_data->reg_objs, &reg_obj_data->reg_str_id);
+
+  g_free (reg_obj_data->obj_path);
+  g_free (reg_obj_data->iface_name);
+  g_object_unref (reg_obj_data->dbus_conn);
   g_hash_table_destroy (reg_obj_data->invocations);
 
   g_slice_free (RegObjData, reg_obj_data);
@@ -183,11 +198,11 @@ evd_dbus_agent_setup_object_data (GObject *obj)
   data->reg_objs = g_hash_table_new_full (g_str_hash,
                                           g_str_equal,
                                           g_free,
-                                          evd_dbus_agent_free_reg_obj_data);
+                                          NULL);
   data->reg_objs_by_id = g_hash_table_new_full (g_int_hash,
                                                 g_int_equal,
                                                 NULL,
-                                                NULL);
+                                                evd_dbus_agent_free_reg_obj_data);
 
   data->addr_aliases = g_hash_table_new_full (g_str_hash,
                                               g_str_equal,
@@ -468,7 +483,7 @@ evd_dbus_agent_method_called (GDBusConnection *connection,
   data = evd_dbus_agent_get_object_data (obj);
   g_assert (data != NULL);
 
-  key = g_strdup_printf ("%s<%s>", object_path, interface_name);
+  key = g_strdup_printf ("%p-%s<%s>", connection, object_path, interface_name);
   reg_obj_data = g_hash_table_lookup (data->reg_objs, key);
   g_free (key);
 
@@ -888,19 +903,29 @@ evd_dbus_agent_register_object (GObject             *object,
       data = evd_dbus_agent_get_object_data (object);
       g_assert (data != NULL);
 
-      key = g_strdup_printf ("%s<%s>", object_path, interface_info->name);
+      key = g_strdup_printf ("%p-%s<%s>",
+                             dbus_conn,
+                             object_path,
+                             interface_info->name);
 
       reg_obj_data = g_slice_new (RegObjData);
+      reg_obj_data->obj_path = g_strdup (object_path);
+      reg_obj_data->iface_name = g_strdup (interface_info->name);
+      reg_obj_data->dbus_conn = dbus_conn;
+      g_object_ref (dbus_conn);
       reg_obj_data->reg_id = reg_id;
       reg_obj_data->serial = 0;
       reg_obj_data->reg_str_id = key;
+      reg_obj_data->owner_data = data;
       reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
                                                          g_int64_equal,
                                                          NULL,
-                                                         NULL /* @TODO: should not be g_object_unref? */);
+                                                         NULL);
 
       g_hash_table_insert (data->reg_objs, key, reg_obj_data);
-      g_hash_table_insert (data->reg_objs_by_id, &reg_id, reg_obj_data);
+      g_hash_table_insert (data->reg_objs_by_id,
+                           &reg_obj_data->reg_id,
+                           reg_obj_data);
     }
 
   return reg_id;
@@ -908,35 +933,25 @@ evd_dbus_agent_register_object (GObject             *object,
 
 gboolean
 evd_dbus_agent_unregister_object (GObject  *object,
-                                  guint     connection_id,
                                   guint     registration_id,
                                   GError  **error)
 {
-  GDBusConnection *dbus_conn;
   ObjectData *data;
-  RegObjData *reg_obj_data;
-  gint reg_id_key;
 
   g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
-  g_return_val_if_fail (connection_id > 0, FALSE);
   g_return_val_if_fail (registration_id > 0, FALSE);
 
-  if ( (dbus_conn = evd_dbus_agent_get_connection (object,
-                                                   connection_id,
-                                                   error)) == NULL)
+  data = evd_dbus_agent_get_object_data (object);
+  if (data == NULL)
     {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
+                           "Object is invalid");
       return FALSE;
     }
 
-  g_dbus_connection_unregister_object (dbus_conn, registration_id);
-
-  data = evd_dbus_agent_get_object_data (object);
-  g_assert (data != NULL);
-
-  reg_id_key = registration_id;
-
-  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &reg_id_key);
-  if (reg_obj_data == NULL)
+  if (g_hash_table_lookup (data->reg_objs_by_id, &registration_id) == NULL)
     {
       g_set_error (error,
                    G_IO_ERROR,
@@ -947,7 +962,6 @@ evd_dbus_agent_unregister_object (GObject  *object,
     }
 
   g_hash_table_remove (data->reg_objs_by_id, &registration_id);
-  g_hash_table_remove (data->reg_objs, reg_obj_data->reg_str_id);
 
   return TRUE;
 }
@@ -962,7 +976,6 @@ evd_dbus_agent_method_call_return (GObject  *object,
   ObjectData *data;
   RegObjData *reg_obj_data;
   GDBusMethodInvocation *invocation;
-  gint reg_id_key;
 
   g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
   g_return_val_if_fail (registration_id > 0, FALSE);
@@ -978,8 +991,7 @@ evd_dbus_agent_method_call_return (GObject  *object,
       return FALSE;
     }
 
-  reg_id_key = registration_id;
-  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &reg_id_key);
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &registration_id);
   if (reg_obj_data == NULL)
     {
       g_set_error (error,

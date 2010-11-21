@@ -806,25 +806,9 @@ evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
                                    guint32        subject,
                                    const gchar   *args)
 {
-  GVariant *variant_args;
-  guint reg_id = 0;
   GError *error = NULL;
 
-  variant_args = json_data_to_gvariant (args, -1, "(u)", NULL);
-  if (variant_args == NULL)
-    {
-      evd_dbus_bridge_send_error (self,
-                                  obj,
-                                  serial,
-                                  0,
-                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                  NULL);
-      return;
-    }
-
-  g_variant_get (variant_args, "(u)", &reg_id);
-
-  if (evd_dbus_agent_unregister_object (obj, subject, reg_id, &error))
+  if (evd_dbus_agent_unregister_object (obj, subject, &error))
     {
       evd_dbus_bridge_send (self, obj, EVD_DBUS_BRIDGE_CMD_REPLY, serial, subject, "");
     }
@@ -836,9 +820,8 @@ evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
+      g_error_free (error);
     }
-
-  g_variant_unref (variant_args);
 }
 
 static void
