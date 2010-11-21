@@ -101,6 +101,13 @@ evd_dbus_agent_free_proxy_data (gpointer data)
 {
   ProxyData *proxy_data = (ProxyData *) data;
 
+  g_signal_handlers_disconnect_by_func (proxy_data->proxy,
+                                        evd_dbus_agent_on_proxy_signal,
+                                        data);
+  g_signal_handlers_disconnect_by_func (proxy_data->proxy,
+                                        evd_dbus_agent_on_proxy_properties_changed,
+                                        data);
+
   g_object_unref (proxy_data->proxy);
 
   g_slice_free (ProxyData, proxy_data);
@@ -318,25 +325,6 @@ evd_dbus_agent_bind_proxy_to_object (ObjectData *data,
 }
 
 static void
-evd_dbus_agent_unbind_proxy_from_object (ObjectData *data,
-                                         ProxyData  *proxy_data)
-{
-  if (proxy_data->signal_cb != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (proxy_data->proxy,
-                                            evd_dbus_agent_on_proxy_signal,
-                                            data);
-    }
-
-  if (proxy_data->props_changed_cb != NULL)
-    {
-      g_signal_handlers_disconnect_by_func (proxy_data->proxy,
-                                            evd_dbus_agent_on_proxy_properties_changed,
-                                            data);
-    }
-}
-
-static void
 evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
                                   GAsyncResult *res,
                                   gpointer      user_data)
@@ -351,6 +339,7 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
     {
       ObjectData *data;
       guint *proxy_id;
+      GDBusProxyFlags flags;
 
       data = (ObjectData *)
         g_simple_async_result_get_op_res_gpointer (result);
@@ -358,6 +347,23 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
       proxy_id = evd_dbus_agent_bind_proxy_to_object (data, proxy);
 
       g_simple_async_result_set_op_res_gpointer (result, proxy_id, NULL);
+
+      flags = g_dbus_proxy_get_flags (proxy);
+      if ( (flags & G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS) == 0)
+        {
+          g_signal_connect (proxy,
+                            "g-signal",
+                            G_CALLBACK (evd_dbus_agent_on_proxy_signal),
+                            data);
+        }
+      if ( (flags & G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES) == 0)
+        {
+          g_signal_connect (proxy,
+                        "g-properties-changed",
+                        G_CALLBACK (evd_dbus_agent_on_proxy_properties_changed),
+                        data);
+        }
+
     }
   else
     {
@@ -771,13 +777,8 @@ evd_dbus_agent_close_proxy (GObject  *object,
   if (evd_dbus_agent_get_proxy (object, proxy_id, error) != NULL)
     {
       ObjectData *data;
-      ProxyData *proxy_data;
 
       data = evd_dbus_agent_get_object_data (object);
-      proxy_data = (ProxyData *) g_hash_table_lookup (data->proxies,
-                                                      &proxy_id);
-
-      evd_dbus_agent_unbind_proxy_from_object (data, proxy_data);
 
       g_hash_table_remove (data->proxies, &proxy_id);
 
