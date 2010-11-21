@@ -71,7 +71,6 @@ enum EvdDBusBridgeErr
   EVD_DBUS_BRIDGE_ERR_CONNECTION_FAILED,
   EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED,
   EVD_DBUS_BRIDGE_ERR_PROXY_FAILED,
-  EVD_DBUS_BRIDGE_ERR_INVALID_METHOD_ARGS,
   EVD_DBUS_BRIDGE_ERR_UNKNOWN_METHOD,
 };
 
@@ -988,7 +987,7 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
       /* @TODO: organize this in a method to convert from
          DBus error to bridge error */
       if (error->code == G_DBUS_ERROR_INVALID_ARGS)
-        err_code = EVD_DBUS_BRIDGE_ERR_INVALID_METHOD_ARGS;
+        err_code = EVD_DBUS_BRIDGE_ERR_INVALID_ARGS;
       else if (error->code == G_DBUS_ERROR_UNKNOWN_METHOD)
         err_code = EVD_DBUS_BRIDGE_ERR_UNKNOWN_METHOD;
       else
