@@ -1053,3 +1053,47 @@ evd_dbus_agent_method_call_return (GObject  *object,
 
   return TRUE;
 }
+
+gboolean
+evd_dbus_agent_emit_signal (GObject      *object,
+                            guint         registration_id,
+                            const gchar  *signal_name,
+                            GVariant     *parameters,
+                            GError      **error)
+{
+  ObjectData *data;
+  RegObjData *reg_obj_data;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (registration_id > 0, FALSE);
+  g_return_val_if_fail (signal_name != NULL, FALSE);
+
+  data = evd_dbus_agent_get_object_data (object);
+  if (data == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_ARGUMENT,
+                           "Object is invalid");
+      return FALSE;
+    }
+
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &registration_id);
+  if (reg_obj_data == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Object registration id '%u' is invalid",
+                   registration_id);
+      return FALSE;
+    }
+
+  return g_dbus_connection_emit_signal (reg_obj_data->dbus_conn,
+                                        NULL,
+                                        reg_obj_data->obj_path,
+                                        reg_obj_data->iface_name,
+                                        signal_name,
+                                        parameters,
+                                        error);
+}

@@ -113,6 +113,12 @@ gboolean          evd_dbus_agent_method_call_return           (GObject  *object,
                                                                GVariant  *return_parameters,
                                                                GError   **error);
 
+gboolean          evd_dbus_agent_emit_signal                  (GObject      *object,
+                                                               guint         registration_id,
+                                                               const gchar  *signal_name,
+                                                               GVariant     *signal_parameters,
+                                                               GError      **error);
+
 G_END_DECLS
 
 #endif /* __EVD_DBUS_AGENT_H__ */
