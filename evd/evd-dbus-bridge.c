@@ -51,6 +51,7 @@ enum EvdDBusBridgeCmd
   EVD_DBUS_BRIDGE_CMD_CLOSE_PROXY,
   EVD_DBUS_BRIDGE_CMD_CALL_METHOD,
   EVD_DBUS_BRIDGE_CMD_CALL_METHOD_RETURN,
+  EVD_DBUS_BRIDGE_CMD_EMIT_SIGNAL,
 
   EVD_DBUS_BRIDGE_CMD_PAD0,
   EVD_DBUS_BRIDGE_CMD_PAD1,
@@ -284,7 +285,31 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
                                  GVariant    *parameters,
                                  gpointer     user_data)
 {
-  /* @TODO */
+  EvdDBusBridge *self = EVD_DBUS_BRIDGE (user_data);
+  gchar *json;
+  gchar *escaped_json;
+  gchar *args;
+  const gchar *signature;
+
+  json = json_data_from_gvariant (parameters, NULL);
+  escaped_json = g_strescape (json, "\b\f\n\r\t\'");
+  signature = g_variant_get_type_string (parameters);
+
+  args = g_strdup_printf ("'%s','%s','%s'",
+                          signal_name,
+                          escaped_json,
+                          signature);
+
+  evd_dbus_bridge_send (self,
+                        obj,
+                        EVD_DBUS_BRIDGE_CMD_EMIT_SIGNAL,
+                        0,
+                        proxy_id,
+                        args);
+
+  g_free (args);
+  g_free (escaped_json);
+  g_free (json);
 }
 
 static void
@@ -1158,6 +1183,86 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
   g_variant_unref (variant_args);
 }
 
+static void
+evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
+                             GObject       *obj,
+                             guint64        serial,
+                             guint32        subject,
+                             const gchar   *args)
+{
+  GVariant *variant_args;
+  gchar *signal_name;
+  gchar *signal_args;
+  gchar *signature;
+  GVariant *signal_args_variant;
+  GError *error = NULL;
+
+  variant_args = json_data_to_gvariant (args, -1, "(sss)", NULL);
+  if (variant_args == NULL)
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+      return;
+    }
+
+  g_variant_get (variant_args, "(sss)",
+                 &signal_name,
+                 &signal_args,
+                 &signature);
+
+  signal_args_variant = json_data_to_gvariant (signal_args,
+                                               -1,
+                                               signature,
+                                               NULL);
+  if (signal_args_variant == NULL)
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+      goto out;
+    }
+
+  if (! evd_dbus_agent_emit_signal (obj,
+                                    subject,
+                                    signal_name,
+                                    signal_args_variant,
+                                    &error))
+    {
+      gint err_code;
+      gchar *err_msg = NULL;
+
+      if (error->code == G_DBUS_ERROR_INVALID_ARGS)
+        err_code = EVD_DBUS_BRIDGE_ERR_INVALID_ARGS;
+      else
+        {
+          err_code = EVD_DBUS_BRIDGE_ERR_FAILED;
+          err_msg = error->message;
+        }
+
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  subject,
+                                  err_code,
+                                  err_msg);
+      g_error_free (error);
+    }
+
+ out:
+  g_variant_unref (signal_args_variant);
+  g_free (signature);
+  g_free (signal_args);
+  g_free (signal_name);
+  g_variant_unref (variant_args);
+}
+
 /* public methods */
 
 EvdDBusBridge *
@@ -1242,6 +1347,10 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
 
     case EVD_DBUS_BRIDGE_CMD_CALL_METHOD_RETURN:
       evd_dbus_bridge_call_method_return (self, object, serial, subject, args);
+      break;
+
+    case EVD_DBUS_BRIDGE_CMD_EMIT_SIGNAL:
+      evd_dbus_bridge_emit_signal (self, object, serial, subject, args);
       break;
 
     default:
