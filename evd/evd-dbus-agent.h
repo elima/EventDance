@@ -94,17 +94,6 @@ GDBusProxy *      evd_dbus_agent_get_proxy                    (GObject  *obj,
                                                                guint     proxy_id,
                                                                GError  **error);
 
-gboolean          evd_dbus_agent_watch_proxy_signals          (GObject                    *object,
-                                                               guint                       proxy_id,
-                                                               EvdDBusAgentProxySignalCb  callback,
-                                                               gpointer                    user_data,
-                                                               GError                    **error);
-gboolean          evd_dbus_agent_watch_proxy_property_changes (GObject                               *object,
-                                                               guint                                  proxy_id,
-                                                               EvdDBusAgentProxyPropertiesChangedCb   callback,
-                                                               gpointer                               user_data,
-                                                               GError                               **error);
-
 guint             evd_dbus_agent_register_object              (GObject             *object,
                                                                guint                connection_id,
                                                                const gchar         *object_path,

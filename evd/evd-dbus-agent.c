@@ -45,10 +45,6 @@ typedef struct
 typedef struct
 {
   GDBusProxy *proxy;
-  EvdDBusAgentProxyPropertiesChangedCb props_changed_cb;
-  gpointer props_changed_user_data;
-  EvdDBusAgentProxySignalCb signal_cb;
-  gpointer signal_user_data;
 } ProxyData;
 
 typedef struct
@@ -413,13 +409,13 @@ evd_dbus_agent_on_proxy_signal (GDBusProxy *proxy,
                                                         &proxy_id);
   g_assert (proxy_data != NULL);
 
-  if (proxy_data->signal_cb != NULL)
+  if (data->vtable != NULL && data->vtable->proxy_signal != NULL)
     {
-      proxy_data->signal_cb (data->obj,
-                             proxy_id,
-                             signal_name,
-                             parameters,
-                             proxy_data->signal_user_data);
+      data->vtable->proxy_signal (data->obj,
+                                  proxy_id,
+                                  signal_name,
+                                  parameters,
+                                  data->vtable_user_data);
     }
 }
 
@@ -438,13 +434,13 @@ evd_dbus_agent_on_proxy_properties_changed (GDBusProxy *proxy,
                                                         &proxy_id);
   g_assert (proxy_data != NULL);
 
-  if (proxy_data->props_changed_cb != NULL)
+  if (data->vtable != NULL && data->vtable->proxy_properties_changed != NULL)
     {
-      proxy_data->props_changed_cb (data->obj,
-                                    proxy_id,
-                                    changed_properties,
-                                    invalidated_properties,
-                                    proxy_data->props_changed_user_data);
+      data->vtable->proxy_properties_changed (data->obj,
+                                              proxy_id,
+                                              changed_properties,
+                                              invalidated_properties,
+                                              data->vtable_user_data);
     }
 }
 
@@ -836,46 +832,6 @@ evd_dbus_agent_get_proxy (GObject  *object,
     }
 }
 
-gboolean
-evd_dbus_agent_watch_proxy_signals (GObject                    *object,
-                                    guint                       proxy_id,
-                                    EvdDBusAgentProxySignalCb   callback,
-                                    gpointer                    user_data,
-                                    GError                    **error)
-{
-  ObjectData *data;
-  ProxyData *proxy_data;
-
-  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
-  g_return_val_if_fail (proxy_id > 0, FALSE);
-
-  if (evd_dbus_agent_get_proxy (object, proxy_id, error) == NULL)
-    return FALSE;
-
-  data = evd_dbus_agent_get_object_data (object);
-  proxy_data = (ProxyData *) (g_hash_table_lookup (data->proxies, &proxy_id));
-
-  if (proxy_data->signal_cb != NULL && callback == NULL)
-    {
-      g_signal_handlers_disconnect_by_func (proxy_data->proxy,
-                                            evd_dbus_agent_on_proxy_signal,
-                                            data);
-    }
-
-  proxy_data->signal_cb = callback;
-  proxy_data->signal_user_data = user_data;
-
-  if (callback != NULL)
-    {
-      g_signal_connect (proxy_data->proxy,
-                        "g-signal",
-                        G_CALLBACK (evd_dbus_agent_on_proxy_signal),
-                        data);
-    }
-
-  return TRUE;
-}
-
 void
 evd_dbus_agent_set_object_vtable (GObject             *object,
                                   EvdDBusAgentVTable  *vtable,
@@ -891,46 +847,6 @@ evd_dbus_agent_set_object_vtable (GObject             *object,
 
   data->vtable = vtable;
   data->vtable_user_data = user_data;
-}
-
-gboolean
-evd_dbus_agent_watch_proxy_property_changes (GObject                               *object,
-                                             guint                                  proxy_id,
-                                             EvdDBusAgentProxyPropertiesChangedCb   callback,
-                                             gpointer                               user_data,
-                                             GError                               **error)
-{
-  ObjectData *data;
-  ProxyData *proxy_data;
-
-  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
-  g_return_val_if_fail (proxy_id > 0, FALSE);
-
-  if (evd_dbus_agent_get_proxy (object, proxy_id, error) == NULL)
-    return FALSE;
-
-  data = evd_dbus_agent_get_object_data (object);
-  proxy_data = (ProxyData *) (g_hash_table_lookup (data->proxies, &proxy_id));
-
-  if (proxy_data->props_changed_cb != NULL && callback == NULL)
-    {
-      g_signal_handlers_disconnect_by_func (proxy_data->proxy,
-                                            evd_dbus_agent_on_proxy_properties_changed,
-                                            data);
-    }
-
-  proxy_data->props_changed_cb = callback;
-  proxy_data->props_changed_user_data = user_data;
-
-  if (callback != NULL)
-    {
-      g_signal_connect (proxy_data->proxy,
-                        "g-properties-changed",
-                        G_CALLBACK (evd_dbus_agent_on_proxy_properties_changed),
-                        data);
-    }
-
-  return TRUE;
 }
 
 guint
