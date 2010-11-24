@@ -415,6 +415,17 @@ evd_dbus_bridge_send (EvdDBusBridge *self,
 
   json = g_strdup_printf ("[%u,%lu,%u,\"[%s]\"]", cmd, serial, subject, args);
 
+  if (EVD_IS_PEER (obj))
+    {
+      GError *error = NULL;
+
+      if (! evd_peer_send_text (EVD_PEER (obj), json, &error))
+        {
+          g_debug ("error sending DBus msg to peer: %s", error->message);
+          g_error_free (error);
+        }
+    }
+
 #ifdef ENABLE_TESTS
   if (self->priv->send_msg_callback != NULL)
     {
@@ -1275,6 +1286,34 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
   g_free (signal_args);
   g_free (signal_name);
   g_variant_unref (variant_args);
+}
+
+static void
+evd_dbus_bridge_on_transport_new_peer (EvdTransport *transport,
+                                       EvdPeer      *peer,
+                                       gpointer      user_data)
+{
+  EvdDBusBridge *self = EVD_DBUS_BRIDGE (user_data);
+
+  evd_dbus_agent_set_object_vtable (G_OBJECT (peer),
+                                    &self->priv->agent_vtable,
+                                    self);
+}
+
+static void
+evd_dbus_bridge_on_transport_receive (EvdTransport *transport,
+                                      EvdPeer      *peer,
+                                      gpointer      user_data)
+{
+  const gchar *buf;
+  gsize len;
+
+  buf = evd_transport_receive (transport, peer, &len);
+
+  evd_dbus_bridge_process_msg (EVD_DBUS_BRIDGE (user_data),
+                               G_OBJECT (peer),
+                               buf,
+                               len);
 }
 
 /* public methods */
