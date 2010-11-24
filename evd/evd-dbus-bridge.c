@@ -152,6 +152,13 @@ static void     evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
                                                         GStrv       *invalidated_properties,
                                                         gpointer     user_data);
 
+static void     evd_dbus_bridge_on_name_acquired       (GObject *object,
+                                                        guint    owner_id,
+                                                        gpointer user_data);
+static void     evd_dbus_bridge_on_name_lost           (GObject *object,
+                                                        guint    owner_id,
+                                                        gpointer user_data);
+
 static void     evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
                                                         const gchar *sender,
                                                         const gchar *method_name,
@@ -184,6 +191,8 @@ evd_dbus_bridge_init (EvdDBusBridge *self)
   priv->agent_vtable.proxy_signal = evd_dbus_bridge_on_proxy_signal;
   priv->agent_vtable.proxy_properties_changed = evd_dbus_bridge_on_proxy_props_changed;
   priv->agent_vtable.method_call = evd_dbus_bridge_on_reg_obj_call_method;
+  priv->agent_vtable.name_acquired = evd_dbus_bridge_on_name_acquired;
+  priv->agent_vtable.name_lost = evd_dbus_bridge_on_name_lost;
 }
 
 static void
@@ -333,6 +342,36 @@ evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
                                         gpointer     user_data)
 {
   /* @TODO */
+}
+
+static void
+evd_dbus_bridge_on_name_acquired (GObject *object,
+                                  guint    owner_id,
+                                  gpointer user_data)
+{
+  EvdDBusBridge *self = EVD_DBUS_BRIDGE (user_data);
+
+  evd_dbus_bridge_send (self,
+                        object,
+                        EVD_DBUS_BRIDGE_CMD_NAME_ACQUIRED,
+                        0,
+                        owner_id,
+                        "");
+}
+
+static void
+evd_dbus_bridge_on_name_lost (GObject *object,
+                              guint    owner_id,
+                              gpointer user_data)
+{
+  EvdDBusBridge *self = EVD_DBUS_BRIDGE (user_data);
+
+  evd_dbus_bridge_send (self,
+                        object,
+                        EVD_DBUS_BRIDGE_CMD_NAME_LOST,
+                        0,
+                        owner_id,
+                        "");
 }
 
 static void
@@ -616,36 +655,6 @@ evd_dbus_bridge_close_connection (EvdDBusBridge *self,
 }
 
 static void
-evd_dbus_bridge_name_acquired (GDBusConnection *connection,
-                               const gchar     *name,
-                               gpointer         user_data)
-{
-  MsgClosure *closure = (MsgClosure *) user_data;
-
-  evd_dbus_bridge_send (closure->bridge,
-                        closure->obj,
-                        EVD_DBUS_BRIDGE_CMD_NAME_ACQUIRED,
-                        0,
-                        closure->subject,
-                        closure->args);
-}
-
-static void
-evd_dbus_bridge_name_lost (GDBusConnection *connection,
-                           const gchar     *name,
-                           gpointer         user_data)
-{
-  MsgClosure *closure = (MsgClosure *) user_data;
-
-  evd_dbus_bridge_send (closure->bridge,
-                        closure->obj,
-                        EVD_DBUS_BRIDGE_CMD_NAME_LOST,
-                        0,
-                        closure->subject,
-                        closure->args);
-}
-
-static void
 evd_dbus_bridge_own_name (EvdDBusBridge *self,
                           GObject       *obj,
                           guint64        serial,
@@ -658,7 +667,6 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
   GDBusConnection *dbus_conn;
   GError *error = NULL;
   guint owning_id;
-  MsgClosure *closure;
   gchar *st_args;
 
   variant_args = json_data_to_gvariant (args, -1, "(su)", NULL);
@@ -690,25 +698,14 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
       goto free;
     }
 
-  closure = evd_dbus_bridge_new_msg_closure (self,
-                                             obj,
-                                             EVD_DBUS_BRIDGE_CMD_OWN_NAME,
-                                             serial,
-                                             subject,
-                                             NULL,
-                                             0);
-
   owning_id =
-    g_bus_own_name_on_connection (dbus_conn,
+    evd_dbus_agent_own_name (obj,
+                             subject,
                              name,
                              flags,
-                             evd_dbus_bridge_name_acquired,
-                             evd_dbus_bridge_name_lost,
-                             closure,
-                             (GDestroyNotify) evd_dbus_bridge_free_msg_closure);
+                             &error);
 
   st_args = g_strdup_printf ("%u", owning_id);
-  closure->args = g_strdup (st_args);
   evd_dbus_bridge_send (self,
                         obj,
                         EVD_DBUS_BRIDGE_CMD_REPLY,
@@ -731,6 +728,7 @@ evd_dbus_bridge_unown_name (EvdDBusBridge *self,
 {
   GVariant *variant_args;
   guint owning_id;
+  GError *error = NULL;
 
   variant_args = json_data_to_gvariant (args, -1, "(u)", NULL);
   if (variant_args == NULL)
@@ -746,14 +744,24 @@ evd_dbus_bridge_unown_name (EvdDBusBridge *self,
 
   g_variant_get (variant_args, "(u)", &owning_id);
 
-  g_bus_unown_name (owning_id);
-
-  evd_dbus_bridge_send (self,
-                        obj,
-                        EVD_DBUS_BRIDGE_CMD_REPLY,
-                        serial,
-                        subject,
-                        "");
+  if (evd_dbus_agent_unown_name (obj, owning_id, &error))
+    {
+      evd_dbus_bridge_send (self,
+                            obj,
+                            EVD_DBUS_BRIDGE_CMD_REPLY,
+                            serial,
+                            subject,
+                            "");
+    }
+  else
+    {
+      evd_dbus_bridge_send_error (self,
+                                  obj,
+                                  serial,
+                                  0,
+                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                  NULL);
+    }
 
   g_variant_unref (variant_args);
 }
