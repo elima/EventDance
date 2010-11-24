@@ -48,11 +48,20 @@ typedef void (* EvdDBusAgentMethodCallCb)             (GObject     *object,
                                                        guint64      serial,
                                                        gpointer     user_data);
 
+typedef void (* EvdDBusAgentNameAcquiredCb)           (GObject  *object,
+                                                       guint     owning_id,
+                                                       gpointer  user_data);
+typedef void (* EvdDBusAgentNameLostCb)               (GObject  *object,
+                                                       guint     owning_id,
+                                                       gpointer  user_data);
+
 typedef struct
 {
   EvdDBusAgentProxySignalCb proxy_signal;
   EvdDBusAgentProxyPropertiesChangedCb proxy_properties_changed;
   EvdDBusAgentMethodCallCb method_call;
+  EvdDBusAgentNameAcquiredCb name_acquired;
+  EvdDBusAgentNameLostCb name_lost;
 } EvdDBusAgentVTable;
 
 void              evd_dbus_agent_create_address_alias         (GObject     *object,
@@ -92,6 +101,15 @@ gboolean          evd_dbus_agent_close_proxy                  (GObject  *object,
                                                                GError  **error);
 GDBusProxy *      evd_dbus_agent_get_proxy                    (GObject  *obj,
                                                                guint     proxy_id,
+                                                               GError  **error);
+
+guint             evd_dbus_agent_own_name                     (GObject             *object,
+                                                               guint                connection_id,
+                                                               const gchar         *name,
+                                                               GBusNameOwnerFlags   flags,
+                                                               GError             **error);
+gboolean          evd_dbus_agent_unown_name                   (GObject  *object,
+                                                               guint     owner_id,
                                                                GError  **error);
 
 guint             evd_dbus_agent_register_object              (GObject             *object,

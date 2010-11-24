@@ -33,6 +33,7 @@ typedef struct
   guint conn_counter;
   GHashTable *proxies;
   guint proxy_counter;
+  GHashTable *owned_names;
   GHashTable *reg_objs;
   GHashTable *reg_objs_by_id;
   GHashTable *addr_aliases;
@@ -49,7 +50,14 @@ typedef struct
 
 typedef struct
 {
-  ObjectData *owner_data;
+  ObjectData *obj_data;
+  guint owner_id;
+  GDBusConnection *dbus_conn;
+} NameOwnerData;
+
+typedef struct
+{
+  ObjectData *obj_data;
   gchar *reg_str_id;
   GDBusConnection *dbus_conn;
   gchar *obj_path;
@@ -118,6 +126,16 @@ evd_dbus_agent_free_proxy_data (gpointer data)
 }
 
 static void
+evd_dbus_agent_free_name_owner_data (gpointer data)
+{
+  NameOwnerData *owner_data = (NameOwnerData *) data;
+
+  g_bus_unown_name (owner_data->owner_id);
+
+  g_slice_free (NameOwnerData, owner_data);
+}
+
+static void
 evd_dbus_agent_free_reg_obj_data (gpointer data)
 {
   ObjectData *obj_data;
@@ -164,6 +182,7 @@ evd_dbus_agent_on_object_destroyed (gpointer  user_data,
   g_hash_table_unref (data->conns);
 
   g_hash_table_destroy (data->proxies);
+  g_hash_table_destroy (data->owned_names);
   g_hash_table_destroy (data->addr_aliases);
   g_hash_table_destroy (data->reg_objs);
   g_hash_table_destroy (data->reg_objs_by_id);
@@ -194,6 +213,11 @@ evd_dbus_agent_setup_object_data (GObject *obj)
                                          g_free,
                                          evd_dbus_agent_free_proxy_data);
   data->proxy_counter = 0;
+
+  data->owned_names = g_hash_table_new_full (g_int_hash,
+                                             g_int_equal,
+                                             NULL,
+                                             evd_dbus_agent_free_name_owner_data);
 
   data->reg_objs = g_hash_table_new_full (g_str_hash,
                                           g_str_equal,
@@ -516,17 +540,6 @@ evd_dbus_agent_method_called (GDBusConnection *connection,
 }
 
 static gboolean
-evd_dbus_agent_foreach_remove_reg_obj (gpointer key,
-                                       gpointer value,
-                                       gpointer user_data)
-{
-  RegObjData *reg_obj_data = (RegObjData *) value;
-  GDBusConnection *conn = G_DBUS_CONNECTION (user_data);
-
-  return reg_obj_data->dbus_conn == conn;
-}
-
-static gboolean
 evd_dbus_agent_foreach_remove_proxy (gpointer key,
                                      gpointer value,
                                      gpointer user_data)
@@ -537,6 +550,28 @@ evd_dbus_agent_foreach_remove_proxy (gpointer key,
 
   proxy_conn = g_dbus_proxy_get_connection (proxy_data->proxy);
   return proxy_conn == conn;
+}
+
+static gboolean
+evd_dbus_agent_foreach_remove_owned_names (gpointer key,
+                                           gpointer value,
+                                           gpointer user_data)
+{
+  NameOwnerData *name_owner_data = (NameOwnerData *) value;
+  GDBusConnection *conn = G_DBUS_CONNECTION (user_data);
+
+  return name_owner_data->dbus_conn == conn;
+}
+
+static gboolean
+evd_dbus_agent_foreach_remove_reg_obj (gpointer key,
+                                       gpointer value,
+                                       gpointer user_data)
+{
+  RegObjData *reg_obj_data = (RegObjData *) value;
+  GDBusConnection *conn = G_DBUS_CONNECTION (user_data);
+
+  return reg_obj_data->dbus_conn == conn;
 }
 
 /* public methods */
@@ -1096,4 +1131,99 @@ evd_dbus_agent_emit_signal (GObject      *object,
                                         signal_name,
                                         parameters,
                                         error);
+}
+
+static void
+evd_dbus_agent_name_acquired (GDBusConnection *connection,
+                              const gchar     *name,
+                              gpointer         user_data)
+{
+  NameOwnerData *owner_data = (NameOwnerData *) user_data;
+  ObjectData *obj_data;
+
+  obj_data = owner_data->obj_data;
+
+  if (obj_data->vtable != NULL && obj_data->vtable->name_acquired != NULL)
+    {
+      obj_data->vtable->name_acquired (obj_data->obj,
+                                       owner_data->owner_id,
+                                       obj_data->vtable_user_data);
+    }
+}
+
+static void
+evd_dbus_agent_name_lost (GDBusConnection *connection,
+                          const gchar     *name,
+                          gpointer         user_data)
+{
+  NameOwnerData *owner_data = (NameOwnerData *) user_data;
+  ObjectData *obj_data;
+
+  obj_data = owner_data->obj_data;
+
+  if (obj_data->vtable != NULL && obj_data->vtable->name_lost != NULL)
+    {
+      obj_data->vtable->name_lost (obj_data->obj,
+                                   owner_data->owner_id,
+                                   obj_data->vtable_user_data);
+    }
+}
+
+guint
+evd_dbus_agent_own_name (GObject             *object,
+                         guint                connection_id,
+                         const gchar         *name,
+                         GBusNameOwnerFlags   flags,
+                         GError             **error)
+{
+  GDBusConnection *conn;
+  ObjectData *obj_data;
+  NameOwnerData *owner_data;
+
+  conn = evd_dbus_agent_get_connection (object, connection_id, error);
+  if (conn == NULL)
+    return 0;
+
+  obj_data = evd_dbus_agent_get_object_data (object);
+
+  owner_data = g_slice_new (NameOwnerData);
+  owner_data->obj_data = obj_data;
+  owner_data->dbus_conn = conn;
+
+  owner_data->owner_id = g_bus_own_name_on_connection (conn,
+                                           name,
+                                           flags,
+                                           evd_dbus_agent_name_acquired,
+                                           evd_dbus_agent_name_lost,
+                                           owner_data,
+                                           NULL);
+
+  g_hash_table_insert (obj_data->owned_names, &owner_data->owner_id, owner_data);
+
+  return owner_data->owner_id;
+}
+
+gboolean
+evd_dbus_agent_unown_name (GObject  *object,
+                           guint     owner_id,
+                           GError  **error)
+{
+  ObjectData *obj_data;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
+  g_return_val_if_fail (owner_id > 0, FALSE);
+
+  obj_data = evd_dbus_agent_get_object_data (object);
+  if (obj_data == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_ARGUMENT,
+                           "Object is invalid");
+      return FALSE;
+    }
+
+  g_hash_table_remove (obj_data->owned_names, &owner_id);
+
+  return TRUE;
 }
