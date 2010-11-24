@@ -1369,8 +1369,6 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
   guint32 subject;
   gchar *args;
 
-  //  g_debug ("msg: %s", msg);
-
   variant_msg = json_data_to_gvariant (msg, length, "(ytus)", NULL);
   if (variant_msg == NULL)
     {
@@ -1384,8 +1382,6 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
     }
 
   g_variant_get (variant_msg, "(ytus)", &cmd, &serial, &subject, &args);
-
-  //  g_debug ("cmd: %u, serial: %lu, subject: %lu, args: %s", cmd, serial, subject, args);
 
   switch (cmd)
     {
