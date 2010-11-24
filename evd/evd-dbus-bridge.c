@@ -275,12 +275,8 @@ evd_dbus_bridge_new_msg_closure (EvdDBusBridge *self,
 
   closure = g_slice_new (MsgClosure);
 
-  g_object_ref (self);
   closure->bridge = self;
-
-  g_object_ref (obj);
   closure->obj = obj;
-
   closure->cmd = cmd;
   closure->serial = serial;
   closure->subject = subject;
@@ -293,10 +289,7 @@ evd_dbus_bridge_new_msg_closure (EvdDBusBridge *self,
 static void
 evd_dbus_bridge_free_msg_closure (MsgClosure *closure)
 {
-  g_object_unref (closure->bridge);
-  g_object_unref (closure->obj);
   g_free (closure->args);
-
   g_slice_free (MsgClosure, closure);
 }
 
