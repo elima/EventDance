@@ -43,15 +43,14 @@ static GOptionEntry entries[] =
 typedef struct
 {
   gchar *test_name;
-  gchar *send[10];
-  gchar *expect[10];
+  gchar *send[20];
+  gchar *expect[20];
 } TestCase;
 
 struct Fixture
 {
   EvdDBusBridge *bridge;
-  GObject *obj1;
-  GObject *obj2;
+  GObject *obj;
   gint i;
   gint j;
   TestCase *test_case;
@@ -140,6 +139,19 @@ static const TestCase test_cases[] =
         "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
         "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
         NULL,
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection response */
+        "[2,2,1,\"[1]\"]", /* own-name response */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
+      }
+    },
+
+    { "own-name/twice",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
+        NULL,
         "[6,3,1,'[1]']", /* unown-name */
         "[5,4,1,'[\"org.eventdance.lib.tests1\", 0]']", /* own-name again */
         NULL,
@@ -148,11 +160,61 @@ static const TestCase test_cases[] =
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[]\"]", /* unown-name response */
         "[2,4,1,\"[2]\"]", /* own-name response */
-        "[7,0,1,\"[2]\"]", /* name-acquired signal again */
+        "[7,0,2,\"[]\"]", /* name-acquired signal again */
         "[2,3,1,\"[]\"]", /* unown-name response */
+      }
+    },
+
+    { "own-name/queue",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1*/
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 1 */
+        NULL,
+        "[5,2,2,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 2 */
+        NULL,
+        "[6,3,1,'[1]']", /* unown-name, connection 1 */
+        NULL,
+        "[6,3,2,'[2]']", /* unown-name, connection 2 */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection 1 response */
+        "[2,1,0,\"[2]\"]", /* new-connection 2 response */
+        "[2,2,1,\"[1]\"]", /* own-name response, connection 1 */
+        "[7,0,1,\"[]\"]", /* name-acquired signal, connection 1 */
+        "[2,2,2,\"[2]\"]", /* own-name response, connection 2 */
+        "[8,0,2,\"[]\"]", /* name-lost signal, connection 2 */
+        "[2,3,1,\"[]\"]", /* unown-name response, connection 1 */
+        "[7,0,2,\"[]\"]", /* name-acquired signal, connection 2 */
+        "[2,3,2,\"[]\"]", /* unown-name response, connection 2 */
+      }
+    },
+
+    { "own-name/close-connection",
+      {
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1*/
+        "[3,1,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[5,2,1,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 1 */
+        NULL,
+        "[5,2,2,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 2 */
+        NULL,
+        "[4,3,1,'[]']", /* close connection 1 */
+        NULL,
+        "[6,3,2,'[2]']", /* unown-name, connection 2 */
+      },
+      {
+        "[2,1,0,\"[1]\"]", /* new-connection 1 response */
+        "[2,1,0,\"[2]\"]", /* new-connection 2 response */
+        "[2,2,1,\"[1]\"]", /* own-name response, connection 1 */
+        "[7,0,1,\"[]\"]", /* name-acquired signal, connection 1 */
+        "[2,2,2,\"[2]\"]", /* own-name response, connection 2 */
+        "[8,0,2,\"[]\"]", /* name-lost signal, connection 2 */
+        "[7,0,2,\"[]\"]", /* name-acquired signal, connection 2 */
+        "[2,3,1,\"[]\"]", /* close-connection 1 response */
+        "[2,3,2,\"[]\"]", /* unown-name response, connection 2 */
       }
     },
 
@@ -168,7 +230,7 @@ static const TestCase test_cases[] =
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[1]\"]", /* register-object response */
         "[2,4,1,\"[]\"]", /* unregister-object response */
         "[2,5,1,\"[]\"]", /* unown-name response */
@@ -188,7 +250,7 @@ static const TestCase test_cases[] =
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[1]\"]", /* register-object response */
         "[1,4,1,\"[6]\"]", /* register-object again - error, already registered */
         "[2,5,1,\"[]\"]", /* unregister-object response */
@@ -221,13 +283,13 @@ static const TestCase test_cases[] =
         "[5,2,1,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
         NULL,
         "[9,3,1,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
-        "[4,4,1,'[]']", /* close connection (should unregister object) */
+        "[4,4,1,'[]']", /* close connection (should unregister object, and lost name) */
         "[10,5,1,'[0]']", /* unregister-object (should return error, invalid subject) */
       },
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[1]\"]", /* register-object response */
         "[2,4,1,\"[]\"]", /* close-connection response */
         "[1,5,1,\"[3]\"]", /* error in unregister-object, invalid registered object */
@@ -275,11 +337,11 @@ static const TestCase test_cases[] =
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[1]\"]", /* register-object response */
         "[2,4,1,\"[1]\"]", /* new-proxy response */
-        "[13,1,1,\"['HelloWorld','[ \\\"Hi there\\\" ]','(s)',0,0]\"]", /* call-method to registered object */
-        "[14,1,1,\"['[ \\\"hello world!\\\" ]','(s)']\"]", /* call-method-return to proxy */
+        "[13,1,1,\"[\\\"HelloWorld\\\",\\\"[ \\\\\\\"Hi there\\\\\\\" ]\\\",\\\"(s)\\\",0,0]\"]", /* call-method to registered object */
+        "[14,1,1,\"[\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\",\\\"(s)\\\"]\"]", /* call-method-return to proxy */
       }
     },
 
@@ -295,10 +357,10 @@ static const TestCase test_cases[] =
       {
         "[2,1,0,\"[1]\"]", /* new-connection response */
         "[2,2,1,\"[1]\"]", /* own-name response */
-        "[7,0,1,\"[1]\"]", /* name-acquired signal */
+        "[7,0,1,\"[]\"]", /* name-acquired signal */
         "[2,3,1,\"[1]\"]", /* register-object response */
         "[2,4,1,\"[1]\"]", /* new-proxy response */
-        "[15,0,1,\"['WorldGreets','[ \\\"hello world!\\\" ]','(s)']\"]", /* emit-signal received on proxy */
+        "[15,0,1,\"[\\\"WorldGreets\\\",\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\",\\\"(s)\\\"]\"]", /* emit-signal received on proxy */
       }
     },
   };
@@ -308,11 +370,11 @@ test_fixture_setup (struct Fixture *f,
                     gconstpointer   test_data)
 {
   f->bridge = evd_dbus_bridge_new ();
-  f->obj1 = g_object_new (G_TYPE_OBJECT, NULL);
-  f->obj2 = g_object_new (G_TYPE_OBJECT, NULL);
+  f->obj = g_object_new (G_TYPE_OBJECT, NULL);
 
-  evd_dbus_agent_create_address_alias (f->obj1, session_bus_addr, addr_alias);
-  evd_dbus_agent_create_address_alias (f->obj2, session_bus_addr, addr_alias);
+  evd_dbus_agent_create_address_alias (f->obj, session_bus_addr, addr_alias);
+
+  evd_dbus_bridge_track_object (f->bridge, f->obj);
 
   f->main_loop = g_main_loop_new (NULL, FALSE);
 
@@ -325,8 +387,7 @@ test_fixture_teardown (struct Fixture *f,
                        gconstpointer   test_data)
 {
   g_object_unref (f->bridge);
-  g_object_unref (f->obj2);
-  g_object_unref (f->obj1);
+  g_object_unref (f->obj);
 
   g_main_loop_unref (f->main_loop);
 }
@@ -337,7 +398,7 @@ on_send_in_idle (gpointer user_data)
   struct Fixture *f = (struct Fixture *) user_data;
 
   evd_dbus_bridge_process_msg (f->bridge,
-                               f->obj1,
+                               f->obj,
                                f->test_case->send[f->i-1],
                                -1);
 
@@ -392,7 +453,7 @@ test_func (struct Fixture *f,
                                          f);
 
   evd_dbus_bridge_process_msg (f->bridge,
-                               f->obj1,
+                               f->obj,
                                test_case->send[f->i],
                                -1);
   f->i++;
