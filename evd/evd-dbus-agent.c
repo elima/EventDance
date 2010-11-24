@@ -163,14 +163,17 @@ evd_dbus_agent_free_conn_data (gpointer data)
 static void
 evd_dbus_agent_free_proxy_data (gpointer data)
 {
+  ObjectData *obj_data;
   ProxyData *proxy_data = (ProxyData *) data;
+
+  obj_data = proxy_data->obj_data;
 
   g_signal_handlers_disconnect_by_func (proxy_data->proxy,
                                         evd_dbus_agent_on_proxy_signal,
-                                        data);
+                                        obj_data);
   g_signal_handlers_disconnect_by_func (proxy_data->proxy,
                                         evd_dbus_agent_on_proxy_properties_changed,
-                                        data);
+                                        obj_data);
 
   g_object_unref (proxy_data->proxy);
 
@@ -193,7 +196,7 @@ evd_dbus_agent_free_reg_obj_data (gpointer data)
   ObjectData *obj_data;
   RegObjData *reg_obj_data = (RegObjData *) data;
 
-  obj_data = reg_obj_data->owner_data;
+  obj_data = reg_obj_data->obj_data;
 
   g_dbus_connection_unregister_object (reg_obj_data->dbus_conn,
                                        reg_obj_data->reg_id);
@@ -220,8 +223,8 @@ evd_dbus_agent_on_object_destroyed (gpointer  user_data,
   g_hash_table_destroy (data->proxies);
   g_hash_table_destroy (data->owned_names);
   g_hash_table_destroy (data->addr_aliases);
-  g_hash_table_destroy (data->reg_objs);
   g_hash_table_destroy (data->reg_objs_by_id);
+  g_hash_table_destroy (data->reg_objs);
 
   g_slice_free (ObjectData, data);
 }
@@ -386,7 +389,7 @@ evd_dbus_agent_bind_proxy_to_object (ObjectData *data,
   *proxy_id = data->proxy_counter;
 
   proxy_data = g_slice_new0 (ProxyData);
-
+  proxy_data->obj_data = data;
   proxy_data->proxy = proxy;
 
   g_hash_table_insert (data->proxies, proxy_id, proxy_data);
@@ -999,7 +1002,7 @@ evd_dbus_agent_register_object (GObject             *object,
       reg_obj_data->reg_id = reg_id;
       reg_obj_data->serial = 0;
       reg_obj_data->reg_str_id = key;
-      reg_obj_data->owner_data = data;
+      reg_obj_data->obj_data = data;
       reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
                                                          g_int64_equal,
                                                          NULL,
