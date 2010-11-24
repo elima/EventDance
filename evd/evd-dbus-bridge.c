@@ -240,6 +240,19 @@ evd_dbus_bridge_get_property (GObject    *obj,
     }
 }
 
+static gchar *
+escape_json_for_args (const gchar *json)
+{
+  gchar *escaped_json1;
+  gchar *escaped_json2;
+
+  escaped_json1 = g_strescape (json, "\b\f\n\r\t\'");
+  escaped_json2 = g_strescape (escaped_json1, "\b\f\n\r\t\'");
+  g_free (escaped_json1);
+
+  return escaped_json2;
+}
+
 static MsgClosure *
 evd_dbus_bridge_new_msg_closure (EvdDBusBridge *self,
                                  GObject       *obj,
@@ -292,10 +305,10 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
   const gchar *signature;
 
   json = json_data_from_gvariant (parameters, NULL);
-  escaped_json = g_strescape (json, "\b\f\n\r\t\'");
+  escaped_json = escape_json_for_args (json);
   signature = g_variant_get_type_string (parameters);
 
-  args = g_strdup_printf ("'%s','%s','%s'",
+  args = g_strdup_printf ("\\\"%s\\\",\\\"%s\\\",\\\"%s\\\"",
                           signal_name,
                           escaped_json,
                           signature);
@@ -338,10 +351,10 @@ evd_dbus_bridge_on_reg_obj_call_method (GObject     *obj,
   const gchar *signature;
 
   json = json_data_from_gvariant (parameters, NULL);
-  escaped_json = g_strescape (json, "\b\f\n\r\t\'");
+  escaped_json = escape_json_for_args (json);
   signature = g_variant_get_type_string (parameters);
 
-  args = g_strdup_printf ("'%s','%s','%s',0,0",
+  args = g_strdup_printf ("\\\"%s\\\",\\\"%s\\\",\\\"%s\\\",0,0",
                           method_name,
                           escaped_json,
                           signature);
@@ -995,9 +1008,9 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
       gchar *args;
 
       json = json_data_from_gvariant (ret_variant, NULL);
-      escaped_json = g_strescape (json, "\b\f\n\r\t\'");
+      escaped_json = escape_json_for_args (json);
       signature = g_variant_get_type_string (ret_variant);
-      args = g_strdup_printf ("'%s','%s'", escaped_json, signature);
+      args = g_strdup_printf ("\\\"%s\\\",\\\"%s\\\"", escaped_json, signature);
 
       evd_dbus_bridge_send (closure->bridge,
                             closure->obj,
