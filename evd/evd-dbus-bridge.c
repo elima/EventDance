@@ -1077,7 +1077,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
       return;
@@ -1096,7 +1096,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
       goto out;
@@ -1108,7 +1108,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
       goto out;
