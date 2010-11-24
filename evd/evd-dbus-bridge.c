@@ -1289,7 +1289,34 @@ evd_dbus_bridge_new (void)
   return self;
 }
 
+void
+evd_dbus_bridge_add_transport (EvdDBusBridge *self, EvdTransport *transport)
+{
+  g_return_if_fail (EVD_IS_DBUS_BRIDGE (self));
+  g_return_if_fail (EVD_IS_TRANSPORT (transport));
+
+  g_object_ref (transport);
+
+  g_signal_connect (transport,
+                    "new-peer",
+                    G_CALLBACK (evd_dbus_bridge_on_transport_new_peer),
+                    self);
+
+  g_signal_connect (transport,
+                    "receive",
+                    G_CALLBACK (evd_dbus_bridge_on_transport_receive),
+                    self);
+}
+
 #ifdef ENABLE_TESTS
+
+void
+evd_dbus_bridge_track_object (EvdDBusBridge *self, GObject *object)
+{
+  evd_dbus_agent_set_object_vtable (object,
+                                    &self->priv->agent_vtable,
+                                    self);
+}
 
 void
 evd_dbus_bridge_process_msg (EvdDBusBridge *self,
@@ -1303,7 +1330,7 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
   guint32 subject;
   gchar *args;
 
-  evd_dbus_agent_set_object_vtable (object, &self->priv->agent_vtable, self);
+  //  g_debug ("msg: %s", msg);
 
   variant_msg = json_data_to_gvariant (msg, length, "(ytus)", NULL);
   if (variant_msg == NULL)

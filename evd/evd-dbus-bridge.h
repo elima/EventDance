@@ -76,6 +76,9 @@ void                    evd_dbus_bridge_set_send_msg_callback   (EvdDBusBridge  
                                                                  EvdDBusBridgeSendMsgCb  callback,
                                                                  gpointer                user_data);
 
+void                    evd_dbus_bridge_track_object            (EvdDBusBridge *self,
+                                                                 GObject       *object);
+
 G_END_DECLS
 
 #endif /* __EVD_DBUS_BRIDGE_H__ */
