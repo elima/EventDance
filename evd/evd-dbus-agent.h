@@ -29,18 +29,21 @@
 G_BEGIN_DECLS
 
 typedef void (* EvdDBusAgentProxyPropertiesChangedCb) (GObject     *object,
+                                                       guint        connection_id,
                                                        guint        proxy_id,
                                                        GVariant    *changed_properties,
                                                        GStrv       *invalidated_properties,
                                                        gpointer     user_data);
 
 typedef void (* EvdDBusAgentProxySignalCb)            (GObject     *object,
+                                                       guint        connection_id,
                                                        guint        proxy_id,
                                                        const gchar *signal_name,
                                                        GVariant    *parameters,
                                                        gpointer     user_data);
 
 typedef void (* EvdDBusAgentMethodCallCb)             (GObject     *object,
+                                                       guint        connection_id,
                                                        const gchar *sender,
                                                        const gchar *method_name,
                                                        guint        registration_id,
