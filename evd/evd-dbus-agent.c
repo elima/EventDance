@@ -62,6 +62,7 @@ typedef struct
 typedef struct
 {
   ObjectData *obj_data;
+  guint32 conn_id;
   guint owner_id;
   GDBusConnection *dbus_conn;
 } NameOwnerData;
@@ -1170,6 +1171,7 @@ evd_dbus_agent_name_acquired (GDBusConnection *connection,
   if (obj_data->vtable != NULL && obj_data->vtable->name_acquired != NULL)
     {
       obj_data->vtable->name_acquired (obj_data->obj,
+                                       owner_data->conn_id,
                                        owner_data->owner_id,
                                        obj_data->vtable_user_data);
     }
@@ -1188,6 +1190,7 @@ evd_dbus_agent_name_lost (GDBusConnection *connection,
   if (obj_data->vtable != NULL && obj_data->vtable->name_lost != NULL)
     {
       obj_data->vtable->name_lost (obj_data->obj,
+                                   owner_data->conn_id,
                                    owner_data->owner_id,
                                    obj_data->vtable_user_data);
     }
@@ -1212,6 +1215,7 @@ evd_dbus_agent_own_name (GObject             *object,
 
   owner_data = g_slice_new (NameOwnerData);
   owner_data->obj_data = obj_data;
+  owner_data->conn_id = connection_id;
   owner_data->dbus_conn = conn;
 
   owner_data->owner_id = g_bus_own_name_on_connection (conn,
@@ -1222,7 +1226,9 @@ evd_dbus_agent_own_name (GObject             *object,
                                            owner_data,
                                            NULL);
 
-  g_hash_table_insert (obj_data->owned_names, &owner_data->owner_id, owner_data);
+  g_hash_table_insert (obj_data->owned_names,
+                       &owner_data->owner_id,
+                       owner_data);
 
   return owner_data->owner_id;
 }

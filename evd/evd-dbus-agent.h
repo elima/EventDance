@@ -52,9 +52,11 @@ typedef void (* EvdDBusAgentMethodCallCb)             (GObject     *object,
                                                        gpointer     user_data);
 
 typedef void (* EvdDBusAgentNameAcquiredCb)           (GObject  *object,
+                                                       guint     connection_id,
                                                        guint     owning_id,
                                                        gpointer  user_data);
 typedef void (* EvdDBusAgentNameLostCb)               (GObject  *object,
+                                                       guint     connection_id,
                                                        guint     owning_id,
                                                        gpointer  user_data);
 
