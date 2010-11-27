@@ -209,12 +209,8 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             data = data.substr (hdr_len + msg_len);
 
             peer[this.PEER_DATA_KEY]["msg"] = msg;
-            try {
-                this._fireEvent ("receive", [peer]);
-            }
-            catch (e) {
-                alert (e);
-            }
+            this._fireEvent ("receive", [peer]);
+
             delete (peer[this.PEER_DATA_KEY]["msg"]);
         }
     },
