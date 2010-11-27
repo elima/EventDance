@@ -100,6 +100,7 @@ typedef struct
   GObject *obj;
   guint8 cmd;
   guint64 serial;
+  guint32 conn_id;
   gint32 subject;
   gchar *args;
   gint err_code;
@@ -138,28 +139,34 @@ static void     evd_dbus_bridge_send                   (EvdDBusBridge *self,
                                                         GObject       *obj,
                                                         guint8         cmd,
                                                         guint64        serial,
+                                                        guint32        conn_id,
                                                         guint32        subject,
                                                         const gchar   *args);
 
 static void     evd_dbus_bridge_on_proxy_signal        (GObject     *obj,
+                                                        guint        conn_id,
                                                         guint        proxy_id,
                                                         const gchar *signal_name,
                                                         GVariant    *parameters,
                                                         gpointer     user_data);
 static void     evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
+                                                        guint        conn_id,
                                                         guint        proxy_uuid,
                                                         GVariant    *changed_properties,
                                                         GStrv       *invalidated_properties,
                                                         gpointer     user_data);
 
 static void     evd_dbus_bridge_on_name_acquired       (GObject *object,
+                                                        guint    conn_id,
                                                         guint    owner_id,
                                                         gpointer user_data);
 static void     evd_dbus_bridge_on_name_lost           (GObject *object,
+                                                        guint    conn_id,
                                                         guint    owner_id,
                                                         gpointer user_data);
 
 static void     evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
+                                                        guint        conn_id,
                                                         const gchar *sender,
                                                         const gchar *method_name,
                                                         guint        registration_id,
@@ -267,6 +274,7 @@ evd_dbus_bridge_new_msg_closure (EvdDBusBridge *self,
                                  GObject       *obj,
                                  guint8         cmd,
                                  guint64        serial,
+                                 guint32        conn_id,
                                  gint32         subject,
                                  const gchar   *args,
                                  gint           err_code)
@@ -279,6 +287,7 @@ evd_dbus_bridge_new_msg_closure (EvdDBusBridge *self,
   closure->obj = obj;
   closure->cmd = cmd;
   closure->serial = serial;
+  closure->conn_id = conn_id;
   closure->subject = subject;
   closure->args = g_strdup (args);
   closure->err_code = err_code;
@@ -295,6 +304,7 @@ evd_dbus_bridge_free_msg_closure (MsgClosure *closure)
 
 static void
 evd_dbus_bridge_on_proxy_signal (GObject     *obj,
+                                 guint        conn_id,
                                  guint        proxy_id,
                                  const gchar *signal_name,
                                  GVariant    *parameters,
@@ -319,6 +329,7 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
                         obj,
                         EVD_DBUS_BRIDGE_CMD_EMIT_SIGNAL,
                         0,
+                        conn_id,
                         proxy_id,
                         args);
 
@@ -329,6 +340,7 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
 
 static void
 evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
+                                        guint        conn_id,
                                         guint        proxy_id,
                                         GVariant    *changed_properties,
                                         GStrv       *invalidated_properties,
@@ -339,6 +351,7 @@ evd_dbus_bridge_on_proxy_props_changed (GObject     *obj,
 
 static void
 evd_dbus_bridge_on_name_acquired (GObject *object,
+                                  guint    conn_id,
                                   guint    owner_id,
                                   gpointer user_data)
 {
@@ -348,12 +361,14 @@ evd_dbus_bridge_on_name_acquired (GObject *object,
                         object,
                         EVD_DBUS_BRIDGE_CMD_NAME_ACQUIRED,
                         0,
+                        conn_id,
                         owner_id,
                         "");
 }
 
 static void
 evd_dbus_bridge_on_name_lost (GObject *object,
+                              guint    conn_id,
                               guint    owner_id,
                               gpointer user_data)
 {
@@ -363,12 +378,14 @@ evd_dbus_bridge_on_name_lost (GObject *object,
                         object,
                         EVD_DBUS_BRIDGE_CMD_NAME_LOST,
                         0,
+                        conn_id,
                         owner_id,
                         "");
 }
 
 static void
 evd_dbus_bridge_on_reg_obj_call_method (GObject     *obj,
+                                        guint        conn_id,
                                         const gchar *sender,
                                         const gchar *method_name,
                                         guint        registration_id,
@@ -395,6 +412,7 @@ evd_dbus_bridge_on_reg_obj_call_method (GObject     *obj,
                         obj,
                         EVD_DBUS_BRIDGE_CMD_CALL_METHOD,
                         serial,
+                        conn_id,
                         registration_id,
                         args);
 
@@ -408,12 +426,18 @@ evd_dbus_bridge_send (EvdDBusBridge *self,
                       GObject       *obj,
                       guint8         cmd,
                       guint64        serial,
+                      guint32        conn_id,
                       guint32        subject,
                       const gchar   *args)
 {
   gchar *json;
 
-  json = g_strdup_printf ("[%u,%lu,%u,\"[%s]\"]", cmd, serial, subject, args);
+  json = g_strdup_printf ("[%u,%lu,%u,%u,\"[%s]\"]",
+                          cmd,
+                          serial,
+                          conn_id,
+                          subject,
+                          args);
 
   if (EVD_IS_PEER (obj))
     {
@@ -448,6 +472,7 @@ evd_dbus_bridge_on_idle_send (gpointer user_data)
                         closure->obj,
                         closure->cmd,
                         closure->serial,
+                        closure->conn_id,
                         closure->subject,
                         closure->args);
 
@@ -461,6 +486,7 @@ evd_dbus_bridge_send_in_idle (EvdDBusBridge *self,
                               GObject       *obj,
                               guint8         cmd,
                               guint64        serial,
+                              guint32        conn_id,
                               guint32        subject,
                               const gchar   *args)
 {
@@ -470,6 +496,7 @@ evd_dbus_bridge_send_in_idle (EvdDBusBridge *self,
                                              obj,
                                              cmd,
                                              serial,
+                                             conn_id,
                                              subject,
                                              args,
                                              0);
@@ -484,6 +511,7 @@ static void
 evd_dbus_bridge_send_error (EvdDBusBridge *self,
                             GObject       *obj,
                             guint64        serial,
+                            guint32        conn_id,
                             guint32        subject,
                             gint           err_code,
                             const gchar   *err_msg)
@@ -499,6 +527,7 @@ evd_dbus_bridge_send_error (EvdDBusBridge *self,
                         obj,
                         EVD_DBUS_BRIDGE_CMD_ERROR,
                         serial,
+                        conn_id,
                         subject,
                         args);
   g_free (args);
@@ -512,6 +541,7 @@ evd_dbus_bridge_on_send_error_idle (gpointer user_data)
   evd_dbus_bridge_send_error (closure->bridge,
                               closure->obj,
                               closure->serial,
+                              closure->conn_id,
                               closure->subject,
                               closure->err_code,
                               closure->args);
@@ -525,6 +555,7 @@ static void
 evd_dbus_bridge_send_error_in_idle (EvdDBusBridge *self,
                                     GObject       *obj,
                                     guint64        serial,
+                                    guint32        conn_id,
                                     guint32        subject,
                                     gint           err_code,
                                     const gchar   *err_msg)
@@ -535,6 +566,7 @@ evd_dbus_bridge_send_error_in_idle (EvdDBusBridge *self,
                                              obj,
                                              EVD_DBUS_BRIDGE_CMD_ERROR,
                                              serial,
+                                             conn_id,
                                              subject,
                                              err_msg,
                                              err_code);
@@ -565,6 +597,7 @@ evd_dbus_bridge_on_new_connection (GObject      *obj,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   closure->serial,
+                                  0,
                                   closure->subject,
                                   EVD_DBUS_BRIDGE_ERR_CONNECTION_FAILED,
                                   error->message);
@@ -579,6 +612,7 @@ evd_dbus_bridge_on_new_connection (GObject      *obj,
                             closure->obj,
                             EVD_DBUS_BRIDGE_CMD_REPLY,
                             closure->serial,
+                            0,
                             closure->subject,
                             args);
       g_free (args);
@@ -591,6 +625,7 @@ static void
 evd_dbus_bridge_new_connection (EvdDBusBridge *self,
                                 GObject       *obj,
                                 guint64        serial,
+                                guint32        conn_id,
                                 const gchar   *args)
 {
   gchar *addr;
@@ -603,6 +638,7 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
       evd_dbus_bridge_send_error_in_idle (self,
                                           obj,
                                           serial,
+                                          conn_id,
                                           0,
                                           EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                           NULL);
@@ -615,6 +651,7 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
                                              obj,
                                              EVD_DBUS_BRIDGE_CMD_NEW_CONNECTION,
                                              serial,
+                                             conn_id,
                                              0,
                                              NULL,
                                              0);
@@ -633,16 +670,20 @@ static void
 evd_dbus_bridge_close_connection (EvdDBusBridge *self,
                                   GObject       *obj,
                                   guint64        serial,
+                                  guint32        conn_id,
                                   guint32        subject)
 {
   GError *error = NULL;
 
-  if (evd_dbus_agent_close_connection (obj, subject, &error))
+  /* @TODO: validate that 'subject' is 0 */
+
+  if (evd_dbus_agent_close_connection (obj, conn_id, &error))
     {
       evd_dbus_bridge_send_in_idle (self,
                                     obj,
                                     EVD_DBUS_BRIDGE_CMD_REPLY,
                                     serial,
+                                    conn_id,
                                     subject,
                                     "");
     }
@@ -651,6 +692,7 @@ evd_dbus_bridge_close_connection (EvdDBusBridge *self,
       evd_dbus_bridge_send_error_in_idle (self,
                                           obj,
                                           serial,
+                                          conn_id,
                                           subject,
                                           EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                           error->message);
@@ -662,6 +704,7 @@ static void
 evd_dbus_bridge_own_name (EvdDBusBridge *self,
                           GObject       *obj,
                           guint64        serial,
+                          guint32        conn_id,
                           guint32        subject,
                           const gchar   *args)
 {
@@ -679,6 +722,7 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -687,12 +731,13 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
 
   g_variant_get (variant_args, "(su)", &name, &flags);
 
-  dbus_conn = evd_dbus_agent_get_connection (obj, subject, &error);
+  dbus_conn = evd_dbus_agent_get_connection (obj, conn_id, &error);
   if (dbus_conn == NULL)
     {
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
@@ -704,7 +749,7 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
 
   owning_id =
     evd_dbus_agent_own_name (obj,
-                             subject,
+                             conn_id,
                              name,
                              flags,
                              &error);
@@ -714,6 +759,7 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
                         obj,
                         EVD_DBUS_BRIDGE_CMD_REPLY,
                         serial,
+                        conn_id,
                         subject,
                         st_args);
   g_free (st_args);
@@ -727,33 +773,19 @@ static void
 evd_dbus_bridge_unown_name (EvdDBusBridge *self,
                             GObject       *obj,
                             guint64        serial,
+                            guint32        conn_id,
                             guint32        subject,
                             const gchar   *args)
 {
-  GVariant *variant_args;
-  guint owning_id;
   GError *error = NULL;
 
-  variant_args = json_data_to_gvariant (args, -1, "(u)", NULL);
-  if (variant_args == NULL)
-    {
-      evd_dbus_bridge_send_error (self,
-                                  obj,
-                                  serial,
-                                  0,
-                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                  NULL);
-      return;
-    }
-
-  g_variant_get (variant_args, "(u)", &owning_id);
-
-  if (evd_dbus_agent_unown_name (obj, owning_id, &error))
+  if (evd_dbus_agent_unown_name (obj, subject, &error))
     {
       evd_dbus_bridge_send (self,
                             obj,
                             EVD_DBUS_BRIDGE_CMD_REPLY,
                             serial,
+                            conn_id,
                             subject,
                             "");
     }
@@ -762,18 +794,18 @@ evd_dbus_bridge_unown_name (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  conn_id,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
     }
-
-  g_variant_unref (variant_args);
 }
 
 static void
 evd_dbus_bridge_register_object (EvdDBusBridge *self,
                                  GObject       *obj,
                                  guint64        serial,
+                                 guint32        conn_id,
                                  guint32        subject,
                                  const gchar   *args)
 {
@@ -791,6 +823,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -808,7 +841,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
 
       iface_info = node_info->interfaces[0];
       reg_id = evd_dbus_agent_register_object (obj,
-                                               (gint) subject,
+                                               conn_id,
                                                object_path,
                                                iface_info,
                                                &error);
@@ -822,6 +855,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
                                 obj,
                                 EVD_DBUS_BRIDGE_CMD_REPLY,
                                 serial,
+                                conn_id,
                                 subject,
                                 args);
           g_free (args);
@@ -831,6 +865,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
           evd_dbus_bridge_send_error (self,
                                       obj,
                                       serial,
+                                      conn_id,
                                       subject,
                                       EVD_DBUS_BRIDGE_ERR_ALREADY_REGISTERED,
                                       NULL);
@@ -842,6 +877,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -859,6 +895,7 @@ static void
 evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
                                    GObject       *obj,
                                    guint64        serial,
+                                   guint32        conn_id,
                                    guint32        subject,
                                    const gchar   *args)
 {
@@ -866,13 +903,20 @@ evd_dbus_bridge_unregister_object (EvdDBusBridge *self,
 
   if (evd_dbus_agent_unregister_object (obj, subject, &error))
     {
-      evd_dbus_bridge_send (self, obj, EVD_DBUS_BRIDGE_CMD_REPLY, serial, subject, "");
+      evd_dbus_bridge_send (self,
+                            obj,
+                            EVD_DBUS_BRIDGE_CMD_REPLY,
+                            serial,
+                            conn_id,
+                            subject,
+                            "");
     }
   else
     {
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
@@ -898,6 +942,7 @@ evd_dbus_bridge_on_new_proxy (GObject      *obj,
                             closure->obj,
                             EVD_DBUS_BRIDGE_CMD_REPLY,
                             closure->serial,
+                            closure->conn_id,
                             closure->subject,
                             args);
       g_free (args);
@@ -907,6 +952,7 @@ evd_dbus_bridge_on_new_proxy (GObject      *obj,
       evd_dbus_bridge_send_error (closure->bridge,
                                   closure->obj,
                                   closure->serial,
+                                  closure->conn_id,
                                   closure->subject,
                                   EVD_DBUS_BRIDGE_ERR_PROXY_FAILED,
                                   error->message);
@@ -920,6 +966,7 @@ static void
 evd_dbus_bridge_new_proxy (EvdDBusBridge *self,
                            GObject       *obj,
                            guint64        serial,
+                           guint32        conn_id,
                            guint32        subject,
                            const gchar   *args)
 {
@@ -936,6 +983,7 @@ evd_dbus_bridge_new_proxy (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -952,12 +1000,13 @@ evd_dbus_bridge_new_proxy (EvdDBusBridge *self,
                                              obj,
                                              EVD_DBUS_BRIDGE_CMD_NEW_PROXY,
                                              serial,
+                                             conn_id,
                                              subject,
                                              NULL,
                                              0);
 
   evd_dbus_agent_new_proxy (obj,
-                            subject,
+                            conn_id,
                             flags,
                             name,
                             obj_path,
@@ -976,6 +1025,7 @@ static void
 evd_dbus_bridge_close_proxy (EvdDBusBridge *self,
                              GObject       *obj,
                              guint64        serial,
+                             guint32        conn_id,
                              guint32        subject,
                              const gchar   *args)
 {
@@ -987,6 +1037,7 @@ evd_dbus_bridge_close_proxy (EvdDBusBridge *self,
                             obj,
                             EVD_DBUS_BRIDGE_CMD_REPLY,
                             serial,
+                            conn_id,
                             subject,
                             "");
     }
@@ -995,6 +1046,7 @@ evd_dbus_bridge_close_proxy (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
@@ -1028,6 +1080,7 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
                             closure->obj,
                             EVD_DBUS_BRIDGE_CMD_CALL_METHOD_RETURN,
                             closure->serial,
+                            closure->conn_id,
                             closure->subject,
                             args);
 
@@ -1056,6 +1109,7 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
       evd_dbus_bridge_send_error (closure->bridge,
                                   closure->obj,
                                   closure->serial,
+                                  closure->conn_id,
                                   closure->subject,
                                   err_code,
                                   err_msg);
@@ -1070,6 +1124,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
                              GObject       *obj,
                              guint64        serial,
                              guint32        subject,
+                             guint32        conn_id,
                              const gchar   *args)
 {
   GVariant *variant_args;
@@ -1088,6 +1143,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -1107,6 +1163,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -1119,6 +1176,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
@@ -1129,6 +1187,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
                                              obj,
                                              EVD_DBUS_BRIDGE_CMD_CALL_METHOD,
                                              serial,
+                                             conn_id,
                                              subject,
                                              args,
                                              0);
@@ -1153,6 +1212,7 @@ static void
 evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
                                     GObject       *obj,
                                     guint64        serial,
+                                    guint32        conn_id,
                                     guint32        subject,
                                     const gchar   *args)
 {
@@ -1167,7 +1227,8 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  conn_id,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
       return;
@@ -1181,7 +1242,8 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  conn_id,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
       goto out;
@@ -1196,7 +1258,8 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
-                                  0,
+                                  conn_id,
+                                  subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
       goto out;
@@ -1212,6 +1275,7 @@ static void
 evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
                              GObject       *obj,
                              guint64        serial,
+                             guint32        conn_id,
                              guint32        subject,
                              const gchar   *args)
 {
@@ -1228,6 +1292,7 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -1248,6 +1313,7 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   0,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
                                   NULL);
@@ -1274,6 +1340,7 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
       evd_dbus_bridge_send_error (self,
                                   obj,
                                   serial,
+                                  conn_id,
                                   subject,
                                   err_code,
                                   err_msg);
@@ -1366,14 +1433,16 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
   GVariant *variant_msg;
   guint8 cmd;
   guint64 serial;
+  guint32 conn_id;
   guint32 subject;
   gchar *args;
 
-  variant_msg = json_data_to_gvariant (msg, length, "(ytus)", NULL);
+  variant_msg = json_data_to_gvariant (msg, length, "(ytuus)", NULL);
   if (variant_msg == NULL)
     {
       evd_dbus_bridge_send_error_in_idle (self,
                                           object,
+                                          0,
                                           0,
                                           0,
                                           EVD_DBUS_BRIDGE_ERR_INVALID_MSG,
@@ -1381,58 +1450,65 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
       return;
     }
 
-  g_variant_get (variant_msg, "(ytus)", &cmd, &serial, &subject, &args);
+  g_variant_get (variant_msg,
+                 "(ytuus)",
+                 &cmd,
+                 &serial,
+                 &conn_id,
+                 &subject,
+                 &args);
 
   switch (cmd)
     {
     case EVD_DBUS_BRIDGE_CMD_NEW_CONNECTION:
-      evd_dbus_bridge_new_connection (self, object, serial, args);
+      evd_dbus_bridge_new_connection (self, object, serial, conn_id, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_CLOSE_CONNECTION:
-      evd_dbus_bridge_close_connection (self, object, serial, subject);
+      evd_dbus_bridge_close_connection (self, object, serial, conn_id, subject);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_OWN_NAME:
-      evd_dbus_bridge_own_name (self, object, serial, subject, args);
+      evd_dbus_bridge_own_name (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_UNOWN_NAME:
-      evd_dbus_bridge_unown_name (self, object, serial, subject, args);
+      evd_dbus_bridge_unown_name (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_REGISTER_OBJECT:
-      evd_dbus_bridge_register_object (self, object, serial, subject, args);
+      evd_dbus_bridge_register_object (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_UNREGISTER_OBJECT:
-      evd_dbus_bridge_unregister_object (self, object, serial, subject, args);
+      evd_dbus_bridge_unregister_object (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_NEW_PROXY:
-      evd_dbus_bridge_new_proxy (self, object, serial, subject, args);
+      evd_dbus_bridge_new_proxy (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_CLOSE_PROXY:
-      evd_dbus_bridge_close_proxy (self, object, serial, subject, args);
+      evd_dbus_bridge_close_proxy (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_CALL_METHOD:
-      evd_dbus_bridge_call_method (self, object, serial, subject, args);
+      evd_dbus_bridge_call_method (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_CALL_METHOD_RETURN:
-      evd_dbus_bridge_call_method_return (self, object, serial, subject, args);
+      evd_dbus_bridge_call_method_return (self, object, serial, conn_id, subject, args);
       break;
 
     case EVD_DBUS_BRIDGE_CMD_EMIT_SIGNAL:
-      evd_dbus_bridge_emit_signal (self, object, serial, subject, args);
+      evd_dbus_bridge_emit_signal (self, object, serial, conn_id, subject, args);
       break;
 
     default:
       evd_dbus_bridge_send_error_in_idle (self,
                                           object,
                                           serial,
+                                          conn_id,
                                           0,
                                           EVD_DBUS_BRIDGE_ERR_UNKNOW_COMMAND,
                                           NULL);
