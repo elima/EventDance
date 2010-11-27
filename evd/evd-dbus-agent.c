@@ -70,6 +70,7 @@ typedef struct
 typedef struct
 {
   ObjectData *obj_data;
+  guint32 conn_id;
   gchar *reg_str_id;
   GDBusConnection *dbus_conn;
   gchar *obj_path;
@@ -1011,6 +1012,7 @@ evd_dbus_agent_register_object (GObject             *object,
       reg_obj_data->serial = 0;
       reg_obj_data->reg_str_id = key;
       reg_obj_data->obj_data = data;
+      reg_obj_data->conn_id = connection_id;
       reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
                                                          g_int64_equal,
                                                          NULL,
