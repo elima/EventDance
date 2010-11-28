@@ -23,7 +23,7 @@
 #ifndef __EVD_WEB_TRANSPORT_H__
 #define __EVD_WEB_TRANSPORT_H__
 
-#include <evd-web-service.h>
+#include <evd-web-dir.h>
 
 #include <evd-web-selector.h>
 #include <evd-long-polling.h>
@@ -36,14 +36,14 @@ typedef struct _EvdWebTransportPrivate EvdWebTransportPrivate;
 
 struct _EvdWebTransport
 {
-  EvdWebService parent;
+  EvdWebDir parent;
 
   EvdWebTransportPrivate *priv;
 };
 
 struct _EvdWebTransportClass
 {
-  EvdWebServiceClass parent_class;
+  EvdWebDirClass parent_class;
 };
 
 #define EVD_TYPE_WEB_TRANSPORT           (evd_web_transport_get_type ())

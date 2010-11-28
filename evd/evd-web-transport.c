@@ -26,6 +26,7 @@
 #include "evd-error.h"
 #include "evd-http-connection.h"
 #include "evd-peer-manager.h"
+#include "evd-web-dir.h"
 
 #define EVD_WEB_TRANSPORT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                             EVD_TYPE_WEB_TRANSPORT, \
@@ -100,7 +101,7 @@ static gssize   evd_web_transport_send                 (EvdTransport  *transport
 static gboolean evd_web_transport_peer_is_connected    (EvdTransport *transport,
                                                         EvdPeer      *peer);
 
-G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_SERVICE,
+G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_DIR,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_web_transport_transport_iface_init));
 
