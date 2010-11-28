@@ -214,7 +214,7 @@ evd_web_transport_set_property (GObject      *obj,
   switch (prop_id)
     {
     case PROP_BASE_PATH:
-      self->priv->base_path = g_value_dup_string (value);
+      evd_web_transport_set_base_path (self, g_value_get_string (value));
       break;
 
     case PROP_SELECTOR:
@@ -240,7 +240,7 @@ evd_web_transport_get_property (GObject    *obj,
   switch (prop_id)
     {
     case PROP_BASE_PATH:
-      g_value_set_string (value, self->priv->base_path);
+      g_value_set_string (value, evd_web_transport_get_base_path (self));
       break;
 
     case PROP_SELECTOR:
@@ -361,6 +361,52 @@ evd_web_transport_peer_is_connected (EvdTransport *transport,
   return result;
 }
 
+static void
+evd_web_transport_associate_services (EvdWebTransport *self)
+{
+  gchar *path;
+
+  if (self->priv->selector == NULL)
+    return;
+
+  /* long-polling transport */
+  path = g_strdup_printf ("%s/lp", self->priv->base_path);
+  evd_web_selector_add_service (self->priv->selector,
+                                NULL,
+                                path,
+                                EVD_SERVICE (self->priv->lp),
+                                NULL);
+  g_free (path);
+
+  evd_web_selector_add_service (self->priv->selector,
+                                NULL,
+                                self->priv->base_path,
+                                EVD_SERVICE (self),
+                                NULL);
+}
+
+static void
+evd_web_transport_unassociate_services (EvdWebTransport *self)
+{
+  gchar *path;
+
+  if (self->priv->selector == NULL)
+    return;
+
+  /* long-polling transport */
+  path = g_strdup_printf ("%s/lp", self->priv->base_path);
+  evd_web_selector_remove_service (self->priv->selector,
+                                   NULL,
+                                   path,
+                                   EVD_SERVICE (self->priv->lp));
+  g_free (path);
+
+  evd_web_selector_remove_service (self->priv->selector,
+                                   NULL,
+                                   self->priv->base_path,
+                                   EVD_SERVICE (self));
+}
+
 /* public methods */
 
 EvdWebTransport *
@@ -377,46 +423,19 @@ void
 evd_web_transport_set_selector (EvdWebTransport *self,
                                 EvdWebSelector  *selector)
 {
-  gchar *path;
-
   g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
   g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
 
-  path = g_strdup_printf ("%s/lp", self->priv->base_path);
-
   if (self->priv->selector != NULL)
     {
-      evd_web_selector_remove_service (self->priv->selector,
-                                       NULL,
-                                       path,
-                                       EVD_SERVICE (self->priv->lp));
-
-      evd_web_selector_remove_service (self->priv->selector,
-                                       NULL,
-                                       self->priv->base_path,
-                                       EVD_SERVICE (self));
-
+      evd_web_transport_unassociate_services (self);
       g_object_unref (self->priv->selector);
     }
 
-  g_object_ref (selector);
   self->priv->selector = selector;
 
-  if (self->priv->base_path == NULL)
-    self->priv->base_path = g_strdup (DEFAULT_BASE_PATH);
-
-  evd_web_selector_add_service (self->priv->selector,
-                                NULL,
-                                path,
-                                EVD_SERVICE (self->priv->lp),
-                                NULL);
-  evd_web_selector_add_service (self->priv->selector,
-                                NULL,
-                                self->priv->base_path,
-                                EVD_SERVICE (self),
-                                NULL);
-
-  g_free (path);
+  evd_web_transport_associate_services (self);
+  g_object_ref (selector);
 }
 
 EvdWebSelector *
@@ -425,4 +444,31 @@ evd_web_transport_get_selector (EvdWebTransport *self)
   g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
 
   return self->priv->selector;
+}
+
+void
+evd_web_transport_set_base_path (EvdWebTransport *self,
+                                 const gchar     *base_path)
+{
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
+  g_return_if_fail (base_path != NULL);
+
+  if (self->priv->base_path != NULL)
+    {
+      evd_web_transport_unassociate_services (self);
+      g_free (self->priv->base_path);
+    }
+
+  self->priv->base_path = g_strdup (base_path);
+  evd_web_transport_associate_services (self);
+
+  evd_web_dir_set_alias (EVD_WEB_DIR (self), base_path);
+}
+
+const gchar *
+evd_web_transport_get_base_path (EvdWebTransport *self)
+{
+  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
+
+  return self->priv->base_path;
 }
