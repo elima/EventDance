@@ -44,9 +44,6 @@ struct _EvdWebTransportPrivate
   EvdWebSelector *selector;
 
   EvdLongPolling *lp;
-
-  gchar *js_code;
-  gsize js_code_size;
 };
 
 /* properties */
@@ -88,10 +85,6 @@ static void     evd_web_transport_on_peer_closed       (EvdTransport *transport,
                                                         gboolean      gracefully,
                                                         gpointer      user_data);
 
-static void     evd_web_transport_request_handler      (EvdWebService     *web_service,
-                                                        EvdHttpConnection *conn,
-                                                        EvdHttpRequest    *request);
-
 static gssize   evd_web_transport_send                 (EvdTransport  *transport,
                                                         EvdPeer       *peer,
                                                         const gchar   *buffer,
@@ -109,14 +102,11 @@ static void
 evd_web_transport_class_init (EvdWebTransportClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
 
   obj_class->dispose = evd_web_transport_dispose;
   obj_class->finalize = evd_web_transport_finalize;
   obj_class->get_property = evd_web_transport_get_property;
   obj_class->set_property = evd_web_transport_set_property;
-
-  web_service_class->request_handler = evd_web_transport_request_handler;
 
   g_object_class_install_property (obj_class, PROP_BASE_PATH,
                                    g_param_spec_string ("base-path",
@@ -156,11 +146,10 @@ static void
 evd_web_transport_init (EvdWebTransport *self)
 {
   EvdWebTransportPrivate *priv;
+  const gchar *js_path;
 
   priv = EVD_WEB_TRANSPORT_GET_PRIVATE (self);
   self->priv = priv;
-
-  self->priv->base_path = NULL;
 
   priv->peer_manager = evd_peer_manager_get_default ();
 
@@ -180,8 +169,11 @@ evd_web_transport_init (EvdWebTransport *self)
                     G_CALLBACK (evd_web_transport_on_peer_closed),
                     self);
 
-  priv->js_code = NULL;
-  priv->js_code_size = 0;
+  js_path = g_getenv ("JSLIBDIR");
+  if (js_path == NULL)
+    js_path = JSLIBDIR;
+
+  evd_web_dir_set_root (EVD_WEB_DIR (self), js_path);
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
@@ -204,7 +196,7 @@ evd_web_transport_finalize (GObject *obj)
                                         self);
   g_object_unref (self->priv->lp);
 
-  g_free (self->priv->js_code);
+  g_free (self->priv->base_path);
 
   G_OBJECT_CLASS (evd_web_transport_parent_class)->finalize (obj);
 }
@@ -297,76 +289,6 @@ evd_web_transport_on_peer_closed (EvdTransport *transport,
 
   EVD_TRANSPORT_GET_INTERFACE (self)->
     notify_peer_closed (EVD_TRANSPORT (self), peer, gracefully);
-}
-
-static void
-evd_web_transport_request_handler (EvdWebService     *web_service,
-                                   EvdHttpConnection *conn,
-                                   EvdHttpRequest    *request)
-{
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (web_service);
-  GError *error = NULL;
-  gchar *filename = NULL;
-  SoupHTTPVersion ver;
-
-  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
-
-  if (self->priv->js_code == NULL)
-    {
-      const gchar *js_path;
-
-      js_path = g_getenv ("JSLIBDIR");
-      if (js_path == NULL)
-        js_path = JSLIBDIR;
-
-      filename = g_strconcat (js_path, "/evdWebTransport.js", NULL);
-
-      /* @TODO: make this async */
-      if (! g_file_get_contents (filename,
-                                 &self->priv->js_code,
-                                 &self->priv->js_code_size,
-                                 &error))
-        {
-          g_error_free (error);
-          error = NULL;
-
-          /* respond with 404 Not Found (do we care about the actual error?) */
-          if (! evd_http_connection_respond (conn,
-                                             ver,
-                                             404,
-                                             "Not Found",
-                                             NULL,
-                                             NULL,
-                                             0,
-                                             TRUE,
-                                             NULL,
-                                             &error))
-            {
-              g_debug ("error responding js code: %s", error->message);
-              g_error_free (error);
-            }
-
-          goto free_stuff;
-        }
-    }
-
-  if (! evd_http_connection_respond (conn,
-                                     ver,
-                                     200,
-                                     "OK",
-                                     NULL,
-                                     self->priv->js_code,
-                                     self->priv->js_code_size,
-                                     TRUE,
-                                     NULL,
-                                     &error))
-    {
-      g_debug ("error responding js code: %s", error->message);
-      g_error_free (error);
-    }
-
- free_stuff:
-  g_free (filename);
 }
 
 static gboolean
