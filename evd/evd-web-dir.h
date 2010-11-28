@@ -59,6 +59,10 @@ void                evd_web_dir_set_root          (EvdWebDir   *self,
                                                    const gchar *root);
 const gchar        *evd_web_dir_get_root          (EvdWebDir *self);
 
+void                evd_web_dir_set_alias         (EvdWebDir   *self,
+                                                   const gchar *alias);
+const gchar        *evd_web_dir_get_alias         (EvdWebDir *self);
+
 G_END_DECLS
 
 #endif /* __EVD_WEB_DIR_H__ */

@@ -20,6 +20,8 @@
  * for more details.
  */
 
+#include <string.h>
+
 #include "evd-web-dir.h"
 
 #define EVD_WEB_DIR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -38,7 +40,7 @@ G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
 struct _EvdWebDirPrivate
 {
   gchar *root;
-
+  gchar *alias;
   gboolean allow_put;
 };
 
@@ -57,6 +59,7 @@ enum
 {
   PROP_0,
   PROP_ROOT,
+  PROP_ALIAS,
   PROP_ALLOW_PUT
 };
 
@@ -102,6 +105,14 @@ evd_web_dir_class_init (EvdWebDirClass *class)
                                                         "Document root",
                                                         "The root path to serve files from",
                                                         DEFAULT_ROOT_PATH,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_ALIAS,
+                                   g_param_spec_string ("alias",
+                                                        "Document alias",
+                                                        "The alias path to serve files from",
+                                                        NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -161,6 +172,10 @@ evd_web_dir_set_property (GObject      *obj,
       self->priv->root = g_value_dup_string (value);
       break;
 
+    case PROP_ALIAS:
+      evd_web_dir_set_alias (self, g_value_dup_string (value));
+      break;
+
     case PROP_ALLOW_PUT:
       self->priv->allow_put = g_value_get_boolean (value);
       break;
@@ -185,6 +200,10 @@ evd_web_dir_get_property (GObject    *obj,
     {
     case PROP_ROOT:
       g_value_set_string (value, self->priv->root);
+      break;
+
+    case PROP_ALIAS:
+      g_value_set_string (value, evd_web_dir_get_alias (self));
       break;
 
     case PROP_ALLOW_PUT:
@@ -425,6 +444,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
   GFile *file;
   EvdWebDirBinding *binding;
   SoupURI *uri;
+  const gchar *path_without_alias = "";
   const gchar *FILE_ATTRS =
     "standard::fast-content-type,standard::content-type,standard::size";
 
@@ -444,9 +464,33 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
     }
 
   uri = evd_http_request_get_uri (request);
+
+  if (self->priv->alias != NULL)
+    {
+      if (g_strstr_len (uri->path, -1, self->priv->alias) == uri->path)
+        {
+          path_without_alias = uri->path + strlen (self->priv->alias);
+        }
+      else
+        {
+          EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
+            respond (EVD_WEB_SERVICE (self),
+                     conn,
+                     SOUP_STATUS_NOT_FOUND,
+                     NULL,
+                     NULL,
+                     0,
+                     NULL);
+        }
+    }
+  else
+    {
+      path_without_alias = uri->path;
+    }
+
   filename = g_strconcat (self->priv->root,
                           "/",
-                          uri->path,
+                          path_without_alias,
                           NULL);
   file = g_file_new_for_path (filename);
   g_free (filename);
@@ -503,4 +547,23 @@ evd_web_dir_get_root (EvdWebDir *self)
   g_return_val_if_fail (EVD_IS_WEB_DIR (self), NULL);
 
   return self->priv->root;
+}
+
+void
+evd_web_dir_set_alias (EvdWebDir *self, const gchar *alias)
+{
+  g_return_if_fail (EVD_IS_WEB_DIR (self));
+
+  if (self->priv->alias != NULL)
+    g_free (self->priv->alias);
+
+  self->priv->alias = g_strdup (alias);
+}
+
+const gchar *
+evd_web_dir_get_alias (EvdWebDir *self)
+{
+  g_return_val_if_fail (EVD_IS_WEB_DIR (self), NULL);
+
+  return self->priv->alias;
 }
