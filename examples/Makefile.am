@@ -28,9 +28,15 @@ AM_CFLAGS += \
 endif
 
 noinst_PROGRAMS = \
-	ping-server
+	ping-server \
+	dbus-bridge
 
 # ping-server
 ping_server_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
 ping_server_LDADD = $(AM_LIBS)
 ping_server_SOURCES = ping-server.c
+
+# dbus-bridge
+dbus_bridge_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
+dbus_bridge_LDADD = $(AM_LIBS)
+dbus_bridge_SOURCES = dbus-bridge.c
