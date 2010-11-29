@@ -153,7 +153,8 @@ evd_HEADERS = \
 	$(source_h_priv)
 
 jslib_DATA = \
-	js/evdWebTransport.js
+	js/evdWebTransport.js \
+	js/evdDBusBridge.js
 
 # introspection support
 if HAVE_INTROSPECTION
