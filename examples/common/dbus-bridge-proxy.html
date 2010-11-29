@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Proxying objects - DBus bridge - EventDance examples</title>
+  <style>
+
+#log {
+    border: inset 1px #999;
+    margin-top: 20px;
+    font-size: 12px;
+    height: 100px;
+    overflow-y: scroll;
+    color: #999;
+}
+
+#owning_banner {
+    padding: 10px;
+    display: normal;
+    border: solid 1px #000;
+    border-radius: 5px;
+}
+
+.owned {
+    background-color: #007700;
+}
+
+.not-owned {
+    background-color: #AA0000;
+}
+
+  </style>
+  <script type="text/javascript" src="/transport/evdWebTransport.js"></script>
+  <script type="text/javascript" src="/transport/evdDBusBridge.js"></script>
+  <script type="text/javascript">
+
+var DBUS_ADDR = "alias:abstract=/org/eventdance/lib/examples/dbus-bridge";
+var dbusConn;
+var peer;
+var proxy;
+
+function onPageLoad () {
+    var transport = new Evd.LongPolling ({url: "/transport"});
+    transport.addEventListener ("new-peer", onNewPeer);
+    transport.open ();
+}
+
+function onNewPeer (p) {
+    peer = p;
+
+    new Evd.DBus.Connection ({
+        peer: peer,
+        address: DBUS_ADDR,
+        callback: function (conn, err) {
+            if (! err) {
+                log ("DBus connection succeeded");
+                createProxy (conn);
+            }
+            else {
+                alert (err);
+            }
+        }
+    });
+}
+
+
+function createProxy (conn) {
+    new Evd.DBus.Proxy ({
+        connection: conn,
+        name: "org.freedesktop.Notifications",
+        objectPath: "/org/freedesktop/Notifications",
+        interfaceName: "org.freedesktop.Notifications",
+        callback: function (proxy, err) {
+            if (! err) {
+                window.proxy = proxy;
+                log ("Proxy for /org/freedesktop/Notifications created successfully");
+
+                // connect to all proxy signals
+                proxy.addEventListener ("signal-emitted",
+                    function (name, args) {
+                        log ("Notification message '"+args[0]+"' closed");
+                    });
+            }
+            else
+                alert (err);
+        },
+        flags: Evd.DBus.ProxyFlags.NONE
+    });
+}
+
+function sendMsg () {
+    proxy.call ("Notify",
+                ["MyApp",123,"search",$("msg-title").value,$("msg-body").value,[],{},$("msg-timeout").value/1],
+                "(susssasa{sv}i)",
+                function (args, err) {
+                    if (! err)
+                        log ("Notification message '"+args[0]+"' shown");
+                    else
+                        alert (err);
+                },
+                Evd.DBus.MethodCallFlags.NONE, -1);
+}
+
+function $ (id) {
+    return document.getElementById (id);
+}
+
+function log (msg) {
+    $ ("log").innerHTML += "<br>> " + msg + "</br>";
+}
+
+  </script>
+</head>
+
+<body onload="onPageLoad ()" onunload="peer.close ()">
+  <h2>Example proxy for /org/freedesktop/Notifications</h2>
+  <h3>Notify</h3
+  <table>
+   <tbody>
+    <tr>
+      <td>Title</td>
+      <td><input type="text" id="msg-title" value="Hi, dude!"/></td>
+    </tr>
+    <tr>
+      <td>Message</td>
+      <td>
+<textarea id="msg-body"  rows="10" cols="40">
+This is an example notification message.
+It comes straight from a Web page, through D-Bus!
+</textarea>
+      </td>
+  </tr>
+  <tr>
+    <td>Timeout</td>
+    <td><input type="text" id="msg-timeout" size="5" value="3000"/></td>
+   </tr>
+   <tr>
+     <td colspan="2"><button onclick="sendMsg ()"> Send </button></td>
+   </tr>
+   </tbody>
+  </table>
+  <hr/>
+  <div id="log"></div>
+</body>
+</html>
