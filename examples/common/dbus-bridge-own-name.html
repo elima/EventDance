@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Owning names - DBus bridge - EventDance examples</title>
+  <style>
+
+#log {
+    border: inset 1px #999;
+    margin-top: 20px;
+    font-size: 12px;
+    height: 200px;
+    overflow: scroll;
+    color: #999;
+}
+
+#owning_banner {
+    padding: 10px;
+    display: normal;
+    border: solid 1px #000;
+    border-radius: 5px;
+}
+
+.owned {
+    background-color: #007700;
+}
+
+.not-owned {
+    background-color: #AA0000;
+}
+
+  </style>
+  <script type="text/javascript" src="/transport/evdWebTransport.js"></script>
+  <script type="text/javascript" src="/transport/evdDBusBridge.js"></script>
+  <script type="text/javascript">
+
+var DBUS_ADDR = "alias:abstract=/org/eventdance/lib/examples/dbus-bridge";
+var dbusConn;
+var peer;
+
+var name = "org.eventdance.lib.examples";
+
+var owned = false;
+var ownerId = 0;
+
+var obj = {};
+
+obj.Buzz = function (msg) {
+    alert ("BUZZZZZZ");
+    return [[], "()"];
+}
+
+var ifaceXml =
+  "<interface name=\"org.eventdance.lib.examples.DBusBridge\"> \
+     <method name=\"Buzz\"> \
+     </method> \
+   </interface>";
+
+function $ (id) {
+    return document.getElementById (id);
+}
+
+function log (msg) {
+    $ ("log").innerHTML += "<div>> "+msg+"</div>";
+}
+
+function start () {
+    // create transport
+    var transport = new Evd.LongPolling ({url: "/transport"});
+    transport.addEventListener ("new-peer", onNewPeer);
+    transport.open ();
+}
+
+function onNewPeer (p) {
+    peer = p;
+
+    // create DBus connection
+    new Evd.DBus.Connection ({
+        peer: peer,
+        address: DBUS_ADDR,
+        callback: function (conn, err) {
+            if (! err) {
+                dbusConn = conn;
+                // try to own the name
+                registerObject (conn);
+                ownName (conn);
+            }
+            else
+                alert (err);
+        }
+    });
+}
+
+function ownName () {
+    var flags = Evd.DBus.OwnNameFlags.NONE;
+    if ($ ("replace").checked)
+        flags |= Evd.DBus.OwnNameFlags.REPLACE;
+    if ($ ("allow-replace").checked)
+        flags |= Evd.DBus.OwnNameFlags.ALLOW_REPLACEMENT;
+
+    dbusConn.ownName (name,
+                      flags,
+                      function (result, err) {
+                          if (! err) {
+                              ownerId = result;
+                          }
+                          else
+                              alert (err);
+                      },
+                      nameAcquired,
+                      nameLost);
+}
+
+function unownName () {
+    if (ownerId)
+        dbusConn.unownName (ownerId, function (result, err) {
+            if (! err) {
+                 nameLost (dbusConn, name, ownerId);
+                 ownerId = 0;
+            }
+            else
+                alert (err);
+        });
+}
+
+function nameAcquired (conn, name) {
+    $ ("owning_banner").innerHTML = "org.eventdance.examples owned";
+    $ ("owning_banner").className = "owned";
+
+    $ ("own-btn").innerHTML = " Unown name ";
+    $ ("own-btn").onclick = unownName;
+
+    $ ("replace").disabled = true;
+    $ ("allow-replace").disabled = true;
+
+    log ("name acquired");
+    owned = true;
+}
+
+function nameLost (conn, name, _ownerId) {
+    $ ("owning_banner").innerHTML = "org.eventdance.examples not owned";
+    $ ("owning_banner").className = "not-owned";
+
+    $ ("own-btn").innerHTML = " Own name ";
+    $ ("own-btn").onclick = ownNameSmart;
+
+    $ ("replace").disabled = false;
+    $ ("allow-replace").disabled = false;
+
+    log ("name lost");
+    owned = false;
+}
+
+function ownNameSmart () {
+    if (! owned) {
+        if (ownerId)
+            dbusConn.unownName (ownerId, function (result, err) {
+                if (! err) {
+                     nameLost (dbusConn, name, ownerId);
+                     ownerId = 0;
+                     ownName (dbusConn);
+                }
+            });
+        else
+            ownName (dbusConn);
+    }
+}
+
+function registerObject (conn) {
+    conn.registerObject (obj,
+                         "/org/eventdance/lib/examples/DBusBridge/OwnNameExample",
+                         ifaceXml,
+                         function (regObjId, err) {
+                             if (! err) {
+                                 obj._regObjId = regObjId;
+                             }
+                             else
+                                 alert (err);
+                         });
+}
+
+  </script>
+</head>
+
+<body onload="start ()" onunload="peer.close ()">
+  <h2> Owning/unowning a name </h2>
+  <h3 id="owning_banner"></h3>
+
+  <input disabled type="checkbox" checked="true" id="replace"/> Replace
+  <br/>
+  <input type="checkbox" checked="true"  id="allow-replace"/> Allow replacement
+
+  <center>
+    <button id="own-btn" onclick="ownNameSmart ()"> Acquire name </button>
+  </center>
+  <div id="log"</div>
+</body>
+</html>
