@@ -78,6 +78,7 @@ function onNewPeer (p) {
     new Evd.DBus.Connection ({
         peer: peer,
         address: DBUS_ADDR,
+        reuse: false,
         callback: function (conn, err) {
             if (! err) {
                 dbusConn = conn;
