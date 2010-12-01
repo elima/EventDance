@@ -37,18 +37,23 @@ typedef struct
   GHashTable *reg_objs;
   GHashTable *reg_objs_by_id;
   GHashTable *addr_aliases;
-  gchar *tmp_addr;
-  gboolean reuse_connection;
   EvdDBusAgentVTable *vtable;
   gpointer vtable_user_data;
 } ObjectData;
 
 typedef struct
 {
-  ObjectData *obj_data;
   GDBusConnection *conn;
-  guint ref_count;
+  gint ref_count;
+  gboolean reuse;
+  gchar *addr;
 } ConnData;
+
+typedef struct
+{
+  ObjectData *obj_data;
+  ConnData *conn_data;
+} ObjConnData;
 
 typedef struct
 {
@@ -79,6 +84,8 @@ typedef struct
   guint64 serial;
   GHashTable *invocations;
 } RegObjData;
+
+static GHashTable *conn_cache = NULL;
 
 static void     evd_dbus_agent_on_object_connection_closed   (GDBusConnection *connection,
                                                               gboolean         remote_peer_vanished,
@@ -128,41 +135,77 @@ evd_dbus_agent_get_object_data (GObject *obj)
                                            OBJECT_DATA_KEY);
 }
 
+static ConnData *
+evd_dbus_agent_conn_data_new (const gchar *addr, gboolean reuse)
+{
+  ConnData *conn_data;
+
+  conn_data = g_slice_new (ConnData);
+  conn_data->conn = NULL;
+  conn_data->ref_count = 0;
+  conn_data->addr = g_strdup (addr);
+  conn_data->reuse = reuse;
+
+  return conn_data;
+}
+
 static void
-evd_dbus_agent_free_conn_data (gpointer data)
+evd_dbus_agent_conn_data_ref (ConnData *conn_data)
+{
+  conn_data->ref_count++;
+}
+
+static void
+evd_dbus_agent_conn_data_unref (ConnData *conn_data)
+{
+  conn_data->ref_count--;
+  if (conn_data->ref_count <= 0)
+    {
+      if (conn_cache != NULL)
+        g_hash_table_remove (conn_cache, conn_data->addr);
+
+      if (conn_data->conn != NULL)
+        {
+          g_dbus_connection_close (conn_data->conn, NULL, NULL, NULL);
+          g_object_unref (conn_data->conn);
+        }
+
+      g_free (conn_data->addr);
+
+      g_slice_free (ConnData, conn_data);
+    }
+}
+
+static void
+evd_dbus_agent_free_obj_conn_data (gpointer data)
 {
   ObjectData *obj_data;
-  ConnData *conn_data = (ConnData *) data;
+  ObjConnData *obj_conn_data = (ObjConnData *) data;
 
-  obj_data = conn_data->obj_data;
+  obj_data = obj_conn_data->obj_data;
 
   /* remove all proxies created over this connection */
   g_hash_table_foreach_remove (obj_data->proxies,
                                evd_dbus_agent_foreach_remove_proxy,
-                               conn_data->conn);
+                               obj_conn_data->conn_data->conn);
 
   /* unown all names owned over this connection */
   g_hash_table_foreach_remove (obj_data->owned_names,
                                evd_dbus_agent_foreach_remove_owned_names,
-                               conn_data->conn);
+                               obj_conn_data->conn_data->conn);
 
   /* remove all objects registered over this connection */
   g_hash_table_foreach_remove (obj_data->reg_objs_by_id,
                                evd_dbus_agent_foreach_remove_reg_obj,
-                               conn_data->conn);
+                               obj_conn_data->conn_data->conn);
 
-  g_signal_handlers_disconnect_by_func (conn_data->conn,
+  g_signal_handlers_disconnect_by_func (obj_conn_data->conn_data->conn,
                        G_CALLBACK (evd_dbus_agent_on_object_connection_closed),
                        obj_data);
 
-  conn_data->ref_count--;
-  if (conn_data->ref_count == 0)
-    {
-      g_dbus_connection_close (conn_data->conn, NULL, NULL, NULL);
-      g_object_unref (conn_data->conn);
+  evd_dbus_agent_conn_data_unref (obj_conn_data->conn_data);
 
-      g_slice_free (ConnData, conn_data);
-    }
+  g_slice_free (ObjConnData, obj_conn_data);
 }
 
 static void
@@ -252,7 +295,7 @@ evd_dbus_agent_setup_object_data (GObject *obj)
   data->conns = g_hash_table_new_full (g_int_hash,
                                        g_int_equal,
                                        g_free,
-                                       evd_dbus_agent_free_conn_data);
+                                       evd_dbus_agent_free_obj_conn_data);
   data->conn_counter = 0;
 
   data->proxies = g_hash_table_new_full (g_int_hash,
@@ -310,31 +353,47 @@ evd_dbus_agent_on_object_connection_closed (GDBusConnection *conn,
     }
 }
 
-static guint *
-evd_dbus_agent_bind_connection_to_object (ObjectData      *data,
-                                          GDBusConnection *conn)
+static ConnData *
+evd_dbus_agent_search_conn_in_global_cache (const gchar *addr, gboolean reuse)
 {
-  ConnData *conn_data;
+  if (conn_cache != NULL)
+    return (ConnData *) g_hash_table_lookup (conn_cache, addr);
+  else
+    return NULL;
+}
+
+static void
+evd_dbus_agent_cache_conn_in_global_cache (ConnData *conn_data)
+{
+  if (conn_cache == NULL)
+    conn_cache = g_hash_table_new_full (g_str_hash,
+                                        g_str_equal,
+                                        NULL,
+                                        NULL);
+  g_hash_table_insert (conn_cache, conn_data->addr, conn_data);
+}
+
+static guint *
+evd_dbus_agent_bind_connection_to_object (ObjectData  *obj_data,
+                                          ObjConnData *obj_conn_data)
+{
   guint *conn_id;
 
-  data->conn_counter ++;
-
-  conn_data = g_slice_new (ConnData);
-  conn_data->obj_data = data;
-  conn_data->conn = conn;
-  conn_data->ref_count = 1;
+  obj_data->conn_counter ++;
 
   conn_id = g_new (guint, 1);
-  *conn_id = data->conn_counter;
+  *conn_id = obj_data->conn_counter;
 
-  g_hash_table_insert (data->conns, conn_id, conn_data);
+  evd_dbus_agent_conn_data_ref (obj_conn_data->conn_data);
 
-  g_signal_connect (conn,
+  g_hash_table_insert (obj_data->conns, conn_id, obj_conn_data);
+
+  g_signal_connect (obj_conn_data->conn_data->conn,
                     "closed",
                     G_CALLBACK (evd_dbus_agent_on_object_connection_closed),
-                    data);
+                    obj_data);
 
-  g_object_ref (conn);
+  g_object_ref (obj_conn_data->conn_data->conn);
 
   return conn_id;
 }
@@ -347,16 +406,23 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
   GDBusConnection *dbus_conn;
   GError *error = NULL;
   GSimpleAsyncResult *result;
-  ObjectData *data;
+  ObjectData *obj_data;
+  ConnData *conn_data;
+  ObjConnData *obj_conn_data;
 
   result = G_SIMPLE_ASYNC_RESULT (user_data);
 
-  data =
-    (ObjectData *) g_simple_async_result_get_op_res_gpointer (result);
+  obj_conn_data =
+    (ObjConnData *) g_simple_async_result_get_op_res_gpointer (result);
+  obj_data = obj_conn_data->obj_data;
+  conn_data = obj_conn_data->conn_data;
 
   if ( (dbus_conn = g_dbus_connection_new_for_address_finish (res,
                                                               &error)) == NULL)
     {
+      evd_dbus_agent_conn_data_unref (conn_data);
+      g_slice_free (ObjConnData, obj_conn_data);
+
       g_simple_async_result_set_from_error (result, error);
       g_error_free (error);
     }
@@ -364,21 +430,15 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
     {
       guint *conn_id;
 
-      conn_id = evd_dbus_agent_bind_connection_to_object (data, dbus_conn);
+      conn_data->conn = dbus_conn;
 
-      if (data->reuse_connection)
-        {
-          /* @TODO: cache the connection globally */
-        }
-      else
-        {
-          g_object_unref (dbus_conn);
-        }
+      conn_id = evd_dbus_agent_bind_connection_to_object (obj_data, obj_conn_data);
+
+      if (conn_data->reuse)
+        evd_dbus_agent_cache_conn_in_global_cache (conn_data);
 
       g_simple_async_result_set_op_res_gpointer (result, conn_id, NULL);
     }
-
-  g_free (data->tmp_addr);
 
   g_simple_async_result_complete (result);
   g_object_unref (result);
@@ -639,10 +699,11 @@ evd_dbus_agent_new_connection (GObject             *object,
                                GAsyncReadyCallback  callback,
                                gpointer             user_data)
 {
-  GDBusConnection *dbus_conn;
   GSimpleAsyncResult *res;
   ObjectData *data;
   gchar *addr;
+  ObjConnData *obj_conn_data;
+  ConnData *conn_data;
 
   g_return_if_fail (G_IS_OBJECT (object));
   g_return_if_fail (address != NULL);
@@ -651,12 +712,13 @@ evd_dbus_agent_new_connection (GObject             *object,
   if (data == NULL)
     data = evd_dbus_agent_setup_object_data (object);
 
+  obj_conn_data = g_slice_new (ObjConnData);
+  obj_conn_data->obj_data = data;
+
   res = g_simple_async_result_new (object,
                                    callback,
                                    user_data,
                                    evd_dbus_agent_new_connection);
-
-  g_simple_async_result_set_op_res_gpointer (res, data, NULL);
 
   /* if 'address' is an alias, dereference it */
   if ( (addr = g_hash_table_lookup (data->addr_aliases, address)) == NULL)
@@ -666,19 +728,19 @@ evd_dbus_agent_new_connection (GObject             *object,
 
   if (reuse)
     {
-      /* @TODO: lookup the connection in global cache. By now assume no cache */
-      dbus_conn = NULL;
-
-      if (dbus_conn != NULL)
+      /* lookup the connection in global cache */
+      conn_data = evd_dbus_agent_search_conn_in_global_cache (addr, reuse);
+      if (conn_data != NULL)
         {
           guint *conn_id;
 
-          conn_id = evd_dbus_agent_bind_connection_to_object (data, dbus_conn);
+          obj_conn_data->conn_data = conn_data;
+          conn_id = evd_dbus_agent_bind_connection_to_object (data,
+                                                              obj_conn_data);
 
           g_simple_async_result_set_op_res_gpointer (res,
                                                      conn_id,
-                                                     g_free);
-
+                                                     NULL);
           g_simple_async_result_complete_in_idle (res);
           g_object_unref (res);
 
@@ -686,7 +748,10 @@ evd_dbus_agent_new_connection (GObject             *object,
         }
     }
 
-  data->tmp_addr = addr;
+  conn_data = evd_dbus_agent_conn_data_new (addr, reuse);
+  obj_conn_data->conn_data = conn_data;
+
+  g_simple_async_result_set_op_res_gpointer (res, obj_conn_data, NULL);
 
   g_dbus_connection_new_for_address (addr,
                                 G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION |
@@ -695,6 +760,8 @@ evd_dbus_agent_new_connection (GObject             *object,
                                 cancellable,
                                 evd_dbus_agent_on_new_dbus_connection,
                                 res);
+
+  g_free (addr);
 }
 
 guint
@@ -761,7 +828,7 @@ evd_dbus_agent_get_connection (GObject  *obj,
                                GError  **error)
 {
   ObjectData *data;
-  ConnData *conn_data;
+  ObjConnData *obj_conn_data;
 
   data = evd_dbus_agent_get_object_data (obj);
   if (data == NULL)
@@ -773,10 +840,11 @@ evd_dbus_agent_get_connection (GObject  *obj,
       return NULL;
     }
 
-  conn_data = (ConnData *) (g_hash_table_lookup (data->conns, &connection_id));
-  if (conn_data != NULL)
+  obj_conn_data = (ObjConnData *) (g_hash_table_lookup (data->conns,
+                                                        &connection_id));
+  if (obj_conn_data != NULL)
     {
-      return conn_data->conn;
+      return obj_conn_data->conn_data->conn;
     }
   else
     {

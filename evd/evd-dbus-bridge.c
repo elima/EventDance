@@ -629,10 +629,11 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
                                 const gchar   *args)
 {
   gchar *addr;
+  gboolean reuse;
   MsgClosure *closure;
   GVariant *variant_args;
 
-  variant_args = json_data_to_gvariant (args, -1, "(s)", NULL);
+  variant_args = json_data_to_gvariant (args, -1, "(sb)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error_in_idle (self,
@@ -645,7 +646,7 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
       return;
     }
 
-  g_variant_get (variant_args, "(s)", &addr);
+  g_variant_get (variant_args, "(sb)", &addr, &reuse);
 
   closure = evd_dbus_bridge_new_msg_closure (self,
                                              obj,
@@ -657,7 +658,7 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
                                              0);
   evd_dbus_agent_new_connection (obj,
                                  addr,
-                                 FALSE,
+                                 reuse,
                                  NULL,
                                  evd_dbus_bridge_on_new_connection,
                                  closure);

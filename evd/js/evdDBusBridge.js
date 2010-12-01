@@ -57,6 +57,10 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
         this._nameOwners = {};
         this._regObjs = {};
 
+        var reuse = args.reuse;
+        if (reuse === undefined)
+            reuse = true;
+
         this._callback = args.callback;
 
         this._peer = args.peer;
@@ -69,7 +73,7 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
 
         this.sendMessage (Evd.DBus.Commands.NEW_CONNECTION,
                           0,
-                          [addr],
+                          [addr,reuse],
                           this._onNewConnection, this);
     },
 
