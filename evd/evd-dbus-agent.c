@@ -74,7 +74,7 @@ typedef struct
   gchar *reg_str_id;
   GDBusConnection *dbus_conn;
   gchar *obj_path;
-  gchar *iface_name;
+  GDBusInterfaceInfo *iface_info;
   guint reg_id;
   guint64 serial;
   GHashTable *invocations;
@@ -212,7 +212,7 @@ evd_dbus_agent_free_reg_obj_data (gpointer data)
   g_hash_table_remove (obj_data->reg_objs, &reg_obj_data->reg_str_id);
 
   g_free (reg_obj_data->obj_path);
-  g_free (reg_obj_data->iface_name);
+  g_dbus_interface_info_unref (reg_obj_data->iface_info);
   g_object_unref (reg_obj_data->dbus_conn);
   g_hash_table_destroy (reg_obj_data->invocations);
 
@@ -1005,7 +1005,6 @@ evd_dbus_agent_register_object (GObject             *object,
 
       reg_obj_data = g_slice_new (RegObjData);
       reg_obj_data->obj_path = g_strdup (object_path);
-      reg_obj_data->iface_name = g_strdup (interface_info->name);
       reg_obj_data->dbus_conn = dbus_conn;
       g_object_ref (dbus_conn);
       reg_obj_data->reg_id = reg_id;
@@ -1013,6 +1012,7 @@ evd_dbus_agent_register_object (GObject             *object,
       reg_obj_data->reg_str_id = key;
       reg_obj_data->obj_data = data;
       reg_obj_data->conn_id = connection_id;
+      reg_obj_data->iface_info = g_dbus_interface_info_ref (interface_info);
       reg_obj_data->invocations = g_hash_table_new_full (g_int64_hash,
                                                          g_int64_equal,
                                                          NULL,
@@ -1154,7 +1154,7 @@ evd_dbus_agent_emit_signal (GObject      *object,
   return g_dbus_connection_emit_signal (reg_obj_data->dbus_conn,
                                         NULL,
                                         reg_obj_data->obj_path,
-                                        reg_obj_data->iface_name,
+                                        reg_obj_data->iface_info->name,
                                         signal_name,
                                         parameters,
                                         error);
