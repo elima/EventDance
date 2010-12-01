@@ -97,7 +97,7 @@ static const TestCase test_cases[] =
 
     { "new-connection/error",
       {
-        "[3,1,0,0,'[\"invalid:address=error\"]']",
+        "[3,1,0,0,'[\"invalid:address=error\",true]']",
       },
       {
         "[1,1,0,0,\"[5,\\\"Unknown or unsupported transport `invalid' for address `invalid:address=error'\\\"]\"]"
@@ -106,8 +106,8 @@ static const TestCase test_cases[] =
 
     { "new-connection/success",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']",
-        "[3,2,0,0,'[\"" DBUS_ADDR "\"]']",
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']",
+        "[3,2,0,0,'[\"" DBUS_ADDR "\",false]']",
       },
       {
         "[2,1,0,0,\"[1]\"]",
@@ -126,7 +126,7 @@ static const TestCase test_cases[] =
 
     { "close-connection/success",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']",
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']",
         "[4,2,1,0,'[]']"
       },
       {
@@ -137,7 +137,7 @@ static const TestCase test_cases[] =
 
     { "own-name",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,2,1,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
         NULL,
       },
@@ -150,7 +150,7 @@ static const TestCase test_cases[] =
 
     { "own-name/twice",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,2,1,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name */
         NULL,
         "[6,3,1,1,'[]']", /* unown-name */
@@ -177,10 +177,10 @@ static const TestCase test_cases[] =
 
     { "own-name/replace",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1*/
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1*/
         "[5,2,1,0,'[\"org.eventdance.lib.tests\",3]']", /* own-name */
         NULL,
-        "[3,3,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[3,3,0,0,'[\"" DBUS_ADDR "\",false]']", /* new-connection 2 */
         "[5,4,2,0,'[\"org.eventdance.lib.tests\",3]']", /* own-name */
         NULL,
         NULL,
@@ -198,8 +198,8 @@ static const TestCase test_cases[] =
 
     { "own-name/queue",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1*/
-        "[3,2,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1*/
+        "[3,2,0,0,'[\"" DBUS_ADDR "\",false]']", /* new-connection 2 */
         "[5,3,1,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 1 */
         NULL,
         "[5,4,2,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 2 */
@@ -223,8 +223,8 @@ static const TestCase test_cases[] =
 
     { "own-name/close-connection",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1*/
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1*/
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",false]']", /* new-connection 2 */
         "[5,2,1,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 1 */
         NULL,
         "[5,2,2,0,'[\"org.eventdance.lib.tests\", 0]']", /* own-name, connection 2 */
@@ -248,7 +248,7 @@ static const TestCase test_cases[] =
 
     { "register-object",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,2,1,0,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
         NULL,
         "[9,3,1,0,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
@@ -267,7 +267,7 @@ static const TestCase test_cases[] =
 
     { "register-object/already-registered",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,2,1,0,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
         NULL,
         "[9,3,1,0,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
@@ -288,8 +288,8 @@ static const TestCase test_cases[] =
 
     { "register-object/two-connections",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 1 */
-        "[3,2,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection 2 */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1 */
+        "[3,2,0,0,'[\"" DBUS_ADDR "\",false]']", /* new-connection 2 */
         "[9,1,1,0,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object, connection 1 */
         "[9,1,2,0,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object, connection 2 */
         "[10,2,1,1,'[]']", /* unregister-object, connection 1 */
@@ -307,7 +307,7 @@ static const TestCase test_cases[] =
 
     { "register-object/close-connection",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,2,1,0,'[\"org.eventdance.lib.tests.RegisterObject\", 0]']", /* own-name */
         NULL,
         "[9,3,1,0,'[\"/org/eventdance/lib/test/RegisterObject/Object\",\"" IFACE_XML "\"]']", /* register-object */
@@ -326,7 +326,7 @@ static const TestCase test_cases[] =
 
     { "new-proxy",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[11,1,1,0,'[\"" BASE_NAME "\",\"" BASE_OBJ_PATH "/NewProxy\",\"" BASE_IFACE_NAME ".TestIface\",0]']", /* new-proxy */
         "[12,2,1,1,'[]']", /* close-proxy */
       },
@@ -339,7 +339,7 @@ static const TestCase test_cases[] =
 
     { "new-proxy/close-connection",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[11,1,1,0,'[\"" BASE_NAME "\",\"" BASE_OBJ_PATH "/NewProxy\",\"" BASE_IFACE_NAME ".TestIface\",0]']", /* new-proxy */
         "[4,2,1,0,'[]']", /* close connection (should invalidate proxy) */
         "[12,3,1,1,'[]']", /* close-proxy */
@@ -354,7 +354,7 @@ static const TestCase test_cases[] =
 
     { "proxy/call-method",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,1,1,0,'[\"" BASE_NAME ".CallProxyMethod\", 0]']", /* own-name */
         NULL,
         "[9,2,1,0,'[\"" BASE_OBJ_PATH "/CallProxyMethod\",\"" IFACE_XML "\"]']", /* register-object */
@@ -375,7 +375,7 @@ static const TestCase test_cases[] =
 
     { "proxy/signal",
       {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\"]']", /* new-connection */
+        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection */
         "[5,1,1,0,'[\"" BASE_NAME ".ProxySignal\", 0]']", /* own-name */
         NULL,
         "[9,2,1,0,'[\"" BASE_OBJ_PATH "/ProxySignal\",\"" IFACE_XML "\"]']", /* register-object */
