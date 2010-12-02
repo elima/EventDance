@@ -1152,6 +1152,22 @@ evd_dbus_agent_unregister_object (GObject  *object,
     }
 }
 
+GDBusInterfaceInfo *
+evd_dbus_agent_get_registered_object_interface (GObject  *object,
+                                                guint     registration_id,
+                                                GError  **error)
+{
+  RegObjData *reg_obj_data;
+
+  reg_obj_data = evd_dbus_agent_get_registered_object_data (object,
+                                                            registration_id,
+                                                            error);
+  if (reg_obj_data == NULL)
+    return NULL;
+  else
+    return reg_obj_data->iface_info;
+}
+
 gboolean
 evd_dbus_agent_method_call_return (GObject  *object,
                                    guint     registration_id,

@@ -125,6 +125,9 @@ guint             evd_dbus_agent_register_object              (GObject          
 gboolean          evd_dbus_agent_unregister_object            (GObject  *object,
                                                                guint     registration_id,
                                                                GError  **error);
+GDBusInterfaceInfo *    evd_dbus_agent_get_registered_object_interface (GObject  *object,
+                                                                        guint     registration_id,
+                                                                        GError  **error);
 
 void              evd_dbus_agent_set_object_vtable            (GObject             *object,
                                                                EvdDBusAgentVTable  *vtable,
