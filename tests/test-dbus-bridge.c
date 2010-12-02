@@ -360,7 +360,7 @@ static const TestCase test_cases[] =
         "[9,2,1,0,'[\"" BASE_OBJ_PATH "/CallProxyMethod\",\"" IFACE_XML "\"]']", /* register-object */
         "[11,3,1,0,'[\"" BASE_NAME ".CallProxyMethod\",\"" BASE_OBJ_PATH "/CallProxyMethod\",\"" BASE_IFACE_NAME ".TestIface\",0]']", /* new-proxy */
         "[13,4,1,1,'[\"HelloWorld\",\"[\\\"Hi there\\\"]\",\"(s)\",0,-1]']", /* call-method on proxy */
-        "[14,1,1,1,'[\"[\\\"hello world!\\\"]\",\"(s)\"]']", /* call-method-return from registered object */
+        "[14,1,1,1,'[\"[\\\"hello world!\\\"]\"]']", /* call-method-return from registered object */
       },
       {
         "[2,1,0,0,\"[1]\"]", /* new-connection response */
@@ -369,7 +369,7 @@ static const TestCase test_cases[] =
         "[2,2,1,0,\"[1]\"]", /* register-object response */
         "[2,3,1,0,\"[1]\"]", /* new-proxy response */
         "[13,1,1,1,\"[\\\"HelloWorld\\\",\\\"[ \\\\\\\"Hi there\\\\\\\" ]\\\",\\\"(s)\\\",0,0]\"]", /* call-method to registered object */
-        "[14,4,1,1,\"[\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\",\\\"(s)\\\"]\"]", /* call-method-return to proxy */
+        "[14,4,1,1,\"[\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\"]\"]", /* call-method-return to proxy */
       }
     },
 
