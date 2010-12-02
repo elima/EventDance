@@ -128,6 +128,12 @@ gboolean          evd_dbus_agent_unregister_object            (GObject  *object,
 GDBusInterfaceInfo *    evd_dbus_agent_get_registered_object_interface (GObject  *object,
                                                                         guint     registration_id,
                                                                         GError  **error);
+GDBusMethodInvocation * evd_dbus_agent_get_method_invocation           (GObject  *object,
+                                                                        guint     registration_id,
+                                                                        guint64   serial,
+                                                                        GError  **error);
+
+
 
 void              evd_dbus_agent_set_object_vtable            (GObject             *object,
                                                                EvdDBusAgentVTable  *vtable,

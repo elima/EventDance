@@ -1168,6 +1168,37 @@ evd_dbus_agent_get_registered_object_interface (GObject  *object,
     return reg_obj_data->iface_info;
 }
 
+GDBusMethodInvocation *
+evd_dbus_agent_get_method_invocation (GObject  *object,
+                                      guint     registration_id,
+                                      guint64   serial,
+                                      GError  **error)
+{
+  RegObjData *reg_obj_data;
+  GDBusMethodInvocation *invocation;
+
+  reg_obj_data = evd_dbus_agent_get_registered_object_data (object,
+                                                            registration_id,
+                                                            error);
+  if (reg_obj_data == NULL)
+    return NULL;
+
+  invocation =
+    (GDBusMethodInvocation *) g_hash_table_lookup (reg_obj_data->invocations,
+                                                   &serial);
+  if (invocation == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Method invocation serial '%lu' is invalid",
+                   serial);
+      return NULL;
+    }
+
+  return invocation;
+}
+
 gboolean
 evd_dbus_agent_method_call_return (GObject  *object,
                                    guint     registration_id,
