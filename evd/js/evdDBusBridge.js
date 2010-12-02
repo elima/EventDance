@@ -258,9 +258,8 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
         // @TODO: try to resolve signature from object's interface.
         // by now, we expect the method to return a: [result, signature]
         // array.
-        var returnArgs = JSON.stringify (result[0]);
-        var signature = result[1];
-        var msgArgs = [returnArgs, signature];
+        var returnArgs = JSON.stringify (result);
+        var msgArgs = [returnArgs];
 
         this._sendMessage (Evd.DBus.Commands.CALL_METHOD_RETURN,
                            serial,

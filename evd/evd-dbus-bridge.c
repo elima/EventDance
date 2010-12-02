@@ -1075,7 +1075,7 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
       json = json_data_from_gvariant (ret_variant, NULL);
       escaped_json = escape_json_for_args (json);
       signature = g_variant_get_type_string (ret_variant);
-      args = g_strdup_printf ("\\\"%s\\\",\\\"%s\\\"", escaped_json, signature);
+      args = g_strdup_printf ("\\\"%s\\\"", escaped_json);
 
       evd_dbus_bridge_send (closure->bridge,
                             closure->obj,
@@ -1209,6 +1209,46 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
   g_variant_unref (variant_args);
 }
 
+static gchar *
+evd_dbus_bridge_get_method_signature_from_reg_object (GObject *obj,
+                                                      guint    reg_id,
+                                                      guint64  serial)
+{
+  gchar *signature;
+  GString *sig_str;
+  GDBusMethodInvocation *invocation;
+  const GDBusMethodInfo *method_info;
+
+  invocation = evd_dbus_agent_get_method_invocation (obj,
+                                                     reg_id,
+                                                     serial,
+                                                     NULL);
+  if (invocation == NULL)
+    return NULL;
+
+  method_info = g_dbus_method_invocation_get_method_info (invocation);
+
+  sig_str = g_string_new ("(");
+
+  if (method_info->out_args != NULL)
+    {
+      gint i = 0;
+
+      while (method_info->out_args[i] != NULL)
+        {
+          g_string_append (sig_str, method_info->out_args[i]->signature);
+          i++;
+        }
+    }
+
+  g_string_append (sig_str, ")");
+
+  signature = sig_str->str;
+  g_string_free (sig_str, FALSE);
+
+  return signature;
+}
+
 static void
 evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
                                     GObject       *obj,
@@ -1217,36 +1257,33 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
                                     guint32        subject,
                                     const gchar   *args)
 {
-  GVariant *variant_args;
-  gchar *return_args;
-  gchar *signature;
+  GVariant *variant_args = NULL;
+  gchar *return_args = NULL;
+  gchar *signature = NULL;
   GVariant *return_variant;
+  gboolean invalid_args = FALSE;
 
-  variant_args = json_data_to_gvariant (args, -1, "(ss)", NULL);
-  if (variant_args == NULL)
+  signature =
+    evd_dbus_bridge_get_method_signature_from_reg_object (obj, subject, serial);
+  if (signature == NULL)
     {
-      evd_dbus_bridge_send_error (self,
-                                  obj,
-                                  serial,
-                                  conn_id,
-                                  subject,
-                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                  NULL);
-      return;
+      invalid_args = TRUE;
+      goto out;
     }
 
-  g_variant_get (variant_args, "(ss)", &return_args, &signature);
+  variant_args = json_data_to_gvariant (args, -1, "(s)", NULL);
+  if (variant_args == NULL)
+    {
+      invalid_args = TRUE;
+      goto out;
+    }
+
+  g_variant_get (variant_args, "(s)", &return_args);
 
   return_variant = json_data_to_gvariant (return_args, -1, signature, NULL);
   if (return_variant == NULL)
     {
-      evd_dbus_bridge_send_error (self,
-                                  obj,
-                                  serial,
-                                  conn_id,
-                                  subject,
-                                  EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
-                                  NULL);
+      invalid_args = TRUE;
       goto out;
     }
 
@@ -1263,13 +1300,22 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
                                   subject,
                                   EVD_DBUS_BRIDGE_ERR_INVALID_SUBJECT,
                                   NULL);
-      goto out;
     }
 
  out:
+  if (invalid_args)
+    evd_dbus_bridge_send_error (self,
+                                obj,
+                                serial,
+                                conn_id,
+                                subject,
+                                EVD_DBUS_BRIDGE_ERR_INVALID_ARGS,
+                                NULL);
+
   g_free (signature);
   g_free (return_args);
-  g_variant_unref (variant_args);
+  if (variant_args != NULL)
+    g_variant_unref (variant_args);
 }
 
 static void
