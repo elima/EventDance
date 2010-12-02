@@ -445,7 +445,7 @@ evd_dbus_bridge_send (EvdDBusBridge *self,
 
       if (! evd_peer_send_text (EVD_PEER (obj), json, &error))
         {
-          g_debug ("error sending DBus msg to peer: %s", error->message);
+          g_warning ("error sending DBus msg to peer: %s", error->message);
           g_error_free (error);
         }
     }
