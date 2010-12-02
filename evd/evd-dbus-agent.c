@@ -670,6 +670,41 @@ evd_dbus_agent_foreach_remove_reg_obj (gpointer key,
   return reg_obj_data->dbus_conn == conn;
 }
 
+static RegObjData *
+evd_dbus_agent_get_registered_object_data (GObject  *object,
+                                           guint     registration_id,
+                                           GError  **error)
+{
+  ObjectData *data;
+  RegObjData *reg_obj_data;
+
+  g_return_val_if_fail (G_IS_OBJECT (object), NULL);
+  g_return_val_if_fail (registration_id > 0, NULL);
+
+  data = evd_dbus_agent_get_object_data (object);
+  if (data == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
+                           "Object is invalid");
+      return NULL;
+    }
+
+  reg_obj_data = g_hash_table_lookup (data->reg_objs_by_id, &registration_id);
+  if (reg_obj_data == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Object registration id '%u' is invalid",
+                   registration_id);
+      return NULL;
+    }
+
+  return reg_obj_data;
+}
+
 /* public methods */
 
 void
@@ -1100,34 +1135,21 @@ evd_dbus_agent_unregister_object (GObject  *object,
                                   guint     registration_id,
                                   GError  **error)
 {
-  ObjectData *data;
-
-  g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
-  g_return_val_if_fail (registration_id > 0, FALSE);
-
-  data = evd_dbus_agent_get_object_data (object);
-  if (data == NULL)
+  if (evd_dbus_agent_get_registered_object_data (object,
+                                                 registration_id,
+                                                 error) == NULL)
     {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_INVALID_DATA,
-                           "Object is invalid");
       return FALSE;
     }
-
-  if (g_hash_table_lookup (data->reg_objs_by_id, &registration_id) == NULL)
+  else
     {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_INVALID_ARGUMENT,
-                   "Object registration id '%u' is invalid",
-                   registration_id);
-      return FALSE;
+      ObjectData *data;
+
+      data = evd_dbus_agent_get_object_data (object);
+      g_hash_table_remove (data->reg_objs_by_id, &registration_id);
+
+      return TRUE;
     }
-
-  g_hash_table_remove (data->reg_objs_by_id, &registration_id);
-
-  return TRUE;
 }
 
 gboolean
