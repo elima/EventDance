@@ -50,6 +50,7 @@
 struct _EvdLongPollingPrivate
 {
   EvdPeerManager *peer_manager;
+  const gchar *current_peer_id;
 };
 
 typedef struct _EvdLongPollingPeerData EvdLongPollingPeerData;
@@ -132,6 +133,8 @@ evd_long_polling_init (EvdLongPolling *self)
   self->priv = priv;
 
   priv->peer_manager = evd_peer_manager_get_default ();
+
+  priv->current_peer_id = NULL;
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
@@ -383,6 +386,7 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
 
       /* resolve peer object */
       peer_id = soup_message_headers_get_one (headers, PEER_ID_HEADER_NAME);
+      self->priv->current_peer_id = peer_id;
       if (peer_id == NULL ||
           (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
                                                 peer_id)) == NULL)
@@ -459,6 +463,8 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
         }
     }
 
+  self->priv->current_peer_id = NULL;
+
   g_free (action);
 }
 
@@ -519,12 +525,14 @@ static gboolean
 evd_long_polling_peer_is_connected (EvdTransport *transport,
                                     EvdPeer       *peer)
 {
+  EvdLongPolling *self = EVD_LONG_POLLING (transport);
   EvdLongPollingPeerData *data;
 
   data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
                                                        PEER_DATA_KEY);
 
-  if (data == NULL || g_queue_get_length (data->conns) == 0)
+  if (g_strcmp0 (self->priv->current_peer_id, evd_peer_get_id (peer)) != 0
+      && (data == NULL || g_queue_get_length (data->conns) == 0))
     return FALSE;
   else
     return TRUE;
