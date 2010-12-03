@@ -43,18 +43,22 @@ var name = "org.eventdance.lib.examples";
 var owned = false;
 var ownerId = 0;
 
-var obj = {};
-
-obj.Buzz = function (msg) {
-    alert ("BUZZZZZZ");
-    return [];
-}
-
 var ifaceXml =
   "<interface name=\"org.eventdance.lib.examples.DBusBridge\"> \
-     <method name=\"Buzz\"> \
+     <method name=\"Ask\"> \
+       <arg type=\"s\" name=\"question\" direction=\"in\"/> \
+       <arg type=\"b\" name=\"answer\" direction=\"out\"/> \
      </method> \
    </interface>";
+
+var obj = {};
+
+obj.Ask = function (args, invocation) {
+    setTimeout (function () {
+        var answer = confirm (args[0], args[0]);
+        invocation.returnValue ([answer == true]);
+    }, 10);
+}
 
 function $ (id) {
     return document.getElementById (id);
