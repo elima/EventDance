@@ -233,6 +233,8 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
     },
 
     _onMethodCalled: function (serial, subject, args) {
+        var self = this;
+
         var regObjId = subject;
         var obj = this._regObjs[regObjId];
         if (! obj)
@@ -244,27 +246,49 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
         }
 
         var methodArgs = JSON.parse (args[1]);
-        // @TODO: validate method method args
+        var returnArgs;
+
+        var invObj = {
+            _regObjId: regObjId,
+            _serial: serial,
+            methodName: methodName,
+            returnValue: function (outArgs) {
+                self._methodCalledReturn (this, outArgs, null);
+            },
+            returnError: function (err) {
+                self._methodCalledReturn (this, null, err);
+            }
+        };
 
         var result;
         try {
-            result = obj[methodName].apply (obj, methodArgs);
+            result = obj[methodName].apply (obj, [methodArgs, invObj]);
         }
         catch (e) {
             throw ("Method call error: " + e);
             return;
         }
+    },
 
-        // @TODO: try to resolve signature from object's interface.
-        // by now, we expect the method to return a: [result, signature]
-        // array.
-        var returnArgs = JSON.stringify (result);
-        var msgArgs = [returnArgs];
+    _methodCalledReturn: function (invObj, outArgs, err) {
+        if (! err) {
+            var returnArgs = JSON.stringify (outArgs);
+            var msgArgs = [returnArgs];
+            this._sendMessage (Evd.DBus.Commands.CALL_METHOD_RETURN,
+                               invObj._serial,
+                               invObj._regObjId,
+                               msgArgs);
 
-        this._sendMessage (Evd.DBus.Commands.CALL_METHOD_RETURN,
-                           serial,
-                           regObjId,
-                           msgArgs);
+        }
+        else {
+            if (! err.code)
+                err.code = 0;
+            var msgArgs = [err.code, err.toString ()];
+            this._sendMessage (Evd.DBus.Commands.ERROR,
+                               invObj._serial,
+                               invObj._regObjId,
+                               msgArgs);
+        }
     },
 
     callProxyMethod: function (proxyId, methodName, args, signature, callback, flags, timeout) {
@@ -274,15 +298,15 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
                           proxyId,
                           msgArgs,
                           function (cmd, subject, msgArgs) {
-                              this._onReturnMethodCall (cmd,
-                                                        subject,
-                                                        msgArgs,
-                                                        callback);
+                              this._onProxyMethodCall (cmd,
+                                                       subject,
+                                                       msgArgs,
+                                                       callback);
                           },
                           this);
     },
 
-    _onReturnMethodCall: function (cmd, subject, msgArgs, callback) {
+    _onProxyMethodCall: function (cmd, subject, msgArgs, callback) {
         var proxyData = this._proxies[subject];
         if (! proxyData)
             throw ("Method call reponse for unknown proxy");
