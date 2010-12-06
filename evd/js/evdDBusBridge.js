@@ -33,9 +33,9 @@ Evd.DBus = {
     },
 
     OwnNameFlags: {
-        NONE:                 0,
-        ALLOW_REPLACEMENT: 1<<0,
-        REPLACE:           1<<1
+        NONE:                   0,
+        ALLOW_REPLACEMENT: 1 << 0,
+        REPLACE:           1 << 1
     }
 };
 
