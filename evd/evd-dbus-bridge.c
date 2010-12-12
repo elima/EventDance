@@ -1395,7 +1395,8 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
     }
 
  out:
-  g_variant_unref (signal_args_variant);
+  if (signal_args_variant != NULL)
+    g_variant_unref (signal_args_variant);
   g_free (signature);
   g_free (signal_args);
   g_free (signal_name);
