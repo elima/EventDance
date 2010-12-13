@@ -316,7 +316,7 @@ evd_dbus_bridge_on_proxy_signal (GObject     *obj,
   gchar *args;
   const gchar *signature;
 
-  json = json_data_from_gvariant (parameters, NULL);
+  json = json_gvariant_serialize_data (parameters, NULL);
   escaped_json = escape_json_for_args (json);
   signature = g_variant_get_type_string (parameters);
 
@@ -399,7 +399,7 @@ evd_dbus_bridge_on_reg_obj_call_method (GObject     *obj,
   gchar *args;
   const gchar *signature;
 
-  json = json_data_from_gvariant (parameters, NULL);
+  json = json_gvariant_serialize_data (parameters, NULL);
   escaped_json = escape_json_for_args (json);
   signature = g_variant_get_type_string (parameters);
 
@@ -633,7 +633,7 @@ evd_dbus_bridge_new_connection (EvdDBusBridge *self,
   MsgClosure *closure;
   GVariant *variant_args;
 
-  variant_args = json_data_to_gvariant (args, -1, "(sb)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(sb)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error_in_idle (self,
@@ -717,7 +717,7 @@ evd_dbus_bridge_own_name (EvdDBusBridge *self,
   guint owning_id;
   gchar *st_args;
 
-  variant_args = json_data_to_gvariant (args, -1, "(su)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(su)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -818,7 +818,7 @@ evd_dbus_bridge_register_object (EvdDBusBridge *self,
   GDBusNodeInfo *node_info = NULL;
   GError *error = NULL;
 
-  variant_args = json_data_to_gvariant (args, -1, "(ss)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(ss)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -978,7 +978,7 @@ evd_dbus_bridge_new_proxy (EvdDBusBridge *self,
   gchar *iface_name;
   MsgClosure *closure;
 
-  variant_args = json_data_to_gvariant (args, -1, "(sssu)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(sssu)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -1072,7 +1072,7 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
       const gchar *signature;
       gchar *args;
 
-      json = json_data_from_gvariant (ret_variant, NULL);
+      json = json_gvariant_serialize_data (ret_variant, NULL);
       escaped_json = escape_json_for_args (json);
       signature = g_variant_get_type_string (ret_variant);
       args = g_strdup_printf ("\\\"%s\\\"", escaped_json);
@@ -1138,7 +1138,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
   MsgClosure *closure;
   GVariant *params;
 
-  variant_args = json_data_to_gvariant (args, -1, "(ssgui)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(ssgui)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -1158,7 +1158,7 @@ evd_dbus_bridge_call_method (EvdDBusBridge *self,
                  &call_flags,
                  &timeout);
 
-  params = json_data_to_gvariant (method_args, -1, signature, NULL);
+  params = json_gvariant_deserialize_data (method_args, -1, signature, NULL);
   if (params == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -1271,7 +1271,7 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
       goto out;
     }
 
-  variant_args = json_data_to_gvariant (args, -1, "(s)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(s)", NULL);
   if (variant_args == NULL)
     {
       invalid_args = TRUE;
@@ -1280,7 +1280,10 @@ evd_dbus_bridge_call_method_return (EvdDBusBridge *self,
 
   g_variant_get (variant_args, "(s)", &return_args);
 
-  return_variant = json_data_to_gvariant (return_args, -1, signature, NULL);
+  return_variant = json_gvariant_deserialize_data (return_args,
+                                                   -1,
+                                                   signature,
+                                                   NULL);
   if (return_variant == NULL)
     {
       invalid_args = TRUE;
@@ -1333,7 +1336,7 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
   GVariant *signal_args_variant;
   GError *error = NULL;
 
-  variant_args = json_data_to_gvariant (args, -1, "(sss)", NULL);
+  variant_args = json_gvariant_deserialize_data (args, -1, "(sss)", NULL);
   if (variant_args == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -1351,10 +1354,10 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
                  &signal_args,
                  &signature);
 
-  signal_args_variant = json_data_to_gvariant (signal_args,
-                                               -1,
-                                               signature,
-                                               NULL);
+  signal_args_variant = json_gvariant_deserialize_data (signal_args,
+                                                        -1,
+                                                        signature,
+                                                        NULL);
   if (signal_args_variant == NULL)
     {
       evd_dbus_bridge_send_error (self,
@@ -1485,7 +1488,7 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
   guint32 subject;
   gchar *args;
 
-  variant_msg = json_data_to_gvariant (msg, length, "(ytuus)", NULL);
+  variant_msg = json_gvariant_deserialize_data (msg, length, "(ytuus)", NULL);
   if (variant_msg == NULL)
     {
       evd_dbus_bridge_send_error_in_idle (self,
