@@ -116,6 +116,7 @@ void               evd_tls_session_reset                   (EvdTlsSession *self)
 gboolean           evd_tls_session_set_server_name         (EvdTlsSession  *self,
                                                             const gchar    *server_name,
                                                             GError        **error);
+const gchar       *evd_tls_session_get_server_name         (EvdTlsSession  *self);
 
 G_END_DECLS
 

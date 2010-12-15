@@ -193,6 +193,9 @@ evd_tls_session_finalize (GObject *obj)
   if (self->priv->priority != NULL)
     g_free (self->priv->priority);
 
+  if (self->priv->server_name != NULL)
+    g_free (self->priv->server_name);
+
   G_OBJECT_CLASS (evd_tls_session_parent_class)->finalize (obj);
 }
 
@@ -925,4 +928,56 @@ evd_tls_session_set_server_name (EvdTlsSession  *self,
     self->priv->server_name = g_strdup (server_name);
 
   return evd_tls_session_set_server_name_internal (self, error);
+}
+
+const gchar *
+evd_tls_session_get_server_name (EvdTlsSession *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_SESSION (self), NULL);
+
+  if (self->priv->mode == EVD_TLS_MODE_SERVER
+      && self->priv->server_name == NULL
+      && self->priv->session != NULL)
+    {
+      gint err;
+      gsize len = 16;
+      gchar buf[16] = {0, };
+      guint type;
+      guint index = 0;
+
+      do
+        {
+          err = gnutls_server_name_get (self->priv->session,
+                                        buf,
+                                        &len,
+                                        &type,
+                                        index);
+
+          if (err == GNUTLS_E_SUCCESS && type == GNUTLS_NAME_DNS)
+            {
+              self->priv->server_name = g_new0 (gchar, len);
+
+              if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
+                {
+                  err = gnutls_server_name_get (self->priv->session,
+                                                self->priv->server_name,
+                                                &len,
+                                                &type,
+                                                index);
+                }
+              else
+                {
+                  memmove (self->priv->server_name, buf, len);
+                }
+            }
+          else
+            {
+              index++;
+            }
+        }
+      while (err != GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE
+             && self->priv->server_name == NULL);
+    }
+
+  return self->priv->server_name;
 }
