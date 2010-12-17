@@ -381,8 +381,6 @@ evd_service_connection_on_tls_started (GObject      *obj,
   if (evd_connection_starttls_finish (conn, res, &error))
     {
       evd_service_validate_tls_connection (self, conn);
-
-      g_object_unref (conn);
     }
   else
     {
@@ -391,6 +389,8 @@ evd_service_connection_on_tls_started (GObject      *obj,
 
       g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
+
+  g_object_unref (conn);
 }
 
 static void
