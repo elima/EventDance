@@ -419,17 +419,14 @@ evd_tls_session_on_credentials_ready (EvdTlsCredentials *cred,
   if (! evd_tls_session_bind_credentials (self, cred, &error))
     {
       /* TODO: handle error */
-      g_debug ("error binding credentials");
+      g_debug ("error binding credentials: %s", error->message);
       g_error_free (error);
     }
-  else if (! evd_tls_session_handshake_internal (self, &error))
+  else if (evd_tls_session_handshake_internal (self, &error) < 0)
     {
-      if (error != NULL)
-        {
-          /* TODO: raise error asynchronously, by firing 'error' signal */
-          g_debug ("handshake error!: %s", error->message);
-          g_error_free (error);
-        }
+      /* TODO: raise error asynchronously, by firing 'error' signal */
+      g_debug ("handshake error!: %s", error->message);
+      g_error_free (error);
     }
 }
 
