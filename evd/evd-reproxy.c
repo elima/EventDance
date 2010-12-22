@@ -473,7 +473,7 @@ evd_reproxy_add_backend (EvdReproxy *self, const gchar *address)
   g_return_val_if_fail (EVD_IS_REPROXY (self), NULL);
   g_return_val_if_fail (address != NULL, NULL);
 
-  backend = evd_connection_pool_new (address);
+  backend = evd_connection_pool_new (address, EVD_TYPE_CONNECTION);
 
   self->priv->backends = g_list_append (self->priv->backends, backend);
 

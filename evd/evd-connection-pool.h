@@ -55,7 +55,8 @@ struct _EvdConnectionPoolClass
 
 GType                  evd_connection_pool_get_type                 (void) G_GNUC_CONST;
 
-EvdConnectionPool     *evd_connection_pool_new                      (const gchar *address);
+EvdConnectionPool     *evd_connection_pool_new                      (const gchar *address,
+                                                                     GType        connection_type);
 
 gboolean               evd_connection_pool_has_free_connections     (EvdConnectionPool *self);
 

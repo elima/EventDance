@@ -51,6 +51,8 @@ struct _EvdConnectionPoolPrivate
   GQueue *conns;
   GQueue *sockets;
   GQueue *requests;
+
+  GType connection_type;
 };
 
 static void     evd_connection_pool_class_init         (EvdConnectionPoolClass *class);
@@ -240,21 +242,28 @@ evd_connection_pool_create_new_socket (EvdConnectionPool *self)
                     G_CALLBACK (evd_connection_pool_socket_on_close),
                     self);
 
+  g_object_set (socket,
+                "io-stream-type", self->priv->connection_type,
+                NULL);
+
   evd_connection_pool_reuse_socket (self, socket);
 }
 
 /* public methods */
 
 EvdConnectionPool *
-evd_connection_pool_new (const gchar *address)
+evd_connection_pool_new (const gchar *address, GType connection_type)
 {
   EvdConnectionPool *self;
 
   g_return_val_if_fail (address != NULL, NULL);
+  g_return_val_if_fail (g_type_is_a (connection_type, EVD_TYPE_CONNECTION),
+                        NULL);
 
   self = g_object_new (EVD_TYPE_CONNECTION_POOL, NULL);
 
   self->priv->target = g_strdup (address);
+  self->priv->connection_type = connection_type;
 
   while (g_queue_get_length (self->priv->sockets) < self->priv->min_conns)
     evd_connection_pool_create_new_socket (self);
