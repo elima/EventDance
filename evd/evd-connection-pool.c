@@ -55,26 +55,32 @@ struct _EvdConnectionPoolPrivate
   GType connection_type;
 };
 
-static void     evd_connection_pool_class_init         (EvdConnectionPoolClass *class);
-static void     evd_connection_pool_init               (EvdConnectionPool *self);
+static void     evd_connection_pool_class_init            (EvdConnectionPoolClass *class);
+static void     evd_connection_pool_init                  (EvdConnectionPool *self);
+static void     evd_connection_pool_finalize              (GObject *obj);
 
-static void     evd_connection_pool_finalize           (GObject *obj);
-static void     evd_connection_pool_dispose            (GObject *obj);
+static void     evd_connection_pool_foreach_unref_conn    (gpointer data,
+                                                           gpointer user_data);
+static void     evd_connection_pool_foreach_unref_socket  (gpointer data,
+                                                           gpointer user_data);
+static void     evd_connection_pool_foreach_unref_request (gpointer data,
+                                                           gpointer user_data);
 
-static void     evd_connection_pool_create_new_socket  (EvdConnectionPool *self);
+static void     evd_connection_pool_socket_on_close       (EvdSocket *socket,
+                                                           gpointer   user_data);
 
-static void     evd_connection_pool_reuse_socket       (EvdConnectionPool *self,
-                                                        EvdSocket         *socket);
+static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *self);
+
+static void     evd_connection_pool_reuse_socket          (EvdConnectionPool *self,
+                                                           EvdSocket         *socket);
 
 static void
 evd_connection_pool_class_init (EvdConnectionPoolClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_connection_pool_dispose;
   obj_class->finalize = evd_connection_pool_finalize;
 
-  /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdConnectionPoolPrivate));
 }
 
@@ -92,20 +98,31 @@ evd_connection_pool_init (EvdConnectionPool *self)
   priv->conns = g_queue_new ();
   priv->sockets = g_queue_new ();
   priv->requests = g_queue_new ();
-}
 
-static void
-evd_connection_pool_dispose (GObject *obj)
-{
-  /* @TODO */
-
-  G_OBJECT_CLASS (evd_connection_pool_parent_class)->dispose (obj);
+  priv->connection_type = EVD_TYPE_CONNECTION;
 }
 
 static void
 evd_connection_pool_finalize (GObject *obj)
 {
-  /* @TODO */
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
+
+  g_free (self->priv->target);
+
+  g_queue_foreach (self->priv->conns,
+                   evd_connection_pool_foreach_unref_conn,
+                   self);
+  g_queue_free (self->priv->conns);
+
+  g_queue_foreach (self->priv->sockets,
+                   evd_connection_pool_foreach_unref_socket,
+                   self);
+  g_queue_free (self->priv->sockets);
+
+  g_queue_foreach (self->priv->requests,
+                   evd_connection_pool_foreach_unref_request,
+                   self);
+  g_queue_free (self->priv->requests);
 
   G_OBJECT_CLASS (evd_connection_pool_parent_class)->finalize (obj);
 }
@@ -129,6 +146,44 @@ evd_connection_pool_connection_on_close (EvdConnection *conn,
     }
 
   g_object_unref (conn);
+}
+
+static void
+evd_connection_pool_foreach_unref_conn (gpointer data,
+                                        gpointer user_data)
+{
+  EvdConnection *conn = EVD_CONNECTION (data);
+
+  g_signal_handlers_disconnect_by_func (conn,
+                                        evd_connection_pool_connection_on_close,
+                                        user_data);
+  g_object_unref (conn);
+}
+
+static void
+evd_connection_pool_foreach_unref_socket (gpointer data,
+                                          gpointer user_data)
+{
+  EvdSocket *socket = EVD_SOCKET (data);
+
+  g_signal_handlers_disconnect_by_func (socket,
+                                        evd_connection_pool_socket_on_close,
+                                        user_data);
+  g_object_unref (socket);
+}
+
+static void
+evd_connection_pool_foreach_unref_request (gpointer data,
+                                           gpointer user_data)
+{
+  GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT (data);
+
+  g_simple_async_result_set_error (result,
+                                   G_IO_ERROR,
+                                   G_IO_ERROR_CLOSED,
+                                   "Connection pool destroyed");
+  g_simple_async_result_complete (result);
+  g_object_unref (result);
 }
 
 static void
