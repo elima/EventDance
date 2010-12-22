@@ -331,7 +331,7 @@ evd_socket_finalize (GObject *obj)
 {
   EvdSocket *self = EVD_SOCKET (obj);
 
-  evd_poll_unref (self->priv->poll);
+  g_object_unref (self->priv->poll);
 
   if (self->priv->context != NULL)
     g_main_context_unref (self->priv->context);

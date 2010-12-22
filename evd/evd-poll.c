@@ -181,64 +181,58 @@ evd_poll_dispatch (gpointer user_data)
   static struct epoll_event events[DEFAULT_MAX_FDS];
   gint i;
   gint nfds;
-  gboolean abort = FALSE;
+  gboolean started;
 
   nfds = epoll_wait (self->priv->epoll_fd,
                      events,
                      self->priv->max_fds,
                      -1);
 
-  if (nfds == -1)
-    {
-      /* TODO: handle error */
-      g_warning ("epoll error ocurred");
-
-      abort = TRUE;
-    }
-
   G_LOCK (mutex);
 
-  if (! abort)
-  for (i=0; i < nfds; i++)
-    {
-      EvdPollSession *session;
-      GIOCondition cond = 0;
+  started = self->priv->started;
 
-      session = (EvdPollSession *) events[i].data.ptr;
+  if (started && nfds > 0)
+    for (i=0; i < nfds; i++)
+      {
+        EvdPollSession *session;
+        GIOCondition cond = 0;
 
-      if ( (events[i].events & EPOLLIN) > 0 ||
-           (events[i].events & EPOLLPRI) > 0)
-        cond |= G_IO_IN;
+        session = (EvdPollSession *) events[i].data.ptr;
 
-      if (events[i].events & EPOLLOUT)
-        cond |= G_IO_OUT;
+        if ( (events[i].events & EPOLLIN) > 0 ||
+             (events[i].events & EPOLLPRI) > 0)
+          cond |= G_IO_IN;
 
-      if ( (events[i].events & EPOLLHUP) > 0 ||
-           (events[i].events & EPOLLRDHUP) > 0)
-        cond |= G_IO_HUP;
+        if (events[i].events & EPOLLOUT)
+          cond |= G_IO_OUT;
 
-      if (events[i].events & EPOLLERR)
-        cond |= G_IO_ERR;
+        if ( (events[i].events & EPOLLHUP) > 0 ||
+             (events[i].events & EPOLLRDHUP) > 0)
+          cond |= G_IO_HUP;
 
-      if (session->ref_count > 0)
-        {
-          session->cond_out |= cond;
+        if (events[i].events & EPOLLERR)
+          cond |= G_IO_ERR;
 
-          if (session->src_id == 0)
-            {
-              evd_poll_session_ref_nolock (session);
-              session->src_id = evd_timeout_add (session->main_context,
-                                                 0,
-                                                 session->priority,
-                                                 evd_poll_callback_wrapper,
-                                                 session);
-            }
-        }
-    }
+        if (session->ref_count > 0)
+          {
+            session->cond_out |= cond;
+
+            if (session->src_id == 0)
+              {
+                evd_poll_session_ref_nolock (session);
+                session->src_id = evd_timeout_add (session->main_context,
+                                                   0,
+                                                   session->priority,
+                                                   evd_poll_callback_wrapper,
+                                                   session);
+              }
+          }
+      }
 
   G_UNLOCK (mutex);
 
-  return TRUE;
+  return started;
 }
 
 static gpointer
@@ -335,21 +329,22 @@ evd_poll_stop (EvdPoll *self)
 
   self->priv->started = FALSE;
 
-  if (self->priv->main_loop != NULL)
-    g_main_loop_quit (self->priv->main_loop);
-
   /* the only purpose of this is to interrupt the 'epoll_wait'.
      FIXME: Adding fd '0' is just a nasty hack that happens to work.
      Have to figure out a better way to interrupt it. */
   evd_poll_epoll_ctl (self, 0, EPOLL_CTL_ADD, G_IO_OUT, NULL);
 
+  if (self->priv->main_loop != NULL)
+    g_main_loop_quit (self->priv->main_loop);
+
+  G_UNLOCK (mutex);
+
   g_thread_join (self->priv->thread);
+
   self->priv->thread = NULL;
 
   close (self->priv->epoll_fd);
   self->priv->epoll_fd = 0;
-
-  G_UNLOCK (mutex);
 }
 
 /* public methods */
@@ -377,26 +372,6 @@ evd_poll_get_default (void)
   G_UNLOCK (mutex);
 
   return evd_poll_default;
-}
-
-void
-evd_poll_ref (EvdPoll *self)
-{
-  g_return_if_fail (EVD_IS_POLL (self));
-
-  G_LOCK (mutex);
-  g_object_ref (self);
-  G_UNLOCK (mutex);
-}
-
-void
-evd_poll_unref (EvdPoll *self)
-{
-  g_return_if_fail (EVD_IS_POLL (self));
-
-  G_LOCK (mutex);
-  g_object_unref (self);
-  G_UNLOCK (mutex);
 }
 
 EvdPollSession *

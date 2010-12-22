@@ -62,9 +62,6 @@ EvdPoll           *evd_poll_new           (void);
 
 EvdPoll           *evd_poll_get_default   (void);
 
-void               evd_poll_ref           (EvdPoll *self);
-void               evd_poll_unref         (EvdPoll *self);
-
 EvdPollSession    *evd_poll_add           (EvdPoll          *self,
                                            gint              fd,
                                            GIOCondition      condition,
