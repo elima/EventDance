@@ -68,7 +68,8 @@ source_c = \
 	evd-http-request.c \
 	evd-web-dir.c \
 	evd-dbus-agent.c \
-	evd-dbus-bridge.c
+	evd-dbus-bridge.c \
+	evd-dbus-daemon.c
 
 source_h = \
 	evd.h \
@@ -106,7 +107,8 @@ source_h = \
 	evd-http-request.h \
 	evd-web-dir.h \
 	evd-dbus-agent.h \
-	evd-dbus-bridge.h
+	evd-dbus-bridge.h \
+	evd-dbus-daemon.h
 
 source_h_priv = \
 	evd-marshal.h \

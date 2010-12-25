@@ -55,5 +55,6 @@
 #include <evd-web-dir.h>
 #include <evd-dbus-agent.h>
 #include <evd-dbus-bridge.h>
+#include <evd-dbus-daemon.h>
 
 #endif /* __EVD_H__ */
