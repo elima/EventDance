@@ -49,6 +49,11 @@ struct _EvdTlsCredentialsPrivate
   gboolean preparing;
 
   EvdTlsMode mode;
+
+  EvdTlsCredentialsCertCb cert_cb;
+  gpointer cert_cb_user_data;
+  gnutls_retr_st *cert_cb_certs;
+  gint cert_cb_result;
 };
 
 /* signals */
@@ -164,6 +169,11 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
   priv->ready = FALSE;
   priv->preparing = FALSE;
   priv->anonymous = TRUE;
+
+  priv->cert_cb = NULL;
+  priv->cert_cb_user_data = NULL;
+  priv->cert_cb_certs = NULL;
+  priv->cert_cb_result = 0;
 }
 
 static void
@@ -273,6 +283,50 @@ evd_tls_credentials_get_property (GObject    *obj,
       break;
     }
 }
+
+static gint
+evd_tls_credentials_server_cert_cb (gnutls_session_t  session,
+                                    gnutls_retr_st   *st)
+{
+  EvdTlsCredentials *self;
+  EvdTlsSession *tls_session;
+
+  tls_session = gnutls_transport_get_ptr (session);
+  g_assert (EVD_IS_TLS_SESSION (tls_session));
+
+  self = evd_tls_session_get_credentials (tls_session);
+
+  g_assert (self->priv->cert_cb != NULL);
+
+  self->priv->cert_cb_certs = st;
+  self->priv->cert_cb_certs->ncerts = 0;
+  self->priv->cert_cb_result = 0;
+
+  if (! self->priv->cert_cb (self,
+                             tls_session,
+                             NULL,
+                             NULL,
+                             self->priv->cert_cb_user_data))
+    {
+      self->priv->cert_cb_result = -1;
+    }
+
+  self->priv->cert_cb_certs = NULL;
+
+  return self->priv->cert_cb_result;
+}
+
+/* @TODO
+static gint
+evd_tls_credentials_client_cert_cb (gnutls_session_t             session,
+                                    const gnutls_datum_t        *req_ca_rdn,
+                                    gint                         nreqs,
+                                    const gnutls_pk_algorithm_t *sign_algos,
+                                    int                          sign_algos_length,
+                                    gnutls_retr_st              *st)
+{
+}
+*/
 
 static gboolean
 evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
@@ -489,4 +543,33 @@ evd_tls_credentials_get_credentials (EvdTlsCredentials *self)
     return self->priv->anon_server_cred;
   else
     return self->priv->anon_client_cred;
+}
+
+/**
+ * evd_tls_credentials_set_cert_callback:
+ * @self:
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ **/
+void
+evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
+                                       EvdTlsCredentialsCertCb  callback,
+                                       gpointer                 user_data)
+{
+  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (self));
+
+  self->priv->cert_cb = callback;
+  self->priv->cert_cb_user_data = user_data;
+
+  if (self->priv->cred != NULL)
+    {
+      gnutls_certificate_server_set_retrieve_function (self->priv->cred,
+                                            evd_tls_credentials_server_cert_cb);
+
+      /* @TODO: client cert retrieval disabled by now */
+      /*
+      gnutls_certificate_client_set_retrieve_function (self->priv->cred,
+                                            evd_tls_credentials_client_cert_cb);
+      */
+    }
 }

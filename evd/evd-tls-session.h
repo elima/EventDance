@@ -27,8 +27,7 @@
 #include <gio/gio.h>
 #include <gnutls/gnutls.h>
 
-#include "evd-tls-common.h"
-#include "evd-tls-credentials.h"
+#include <evd-tls-common.h>
 
 G_BEGIN_DECLS
 
@@ -70,10 +69,6 @@ struct _EvdTlsSessionClass
 GType              evd_tls_session_get_type                (void) G_GNUC_CONST;
 
 EvdTlsSession     *evd_tls_session_new                     (void);
-
-void               evd_tls_session_set_credentials         (EvdTlsSession     *self,
-                                                            EvdTlsCredentials *credentials);
-EvdTlsCredentials *evd_tls_session_get_credentials         (EvdTlsSession *self);
 
 void               evd_tls_session_set_transport_pull_func (EvdTlsSession         *self,
                                                             EvdTlsSessionPullFunc  func,

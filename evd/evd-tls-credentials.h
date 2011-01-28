@@ -25,11 +25,22 @@
 
 #include <glib-object.h>
 
+#include <evd-tls-common.h>
+#include <evd-tls-session.h>
+#include <evd-tls-certificate.h>
+#include <evd-tls-privkey.h>
+
 G_BEGIN_DECLS
 
 typedef struct _EvdTlsCredentials EvdTlsCredentials;
 typedef struct _EvdTlsCredentialsClass EvdTlsCredentialsClass;
 typedef struct _EvdTlsCredentialsPrivate EvdTlsCredentialsPrivate;
+
+typedef gboolean (* EvdTlsCredentialsCertCb) (EvdTlsCredentials *self,
+                                              EvdTlsSession     *session,
+                                              GList             *ca_rdns,
+                                              GList             *algorithms,
+                                              gpointer           user_data);
 
 struct _EvdTlsCredentials
 {
@@ -76,6 +87,13 @@ gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self
 gboolean           evd_tls_credentials_get_anonymous   (EvdTlsCredentials *self);
 gpointer           evd_tls_credentials_get_credentials (EvdTlsCredentials *self);
 
+void               evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
+                                                          EvdTlsCredentialsCertCb  callback,
+                                                          gpointer                 user_data);
+
+void               evd_tls_session_set_credentials       (EvdTlsSession     *self,
+                                                          EvdTlsCredentials *credentials);
+EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
 
 G_END_DECLS
 

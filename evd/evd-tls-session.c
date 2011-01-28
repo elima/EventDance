@@ -23,9 +23,11 @@
 #include <errno.h>
 #include <string.h>
 
+#include "evd-tls-session.h"
+
 #include "evd-error.h"
 #include "evd-tls-common.h"
-#include "evd-tls-session.h"
+#include "evd-tls-credentials.h"
 #include "evd-tls-certificate.h"
 
 #define EVD_TLS_SESSION_DEFAULT_PRIORITY "NORMAL"
