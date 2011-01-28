@@ -84,8 +84,7 @@ gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self
                                                         EvdTlsMode          mode,
                                                         GError            **error);
 
-gboolean           evd_tls_credentials_get_anonymous   (EvdTlsCredentials *self);
-gpointer           evd_tls_credentials_get_credentials (EvdTlsCredentials *self);
+gpointer           evd_tls_credentials_get_credentials   (EvdTlsCredentials *self);
 
 void               evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
                                                           EvdTlsCredentialsCertCb  callback,

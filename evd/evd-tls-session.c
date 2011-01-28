@@ -376,19 +376,6 @@ evd_tls_session_bind_credentials (EvdTlsSession      *self,
 
       return FALSE;
     }
-  else if (evd_tls_credentials_get_anonymous (cred))
-    {
-      if (self->priv->mode == EVD_TLS_MODE_SERVER)
-        err_code =
-          gnutls_credentials_set (self->priv->session,
-                                  GNUTLS_CRD_ANON,
-                                  (gnutls_anon_server_credentials_t) cred_internal);
-      else
-        err_code =
-          gnutls_credentials_set (self->priv->session,
-                                  GNUTLS_CRD_ANON,
-                                  (gnutls_anon_client_credentials_t) cred_internal);
-    }
   else
     {
       err_code =
