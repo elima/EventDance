@@ -33,12 +33,14 @@ noinst_PROGRAMS = \
 	test-all \
 	test-json-filter \
 	test-resolver \
-	test-dbus-bridge
+	test-dbus-bridge \
+	test-tls-cipher
 
 TESTS = \
 	test-json-filter \
 	test-resolver \
-	test-dbus-bridge
+	test-dbus-bridge \
+	test-tls-cipher
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -60,6 +62,10 @@ test_dbus_bridge_CFLAGS = $(AM_CFLAGS)
 test_dbus_bridge_LDADD = $(AM_LIBS)
 test_dbus_bridge_SOURCES = test-dbus-bridge.c
 
+# test-tls-cipher
+test_tls_cipher_CFLAGS = $(AM_CFLAGS)
+test_tls_cipher_LDADD = $(AM_LIBS)
+test_tls_cipher_SOURCES = test-tls-cipher.c
 
 if HAVE_JS
 noinst_PROGRAMS += test-all-js
