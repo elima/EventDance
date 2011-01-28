@@ -41,6 +41,7 @@
 #include <evd-tls-session.h>
 #include <evd-tls-credentials.h>
 #include <evd-tls-certificate.h>
+#include <evd-tls-privkey.h>
 #include <evd-connection.h>
 #include <evd-io-stream-group.h>
 #include <evd-http-connection.h>

@@ -51,6 +51,7 @@ source_c = \
 	evd-tls-dh-generator.c \
 	evd-tls-session.c \
 	evd-tls-certificate.c \
+	evd-tls-privkey.c \
 	evd-tls-credentials.c \
 	evd-connection.c \
 	evd-io-stream-group.c \
@@ -91,6 +92,7 @@ source_h = \
 	evd-service.h \
 	evd-tls-session.h \
 	evd-tls-certificate.h \
+	evd-tls-privkey.h \
 	evd-tls-credentials.h \
 	evd-connection.h \
 	evd-io-stream-group.h \
