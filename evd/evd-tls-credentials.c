@@ -38,10 +38,6 @@ struct _EvdTlsCredentialsPrivate
   guint              dh_bits;
   gnutls_dh_params_t dh_params;
 
-  gchar *cert_file;
-  gchar *key_file;
-  gchar *trust_file;
-
   gboolean ready;
   gboolean preparing;
 
@@ -66,10 +62,7 @@ static guint evd_tls_credentials_signals[SIGNAL_LAST] = { 0 };
 enum
 {
   PROP_0,
-  PROP_DH_BITS,
-  PROP_CERT_FILE,
-  PROP_KEY_FILE,
-  PROP_TRUST_FILE
+  PROP_DH_BITS
 };
 
 static void     evd_tls_credentials_class_init         (EvdTlsCredentialsClass *class);
@@ -119,30 +112,6 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_CERT_FILE,
-                                   g_param_spec_string ("cert-file",
-                                                        "Certificate file",
-                                                        "Filename of the X.509 or OpenPGP certificate file to use with this credentials",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_KEY_FILE,
-                                   g_param_spec_string ("key-file",
-                                                        "Private key file",
-                                                        "Filename of the X.509 or OpenPGP private key file to use with this credentials",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_TRUST_FILE,
-                                   g_param_spec_string ("trust-file",
-                                                        "Trust file",
-                                                        "Filename of the X.509 or OpenPGP trust chain to use with this credentials",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdTlsCredentialsPrivate));
 }
@@ -159,9 +128,6 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv->dh_bits = 0;
   priv->dh_params = NULL;
-
-  priv->cert_file = NULL;
-  priv->key_file = NULL;
 
   priv->ready = FALSE;
   priv->preparing = FALSE;
@@ -185,15 +151,6 @@ evd_tls_credentials_finalize (GObject *obj)
 
   if (self->priv->cred != NULL)
     gnutls_certificate_free_credentials (self->priv->cred);
-
-  if (self->priv->cert_file != NULL)
-    g_free (self->priv->cert_file);
-
-  if (self->priv->key_file != NULL)
-    g_free (self->priv->key_file);
-
-  if (self->priv->trust_file != NULL)
-    g_free (self->priv->trust_file);
 
   if (self->priv->dh_params != NULL)
     gnutls_dh_params_deinit (self->priv->dh_params);
@@ -228,18 +185,6 @@ evd_tls_credentials_set_property (GObject      *obj,
         }
       break;
 
-    case PROP_CERT_FILE:
-      evd_tls_credentials_set_cert_file (self, g_value_get_string (value));
-      break;
-
-    case PROP_KEY_FILE:
-      evd_tls_credentials_set_key_file (self, g_value_get_string (value));
-      break;
-
-    case PROP_TRUST_FILE:
-      evd_tls_credentials_set_trust_file (self, g_value_get_string (value));
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -260,18 +205,6 @@ evd_tls_credentials_get_property (GObject    *obj,
     {
     case PROP_DH_BITS:
       g_value_set_uint (value, self->priv->dh_bits);
-      break;
-
-    case PROP_CERT_FILE:
-      g_value_set_string (value, self->priv->cert_file);
-      break;
-
-    case PROP_KEY_FILE:
-      g_value_set_string (value, self->priv->key_file);
-      break;
-
-    case PROP_TRUST_FILE:
-      g_value_set_string (value, self->priv->trust_file);
       break;
 
     default:
@@ -395,36 +328,6 @@ evd_tls_credentials_new (void)
   self = g_object_new (EVD_TYPE_TLS_CREDENTIALS, NULL);
 
   return self;
-}
-
-void
-evd_tls_credentials_set_cert_file (EvdTlsCredentials *self,
-                                   const gchar       *cert_file)
-{
-  if (self->priv->cert_file != NULL)
-    g_free (self->priv->cert_file);
-
-  self->priv->cert_file = g_strdup (cert_file);
-}
-
-void
-evd_tls_credentials_set_key_file (EvdTlsCredentials *self,
-                                  const gchar       *key_file)
-{
-  if (self->priv->key_file != NULL)
-    g_free (self->priv->key_file);
-
-  self->priv->key_file = g_strdup (key_file);
-}
-
-void
-evd_tls_credentials_set_trust_file (EvdTlsCredentials *self,
-                                    const gchar       *trust_file)
-{
-  if (self->priv->trust_file != NULL)
-    g_free (self->priv->trust_file);
-
-  self->priv->trust_file = g_strdup (trust_file);
 }
 
 gboolean

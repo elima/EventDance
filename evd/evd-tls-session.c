@@ -605,6 +605,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
                                                      GNUTLS_CERT_REQUEST);
             }
 
+          gnutls_transport_set_ptr (self->priv->session, self);
           gnutls_transport_set_ptr2 (self->priv->session, self, self);
           gnutls_transport_set_push_function (self->priv->session,
                                               evd_tls_session_push);
