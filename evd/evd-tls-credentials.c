@@ -20,8 +20,8 @@
  * for more details.
  */
 
-#include "evd-error.h"
-#include "evd-tls-common.h"
+#include <gnutls/openpgp.h>
+
 #include "evd-tls-credentials.h"
 
 G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
@@ -499,4 +499,89 @@ evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
                                             evd_tls_credentials_client_cert_cb);
       */
     }
+}
+
+gboolean
+evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
+                                     EvdTlsCertificate  *cert,
+                                     EvdTlsPrivkey      *privkey,
+                                     GError            **error)
+{
+  gpointer _cert;
+  gpointer _privkey;
+  EvdTlsCertificateType type;
+
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (cert), FALSE);
+  g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (privkey), FALSE);
+
+  g_object_get (cert, "type", &type, NULL);
+  if (type != EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Invalid certificate type");
+      return FALSE;
+    }
+
+  _cert = evd_tls_certificate_get_certificate (cert);
+  _privkey = evd_tls_privkey_get_privkey (privkey);
+
+  if (_cert == NULL || _privkey == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Certificate or private key not initialized");
+      return FALSE;
+    }
+
+  if (self->priv->cert_cb_certs != NULL)
+    {
+      self->priv->cert_cb_certs->ncerts = 1;
+      self->priv->cert_cb_certs->deinit_all = 0;
+
+      if (type == EVD_TLS_CERTIFICATE_TYPE_X509)
+        {
+          self->priv->cert_cb_certs->type = GNUTLS_CRT_X509;
+          self->priv->cert_cb_certs->cert.x509 = (gnutls_x509_crt_t *) &_cert;
+          self->priv->cert_cb_certs->key.x509 = (gnutls_x509_privkey_t) _privkey;
+        }
+      else
+        {
+          self->priv->cert_cb_certs->type = GNUTLS_CRT_OPENPGP;
+          self->priv->cert_cb_certs->cert.pgp = (gnutls_openpgp_crt_t) _cert;
+          self->priv->cert_cb_certs->key.pgp = (gnutls_openpgp_privkey_t) _privkey;
+        }
+    }
+  else
+    {
+      gint err_code;
+
+      if (self->priv->cred == NULL)
+        gnutls_certificate_allocate_credentials (&self->priv->cred);
+
+      if (type == EVD_TLS_CERTIFICATE_TYPE_X509)
+        {
+          err_code = gnutls_certificate_set_x509_key (self->priv->cred,
+                                                      (gnutls_x509_crt_t *) &_cert,
+                                                      1,
+                                                      (gnutls_x509_privkey_t) _privkey);
+        }
+      else
+        {
+          err_code = gnutls_certificate_set_openpgp_key (self->priv->cred,
+                                                         (gnutls_openpgp_crt_t) _cert,
+                                                         (gnutls_openpgp_privkey_t) _privkey);
+        }
+
+      if (err_code != GNUTLS_E_SUCCESS)
+        {
+          evd_tls_build_error (err_code, error);
+          return FALSE;
+        }
+    }
+
+  return TRUE;
 }

@@ -90,6 +90,12 @@ void               evd_tls_credentials_set_cert_callback (EvdTlsCredentials     
                                                           EvdTlsCredentialsCertCb  callback,
                                                           gpointer                 user_data);
 
+gboolean           evd_tls_credentials_add_certificate   (EvdTlsCredentials  *self,
+                                                          EvdTlsCertificate  *cert,
+                                                          EvdTlsPrivkey      *privkey,
+                                                          GError            **error);
+
+
 void               evd_tls_session_set_credentials       (EvdTlsSession     *self,
                                                           EvdTlsCredentials *credentials);
 EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
