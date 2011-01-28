@@ -332,6 +332,19 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
   return FALSE;
 }
 
+gpointer
+evd_tls_certificate_get_certificate (EvdTlsCertificate *self)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), NULL);
+
+  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
+    return self->priv->x509_cert;
+  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
+    return self->priv->openpgp_cert;
+  else
+    return NULL;
+}
+
 gchar *
 evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
 {
