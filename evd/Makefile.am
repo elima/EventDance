@@ -71,7 +71,8 @@ source_c = \
 	evd-dbus-agent.c \
 	evd-dbus-bridge.c \
 	evd-dbus-daemon.c \
-	evd-jsonrpc.c
+	evd-jsonrpc.c \
+	evd-tls-cipher.c
 
 source_h = \
 	evd.h \
@@ -112,7 +113,8 @@ source_h = \
 	evd-dbus-agent.h \
 	evd-dbus-bridge.h \
 	evd-dbus-daemon.h \
-	evd-jsonrpc.h
+	evd-jsonrpc.h \
+	evd-tls-cipher.h
 
 source_h_priv = \
 	evd-marshal.h \

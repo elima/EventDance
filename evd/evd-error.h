@@ -29,6 +29,9 @@
 #define EVD_TLS_ERROR_DOMAIN_STR "org.eventdance.lib.TlsErrors"
 #define EVD_TLS_ERROR            g_quark_from_string (EVD_TLS_ERROR_DOMAIN_STR)
 
+#define EVD_TLS_GCRY_ERROR_DOMAIN_STR "org.eventdance.lib.TlsGcryErrors"
+#define EVD_TLS_GCRY_ERROR            g_quark_from_string (EVD_TLS_GCRY_ERROR_DOMAIN_STR)
+
 typedef enum
 {
   EVD_ERROR_NONE,
