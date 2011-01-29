@@ -81,7 +81,6 @@ void               evd_tls_credentials_set_trust_file  (EvdTlsCredentials *self,
 
 gboolean           evd_tls_credentials_ready           (EvdTlsCredentials *self);
 gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self,
-                                                        EvdTlsMode          mode,
                                                         GError            **error);
 
 gpointer           evd_tls_credentials_get_credentials   (EvdTlsCredentials *self);

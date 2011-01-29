@@ -623,7 +623,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
                                     G_CALLBACK (evd_tls_session_on_credentials_ready),
                                     self);
 
-              evd_tls_credentials_prepare (cred, self->priv->mode, error);
+              evd_tls_credentials_prepare (cred, error);
 
               return 0;
             }

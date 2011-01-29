@@ -41,8 +41,6 @@ struct _EvdTlsCredentialsPrivate
   gboolean ready;
   gboolean preparing;
 
-  EvdTlsMode mode;
-
   EvdTlsCredentialsCertCb cert_cb;
   gpointer cert_cb_user_data;
   gnutls_retr_st *cert_cb_certs;
@@ -126,7 +124,6 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv->cred = NULL;
 
-  priv->dh_bits = 0;
   priv->dh_params = NULL;
 
   priv->ready = FALSE;
@@ -279,12 +276,8 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
       */
     }
 
-  if (self->priv->mode == EVD_TLS_MODE_SERVER &&
-      self->priv->dh_bits != 0)
-    {
-      gnutls_certificate_set_dh_params (self->priv->cred,
-                                        self->priv->dh_params);
-    }
+  if (self->priv->dh_bits != 0)
+    gnutls_certificate_set_dh_params (self->priv->cred, self->priv->dh_params);
 
   self->priv->ready = TRUE;
   self->priv->preparing = FALSE;
@@ -340,7 +333,6 @@ evd_tls_credentials_ready (EvdTlsCredentials *self)
 
 gboolean
 evd_tls_credentials_prepare (EvdTlsCredentials  *self,
-                             EvdTlsMode          mode,
                              GError            **error)
 {
   g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
@@ -348,10 +340,7 @@ evd_tls_credentials_prepare (EvdTlsCredentials  *self,
   if (self->priv->preparing)
    return TRUE;
 
-  self->priv->mode = mode;
-
-  if (self->priv->mode == EVD_TLS_MODE_SERVER &&
-      self->priv->dh_bits != 0 && self->priv->dh_params == NULL)
+  if (self->priv->dh_bits != 0 && self->priv->dh_params == NULL)
     {
       evd_tls_generate_dh_params (self->priv->dh_bits,
                                   0,
@@ -391,17 +380,17 @@ evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
   self->priv->cert_cb = callback;
   self->priv->cert_cb_user_data = user_data;
 
-  if (self->priv->cred != NULL)
-    {
-      gnutls_certificate_server_set_retrieve_function (self->priv->cred,
+  if (self->priv->cred == NULL)
+    gnutls_certificate_allocate_credentials (&self->priv->cred);
+
+  gnutls_certificate_server_set_retrieve_function (self->priv->cred,
                                             evd_tls_credentials_server_cert_cb);
 
-      /* @TODO: client cert retrieval disabled by now */
-      /*
-      gnutls_certificate_client_set_retrieve_function (self->priv->cred,
-                                            evd_tls_credentials_client_cert_cb);
-      */
-    }
+  /* @TODO: client cert retrieval disabled by now */
+  /*
+    gnutls_certificate_client_set_retrieve_function (self->priv->cred,
+    evd_tls_credentials_client_cert_cb);
+  */
 }
 
 gboolean
@@ -419,7 +408,7 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (privkey), FALSE);
 
   g_object_get (cert, "type", &type, NULL);
-  if (type != EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
+  if (type == EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
     {
       g_set_error (error,
                    G_IO_ERROR,
