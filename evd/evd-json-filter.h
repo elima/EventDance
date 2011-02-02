@@ -67,25 +67,25 @@ typedef enum
 #define EVD_JSON_FILTER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_JSON_FILTER, EvdJsonFilterClass))
 
 
-GType evd_json_filter_get_type (void) G_GNUC_CONST;
+GType             evd_json_filter_get_type                   (void) G_GNUC_CONST;
 
-EvdJsonFilter    *evd_json_filter_new                (void);
+EvdJsonFilter    *evd_json_filter_new                        (void);
 
-void              evd_json_filter_reset              (EvdJsonFilter *self);
-gboolean          evd_json_filter_feed_len           (EvdJsonFilter  *self,
-                                                      const gchar    *buffer,
-                                                      gsize           size,
-                                                      GError        **error);
-gboolean          evd_json_filter_feed               (EvdJsonFilter  *self,
-                                                      const gchar    *buffer,
-                                                      GError        **error);
+void              evd_json_filter_reset                      (EvdJsonFilter *self);
 
-void              evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
-                                                      EvdJsonFilterOnPacketHandler  handler,
-                                                      gpointer                      user_data);
-void              evd_json_filter_set_on_packet      (EvdJsonFilter *self,
-                                                      GClosure      *closure);
+gboolean          evd_json_filter_feed_len                   (EvdJsonFilter  *self,
+                                                              const gchar    *buffer,
+                                                              gsize           size,
+                                                              GError        **error);
+gboolean          evd_json_filter_feed                       (EvdJsonFilter  *self,
+                                                              const gchar    *buffer,
+                                                              GError        **error);
 
+void              evd_json_filter_set_packet_handler         (EvdJsonFilter                *self,
+                                                              EvdJsonFilterOnPacketHandler  handler,
+                                                              gpointer                      user_data);
+void              evd_json_filter_set_packet_handler_closure (EvdJsonFilter *self,
+                                                              GClosure      *closure);
 
 G_END_DECLS
 

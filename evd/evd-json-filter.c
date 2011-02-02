@@ -603,8 +603,7 @@ evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
 
   if (handler == NULL)
     {
-      evd_json_filter_set_on_packet (self, NULL);
-
+      evd_json_filter_set_packet_handler_closure (self, NULL);
       return;
     }
 
@@ -615,16 +614,15 @@ evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
   if (G_CLOSURE_NEEDS_MARSHAL (closure))
     {
       GClosureMarshal marshal = evd_marshal_VOID__STRING_ULONG;
-
       g_closure_set_marshal (closure, marshal);
     }
 
-  evd_json_filter_set_on_packet (self, closure);
+  evd_json_filter_set_packet_handler_closure (self, closure);
 }
 
 void
-evd_json_filter_set_on_packet (EvdJsonFilter *self,
-                               GClosure      *closure)
+evd_json_filter_set_packet_handler_closure (EvdJsonFilter *self,
+                                            GClosure      *closure)
 {
   g_return_if_fail (EVD_IS_JSON_FILTER (self));
 
