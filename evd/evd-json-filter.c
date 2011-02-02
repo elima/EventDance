@@ -215,7 +215,6 @@ static void     evd_json_filter_class_init         (EvdJsonFilterClass *class);
 static void     evd_json_filter_init               (EvdJsonFilter *self);
 
 static void     evd_json_filter_finalize           (GObject *obj);
-static void     evd_json_filter_dispose            (GObject *obj);
 
 static void
 evd_json_filter_class_init (EvdJsonFilterClass *class)
@@ -224,7 +223,6 @@ evd_json_filter_class_init (EvdJsonFilterClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_json_filter_dispose;
   obj_class->finalize = evd_json_filter_finalize;
 
   /* add private structure */
@@ -246,12 +244,6 @@ evd_json_filter_init (EvdJsonFilter *self)
   evd_json_filter_reset (self);
 
   priv->on_packet = NULL;
-}
-
-static void
-evd_json_filter_dispose (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_json_filter_parent_class)->dispose (obj);
 }
 
 static void
