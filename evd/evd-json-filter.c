@@ -638,9 +638,11 @@ evd_json_filter_set_on_packet (EvdJsonFilter *self,
 
       return;
     }
-
-  g_closure_ref (closure);
-  g_closure_sink (closure);
+  else
+    {
+      g_closure_ref (closure);
+      g_closure_sink (closure);
+    }
 
   self->priv->on_packet = closure;
 }
