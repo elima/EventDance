@@ -268,9 +268,7 @@ evd_json_filter_push (EvdJsonFilter *self, gint mode)
   self->priv->top += 1;
 
   if (self->priv->top >= self->priv->depth)
-    {
-      return FALSE;
-    }
+    return FALSE;
 
   self->priv->stack[self->priv->top] = mode;
 
@@ -283,9 +281,7 @@ evd_json_filter_pop (EvdJsonFilter *self, gint mode)
   /* Pop the stack, assuring that the current mode matches the expectation.
      Return false if there is underflow or if the modes mismatch. */
   if ( (self->priv->top < 0) || (self->priv->stack[self->priv->top] != mode) )
-    {
-      return FALSE;
-    }
+    return FALSE;
 
   self->priv->top -= 1;
 

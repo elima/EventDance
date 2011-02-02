@@ -40,17 +40,12 @@ struct _EvdJsonFilter
 {
   GObject parent;
 
-  /* private structure */
   EvdJsonFilterPrivate *priv;
 };
 
 struct _EvdJsonFilterClass
 {
   GObjectClass parent_class;
-
-  /* virtual methods */
-
-  /* signal prototypes */
 };
 
 typedef enum
