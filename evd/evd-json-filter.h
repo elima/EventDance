@@ -48,12 +48,6 @@ struct _EvdJsonFilterClass
   GObjectClass parent_class;
 };
 
-typedef enum
-{
-  EVD_JSON_FILTER_ERROR_INVALID,
-  EVD_JSON_FILTER_ERROR_LAST
-} EvdJsonFilterErrors;
-
 #define EVD_TYPE_JSON_FILTER           (evd_json_filter_get_type ())
 #define EVD_JSON_FILTER(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_JSON_FILTER, EvdJsonFilter))
 #define EVD_JSON_FILTER_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_JSON_FILTER, EvdJsonFilterClass))
