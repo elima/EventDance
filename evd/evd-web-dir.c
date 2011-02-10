@@ -36,12 +36,15 @@ G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
 
 #define BLOCK_SIZE 0xFFFF
 
+#define DEFAULT_DIRECTORY_INDEX "index.html"
+
 /* private data */
 struct _EvdWebDirPrivate
 {
   gchar *root;
   gchar *alias;
   gboolean allow_put;
+  gchar *dir_index;
 };
 
 typedef struct
@@ -52,6 +55,7 @@ typedef struct
   EvdHttpConnection *conn;
   void *buffer;
   gsize size;
+  gchar *filename;
 } EvdWebDirBinding;
 
 /* properties */
@@ -86,6 +90,10 @@ static void     evd_web_dir_file_read_block      (EvdWebDirBinding *binding);
 
 static void     evd_web_dir_conn_on_write        (EvdConnection *conn,
                                                   gpointer       user_data);
+
+static void     evd_web_dir_request_file         (EvdWebDir        *self,
+                                                  const gchar      *filename,
+                                                  EvdWebDirBinding *binding);
 
 static void
 evd_web_dir_class_init (EvdWebDirClass *class)
@@ -136,6 +144,8 @@ evd_web_dir_init (EvdWebDir *self)
   self->priv = priv;
 
   priv->allow_put = DEFAULT_ALLOW_PUT;
+
+  priv->dir_index = g_strdup (DEFAULT_DIRECTORY_INDEX);
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
@@ -233,7 +243,11 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
   g_object_unref (binding->file);
   if (binding->io_stream != NULL)
     g_object_unref (binding->io_stream);
-  g_slice_free1 (BLOCK_SIZE, binding->buffer);
+
+  if (binding->buffer != NULL)
+    g_slice_free1 (BLOCK_SIZE, binding->buffer);
+
+  g_free (binding->filename);
 
   g_slice_free (EvdWebDirBinding, binding);
 
@@ -347,6 +361,7 @@ evd_web_dir_file_on_open (GObject      *object,
                                                   &error)) != NULL)
     {
       binding->io_stream = G_IO_STREAM (io_stream);
+      binding->buffer = g_slice_alloc (BLOCK_SIZE);
       evd_web_dir_file_read_block (binding);
     }
   else
@@ -361,61 +376,99 @@ evd_web_dir_file_on_info (GObject      *object,
                           GAsyncResult *res,
                           gpointer      user_data)
 {
-  EvdWebDirBinding *binding = (EvdWebDirBinding *) user_data;
+  EvdWebDirBinding *binding = user_data;
+  EvdWebDir *self = binding->web_dir;
   GFile *file = G_FILE (object);
   EvdHttpConnection *conn = binding->conn;
   GError *error = NULL;
   GFileInfo *info;
   SoupHTTPVersion ver;
   EvdHttpRequest *request;
+  GFileType file_type;
+  SoupMessageHeaders *headers;
 
   request = evd_http_connection_get_current_request (conn);
   ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
-  if ( (info = g_file_query_info_finish (G_FILE (object),
-                                         res,
-                                         &error)) != NULL)
-    {
-      SoupMessageHeaders *headers;
-
-      headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
-
-      soup_message_headers_set_content_type (headers,
-                                            g_file_info_get_content_type (info),
-                                            NULL);
-
-      soup_message_headers_set_content_length (headers,
-                                               g_file_info_get_size (info));
-
-      if (evd_http_connection_write_response_headers (conn,
-                                                      ver,
-                                                      SOUP_STATUS_OK,
-                                                      NULL,
-                                                      headers,
-                                                      NULL,
-                                                      &error))
-        {
-          /* now open file */
-          g_file_open_readwrite_async (file,
-                            evd_connection_get_priority (EVD_CONNECTION (conn)),
-                            NULL,
-                            evd_web_dir_file_on_open,
-                            binding);
-        }
-      else
-        {
-          g_debug ("error sending response headers: %s", error->message);
-          g_error_free (error);
-        }
-
-      soup_message_headers_free (headers);
-      g_object_unref (info);
-    }
-  else
+  info = g_file_query_info_finish (G_FILE (object), res, &error);
+  if (info == NULL)
     {
       evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
+      return;
     }
+
+  file_type = g_file_info_get_file_type (info);
+
+  /* file is a directory */
+  if (file_type == G_FILE_TYPE_DIRECTORY)
+    {
+      if (self->priv->dir_index != NULL)
+        {
+          gchar *new_filename;
+
+          new_filename = g_strdup_printf ("%s/%s",
+                                          binding->filename,
+                                          self->priv->dir_index);
+
+          evd_web_dir_request_file (self, new_filename, binding);
+
+          g_free (new_filename);
+        }
+      else
+        {
+          /* @TODO: respond with 404 Not Found */
+        }
+
+      goto out;
+    }
+  /* file is a symbolic link */
+  else if (file_type == G_FILE_TYPE_SYMBOLIC_LINK)
+    {
+      /* @TODO: check if we allow following symlinks */
+      goto out;
+    }
+  /* file is not a regular file */
+  else if (file_type != G_FILE_TYPE_REGULAR)
+    {
+      /* @TODO: respond with 404 Not Found */
+      goto out;
+    }
+
+  /* file is a regular file */
+  headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+
+  soup_message_headers_set_content_type (headers,
+                                         g_file_info_get_content_type (info),
+                                         NULL);
+  soup_message_headers_set_content_length (headers,
+                                           g_file_info_get_size (info));
+
+  if (evd_http_connection_write_response_headers (conn,
+                                                  ver,
+                                                  SOUP_STATUS_OK,
+                                                  NULL,
+                                                  headers,
+                                                  NULL,
+                                                  &error))
+    {
+      /* now open file */
+      g_file_open_readwrite_async (file,
+                                   evd_connection_get_priority (EVD_CONNECTION (conn)),
+                                   NULL,
+                                   evd_web_dir_file_on_open,
+                                   binding);
+    }
+  else
+    {
+      g_debug ("error sending response headers: %s", error->message);
+      g_error_free (error);
+    }
+
+  soup_message_headers_free (headers);
+
+ out:
+  g_object_unref (info);
 }
 
 static void
@@ -435,18 +488,43 @@ evd_web_dir_method_allowed (EvdWebDir *self, const gchar *method)
 }
 
 static void
+evd_web_dir_request_file (EvdWebDir        *self,
+                          const gchar      *filename,
+                          EvdWebDirBinding *binding)
+{
+  GFile *file;
+  const gchar *FILE_ATTRS =
+    "standard::fast-content-type,standard::content-type"
+    ",standard::size,standard::type";
+
+  g_free (binding->filename);
+  binding->filename = g_strdup (filename);
+
+  file = g_file_new_for_path (filename);
+
+  if (binding->file != NULL)
+    g_object_unref (binding->file);
+  binding->file = file;
+
+  g_file_query_info_async (file,
+                           FILE_ATTRS,
+                           G_FILE_QUERY_INFO_NONE,
+                           evd_connection_get_priority (EVD_CONNECTION (binding->conn)),
+                           NULL,
+                           evd_web_dir_file_on_info,
+                           binding);
+}
+
+static void
 evd_web_dir_request_handler (EvdWebService     *web_service,
                              EvdHttpConnection *conn,
                              EvdHttpRequest    *request)
 {
   EvdWebDir *self = EVD_WEB_DIR (web_service);
   gchar *filename = NULL;
-  GFile *file;
   EvdWebDirBinding *binding;
   SoupURI *uri;
   const gchar *path_without_alias = "";
-  const gchar *FILE_ATTRS =
-    "standard::fast-content-type,standard::content-type,standard::size";
 
   if (! evd_web_dir_method_allowed (self,
                                     evd_http_request_get_method (request)))
@@ -492,14 +570,9 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                           "/",
                           path_without_alias,
                           NULL);
-  file = g_file_new_for_path (filename);
-  g_free (filename);
 
   binding = g_slice_new0 (EvdWebDirBinding);
-
   binding->web_dir = self;
-  binding->file = file;
-  binding->buffer = g_slice_alloc (BLOCK_SIZE);
 
   g_object_ref (conn);
   binding->conn = conn;
@@ -508,13 +581,9 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                     G_CALLBACK (evd_web_dir_conn_on_write),
                     binding);
 
-  g_file_query_info_async (file,
-                           FILE_ATTRS,
-                           G_FILE_QUERY_INFO_NONE,
-                           evd_connection_get_priority (EVD_CONNECTION (conn)),
-                           NULL,
-                           evd_web_dir_file_on_info,
-                           binding);
+  evd_web_dir_request_file (self, filename, binding);
+
+  g_free (filename);
 }
 
 /* public methods */
