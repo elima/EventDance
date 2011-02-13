@@ -56,5 +56,6 @@
 #include <evd-dbus-agent.h>
 #include <evd-dbus-bridge.h>
 #include <evd-dbus-daemon.h>
+#include <evd-jsonrpc.h>
 
 #endif /* __EVD_H__ */

@@ -69,7 +69,8 @@ source_c = \
 	evd-web-dir.c \
 	evd-dbus-agent.c \
 	evd-dbus-bridge.c \
-	evd-dbus-daemon.c
+	evd-dbus-daemon.c \
+	evd-jsonrpc.c
 
 source_h = \
 	evd.h \
@@ -108,7 +109,8 @@ source_h = \
 	evd-web-dir.h \
 	evd-dbus-agent.h \
 	evd-dbus-bridge.h \
-	evd-dbus-daemon.h
+	evd-dbus-daemon.h \
+	evd-jsonrpc.h
 
 source_h_priv = \
 	evd-marshal.h \
@@ -156,7 +158,8 @@ evd_HEADERS = \
 
 jslib_DATA = \
 	js/evdWebTransport.js \
-	js/evdDBusBridge.js
+	js/evdDBusBridge.js \
+	js/evdJsonrpc.js
 
 # introspection support
 if HAVE_INTROSPECTION
