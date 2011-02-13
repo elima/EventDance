@@ -139,7 +139,7 @@ evd_peer_manager_finalize (GObject *obj)
     }
   g_queue_free (self->priv->removal_list);
 
-  g_hash_table_destroy (self->priv->peers);
+  g_hash_table_unref (self->priv->peers);
 
   g_timer_destroy (self->priv->peer_cleanup_timer);
 
