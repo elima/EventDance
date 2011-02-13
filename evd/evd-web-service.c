@@ -283,16 +283,18 @@ evd_web_service_add_connection_with_request (EvdWebService     *self,
                          evd_web_service_on_service_destroyed,
                          conn);
 
-  g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, return_to);
-
-  g_object_weak_ref (G_OBJECT (conn),
-                     evd_web_service_on_conn_destroyed,
-                     NULL);
-
   if (return_to != NULL)
-    g_object_weak_ref (G_OBJECT (return_to),
-                       evd_web_service_on_service_destroyed,
-                       conn);
+    {
+      g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, return_to);
+
+      g_object_weak_ref (G_OBJECT (conn),
+                         evd_web_service_on_conn_destroyed,
+                         NULL);
+
+      g_object_weak_ref (G_OBJECT (return_to),
+                         evd_web_service_on_service_destroyed,
+                         conn);
+    }
 
   return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                                   G_IO_STREAM (conn));
