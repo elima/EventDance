@@ -45,16 +45,6 @@ test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
 test_all_LDADD = $(AM_LIBS)
 test_all_SOURCES = test-all.c
 
-# test-socket-context
-test_socket_context_CFLAGS = $(AM_CFLAGS)
-test_socket_context_LDADD = $(AM_LIBS)
-test_socket_context_SOURCES = test-socket-context.c
-
-# test-socket
-test_socket_CFLAGS = $(AM_CFLAGS)
-test_socket_LDADD = $(AM_LIBS)
-test_socket_SOURCES = test-socket.c
-
 # test-resolver
 test_resolver_CFLAGS = $(AM_CFLAGS)
 test_resolver_LDADD = $(AM_LIBS)
