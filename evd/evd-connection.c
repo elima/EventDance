@@ -35,8 +35,6 @@
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
-#include "evd-stream-throttle.h"
-
 G_DEFINE_TYPE (EvdConnection, evd_connection, G_TYPE_IO_STREAM)
 
 #define EVD_CONNECTION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -1294,4 +1292,20 @@ evd_connection_flush_and_shutdown (EvdConnection  *self,
                             cancellable,
                             evd_connection_shutdown_on_flush,
                             self);
+}
+
+EvdStreamThrottle *
+evd_connection_get_input_throttle (EvdConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
+
+  return self->priv->input_throttle;
+}
+
+EvdStreamThrottle *
+evd_connection_get_output_throttle (EvdConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
+
+  return self->priv->output_throttle;
 }

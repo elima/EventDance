@@ -29,6 +29,7 @@
 #include <evd-socket.h>
 #include <evd-tls-session.h>
 #include <evd-io-stream-group.h>
+#include <evd-stream-throttle.h>
 
 G_BEGIN_DECLS
 
@@ -100,6 +101,9 @@ void               evd_connection_unlock_close         (EvdConnection *self);
 
 void               evd_connection_flush_and_shutdown   (EvdConnection  *self,
                                                         GCancellable   *cancellable);
+
+EvdStreamThrottle *evd_connection_get_input_throttle   (EvdConnection *self);
+EvdStreamThrottle *evd_connection_get_output_throttle  (EvdConnection *self);
 
 G_END_DECLS
 
