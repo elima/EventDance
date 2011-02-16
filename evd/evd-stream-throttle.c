@@ -39,6 +39,7 @@ struct _EvdStreamThrottlePrivate
 
   GTimeVal current_time;
   gsize    bytes;
+  gsize    actual_bandwidth;
   guint64  total;
   GTimeVal last;
 };
@@ -125,6 +126,7 @@ evd_stream_throttle_init (EvdStreamThrottle *self)
 
   priv->bytes = 0;
   priv->total = 0;
+  priv->actual_bandwidth = 0;
 }
 
 static void
@@ -198,6 +200,7 @@ evd_stream_throttle_update_current_time (EvdStreamThrottle *self)
     {
       G_LOCK (counters);
 
+      self->priv->actual_bandwidth = self->priv->bytes;
       self->priv->bytes = 0;
 
       G_UNLOCK (counters);
@@ -322,7 +325,7 @@ evd_stream_throttle_get_actual_bandwidth (EvdStreamThrottle *self)
 {
   g_return_val_if_fail (EVD_IS_STREAM_THROTTLE (self), -1.0);
 
-  return self->priv->bytes / 1024.0;
+  return self->priv->actual_bandwidth / 1024.0;
 }
 
 guint64
