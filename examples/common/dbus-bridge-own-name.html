@@ -19,6 +19,7 @@
     display: normal;
     border: solid 1px #000;
     border-radius: 5px;
+    color: #FFF;
 }
 
 .owned {
@@ -86,8 +87,8 @@ function onNewPeer (p) {
         callback: function (conn, err) {
             if (! err) {
                 dbusConn = conn;
-                // try to own the name
                 registerObject (conn);
+                // try to own the name
                 ownName (conn);
             }
             else

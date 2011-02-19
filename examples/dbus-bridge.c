@@ -78,7 +78,7 @@ main (gint argc, gchar *argv[])
 
   /* web dir */
   web_dir = evd_web_dir_new ();
-  evd_web_dir_set_root (web_dir, "../common");
+  evd_web_dir_set_root (web_dir, "./common");
 
   /* web selector */
   selector = evd_web_selector_new ();
