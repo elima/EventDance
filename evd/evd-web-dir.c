@@ -305,7 +305,8 @@ evd_web_dir_file_on_block_read (GObject      *object,
                                                NULL,
                                                &error))
         {
-          g_debug ("failed writing file to socket!");
+          evd_web_dir_handle_content_error (binding, error);
+          g_error_free (error);
         }
       else if (size < BLOCK_SIZE) /* EOF */
         {
