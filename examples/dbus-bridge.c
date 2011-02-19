@@ -3,7 +3,7 @@
  *
  * EventDance examples
  *
- * Copyright (C) 2010, Igalia S.L.
+ * Copyright (C) 2010, 2011 Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -12,7 +12,6 @@
 #include <evd.h>
 
 #define LISTEN_PORT 8080
-
 #define DBUS_ADDR "alias:abstract=/org/eventdance/lib/examples/dbus-bridge"
 
 static GMainLoop *main_loop;
@@ -31,9 +30,8 @@ on_listen (GObject      *service,
     }
   else
     {
-      g_debug ("%s", error->message);
+      g_debug ("Error: %s", error->message);
       g_error_free (error);
-
       g_main_loop_quit (main_loop);
     }
 }
@@ -43,6 +41,8 @@ transport_on_new_peer (EvdTransport *transport,
                        EvdPeer      *peer,
                        gpointer      user_data)
 {
+  /* This is to send a virtual DBus address to the peer instead of the real DBus daemon
+     address, for consistency and security reasons. */
   evd_dbus_agent_create_address_alias (G_OBJECT (peer),
                                        (gchar *) user_data,
                                        DBUS_ADDR);
@@ -56,12 +56,11 @@ main (gint argc, gchar *argv[])
   EvdWebTransport *transport;
   EvdWebDir *web_dir;
   EvdWebSelector *selector;
-  EvdTlsCredentials *cred;
   gchar *addr;
 
   g_type_init ();
-  evd_tls_init (NULL);
 
+  /* Session bus address */
   session_bus_addr = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION,
                                                       NULL,
                                                       NULL);
@@ -75,25 +74,16 @@ main (gint argc, gchar *argv[])
 
   /* DBus bridge */
   dbus_bridge = evd_dbus_bridge_new ();
-
   evd_dbus_bridge_add_transport (dbus_bridge, EVD_TRANSPORT (transport));
 
   /* web dir */
   web_dir = evd_web_dir_new ();
-  evd_web_dir_set_root (web_dir, "./common");
+  evd_web_dir_set_root (web_dir, "../common");
 
   /* web selector */
   selector = evd_web_selector_new ();
-
   evd_web_selector_set_default_service (selector, EVD_SERVICE (web_dir));
   evd_web_transport_set_selector (transport, selector);
-
-  /* evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE); */
-  cred = evd_service_get_tls_credentials (EVD_SERVICE (selector));
-  g_object_set (cred,
-                "cert-file", "../tests/certs/x509-server.pem",
-                "key-file", "../tests/certs/x509-server-key.pem",
-                NULL);
 
   /* start listening */
   addr = g_strdup_printf ("0.0.0.0:%d", LISTEN_PORT);
@@ -111,13 +101,10 @@ main (gint argc, gchar *argv[])
 
   /* free stuff */
   g_main_loop_unref (main_loop);
-
-  g_object_unref (dbus_bridge);
-  g_object_unref (transport);
   g_object_unref (selector);
   g_object_unref (web_dir);
-
-  evd_tls_deinit ();
+  g_object_unref (dbus_bridge);
+  g_object_unref (transport);
 
   return 0;
 }
