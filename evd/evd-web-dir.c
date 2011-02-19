@@ -495,8 +495,7 @@ evd_web_dir_request_file (EvdWebDir        *self,
 {
   GFile *file;
   const gchar *FILE_ATTRS =
-    "standard::fast-content-type,standard::content-type"
-    ",standard::size,standard::type";
+    "standard::fast-content-type,standard::size,standard::type";
 
   g_free (binding->filename);
   binding->filename = g_strdup (filename);
