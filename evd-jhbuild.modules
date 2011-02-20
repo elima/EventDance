@@ -20,10 +20,17 @@
     <branch repo="git.gnome.org" />
   </autotools>
 
-  <autotools id="gobject-introspection">
+  <autotools id="gobject-introspection" autogenargs="--disable-tests">
     <branch repo="git.gnome.org" module="gobject-introspection"/>
     <dependencies>
       <dep package="glib"/>
+    </dependencies>
+  </autotools>
+
+  <autotools id="glib-networking">
+    <branch repo="git.gnome.org" module="glib-networking"/>
+    <dependencies>
+      <dep package="glib" />
     </dependencies>
   </autotools>
 
@@ -31,20 +38,12 @@
     <branch repo="git.gnome.org" module="libsoup"/>
     <dependencies>
         <dep package="glib"/>
+        <dep package="glib-networking"/>
     </dependencies>
   </autotools>
 
-<!--
   <autotools id="json-glib">
     <branch repo="git.gnome.org" module="json-glib"/>
-    <dependencies>
-        <dep package="glib"/>
-    </dependencies>
-  </autotools>
--->
-
-  <autotools id="json-glib">
-    <branch repo="gitorious" module="eventdance/json-glib-elima" revision="gvariant" />
     <dependencies>
         <dep package="glib"/>
     </dependencies>
@@ -59,6 +58,13 @@
 
   <autotools id="gjs">
     <branch repo="git.gnome.org" module="gjs"/>
+    <dependencies>
+      <dep package="gobject-introspection" />
+    </dependencies>
+  </autotools>
+
+  <autotools id="pygobject" autogenargs="--disable-tests --disable-cairo">
+    <branch repo="git.gnome.org" module="pygobject"/>
     <dependencies>
       <dep package="gobject-introspection" />
     </dependencies>
@@ -87,9 +93,8 @@
     </dependencies>
   </autotools>
 
-  <tarball id="gnutls" version="2.8.0">
-    <source href="ftp://ftp.gnu.org/pub/gnu/gnutls/gnutls-2.8.0.tar.bz2"
-            md5sum="001c1d778ac7b53118cd5e14c6f9210d" size="6177498" />
+  <tarball id="gnutls" version="2.10.4">
+    <source href="http://ftp.gnu.org/gnu/gnutls/gnutls-2.10.4.tar.bz2"/>
     <dependencies>
       <dep package="libgcrypt" />
       <dep package="libtasn1" />
@@ -103,7 +108,6 @@
       <dep package="gobject-introspection"/>
       <dep package="json-glib"/>
       <dep package="libsoup"/>
-      <dep package="gir-repository"/>
       <dep package="gnutls"/>
     </dependencies>
   </autotools>
