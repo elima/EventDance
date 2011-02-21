@@ -187,7 +187,7 @@ evd_tls_privkey_detect_type (const gchar *raw_data)
 {
   if (g_strstr_len (raw_data, 26, "BEGIN RSA PRIVATE KEY") != NULL)
     return EVD_TLS_PRIVKEY_TYPE_X509;
-  else if (g_strstr_len (raw_data, 27, "BEGIN PGP PRIVATE KEY BLOCK") != NULL)
+  else if (g_strstr_len (raw_data, 32, "BEGIN PGP PRIVATE KEY BLOCK") != NULL)
     return EVD_TLS_PRIVKEY_TYPE_OPENPGP;
   else
     return EVD_TLS_PRIVKEY_TYPE_UNKNOWN;
