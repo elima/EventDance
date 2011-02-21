@@ -99,6 +99,13 @@ void               evd_tls_session_set_credentials       (EvdTlsSession     *sel
                                                           EvdTlsCredentials *credentials);
 EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
 
+void               evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
+                                                                  const gchar         *cert_file,
+                                                                  const gchar         *key_file,
+                                                                  GCancellable        *cancellable,
+                                                                  GAsyncReadyCallback  callback,
+                                                                  gpointer             user_data);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_CREDENTIALS_H__ */

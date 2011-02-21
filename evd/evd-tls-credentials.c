@@ -47,6 +47,14 @@ struct _EvdTlsCredentialsPrivate
   gint cert_cb_result;
 };
 
+struct CertData
+{
+  EvdTlsCertificate *cert;
+  EvdTlsPrivkey *key;
+  GError *error;
+  gint ready;
+};
+
 /* signals */
 enum
 {
@@ -311,6 +319,104 @@ evd_tls_credentials_dh_params_ready (GObject      *source_obj,
     }
 }
 
+static void
+evd_tls_certificate_real_add_cert_from_file (GSimpleAsyncResult *res,
+                                             struct CertData    *data)
+{
+  EvdTlsCredentials *self;
+
+  self = EVD_TLS_CREDENTIALS (g_async_result_get_source_object (G_ASYNC_RESULT (res)));
+
+  if (data->error == NULL)
+    evd_tls_credentials_add_certificate (self,
+                                         data->cert,
+                                         data->key,
+                                         &data->error);
+
+  if (data->error != NULL)
+    {
+      g_simple_async_result_set_from_error (res, data->error);
+      g_error_free (data->error);
+    }
+
+  if (data->cert != NULL)
+    g_object_unref (data->cert);
+
+  if (data->key != NULL)
+    g_object_unref (data->key);
+
+  g_slice_free (struct CertData, data);
+
+  g_simple_async_result_complete (res);
+  g_object_unref (res);
+}
+
+static void
+evd_tls_certificate_on_cert_imported (GObject      *obj,
+                                      GAsyncResult *res,
+                                      gpointer      user_data)
+{
+  GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT (user_data);
+  GError *error = NULL;
+  struct CertData *data;
+
+  data = g_simple_async_result_get_op_res_gpointer (result);
+
+  data->ready++;
+
+  if (data->error == NULL)
+    {
+      if (! evd_tls_certificate_import_from_file_finish (EVD_TLS_CERTIFICATE (obj),
+                                                         res,
+                                                         &error))
+        {
+          g_simple_async_result_set_from_error (result, error);
+          g_object_unref (obj);
+          data->error = error;
+        }
+      else
+        {
+          data->cert = EVD_TLS_CERTIFICATE (obj);
+        }
+    }
+
+  if (data->ready == 2)
+    evd_tls_certificate_real_add_cert_from_file (result, data);
+}
+
+static void
+evd_tls_certificate_on_privkey_imported (GObject      *obj,
+                                         GAsyncResult *res,
+                                         gpointer      user_data)
+{
+  GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT (user_data);
+  GError *error = NULL;
+  struct CertData *data;
+
+  data = g_simple_async_result_get_op_res_gpointer (result);
+
+  data->ready++;
+
+  if (data->error == NULL)
+    {
+      if (! evd_tls_privkey_import_from_file_finish (EVD_TLS_PRIVKEY (obj),
+                                                     res,
+                                                     &error))
+        {
+          g_simple_async_result_set_from_error (result, error);
+          g_object_unref (obj);
+          data->error = error;
+        }
+      else
+        {
+          data->key = EVD_TLS_PRIVKEY (obj);
+        }
+    }
+
+  if (data->ready == 2)
+    evd_tls_certificate_real_add_cert_from_file (result, data);
+}
+
 /* public methods */
 
 EvdTlsCredentials *
@@ -476,4 +582,61 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
     }
 
   return TRUE;
+}
+
+void
+evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
+                                               const gchar         *cert_file,
+                                               const gchar         *key_file,
+                                               GCancellable        *cancellable,
+                                               GAsyncReadyCallback  callback,
+                                               gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+  struct CertData *data;
+  EvdTlsCertificate *cert;
+  EvdTlsPrivkey *privkey;
+
+  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (self));
+  g_return_if_fail (cert_file != NULL);
+  g_return_if_fail (key_file != NULL);
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_tls_credentials_add_certificate_from_file);
+
+  data = g_slice_new0 (struct CertData);
+
+  g_simple_async_result_set_op_res_gpointer (res, data, NULL);
+
+  cert = evd_tls_certificate_new ();
+  evd_tls_certificate_import_from_file (cert,
+                                        cert_file,
+                                        cancellable,
+                                        evd_tls_certificate_on_cert_imported,
+                                        res);
+
+  privkey = evd_tls_privkey_new ();
+  evd_tls_privkey_import_from_file (privkey,
+                                    key_file,
+                                    cancellable,
+                                    evd_tls_certificate_on_privkey_imported,
+                                    res);
+}
+
+gboolean
+evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCertificate  *self,
+                                                      GAsyncResult       *result,
+                                                      GError            **error)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                 G_OBJECT (self),
+                                 evd_tls_credentials_add_certificate_from_file),
+                        FALSE);
+
+  return
+    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                             error);
 }
