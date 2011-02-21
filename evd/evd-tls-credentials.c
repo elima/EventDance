@@ -507,19 +507,31 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
 {
   gpointer _cert;
   gpointer _privkey;
-  EvdTlsCertificateType type;
+  EvdTlsCertificateType cert_type;
+  EvdTlsCertificateType key_type;
 
   g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
   g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (cert), FALSE);
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (privkey), FALSE);
 
-  g_object_get (cert, "type", &type, NULL);
-  if (type == EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
+  g_object_get (cert, "type", &cert_type, NULL);
+  g_object_get (privkey, "type", &key_type, NULL);
+  if (cert_type == EVD_TLS_CERTIFICATE_TYPE_UNKNOWN ||
+      key_type == EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
     {
       g_set_error (error,
                    G_IO_ERROR,
                    G_IO_ERROR_INVALID_ARGUMENT,
-                   "Invalid certificate type");
+                   "Invalid certificate or key type");
+      return FALSE;
+    }
+
+  if (cert_type != key_type)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Certificate and private key do not match type");
       return FALSE;
     }
 
@@ -540,7 +552,7 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       self->priv->cert_cb_certs->ncerts = 1;
       self->priv->cert_cb_certs->deinit_all = 0;
 
-      if (type == EVD_TLS_CERTIFICATE_TYPE_X509)
+      if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
         {
           self->priv->cert_cb_certs->type = GNUTLS_CRT_X509;
           self->priv->cert_cb_certs->cert.x509 = (gnutls_x509_crt_t *) &_cert;
@@ -560,7 +572,7 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       if (self->priv->cred == NULL)
         gnutls_certificate_allocate_credentials (&self->priv->cred);
 
-      if (type == EVD_TLS_CERTIFICATE_TYPE_X509)
+      if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
         {
           err_code = gnutls_certificate_set_x509_key (self->priv->cred,
                                                       (gnutls_x509_crt_t *) &_cert,
