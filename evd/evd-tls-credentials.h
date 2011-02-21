@@ -65,46 +65,38 @@ struct _EvdTlsCredentialsClass
 #define EVD_TLS_CREDENTIALS_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_CREDENTIALS, EvdTlsCredentialsClass))
 
 
-GType              evd_tls_credentials_get_type        (void) G_GNUC_CONST;
+GType              evd_tls_credentials_get_type                         (void) G_GNUC_CONST;
 
-EvdTlsCredentials *evd_tls_credentials_new             (void);
+EvdTlsCredentials *evd_tls_credentials_new                              (void);
+
+gboolean           evd_tls_credentials_ready                            (EvdTlsCredentials *self);
+gboolean           evd_tls_credentials_prepare                          (EvdTlsCredentials  *self,
+                                                                         GError            **error);
+
+gpointer           evd_tls_credentials_get_credentials                  (EvdTlsCredentials *self);
+
+void               evd_tls_credentials_set_cert_callback                (EvdTlsCredentials       *self,
+                                                                         EvdTlsCredentialsCertCb  callback,
+                                                                         gpointer                 user_data);
+
+gboolean           evd_tls_credentials_add_certificate                  (EvdTlsCredentials  *self,
+                                                                         EvdTlsCertificate  *cert,
+                                                                         EvdTlsPrivkey      *privkey,
+                                                                         GError            **error);
+void               evd_tls_credentials_add_certificate_from_file        (EvdTlsCredentials   *self,
+                                                                         const gchar         *cert_file,
+                                                                         const gchar         *key_file,
+                                                                         GCancellable        *cancellable,
+                                                                         GAsyncReadyCallback  callback,
+                                                                         gpointer             user_data);
+gboolean           evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCertificate  *self,
+                                                                         GAsyncResult       *result,
+                                                                         GError            **error);
 
 
-void               evd_tls_credentials_set_cert_file   (EvdTlsCredentials *self,
-                                                        const gchar       *cert_file);
-
-void               evd_tls_credentials_set_key_file    (EvdTlsCredentials *self,
-                                                        const gchar       *key_file);
-
-void               evd_tls_credentials_set_trust_file  (EvdTlsCredentials *self,
-                                                        const gchar       *trust_file);
-
-gboolean           evd_tls_credentials_ready           (EvdTlsCredentials *self);
-gboolean           evd_tls_credentials_prepare         (EvdTlsCredentials  *self,
-                                                        GError            **error);
-
-gpointer           evd_tls_credentials_get_credentials   (EvdTlsCredentials *self);
-
-void               evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
-                                                          EvdTlsCredentialsCertCb  callback,
-                                                          gpointer                 user_data);
-
-gboolean           evd_tls_credentials_add_certificate   (EvdTlsCredentials  *self,
-                                                          EvdTlsCertificate  *cert,
-                                                          EvdTlsPrivkey      *privkey,
-                                                          GError            **error);
-
-
-void               evd_tls_session_set_credentials       (EvdTlsSession     *self,
-                                                          EvdTlsCredentials *credentials);
-EvdTlsCredentials *evd_tls_session_get_credentials       (EvdTlsSession *self);
-
-void               evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
-                                                                  const gchar         *cert_file,
-                                                                  const gchar         *key_file,
-                                                                  GCancellable        *cancellable,
-                                                                  GAsyncReadyCallback  callback,
-                                                                  gpointer             user_data);
+void               evd_tls_session_set_credentials                      (EvdTlsSession     *self,
+                                                                         EvdTlsCredentials *credentials);
+EvdTlsCredentials *evd_tls_session_get_credentials                      (EvdTlsSession *self);
 
 G_END_DECLS
 
