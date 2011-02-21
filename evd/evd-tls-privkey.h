@@ -58,16 +58,16 @@ typedef enum
 #define EVD_TLS_PRIVKEY_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_TLS_PRIVKEY, EvdTlsPrivkeyClass))
 
 
-GType              evd_tls_privkey_get_type            (void) G_GNUC_CONST;
+GType              evd_tls_privkey_get_type                (void) G_GNUC_CONST;
 
-EvdTlsPrivkey *    evd_tls_privkey_new                 (void);
+EvdTlsPrivkey *    evd_tls_privkey_new                     (void);
 
-gboolean           evd_tls_privkey_import              (EvdTlsPrivkey  *self,
-                                                        const gchar        *raw_data,
-                                                        gsize               len,
-                                                        GError            **error);
+gboolean           evd_tls_privkey_import                  (EvdTlsPrivkey  *self,
+                                                            const gchar        *raw_data,
+                                                            gsize               len,
+                                                            GError            **error);
 
-gpointer           evd_tls_privkey_get_privkey         (EvdTlsPrivkey *self);
+gpointer           evd_tls_privkey_get_privkey             (EvdTlsPrivkey *self);
 
 void               evd_tls_privkey_import_from_file        (EvdTlsPrivkey       *self,
                                                             const gchar         *filename,
