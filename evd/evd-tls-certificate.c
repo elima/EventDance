@@ -232,6 +232,31 @@ evd_tls_certificate_import_x509 (EvdTlsCertificate      *self,
   return FALSE;
 }
 
+static void
+evd_tls_certificate_import_from_file_thread (GSimpleAsyncResult *res,
+                                             GObject            *object,
+                                             GCancellable       *cancellable)
+{
+  EvdTlsCertificate *self = EVD_TLS_CERTIFICATE (object);
+  gchar *filename;
+  gchar *content;
+  gsize size;
+  GError *error = NULL;
+
+  filename = g_simple_async_result_get_op_res_gpointer (res);
+
+  if (! g_file_get_contents (filename, &content, &size, &error) ||
+      ! evd_tls_certificate_import (self, content, size, &error))
+    {
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
+    }
+
+  g_free (content);
+  g_free (filename);
+  g_object_unref (res);
+}
+
 /* public methods */
 
 EvdTlsCertificate *
@@ -330,6 +355,46 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
     };
 
   return FALSE;
+}
+
+void
+evd_tls_certificate_import_from_file (EvdTlsCertificate   *self,
+                                      const gchar         *filename,
+                                      GCancellable        *cancellable,
+                                      GAsyncReadyCallback  callback,
+                                      gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+
+  g_return_if_fail (EVD_IS_TLS_CERTIFICATE (self));
+  g_return_if_fail (filename != NULL);
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_tls_certificate_import_from_file);
+
+  g_simple_async_result_set_op_res_gpointer (res, g_strdup (filename), NULL);
+
+  g_simple_async_result_run_in_thread (res,
+                                       evd_tls_certificate_import_from_file_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
+}
+
+gboolean
+evd_tls_certificate_import_from_file_finish (EvdTlsCertificate  *self,
+                                             GAsyncResult       *result,
+                                             GError            **error)
+{
+  g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                           G_OBJECT (self),
+                                           evd_tls_certificate_import_from_file),
+                        FALSE);
+
+  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                                  error);
 }
 
 gpointer

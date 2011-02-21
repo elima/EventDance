@@ -81,6 +81,15 @@ time_t             evd_tls_certificate_get_activation_time (EvdTlsCertificate  *
 gint               evd_tls_certificate_verify_validity     (EvdTlsCertificate  *self,
                                                             GError            **error);
 
+void               evd_tls_certificate_import_from_file        (EvdTlsCertificate   *self,
+                                                                const gchar         *filename,
+                                                                GCancellable        *cancellable,
+                                                                GAsyncReadyCallback  callback,
+                                                                gpointer             user_data);
+gboolean           evd_tls_certificate_import_from_file_finish (EvdTlsCertificate  *self,
+                                                                GAsyncResult       *result,
+                                                                GError            **error);
+
 G_END_DECLS
 
 #endif /* __EVD_TLS_CERTIFICATE_H__ */
