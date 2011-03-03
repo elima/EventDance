@@ -12,6 +12,8 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
         this._invocationsIn = {};
         this._invocationsOut = {};
+
+        this._registeredMethods = {};
     },
 
     transportRead: function (data) {
@@ -53,8 +55,13 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
             var key = invObj.id.toString ();
             this._invocationsIn[key] = invObj;
 
-            if (this._methodCallCb)
+            if (this._registeredMethods[invObj.method])
+                this._registeredMethods[invObj.method] (this, invObj.params, key);
+            else if (this._methodCallCb)
                 this._methodCallCb (invObj.method, invObj.params, key);
+            else {
+                // @TODO: method not handled, respond with error
+            }
         }
         else {
             throw ("Invalid JSON-RPC message");
@@ -118,5 +125,13 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
     respondError: function (invocationId, error) {
         return this._respond (invocationId, null, error);
+    },
+
+    registerMethod: function (methodName, callback) {
+        this._registeredMethods[methodName] = callback;
+    },
+
+    unregisterMethod: function (methodName) {
+        delete (this._registeredMethods[methodName]);
     }
 });
