@@ -567,7 +567,7 @@ evd_connection_close_in_idle (EvdConnection *self)
       g_object_ref (self);
 
       self->priv->close_src_id =
-        evd_timeout_add (evd_socket_get_context (self->priv->socket),
+        evd_timeout_add (NULL,
                          0,
                          evd_socket_get_priority (self->priv->socket),
                          evd_connection_close_in_idle_cb,
@@ -775,7 +775,7 @@ evd_connection_delay_read (EvdThrottledInputStream *stream,
 
   if (self->priv->read_src_id == 0)
     self->priv->read_src_id =
-      evd_timeout_add (evd_socket_get_context (self->priv->socket),
+      evd_timeout_add (NULL,
                        wait,
                        evd_socket_get_priority (self->priv->socket),
                        evd_connection_read_wait_timeout,
@@ -791,7 +791,7 @@ evd_connection_delay_write (EvdThrottledOutputStream *stream,
 
   if (self->priv->write_src_id == 0)
     self->priv->write_src_id =
-      evd_timeout_add (evd_socket_get_context (self->priv->socket),
+      evd_timeout_add (NULL,
                        wait,
                        evd_socket_get_priority (self->priv->socket),
                        evd_connection_write_wait_timeout,
