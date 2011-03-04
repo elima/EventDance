@@ -94,7 +94,6 @@ GType           evd_socket_get_type                      (void) G_GNUC_CONST;
 EvdSocket      *evd_socket_new                           (void);
 
 GSocket        *evd_socket_get_socket                    (EvdSocket *self);
-GMainContext   *evd_socket_get_context                   (EvdSocket *self);
 GSocketFamily   evd_socket_get_family                    (EvdSocket *self);
 EvdSocketState  evd_socket_get_status                    (EvdSocket *self);
 

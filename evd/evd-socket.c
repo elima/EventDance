@@ -58,7 +58,6 @@ struct _EvdSocketPrivate
 
   EvdSocketState status;
   EvdSocketState sub_status;
-  GMainContext *context;
 
   GIOCondition cond;
 
@@ -292,11 +291,6 @@ evd_socket_init (EvdSocket *self)
   priv->status     = EVD_SOCKET_STATE_CLOSED;
   priv->sub_status = EVD_SOCKET_STATE_CLOSED;
 
-  priv->context = g_main_context_get_thread_default ();
-  if (priv->context == NULL)
-    priv->context = g_main_context_default ();
-  g_main_context_ref (priv->context);
-
   priv->cond = 0;
 
   priv->priority        = G_PRIORITY_DEFAULT;
@@ -332,9 +326,6 @@ evd_socket_finalize (GObject *obj)
   EvdSocket *self = EVD_SOCKET (obj);
 
   g_object_unref (self->priv->poll);
-
-  if (self->priv->context != NULL)
-    g_main_context_unref (self->priv->context);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
 
@@ -1150,14 +1141,6 @@ evd_socket_get_socket (EvdSocket *self)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   return self->priv->socket;
-}
-
-GMainContext *
-evd_socket_get_context (EvdSocket *self)
-{
-  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-
-  return self->priv->context;
 }
 
 GSocketFamily
