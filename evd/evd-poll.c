@@ -49,7 +49,7 @@ struct _EvdPollPrivate
 
 struct _EvdPollSession
 {
-  guint ref_count;
+  gint ref_count;
 
   EvdPoll *self;
   gint fd;
@@ -120,17 +120,23 @@ evd_poll_finalize (GObject *obj)
 void
 evd_poll_session_ref_nolock (EvdPollSession *session)
 {
-  session->ref_count++;
+  g_atomic_int_exchange_and_add (&session->ref_count, 1);
 }
 
 static gboolean
 evd_poll_session_unref_nolock (EvdPollSession *session)
 {
-  session->ref_count --;
+  gint old_ref;
 
-  if (session->ref_count == 0)
+  old_ref = g_atomic_int_get (&session->ref_count);
+  if (old_ref > 1)
     {
-       if (session->src_id != 0)
+      g_atomic_int_compare_and_exchange (&session->ref_count, old_ref, old_ref - 1);
+      return TRUE;
+    }
+  else
+    {
+      if (session->src_id != 0)
         g_source_remove (session->src_id);
 
       g_main_context_unref (session->main_context);
@@ -138,10 +144,6 @@ evd_poll_session_unref_nolock (EvdPollSession *session)
       g_slice_free (EvdPollSession, session);
 
       return FALSE;
-    }
-  else
-    {
-      return TRUE;
     }
 }
 
