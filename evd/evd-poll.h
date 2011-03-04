@@ -65,7 +65,6 @@ EvdPoll           *evd_poll_get_default   (void);
 EvdPollSession    *evd_poll_add           (EvdPoll          *self,
                                            gint              fd,
                                            GIOCondition      condition,
-                                           GMainContext     *main_context,
                                            guint             priority,
                                            EvdPollCallback   callback,
                                            gpointer          user_data,

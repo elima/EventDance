@@ -380,7 +380,6 @@ EvdPollSession *
 evd_poll_add (EvdPoll          *self,
               gint              fd,
               GIOCondition      condition,
-              GMainContext     *main_context,
               guint             priority,
               EvdPollCallback   callback,
               gpointer          user_data,
@@ -405,8 +404,12 @@ evd_poll_add (EvdPoll          *self,
   session->fd = fd;
   session->cond_in = condition;
   session->cond_out = 0;
-  session->main_context = main_context;
+
+  session->main_context = g_main_context_get_thread_default ();
+  if (session->main_context == NULL)
+    session->main_context = g_main_context_default ();
   g_main_context_ref (session->main_context);
+
   session->priority = priority;
   session->callback = callback;
   session->user_data = user_data;

@@ -497,7 +497,6 @@ static evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
         evd_poll_add (self->priv->poll,
                       g_socket_get_fd (self->priv->socket),
                       cond,
-                      self->priv->context,
                       self->priv->actual_priority,
                       evd_socket_on_condition,
                       self,
