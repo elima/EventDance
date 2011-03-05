@@ -678,9 +678,9 @@ evd_socket_listen_addr_internal (EvdSocket *self, GSocketAddress *address, GErro
 }
 
 static gboolean
-evd_socket_connect_addr (EvdSocket        *self,
-                         GSocketAddress   *address,
-                         GError          **error)
+evd_socket_connect_addr_internal (EvdSocket        *self,
+                                  GSocketAddress   *address,
+                                  GError          **error)
 {
   GError *_error = NULL;
 
@@ -812,9 +812,7 @@ evd_socket_on_address_resolved (GObject      *obj,
               }
             case EVD_SOCKET_STATE_CONNECTING:
               {
-                evd_socket_connect_addr (self,
-                                         socket_address,
-                                         &error);
+                evd_socket_connect_addr_internal (self, socket_address, &error);
                 break;
               }
             default:
@@ -1305,11 +1303,11 @@ evd_socket_set_notify_condition_callback (EvdSocket                        *self
 }
 
 void
-evd_socket_connect_async (EvdSocket           *self,
-                          const gchar         *address,
-                          GCancellable        *cancellable,
-                          GAsyncReadyCallback  callback,
-                          gpointer             user_data)
+evd_socket_connect_to (EvdSocket           *self,
+                       const gchar         *address,
+                       GCancellable        *cancellable,
+                       GAsyncReadyCallback  callback,
+                       gpointer             user_data)
 {
   GError *error = NULL;
 
@@ -1330,7 +1328,7 @@ evd_socket_connect_async (EvdSocket           *self,
   self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
                                                         callback,
                                                         user_data,
-                                                        evd_socket_connect_async);
+                                                        evd_socket_connect_addr);
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
@@ -1340,18 +1338,18 @@ evd_socket_connect_async (EvdSocket           *self,
 }
 
 void
-evd_socket_connect_async_addr (EvdSocket           *self,
-                               GSocketAddress      *address,
-                               GCancellable        *cancellable,
-                               GAsyncReadyCallback  callback,
-                               gpointer             user_data)
+evd_socket_connect_addr (EvdSocket           *self,
+                         GSocketAddress      *address,
+                         GCancellable        *cancellable,
+                         GAsyncReadyCallback  callback,
+                         gpointer             user_data)
 {
   GError *error = NULL;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
 
   if (! evd_socket_check_availability (self, &error) ||
-      ! evd_socket_connect_addr (self, address, &error))
+      ! evd_socket_connect_addr_internal (self, address, &error))
     {
       evd_socket_deliver_async_result_error (self,
                                              NULL,
@@ -1367,7 +1365,7 @@ evd_socket_connect_async_addr (EvdSocket           *self,
       self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
                                                             callback,
                                                             user_data,
-                                                            evd_socket_connect_async);
+                                                            evd_socket_connect_addr);
     }
 
   return;
@@ -1381,7 +1379,7 @@ evd_socket_connect_finish (EvdSocket     *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                         G_OBJECT (self),
-                                                        evd_socket_connect_async),
+                                                        evd_socket_connect_addr),
                         NULL);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
@@ -1410,11 +1408,11 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
 }
 
 void
-evd_socket_listen_async (EvdSocket           *self,
-                         const gchar         *address,
-                         GCancellable        *cancellable,
-                         GAsyncReadyCallback  callback,
-                         gpointer             user_data)
+evd_socket_listen (EvdSocket           *self,
+                   const gchar         *address,
+                   GCancellable        *cancellable,
+                   GAsyncReadyCallback  callback,
+                   gpointer             user_data)
 {
   GError *error = NULL;
 
@@ -1435,7 +1433,7 @@ evd_socket_listen_async (EvdSocket           *self,
   self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
                                                         callback,
                                                         user_data,
-                                                        evd_socket_listen_async);
+                                                        evd_socket_listen);
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
@@ -1452,7 +1450,7 @@ evd_socket_listen_finish (EvdSocket     *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                         G_OBJECT (self),
-                                                        evd_socket_listen_async),
+                                                        evd_socket_listen),
                         FALSE);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
@@ -1485,11 +1483,11 @@ evd_socket_bind_addr (EvdSocket       *self,
 }
 
 void
-evd_socket_bind_async (EvdSocket           *self,
-                       const gchar         *address,
-                       GCancellable        *cancellable,
-                       GAsyncReadyCallback  callback,
-                       gpointer             user_data)
+evd_socket_bind (EvdSocket           *self,
+                 const gchar         *address,
+                 GCancellable        *cancellable,
+                 GAsyncReadyCallback  callback,
+                 gpointer             user_data)
 {
   GError *error = NULL;
 
@@ -1510,7 +1508,7 @@ evd_socket_bind_async (EvdSocket           *self,
   self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
                                                         callback,
                                                         user_data,
-                                                        evd_socket_bind_async);
+                                                        evd_socket_bind);
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
@@ -1527,7 +1525,7 @@ evd_socket_bind_finish (EvdSocket     *self,
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                         G_OBJECT (self),
-                                                        evd_socket_bind_async),
+                                                        evd_socket_bind),
                         FALSE);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),

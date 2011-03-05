@@ -258,11 +258,11 @@ evd_connection_pool_reuse_socket (EvdConnectionPool *self, EvdSocket *socket)
 {
   g_queue_push_tail (self->priv->sockets, (gpointer) socket);
 
-  evd_socket_connect_async (socket,
-                            self->priv->target,
-                            NULL,
-                            evd_connection_pool_socket_on_connect,
-                            self);
+  evd_socket_connect_to (socket,
+                         self->priv->target,
+                         NULL,
+                         evd_connection_pool_socket_on_connect,
+                         self);
 }
 
 static void

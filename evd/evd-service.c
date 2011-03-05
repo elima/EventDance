@@ -640,11 +640,11 @@ evd_service_listen_async (EvdService          *self,
 
   g_object_set_data (G_OBJECT (socket), "listen-result", res);
 
-  evd_socket_listen_async (socket,
-                           address,
-                           cancellable,
-                           evd_service_socket_on_listen,
-                           self);
+  evd_socket_listen (socket,
+                     address,
+                     cancellable,
+                     evd_service_socket_on_listen,
+                     self);
 }
 
 gboolean
