@@ -437,7 +437,7 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
             {
               g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
 
-              evd_http_connection_read_all_content_async (conn,
+              evd_http_connection_read_all_content (conn,
                                           NULL,
                                           evd_long_polling_conn_on_content_read,
                                           self);

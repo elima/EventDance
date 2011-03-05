@@ -152,7 +152,7 @@ evd_web_service_connection_accepted (EvdService *service, EvdConnection *conn)
   else
     {
       g_object_ref (conn);
-      evd_http_connection_read_request_headers_async (EVD_HTTP_CONNECTION (conn),
+      evd_http_connection_read_request_headers (EVD_HTTP_CONNECTION (conn),
                                            NULL,
                                            evd_web_service_conn_on_headers_read,
                                            self);

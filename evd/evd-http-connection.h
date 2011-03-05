@@ -59,7 +59,7 @@ GType               evd_http_connection_get_type                     (void) G_GN
 
 EvdHttpConnection  *evd_http_connection_new                          (EvdSocket *socket);
 
-void                evd_http_connection_read_response_headers_async  (EvdHttpConnection   *self,
+void                evd_http_connection_read_response_headers        (EvdHttpConnection   *self,
                                                                       GCancellable        *cancellable,
                                                                       GAsyncReadyCallback callback,
                                                                       gpointer            user_data);
@@ -70,7 +70,7 @@ SoupMessageHeaders *evd_http_connection_read_response_headers_finish (EvdHttpCon
                                                                       gchar              **reason_phrase,
                                                                       GError             **error);
 
-void                evd_http_connection_read_request_headers_async   (EvdHttpConnection   *self,
+void                evd_http_connection_read_request_headers         (EvdHttpConnection   *self,
                                                                       GCancellable        *cancellable,
                                                                       GAsyncReadyCallback callback,
                                                                       gpointer            user_data);
@@ -90,7 +90,7 @@ gboolean            evd_http_connection_write_content                (EvdHttpCon
                                                                       gsize               size,
                                                                       GError            **error);
 
-void                evd_http_connection_read_content_async           (EvdHttpConnection   *self,
+void                evd_http_connection_read_content                 (EvdHttpConnection   *self,
                                                                       gchar               *buffer,
                                                                       gsize                size,
                                                                       GCancellable        *cancellable,
@@ -101,7 +101,7 @@ gssize              evd_http_connection_read_content_finish          (EvdHttpCon
                                                                       gboolean           *more,
                                                                       GError            **error);
 
-void                evd_http_connection_read_all_content_async       (EvdHttpConnection   *self,
+void                evd_http_connection_read_all_content             (EvdHttpConnection   *self,
                                                                       GCancellable        *cancellable,
                                                                       GAsyncReadyCallback  callback,
                                                                       gpointer             user_data);
