@@ -88,12 +88,13 @@ Evd.LongPolling = new Evd.Constructor ();
 Evd.LongPolling.prototype = new Evd.Object ();
 
 Evd.Object.extend (Evd.LongPolling.prototype, {
+    DEFAULT_URL: "/transport/",
     PEER_DATA_KEY: "org.eventdance.lib.LongPolling",
     PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
 
     _init: function (args) {
         if (! args.url) {
-            this.url = "/";
+            this.url = this.DEFAULT_URL;
         }
         else {
             this.url = args.url;
