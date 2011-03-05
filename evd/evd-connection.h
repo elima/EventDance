@@ -75,7 +75,7 @@ EvdSocket         *evd_connection_get_socket           (EvdConnection *self);
 
 EvdTlsSession     *evd_connection_get_tls_session      (EvdConnection *self);
 
-void               evd_connection_starttls_async       (EvdConnection       *self,
+void               evd_connection_starttls             (EvdConnection       *self,
                                                         EvdTlsMode           mode,
                                                         GCancellable        *cancellable,
                                                         GAsyncReadyCallback  callback,

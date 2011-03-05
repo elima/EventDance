@@ -1038,11 +1038,11 @@ evd_connection_get_tls_session (EvdConnection *self)
 }
 
 void
-evd_connection_starttls_async (EvdConnection       *self,
-                               EvdTlsMode           mode,
-                               GCancellable        *cancellable,
-                               GAsyncReadyCallback  callback,
-                               gpointer             user_data)
+evd_connection_starttls (EvdConnection       *self,
+                         EvdTlsMode           mode,
+                         GCancellable        *cancellable,
+                         GAsyncReadyCallback  callback,
+                         gpointer             user_data)
 {
   EvdTlsSession *session;
 
@@ -1071,7 +1071,7 @@ evd_connection_starttls_async (EvdConnection       *self,
     g_simple_async_result_new (G_OBJECT (self),
                                callback,
                                user_data,
-                               evd_connection_starttls_async);
+                               evd_connection_starttls);
 
   self->priv->tls_active = TRUE;
 
@@ -1120,7 +1120,7 @@ evd_connection_starttls_finish (EvdConnection  *self,
   g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                  G_OBJECT (self),
-                                                 evd_connection_starttls_async),
+                                                 evd_connection_starttls),
                         FALSE);
 
   res =

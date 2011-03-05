@@ -406,11 +406,11 @@ evd_service_connection_starttls (EvdService    *self,
   tls_cred = evd_service_get_tls_credentials (self);
   evd_tls_session_set_credentials (tls_session, tls_cred);
 
-  evd_connection_starttls_async (conn,
-                                 EVD_TLS_MODE_SERVER,
-                                 NULL,
-                                 evd_service_connection_on_tls_started,
-                                 self);
+  evd_connection_starttls (conn,
+                           EVD_TLS_MODE_SERVER,
+                           NULL,
+                           evd_service_connection_on_tls_started,
+                           self);
 }
 
 static void
