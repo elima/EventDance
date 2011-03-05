@@ -84,12 +84,10 @@ gboolean            evd_http_connection_write_response_headers       (EvdHttpCon
                                                                       guint                status_code,
                                                                       const gchar         *reason_phrase,
                                                                       SoupMessageHeaders  *headers,
-                                                                      GCancellable        *cancellable,
                                                                       GError             **error);
 gboolean            evd_http_connection_write_content                (EvdHttpConnection  *self,
                                                                       const gchar        *buffer,
                                                                       gsize               size,
-                                                                      GCancellable       *cancellable,
                                                                       GError            **error);
 
 void                evd_http_connection_read_content_async           (EvdHttpConnection   *self,
@@ -114,7 +112,6 @@ gchar *             evd_http_connection_read_all_content_finish      (EvdHttpCon
 
 gboolean            evd_http_connection_unread_request_headers       (EvdHttpConnection   *self,
                                                                       EvdHttpRequest      *request,
-                                                                      GCancellable        *cancellable,
                                                                       GError             **error);
 
 gboolean            evd_http_connection_respond                      (EvdHttpConnection   *self,
@@ -125,7 +122,6 @@ gboolean            evd_http_connection_respond                      (EvdHttpCon
                                                                       const gchar         *content,
                                                                       gsize                size,
                                                                       gboolean             close_after,
-                                                                      GCancellable        *cancellable,
                                                                       GError             **error);
 
 void                evd_http_connection_set_current_request          (EvdHttpConnection *self,

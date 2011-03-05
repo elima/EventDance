@@ -186,7 +186,6 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
         {
           if (evd_http_connection_unread_request_headers (conn,
                                                           request,
-                                                          NULL,
                                                           &error))
             {
               evd_io_stream_group_add (EVD_IO_STREAM_GROUP (service),
@@ -210,7 +209,6 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
                                    NULL,
                                    0,
                                    TRUE,
-                                   NULL,
                                    NULL);
     }
 }

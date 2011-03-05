@@ -197,7 +197,6 @@ evd_long_polling_respond_with_cookies (EvdLongPolling    *self,
                                      NULL,
                                      0,
                                      TRUE,
-                                     NULL,
                                      &error))
     {
       g_debug ("error responding with cookies: %s", error->message);
@@ -507,12 +506,10 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
   if (! evd_http_connection_write_content (conn,
                                            (gchar *) hdr,
                                            hdr_len,
-                                           NULL,
                                            error) ||
       ! evd_http_connection_write_content (conn,
                                            buf,
                                            size,
-                                           NULL,
                                            error))
     {
       result = FALSE;
@@ -559,7 +556,6 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
                                                   SOUP_STATUS_OK,
                                                   NULL,
                                                   headers,
-                                                  NULL,
                                                   error))
     {
       gchar *frame;

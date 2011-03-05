@@ -302,7 +302,6 @@ evd_web_dir_file_on_block_read (GObject      *object,
       if (! evd_http_connection_write_content (binding->conn,
                                                binding->buffer,
                                                size,
-                                               NULL,
                                                &error))
         {
           evd_web_dir_handle_content_error (binding, error);
@@ -450,7 +449,6 @@ evd_web_dir_file_on_info (GObject      *object,
                                                   SOUP_STATUS_OK,
                                                   NULL,
                                                   headers,
-                                                  NULL,
                                                   &error))
     {
       /* now open file */

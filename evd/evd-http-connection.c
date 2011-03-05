@@ -831,7 +831,6 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
                                             guint                status_code,
                                             const gchar         *reason_phrase,
                                             SoupMessageHeaders  *headers,
-                                            GCancellable        *cancellable,
                                             GError             **error)
 {
   GOutputStream *stream;
@@ -886,7 +885,6 @@ gboolean
 evd_http_connection_write_content (EvdHttpConnection  *self,
                                    const gchar        *buffer,
                                    gsize               size,
-                                   GCancellable       *cancellable,
                                    GError            **error)
 {
   GOutputStream *stream;
@@ -901,7 +899,7 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
 
   stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
 
-  return g_output_stream_write (stream, buffer, size, cancellable, error) >= 0;
+  return g_output_stream_write (stream, buffer, size, NULL, error) >= 0;
 }
 
 void
@@ -1081,7 +1079,6 @@ evd_http_connection_read_all_content_finish (EvdHttpConnection  *self,
 gboolean
 evd_http_connection_unread_request_headers (EvdHttpConnection   *self,
                                             EvdHttpRequest      *request,
-                                            GCancellable        *cancellable,
                                             GError             **error)
 {
   GInputStream *stream;
@@ -1115,7 +1112,6 @@ evd_http_connection_respond (EvdHttpConnection   *self,
                              const gchar         *content,
                              gsize                size,
                              gboolean             close_after,
-                             GCancellable        *cancellable,
                              GError             **error)
 {
   SoupMessageHeaders *_headers;
@@ -1136,14 +1132,12 @@ evd_http_connection_respond (EvdHttpConnection   *self,
                                                   status_code,
                                                   reason_phrase,
                                                   _headers,
-                                                  cancellable,
                                                   error))
     {
       if (content == NULL ||
           evd_http_connection_write_content (self,
                                              content,
                                              size,
-                                             cancellable,
                                              error))
         {
           evd_connection_flush_and_shutdown (EVD_CONNECTION (self), NULL);

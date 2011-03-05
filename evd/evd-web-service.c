@@ -211,7 +211,6 @@ evd_web_service_respond (EvdWebService       *self,
                                    content,
                                    size,
                                    FALSE,
-                                   NULL,
                                    error))
     {
       EVD_WEB_SERVICE_GET_CLASS (self)->return_connection (self, conn);
