@@ -284,7 +284,10 @@ evd_connection_dispose (GObject *obj)
   EvdConnection *self = EVD_CONNECTION (obj);
 
   if (self->priv->group != NULL)
-    evd_connection_set_group (self, NULL);
+    {
+      g_object_unref (self->priv->group);
+      self->priv->group = NULL;
+    }
 
   G_OBJECT_CLASS (evd_connection_parent_class)->dispose (obj);
 }
