@@ -80,9 +80,6 @@ gboolean           evd_poll_del           (EvdPoll         *self,
                                            EvdPollSession  *session,
                                            GError         **error);
 
-void               evd_poll_session_ref   (EvdPollSession *session);
-void               evd_poll_session_unref (EvdPollSession *session);
-
 G_END_DECLS
 
 #endif /* __EVD_POLL_H__ */

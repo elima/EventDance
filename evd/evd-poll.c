@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -20,15 +20,17 @@
  * for more details.
  */
 
+#include <errno.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <gio/gio.h>
 
 #include "evd-poll.h"
 
 #include "evd-error.h"
 #include "evd-utils.h"
 
-#define DEFAULT_MAX_FDS 10000 /* maximum number of file descriptors to poll */
+#define DEFAULT_MAX_FDS 1000 /* maximum number of file descriptors to poll */
 
 G_DEFINE_TYPE (EvdPoll, evd_poll, G_TYPE_OBJECT)
 
@@ -45,6 +47,11 @@ struct _EvdPollPrivate
   guint max_fds;
 
   GMainLoop *main_loop;
+
+  struct epoll_event events[DEFAULT_MAX_FDS];
+  gint nr_events;
+
+  gint interrupt_fds[2];
 };
 
 struct _EvdPollSession
@@ -62,7 +69,8 @@ struct _EvdPollSession
   gint src_id;
 };
 
-G_LOCK_DEFINE_STATIC (mutex);
+G_LOCK_DEFINE_STATIC (epoll_mutex);
+G_LOCK_DEFINE_STATIC (interrupt_mutex);
 
 static EvdPoll *evd_poll_default = NULL;
 
@@ -71,6 +79,12 @@ static void     evd_poll_init         (EvdPoll *self);
 static void     evd_poll_finalize     (GObject *obj);
 
 static void     evd_poll_stop         (EvdPoll *self);
+
+static gboolean evd_poll_epoll_ctl    (EvdPoll      *self,
+                                       gint          fd,
+                                       gint          op,
+                                       GIOCondition  cond,
+                                       gpointer      data);
 
 static void
 evd_poll_class_init (EvdPollClass *class)
@@ -111,20 +125,20 @@ evd_poll_finalize (GObject *obj)
 
   G_OBJECT_CLASS (evd_poll_parent_class)->finalize (obj);
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
   if (self == evd_poll_default)
     evd_poll_default = NULL;
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 }
 
-void
-evd_poll_session_ref_nolock (EvdPollSession *session)
+static void
+evd_poll_session_ref (EvdPollSession *session)
 {
   g_atomic_int_exchange_and_add (&session->ref_count, 1);
 }
 
 static gboolean
-evd_poll_session_unref_nolock (EvdPollSession *session)
+evd_poll_session_unref (EvdPollSession *session)
 {
   gint old_ref;
 
@@ -154,21 +168,22 @@ evd_poll_callback_wrapper (gpointer user_data)
   GIOCondition cond_out = 0;
   EvdPollCallback callback = NULL;
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
 
   session = (EvdPollSession *) user_data;
 
-  if (evd_poll_session_unref_nolock (session))
+  session->src_id = 0;
+
+  if (evd_poll_session_unref (session))
     {
       callback = session->callback;
 
       cond_out = session->cond_out;
 
       session->cond_out = 0;
-      session->src_id = 0;
     }
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 
   if (callback != NULL)
     callback (session->self, cond_out, session->user_data);
@@ -177,20 +192,44 @@ evd_poll_callback_wrapper (gpointer user_data)
 }
 
 static gboolean
+evd_poll_check_and_consume_interrupt_event (EvdPoll            *self,
+                                            struct epoll_event  event)
+{
+  if (* (gint *) event.data.ptr == self->priv->interrupt_fds[0])
+    {
+      static gchar buf[1024];
+
+      /* self-pipe trick, here we just read long enough to guarantee that pipe
+         is empty, and next call to write will edge-trigger a read event again */
+      read (self->priv->interrupt_fds[0], buf, 1024);
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
+}
+
+static gboolean
 evd_poll_dispatch (gpointer user_data)
 {
   EvdPoll *self = EVD_POLL (user_data);
-  static struct epoll_event events[DEFAULT_MAX_FDS];
   gint i;
   gint nfds;
   gboolean started;
+  struct epoll_event *events;
 
-  nfds = epoll_wait (self->priv->epoll_fd,
-                     events,
-                     self->priv->max_fds,
-                     -1);
+  G_LOCK (interrupt_mutex);
+  self->priv->nr_events = epoll_wait (self->priv->epoll_fd,
+                                      self->priv->events,
+                                      self->priv->max_fds,
+                                      -1);
+  G_UNLOCK (interrupt_mutex);
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
+
+  events = self->priv->events;
+  nfds = self->priv->nr_events;
 
   started = self->priv->started;
 
@@ -201,6 +240,17 @@ evd_poll_dispatch (gpointer user_data)
         GIOCondition cond = 0;
 
         session = (EvdPollSession *) events[i].data.ptr;
+
+        if (session == NULL ||
+            evd_poll_check_and_consume_interrupt_event (self, events[i]) ||
+            ! evd_poll_session_unref (session))
+          {
+            continue;
+          }
+        else
+          {
+            evd_poll_session_ref (session);
+          }
 
         if ( (events[i].events & EPOLLIN) > 0 ||
              (events[i].events & EPOLLPRI) > 0)
@@ -216,23 +266,22 @@ evd_poll_dispatch (gpointer user_data)
         if (events[i].events & EPOLLERR)
           cond |= G_IO_ERR;
 
-        if (session->ref_count > 0)
-          {
-            session->cond_out |= cond;
+        session->cond_out |= cond;
 
-            if (session->src_id == 0)
-              {
-                evd_poll_session_ref_nolock (session);
-                session->src_id = evd_timeout_add (session->main_context,
-                                                   0,
-                                                   session->priority,
-                                                   evd_poll_callback_wrapper,
-                                                   session);
-              }
+        if (session->src_id == 0)
+          {
+            evd_poll_session_ref (session);
+            session->src_id = evd_timeout_add (session->main_context,
+                                               0,
+                                               session->priority,
+                                               evd_poll_callback_wrapper,
+                                               session);
           }
       }
 
-  G_UNLOCK (mutex);
+  self->priv->nr_events = 0;
+
+  G_UNLOCK (epoll_mutex);
 
   return started;
 }
@@ -277,6 +326,20 @@ evd_poll_start (EvdPoll *self, GError **error)
                            EVD_ERROR_EPOLL,
                            "Failed to create epoll set");
 
+      return FALSE;
+    }
+
+  errno = 0;
+  if (pipe (self->priv->interrupt_fds) != 0 ||
+      ! evd_poll_epoll_ctl (self,
+                            self->priv->interrupt_fds[0],
+                            EPOLL_CTL_ADD, G_IO_IN | G_IO_OUT,
+                            &self->priv->interrupt_fds[0]))
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           g_io_error_from_errno (errno),
+                           "Failed to setup epoll's interrupt pipe");
       return FALSE;
     }
 
@@ -325,21 +388,30 @@ evd_poll_epoll_ctl (EvdPoll      *self,
 }
 
 static void
+evd_poll_interrupt_epoll_wait (EvdPoll *self)
+{
+  const gchar *buf = " ";
+
+  /* self-pipe trick, here we write to pipe to wake up epoll_wait */
+  write (self->priv->interrupt_fds[1], buf, 1);
+}
+
+static void
 evd_poll_stop (EvdPoll *self)
 {
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
 
   self->priv->started = FALSE;
 
-  /* the only purpose of this is to interrupt the 'epoll_wait'.
-     FIXME: Adding fd '0' is just a nasty hack that happens to work.
-     Have to figure out a better way to interrupt it. */
-  evd_poll_epoll_ctl (self, 0, EPOLL_CTL_ADD, G_IO_OUT, NULL);
+  evd_poll_interrupt_epoll_wait (self);
+
+  close (self->priv->interrupt_fds[0]);
+  close (self->priv->interrupt_fds[1]);
 
   if (self->priv->main_loop != NULL)
     g_main_loop_quit (self->priv->main_loop);
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 
   g_thread_join (self->priv->thread);
 
@@ -364,14 +436,14 @@ evd_poll_new (void)
 EvdPoll *
 evd_poll_get_default (void)
 {
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
 
   if (evd_poll_default == NULL)
     evd_poll_default = evd_poll_new ();
   else
     g_object_ref (evd_poll_default);
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 
   return evd_poll_default;
 }
@@ -391,7 +463,7 @@ evd_poll_add (EvdPoll          *self,
   g_return_val_if_fail (fd > 0, NULL);
   g_return_val_if_fail (callback != NULL, NULL);
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
 
   if (! self->priv->started)
     if (! evd_poll_start (self, error))
@@ -426,15 +498,15 @@ evd_poll_add (EvdPoll          *self,
                            EVD_ERROR_EPOLL,
                            "Failed to add file descriptor to epoll set");
 
-      evd_poll_session_unref_nolock (session);
+      evd_poll_session_unref (session);
       session = NULL;
     }
   else
     {
-      evd_poll_session_ref_nolock (session);
+      evd_poll_session_ref (session);
     }
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 
   return session;
 }
@@ -451,7 +523,7 @@ evd_poll_mod (EvdPoll         *self,
   g_return_val_if_fail (EVD_IS_POLL (self), FALSE);
   g_return_val_if_fail (session != NULL, FALSE);
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
 
   session->priority = priority;
 
@@ -470,7 +542,7 @@ evd_poll_mod (EvdPoll         *self,
         }
     }
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (epoll_mutex);
 
   return result;
 }
@@ -481,22 +553,35 @@ evd_poll_del (EvdPoll         *self,
               GError         **error)
 {
   gboolean result;
+  gint i;
 
   g_return_val_if_fail (EVD_IS_POLL (self), FALSE);
   g_return_val_if_fail (session != NULL, FALSE);
 
-  G_LOCK (mutex);
+  G_LOCK (epoll_mutex);
+
+  if (! G_TRYLOCK (interrupt_mutex))
+    {
+      evd_poll_interrupt_epoll_wait (self);
+
+      G_LOCK (interrupt_mutex);
+    }
+
+  for (i = 0; i < self->priv->nr_events; i++)
+    if (self->priv->events[i].data.ptr == session)
+      self->priv->events[i].data.ptr = NULL;
 
   if (session->src_id != 0)
     {
       g_source_remove (session->src_id);
       session->src_id = -1;
-      evd_poll_session_unref_nolock (session);
+      evd_poll_session_unref (session);
     }
   session->callback = NULL;
 
   if (evd_poll_epoll_ctl (self, session->fd, EPOLL_CTL_DEL, 0, NULL))
     {
+      evd_poll_session_unref (session);
       result = TRUE;
     }
   else
@@ -509,30 +594,10 @@ evd_poll_del (EvdPoll         *self,
       result = FALSE;
     }
 
-  evd_poll_session_unref_nolock (session);
+  evd_poll_session_unref (session);
 
-  G_UNLOCK (mutex);
+  G_UNLOCK (interrupt_mutex);
+  G_UNLOCK (epoll_mutex);
 
   return result;
-}
-
-void
-evd_poll_session_ref (EvdPollSession *session)
-{
-  g_return_if_fail (session != NULL);
-
-  G_LOCK (mutex);
-  evd_poll_session_ref_nolock (session);
-  G_UNLOCK (mutex);
-}
-
-void
-evd_poll_session_unref (EvdPollSession *session)
-{
-  g_return_if_fail (session != NULL);
-  g_return_if_fail (session->ref_count > 0);
-
-  G_LOCK (mutex);
-  evd_poll_session_unref_nolock (session);
-  G_UNLOCK (mutex);
 }

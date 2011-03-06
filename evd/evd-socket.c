@@ -1073,13 +1073,12 @@ evd_socket_cleanup_internal (EvdSocket *self, GError **error)
 
   if (self->priv->socket != NULL)
     {
-      if (! g_socket_is_closed (self->priv->socket))
+      if (! evd_socket_unwatch (self, error) ||
+          (! g_socket_is_closed (self->priv->socket) &&
+           ! g_socket_close (self->priv->socket,
+                             error != NULL && *error == NULL ? error : NULL)))
         {
-          if (! evd_socket_unwatch (self, error) ||
-              ! g_socket_close (self->priv->socket, error))
-            {
-              result = FALSE;
-            }
+          result = FALSE;
         }
 
       g_object_unref (self->priv->socket);
@@ -1087,10 +1086,7 @@ evd_socket_cleanup_internal (EvdSocket *self, GError **error)
     }
 
   if (self->priv->poll_session != NULL)
-    {
-      evd_poll_session_unref (self->priv->poll_session);
-      self->priv->poll_session = NULL;
-    }
+    self->priv->poll_session = NULL;
 
   self->priv->has_pending = FALSE;
 
