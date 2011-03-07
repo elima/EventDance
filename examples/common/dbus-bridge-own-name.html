@@ -71,13 +71,17 @@ function log (msg) {
 
 function start () {
     // create transport
-    var transport = new Evd.LongPolling ({url: "/transport"});
+    var transport = new Evd.WebTransport ();
     transport.addEventListener ("new-peer", onNewPeer);
+    transport.addEventListener ("peer-closed", onPeerClosed);
     transport.open ();
 }
 
 function onNewPeer (p) {
     peer = p;
+    owned = false;
+    ownerId = 0;
+
 
     // create DBus connection
     new Evd.DBus.Connection ({
@@ -95,6 +99,13 @@ function onNewPeer (p) {
                 alert (err);
         }
     });
+}
+
+function onPeerClosed (p) {
+    peer = null;
+    dbusConn = null;
+    if (owned)
+        nameLost ();
 }
 
 function ownName () {
@@ -122,7 +133,6 @@ function unownName () {
         dbusConn.unownName (ownerId, function (result, err) {
             if (! err) {
                  nameLost (dbusConn, name, ownerId);
-                 ownerId = 0;
             }
             else
                 alert (err);
@@ -155,6 +165,7 @@ function nameLost (conn, name, _ownerId) {
 
     log ("name lost");
     owned = false;
+    ownerId = 0;
 }
 
 function ownNameSmart () {
