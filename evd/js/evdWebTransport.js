@@ -484,11 +484,16 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         if (! this._opened)
             return;
 
+        // @TODO: implement a retry count and abort after a maximum.
+        // Having fibonacci-based retry intervals would be nice.
+
         if (error.code == 404) {
             if (this._peer) {
                 this._closePeer (this._peer, false);
                 this._transport.handshake ();
             }
+            else
+                this.close (false);
         }
         else {
             var self = this;
