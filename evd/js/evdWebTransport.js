@@ -60,8 +60,8 @@ Evd.Object.extend (Evd.Peer.prototype, {
     _init: function (args) {
         this.id = args.id;
         this.transport = args.transport;
-
         this.backlog = [];
+        this._closed = false;
     },
 
     send: function (msg, size) {
@@ -80,8 +80,15 @@ Evd.Object.extend (Evd.Peer.prototype, {
         return this.transport.receiveText (this);
     },
 
-    close: function () {
-        return this.transport.closePeer (this);
+    close: function (gracefully) {
+        if (! this._closed) {
+            this._closed = true;
+
+            if (gracefully == undefined)
+                gracefully = true;
+
+            this.transport.closePeer (this, gracefully);
+        }
     }
 });
 
@@ -90,41 +97,42 @@ Evd.LongPolling = new Evd.Constructor ();
 Evd.LongPolling.prototype = new Evd.Object (Evd.LongPolling);
 
 Evd.Object.extend (Evd.LongPolling.prototype, {
-    DEFAULT_URL: "/transport/",
     PEER_DATA_KEY: "org.eventdance.lib.LongPolling",
     PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
 
     _init: function (args) {
-        if (! args.url) {
-            this.url = this.DEFAULT_URL;
-        }
-        else {
-            this.url = args.url;
-            if (this.url.charAt (this.url.length-1) != "/")
-                this.url += "/";
-        }
-        this.url += "lp";
+        this._onConnect = args.onConnect;
+        this._onReceive = args.onReceive;
+        this._onSend = args.onSend;
+        this._onError = args.onError;
 
         this._nrReceivers = 1;
         this._nrSenders = 1;
 
         this._senders = [];
+        this._receivers = [];
 
         this._opened = false;
         this._handshaking = false;
 
-        this.peer = null;
-
         this._activeXhrs = [];
 
-        for (var i=0; i<this._nrSenders; i++) {
+        var i;
+        for (i=0; i<this._nrSenders; i++) {
             var xhr = this._setupNewXhr (true);
             this._senders.push (xhr);
         }
+
+        for (i=0; i<this._nrReceivers; i++) {
+            var xhr = this._setupNewXhr (false);
+            this._receivers.push (xhr);
+        }
     },
 
-    _handshake: function () {
+    handshake: function () {
         var self = this;
+
+        this._peerId = null;
 
         var xhr = new XMLHttpRequest ();
 
@@ -135,39 +143,17 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             self._handshaking = false;
 
             if (this.status == 200) {
-                self._opened = true;
-
-                var peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
-
-                // create new peer
-                var peer = new Evd.Peer ({
-                    id: this.getResponseHeader (self.PEER_ID_HEADER_NAME),
-                    transport: self
-                });
-                peer.getRemoteId = function () {
-                    return peerId;
-                };
-                peer[self.PEER_DATA_KEY] = {};
-
-                // @TODO: by now it is assumed that only one peer can use
-                // this transport
-                self.peer = peer;
-
-                self._fireEvent ("new-peer", [peer]);
+                self._peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
+                self._onConnect (self._peerId, null);
 
                 self._connect ();
             }
             else {
-                throw ("error handshaking: " + this.statusText);
+                self._onConnect (null, new Error ("Handshake failed with HTTP error " + this.status));
             }
-
-            this.onload = null;
         };
 
-        this._opened = false;
-        this._handshaking = true;
-
-        xhr.open ("POST", this.url + "/handshake", true);
+        xhr.open ("POST", this._addr + "/handshake", true);
         xhr.send ();
     },
 
@@ -195,13 +181,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         return [hdr_len, msg_len];
     },
 
-    _xhrOnLoad: function (xhr) {
-        var data = xhr.responseText + "";
-
-        var peer = this.peer;
-        if (! peer)
-            return;
-
+    _xhrOnLoad: function (data) {
         var hdr_len, msg_len, msg, t;
         while (data != "") {
             t = this._readMsgHeader (data);
@@ -211,10 +191,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             msg = data.substr (hdr_len, msg_len);
             data = data.substr (hdr_len + msg_len);
 
-            peer[this.PEER_DATA_KEY]["msg"] = msg;
-            this._fireEvent ("receive", [peer]);
-
-            delete (peer[this.PEER_DATA_KEY]["msg"]);
+            this._onReceive (msg, null);
         }
     },
 
@@ -229,28 +206,35 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         };
 
         xhr.onreadystatechange = function () {
-            // @TODO: figure out how to prevent Firefox from breaking
-            // the transport when user press ESC
+            if (this.readyState != 4)
+                return;
 
-            if (this.readyState == 4) {
-                // remove xhr from list of actives
-                if (self._activeXhrs.indexOf (this) >= 0)
-                    self._activeXhrs.splice (self._activeXhrs.indexOf (this));
+            // remove xhr from list of actives
+            if (self._activeXhrs.indexOf (this) >= 0)
+                self._activeXhrs.splice (self._activeXhrs.indexOf (this));
 
-                if (this.status == 200) {
-                    self._xhrOnLoad (this);
-                    self._recycleXhr (this);
-                }
-                else if (this.status == 404) {
-                    self._closePeer (self.peer, false);
-                }
-                else {
-                    var xhr = this;
+            self._recycleXhr (this);
+
+            if (this.status != 200) {
+                var error = new Error ("Long polling error " + this.status);
+                error.code = this.status;
+
+                if (this._sender)
+                    self._onSend (false, error);
+                else
+                    self._onReceive (null, error);
+            }
+            else {
+                if (this._sender)
+                    self._onSend (true, null);
+                else
                     setTimeout (function () {
-                                    self._recycleXhr (xhr);
-                                    xhr = null;
-                                }, 100);
-                }
+                                    self._connect ();
+                                }, 1);
+
+                var data = xhr.responseText.toString ();
+                if (data)
+                    self._xhrOnLoad (data);
             }
         };
 
@@ -260,55 +244,29 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     _recycleXhr: function (xhr) {
         var self = this;
 
-        if (! this._opened)
-            return;
-
-        if (! xhr._sender) {
-            setTimeout (function () {
-                self._connectXhr (xhr);
-            }, 1);
-        }
-        else {
+        if (! xhr._sender)
+            this._receivers.push (xhr);
+        else
             this._senders.push (xhr);
-            if (this.peer.backlog.length > 0)
-                this.sendText (this.peer, "");
-        }
     },
 
     _connectXhr: function (xhr) {
-        xhr.open ("GET", this.url + "/receive", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this.peer.getRemoteId ());
+        xhr.open ("GET", this._addr + "/receive", true);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
 
         this._activeXhrs.push (xhr);
 
         xhr.send ();
     },
 
-    open: function () {
-        if (! this._opened)
-            this._handshake ();
-    },
-
     _connect: function () {
-        for (var i=0; i<this._nrReceivers; i++) {
-            var xhr = this._setupNewXhr (false);
+        for (var i=0; i<this._receivers.length; i++) {
+            var xhr = this._receivers.shift ();
             this._connectXhr (xhr);
         }
     },
 
-    _send: function (peer, xhr, data) {
-        xhr.open ("POST", this.url + "/send", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, peer.getRemoteId ());
-
-        this._activeXhrs.push (xhr);
-
-        xhr.send (data);
-    },
-
-    _addMsgHeader: function (msg) {
-        var hdr = [];
-        // @TODO: calculate message length accurately, considering that
-        // it is UTF-16. By now, use 'length' property.
+    _buildMsg: function (msg) {
         var len = msg.length;
         var hdr_st = "";
 
@@ -337,77 +295,243 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         return hdr_st + msg;
     },
 
+    send: function (msgs) {
+        var buf = "";
+        var msg;
+        while (msgs.length > 0) {
+            msg = msgs.shift ();
+            buf += this._buildMsg (msg);
+        }
+
+        var xhr = this._senders.shift ();
+
+        xhr.open ("POST", this._addr + "/send", true);
+        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
+
+        this._activeXhrs.push (xhr);
+
+        xhr.send (buf);
+    },
+
+    canSend: function () {
+        return this._senders.length > 0;
+    },
+
+    open: function (address) {
+        this._addr = address + "/lp";
+        this.handshake ();
+    },
+
+    close: function (gracefully) {
+        this._opened = false;
+
+        var xhr;
+
+        if (gracefully) {
+            // send a 'close' command
+            xhr = new XMLHttpRequest ();
+            xhr.open ("POST", this._addr + "/close", false);
+            xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
+            xhr.send ();
+        }
+
+        // cancel all active XHRs
+        for (xhr in this._activeXhrs)
+            xhr.abort ();
+        this._activeXhrs = [];
+    },
+
+    reconnect: function () {
+        this._connect ();
+    }
+});
+
+// Evd.WebTransport
+Evd.WebTransport = new Evd.Constructor ();
+Evd.WebTransport.prototype = new Evd.Object ();
+
+Evd.WebTransport.DEFAULT_ADDR = "/transport";
+Evd.WebTransport.PEER_DATA_KEY = "org.eventdance.lib.WebTransport.data";
+
+Evd.Object.extend (Evd.WebTransport.prototype, {
+
+    _init: function (args) {
+        if (args.address)
+            this._addr = args.address.toString ();
+        else
+            this._addr = Evd.WebTransport.DEFAULT_ADDR;
+
+        this._opened = false;
+        this._outBuf = [];
+        this._flushBuf = [];
+
+        this._selectTransport ();
+    },
+
+    _selectTransport: function () {
+        // @TODO: select best transport available
+        // by now use LongPolling always
+
+        var self = this;
+
+        var transportProto = Evd.LongPolling;
+
+        this._transport = new transportProto ({
+            onConnect: function (peerId, error) {
+                self._onConnect (peerId, error);
+            },
+            onReceive: function (msg, error) {
+                self._onReceive (msg, error);
+            },
+            onSend: function (result, error) {
+                self._onFlush (result, error);
+            }
+        });
+    },
+
+    _onConnect: function (peerId, error) {
+        if (! error) {
+            // create new peer
+            var peer = new Evd.Peer ({
+                id: peerId,
+                transport: this
+            });
+            peer[Evd.WebTransport.PEER_DATA_KEY] = {};
+
+            this._peer = peer;
+            this._fireEvent ("new-peer", [peer]);
+        }
+        else {
+            this._retry (error);
+        }
+    },
+
+    open: function (address) {
+        if (this._opened)
+            throw ("Transport already opened, try closing first");
+
+        this._opened = true;
+
+        if (address)
+            this._addr = address.toString ();
+
+        var self = this;
+        this._transport.open (this._addr);
+    },
+
+    _flushing: function () {
+        return this._flushBuf.length > 0;
+    },
+
+    _flush: function () {
+        if (this._transport.canSend ()) {
+            this._flushBuf = this._outBuf;
+            this._outBuf = [];
+            this._transport.send (this._flushBuf);
+        }
+    },
+
     send: function (peer, data, size) {
         throw ("Sending raw data is not implemented. Use 'sendText()' instead");
     },
 
     sendText: function (peer, data) {
-        if (this._handshaking || this._senders.length == 0) {
-            peer.backlog.push (data);
-        }
-        else if (this._opened) {
-            var buf = "";
-            var msg;
-            while (peer.backlog.length > 0) {
-                msg = peer.backlog.shift ();
-                buf += this._addMsgHeader (msg);
-            }
+        if (peer != this._peer)
+            throw ("Send failed, invalid peer");
 
-            if (data)
-                buf += this._addMsgHeader (data);
+        if (! data)
+            return;
 
-            if (buf) {
-                var xhr = this._senders.shift ();
-                this._send (peer, xhr, buf);
-            }
-        }
-        else {
-            throw ("Failed to send, long-polling transport is closed");
-        }
+        this._outBuf.push (data);
+
+        if (! this._flushing ())
+            this._flush ();
     },
 
-    receive: function (peer) {
-        throw ("Receiving raw data is not implemented. Use 'receiveText()' instead");
+    _onReceive: function (msg, error) {
+        if (! error) {
+            if (! this._peer)
+                return;
+
+            this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = msg;
+            this._fireEvent ("receive", [this._peer]);
+            this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = null;
+        }
+        else {
+            this._retry (error);
+        }
     },
 
     receiveText: function (peer) {
-        var data = peer[this.PEER_DATA_KEY];
-        if (! data || typeof (data) != "object")
-            return null;
-        else
-            return data["msg"];
+        return peer[Evd.WebTransport.PEER_DATA_KEY].msg;
+    },
+
+    _onFlush: function (result, error) {
+        if (! error) {
+            this._flushBuf = [];
+
+            if (this._outBuf.length > 0) {
+                var self = this;
+                setTimeout (function () { self._flush (); }, 1);
+            }
+        }
+        else {
+            this._retry (error);
+        }
+    },
+
+    _retry: function (error) {
+        if (! this._opened)
+            return;
+
+        if (error.code == 404) {
+            if (this._peer) {
+                this._closePeer (this._peer, false);
+                this._transport.handshake ();
+            }
+        }
+        else {
+            var self = this;
+
+            // try reconnect
+            setTimeout (function () {
+                            self._transport.reconnect ();
+                        }, 100);
+
+            // retry send
+            if (this._outBuf.length > 0) {
+                setTimeout (function () {
+                                self._flush ();
+                            }, 100);
+            }
+        }
     },
 
     _closePeer: function (peer, gracefully) {
-        if (! this._opened)
-            return;
-
-        this._opened = false;
-        this._handshaking = false;
-        this.peer = null;
-
-        // send a 'close' command
-        xhr = new XMLHttpRequest ();
-        xhr.open ("POST", this.url + "/close", false);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, peer.getRemoteId ());
-        xhr.send ();
-
-        // cancel all active XHRs
-        for (var xhr in this._activeXhrs)
-            xhr.abort ();
-        this._activeXhrs = [];
+        this._peer = null;
+        this._outBuf = [];
+        this._flushBuf = [];
 
         this._fireEvent ("peer-closed", [peer, gracefully]);
+        peer.close (gracefully);
     },
 
-    closePeer: function (peer) {
-        this._closePeer (peer, true);
+    closePeer: function (peer, gracefully) {
+        if (peer && peer == this._peer)
+            this._closePeer (peer, gracefully);
     },
 
-    close: function () {
+    close: function (gracefully) {
         if (! this._opened)
             return;
 
-        this.closePeer (this.peer);
+        if (gracefully == undefined)
+            gracefully = true;
+
+        this._opened = false;
+        this._transport.close (gracefully);
+        this._closePeer (this._peer, gracefully);
+
+        this._fireEvent ("close", [gracefully]);
     }
 });
