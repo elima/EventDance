@@ -1,12 +1,15 @@
 MAINTAINERCLEANFILES = \
 	Makefile.in
 
+examples_common_dir = `pwd`/common
+
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
 	$(TLS_CFLAGS) \
 	$(UUID_CFLAGS) \
 	$(JSON_CFLAGS) \
 	$(SOUP_CFLAGS) \
+	-DEXAMPLES_COMMON_DIR="\"$(examples_common_dir)\"" \
 	-Wall -g3 -O0 -ggdb \
 	-I$(top_srcdir)/evd
 
