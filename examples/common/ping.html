@@ -103,13 +103,15 @@ function onNewPeer (p) {
     send ();
 }
 
-function onPeerClosed (peer, gracefully) {
+function onPeerClosed (p, gracefully) {
+    alert ("peer "+p.id+" closed! (from transport)");
+    peer = null;
 }
 
 function start () {
     init ();
 
-    var transport = new Evd.LongPolling ({url: "/transport"});
+    var transport = new Evd.WebTransport ();
 
     transport.addEventListener ("new-peer", onNewPeer);
     transport.addEventListener ("peer-closed", onPeerClosed);
@@ -132,7 +134,7 @@ function send () {
   </script>
 </head>
 
-<body onload="start ()" onunload="peer.close ()">
+<body onload="start ()" onunload="if (peer) peer.close (false)">
   <h3>Packets</h3>
   <table>
     <tr>
