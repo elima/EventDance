@@ -405,9 +405,6 @@ evd_poll_stop (EvdPoll *self)
 
   evd_poll_interrupt_epoll_wait (self);
 
-  close (self->priv->interrupt_fds[0]);
-  close (self->priv->interrupt_fds[1]);
-
   if (self->priv->main_loop != NULL)
     g_main_loop_quit (self->priv->main_loop);
 
@@ -419,6 +416,9 @@ evd_poll_stop (EvdPoll *self)
 
   close (self->priv->epoll_fd);
   self->priv->epoll_fd = 0;
+
+  close (self->priv->interrupt_fds[0]);
+  close (self->priv->interrupt_fds[1]);
 }
 
 /* public methods */
