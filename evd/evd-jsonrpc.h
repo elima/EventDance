@@ -27,6 +27,8 @@
 #include <gio/gio.h>
 #include <json-glib/json-glib.h>
 
+#include <evd-transport.h>
+
 G_BEGIN_DECLS
 
 typedef struct _EvdJsonrpc EvdJsonrpc;
@@ -101,6 +103,11 @@ gboolean             evd_jsonrpc_respond                      (EvdJsonrpc  *self
                                                                JsonNode    *result,
                                                                gpointer     context,
                                                                GError     **error);
+
+void                 evd_jsonrpc_use_transport                (EvdJsonrpc   *self,
+                                                               EvdTransport *transport);
+void                 evd_jsonrpc_unuse_transport              (EvdJsonrpc   *self,
+                                                               EvdTransport *transport);
 
 G_END_DECLS
 
