@@ -68,15 +68,15 @@ enum
 
 //static guint evd_jsonrpc_signals[SIGNAL_LAST] = { 0 };
 
-static void     evd_jsonrpc_class_init         (EvdJsonrpcClass *class);
-static void     evd_jsonrpc_init               (EvdJsonrpc *self);
+static void     evd_jsonrpc_class_init           (EvdJsonrpcClass *class);
+static void     evd_jsonrpc_init                 (EvdJsonrpc *self);
 
-static void     evd_jsonrpc_finalize           (GObject *obj);
+static void     evd_jsonrpc_finalize             (GObject *obj);
 
-static void     evd_jsonrpc_on_json_packet     (EvdJsonFilter *self,
-                                                const gchar   *buffer,
-                                                gsize          size,
-                                                gpointer       user_data);
+static void     evd_jsonrpc_on_json_packet       (EvdJsonFilter *self,
+                                                  const gchar   *buffer,
+                                                  gsize          size,
+                                                  gpointer       user_data);
 
 static void     evd_jsonrpc_transport_destroyed  (gpointer  data,
                                                   GObject  *where_the_object_was);
