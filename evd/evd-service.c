@@ -619,11 +619,11 @@ evd_service_remove_listener (EvdService *self,
  * @user_data: (allow-none):
  **/
 void
-evd_service_listen_async (EvdService          *self,
-                          const gchar         *address,
-                          GCancellable        *cancellable,
-                          GAsyncReadyCallback  callback,
-                          gpointer             user_data)
+evd_service_listen (EvdService          *self,
+                    const gchar         *address,
+                    GCancellable        *cancellable,
+                    GAsyncReadyCallback  callback,
+                    gpointer             user_data)
 {
   EvdSocket *socket;
   GSimpleAsyncResult *res;
@@ -636,7 +636,7 @@ evd_service_listen_async (EvdService          *self,
   res = g_simple_async_result_new (G_OBJECT (self),
                                    callback,
                                    user_data,
-                                   evd_service_listen_async);
+                                   evd_service_listen);
 
   g_object_set_data (G_OBJECT (socket), "listen-result", res);
 
@@ -655,7 +655,7 @@ evd_service_listen_finish (EvdService    *self,
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                         G_OBJECT (self),
-                                                        evd_service_listen_async),
+                                                        evd_service_listen),
                         FALSE);
 
   return
