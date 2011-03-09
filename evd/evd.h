@@ -59,5 +59,6 @@
 #include <evd-dbus-daemon.h>
 #include <evd-jsonrpc.h>
 #include <evd-tls-cipher.h>
+#include <evd-daemon.h>
 
 #endif /* __EVD_H__ */
