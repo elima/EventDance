@@ -43,7 +43,7 @@ selector.tls_credentials.cert_file = "../../tests/certs/x509-server.pem";
 selector.tls_credentials.key_file = "../../tests/certs/x509-server-key.pem";
 
 /* start listening */
-selector.listen_async ("0.0.0.0:" + LISTEN_PORT, null,
+selector.listen ("0.0.0.0:" + LISTEN_PORT, null,
     function (service, result) {
         try {
             service.listen_finish (result);

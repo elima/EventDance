@@ -54,7 +54,7 @@ def on_listen(self, result, main_loop):
         main_loop.quit()
 
 # start listening
-selector.listen_async('0.0.0.0:' + LISTEN_PORT, None, on_listen, main_loop)
+selector.listen('0.0.0.0:' + LISTEN_PORT, None, on_listen, main_loop)
 
 # start the show
 main_loop.run();

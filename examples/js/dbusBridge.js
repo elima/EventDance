@@ -44,7 +44,7 @@ selector.set_default_service (webDir);
 transport.set_selector (selector);
 
 // start listening
-selector.listen_async ("0.0.0.0:" + LISTEN_PORT, null,
+selector.listen ("0.0.0.0:" + LISTEN_PORT, null,
     function (service, result) {
         try {
             service.listen_finish (result);
