@@ -638,7 +638,7 @@ evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
 }
 
 gboolean
-evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCertificate  *self,
+evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCredentials  *self,
                                                       GAsyncResult       *result,
                                                       GError            **error)
 {

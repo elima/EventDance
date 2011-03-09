@@ -89,7 +89,7 @@ void               evd_tls_credentials_add_certificate_from_file        (EvdTlsC
                                                                          GCancellable        *cancellable,
                                                                          GAsyncReadyCallback  callback,
                                                                          gpointer             user_data);
-gboolean           evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCertificate  *self,
+gboolean           evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCredentials  *self,
                                                                          GAsyncResult       *result,
                                                                          GError            **error);
 
