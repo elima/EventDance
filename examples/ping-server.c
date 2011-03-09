@@ -13,7 +13,7 @@
 
 #define LISTEN_PORT 8080
 
-static GMainLoop *main_loop;
+static EvdDaemon *evd_daemon;
 
 static void
 on_listen (GObject      *service,
@@ -35,7 +35,7 @@ on_listen (GObject      *service,
       g_debug ("%s", error->message);
       g_error_free (error);
 
-      g_main_loop_quit (main_loop);
+      evd_daemon_quit (evd_daemon);
     }
 }
 
@@ -63,9 +63,11 @@ main (gint argc, gchar *argv[])
   g_type_init ();
   evd_tls_init (NULL);
 
+  /* daemon */
+  evd_daemon = evd_daemon_get_default (&argc, &argv);
+
   /* web transport */
   transport = evd_web_transport_new ();
-
   g_signal_connect (transport,
                     "receive",
                     G_CALLBACK (transport_on_receive),
@@ -98,16 +100,13 @@ main (gint argc, gchar *argv[])
   g_free (addr);
 
   /* start the show */
-  main_loop = g_main_loop_new (NULL, FALSE);
-
-  g_main_loop_run (main_loop);
+  evd_daemon_run (evd_daemon);
 
   /* free stuff */
-  g_main_loop_unref (main_loop);
-
   g_object_unref (transport);
   g_object_unref (selector);
   g_object_unref (web_dir);
+  g_object_unref (evd_daemon);
 
   evd_tls_deinit ();
 
