@@ -13,8 +13,10 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
     };
 
     // Evd.Object
-    Evd.Object = function () {
+    Evd.Object = function (constructor) {
         var eventListeners = {};
+
+        this.constructor = constructor;
 
         this.addEventListener = function (eventName, handler) {
             if (! eventListeners[eventName])
@@ -29,7 +31,7 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
 
             var i = 0;
             while (i < eventListeners[eventName].length)
-                if (eventListeners[eventName][i] == handler)
+                if (eventListeners[eventName][i] === handler)
                     eventListeners[eventName].splice (i, 1);
                 else
                     i++;
@@ -52,7 +54,7 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
 
 // Evd.Peer
 Evd.Peer = new Evd.Constructor ();
-Evd.Peer.prototype = new Evd.Object ();
+Evd.Peer.prototype = new Evd.Object (Evd.Peer);
 
 Evd.Object.extend (Evd.Peer.prototype, {
     _init: function (args) {
@@ -85,7 +87,7 @@ Evd.Object.extend (Evd.Peer.prototype, {
 
 // Evd.LongPolling
 Evd.LongPolling = new Evd.Constructor ();
-Evd.LongPolling.prototype = new Evd.Object ();
+Evd.LongPolling.prototype = new Evd.Object (Evd.LongPolling);
 
 Evd.Object.extend (Evd.LongPolling.prototype, {
     DEFAULT_URL: "/transport/",
