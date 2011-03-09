@@ -6,7 +6,6 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
     _init: function (args) {
         this._invocationCounter = 0;
 
-        /* @TODO: validate args */
         this._transportWriteCb = args.transportWriteCb;
         this._methodCallCb = args.methodCallCb;
 
@@ -14,9 +13,17 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
         this._invocationsOut = {};
 
         this._registeredMethods = {};
+
+        this._transports = [];
+
+        var self = this;
+        this._transportOnReceive = function (peer) {
+            var data = peer.receiveText ();
+            self.transportRead (data, peer);
+        };
     },
 
-    transportRead: function (data) {
+    transportRead: function (data, context) {
         try {
             var msg = JSON.parse (data);
         }
@@ -30,7 +37,7 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
         }
 
         if (msg["result"] !== undefined && msg["error"] !== undefined) {
-            /* A JSON-RPC response */
+            /* a JSON-RPC response */
 
             if (this._invocationsOut[msg.id] === undefined) {
                 /* unexpected response, discard silently? */
@@ -45,8 +52,7 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
             }
         }
         else if (msg["method"] !== undefined && msg["params"] !== undefined) {
-            /* A JSON-RPC request */
-
+            /* a JSON-RPC request */
             var self = this;
             var invObj = this._newInvocationObj (msg.id,
                                                  msg.method,
@@ -55,12 +61,17 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
             var key = invObj.id.toString ();
             this._invocationsIn[key] = invObj;
 
-            if (this._registeredMethods[invObj.method])
-                this._registeredMethods[invObj.method] (this, invObj.params, key);
+            if (this._registeredMethods[invObj.method]) {
+                this._registeredMethods[invObj.method] (this,
+                                                        invObj.params,
+                                                        key,
+                                                        context);
+            }
             else if (this._methodCallCb)
-                this._methodCallCb (invObj.method, invObj.params, key);
+                this._methodCallCb (invObj.method, invObj.params, key, context);
             else {
-                // @TODO: method not handled, respond with error
+                // method not handled, respond call with error
+                this.respondError (key, "Method '"+invObj.method+"' not handled", context);
             }
         }
         else {
@@ -79,8 +90,21 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
         return invObj;
     },
 
-    callMethod: function (methodName, params, callback) {
-        /* @TODO: validate params to be an array */
+    _transportWrite: function (msg, context) {
+        if (context && typeof (context) == "object" &&
+            context.__proto__.constructor == Evd.Peer) {
+            context.sendText (msg);
+        }
+        else if (this._transportWriteCb) {
+            this._transportWriteCb (this, msgSt);
+        }
+        else {
+            throw ("No transport to write message");
+        }
+    },
+
+    callMethod: function (methodName, params, callback, context) {
+        // @TODO: validate params to be an array
 
         var msg = {
             method: methodName,
@@ -96,13 +120,12 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
         var msgSt = JSON.stringify (msg);
 
-        if (this._transportWriteCb)
-            this._transportWriteCb (this, msgSt);
+        this._transportWrite (msgSt, context);
 
         return invObj;
     },
 
-    _respond: function (invocationId, result, error) {
+    _respond: function (invocationId, result, error, context) {
         if (this._invocationsIn[invocationId] === undefined)
             throw ("No active method invocation with such id");
 
@@ -115,16 +138,15 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
         var msgSt = JSON.stringify (msg);
 
-        if (this._transportWriteCb)
-            this._transportWriteCb (this, msgSt);
+        this._transportWrite (msgSt, context);
     },
 
-    respond: function (invocationId, result) {
-        return this._respond (invocationId, result, null);
+    respond: function (invocationId, result, context) {
+        return this._respond (invocationId, result, null, context);
     },
 
-    respondError: function (invocationId, error) {
-        return this._respond (invocationId, null, error);
+    respondError: function (invocationId, error, context) {
+        return this._respond (invocationId, null, error, context);
     },
 
     registerMethod: function (methodName, callback) {
@@ -133,5 +155,13 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
     unregisterMethod: function (methodName) {
         delete (this._registeredMethods[methodName]);
+    },
+
+    useTransport: function (transport) {
+        transport.addEventListener ("receive", this._transportOnReceive);
+    },
+
+    unuseTransport: function (transport) {
+        transport.removeEventListener ("receive", this._transportOnReceive);
     }
 });
