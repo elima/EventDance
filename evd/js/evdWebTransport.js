@@ -343,7 +343,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
 // Evd.WebTransport
 Evd.WebTransport = new Evd.Constructor ();
-Evd.WebTransport.prototype = new Evd.Object ();
+Evd.WebTransport.prototype = new Evd.Object (Evd.WebTransport);
 
 Evd.WebTransport.DEFAULT_ADDR = "/transport";
 Evd.WebTransport.PEER_DATA_KEY = "org.eventdance.lib.WebTransport.data";
