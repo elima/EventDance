@@ -113,7 +113,6 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         this._receivers = [];
 
         this._opened = false;
-        this._handshaking = false;
 
         this._activeXhrs = [];
 
@@ -139,8 +138,6 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         xhr.onreadystatechange = function () {
             if (this.readyState != 4)
                 return;
-
-            self._handshaking = false;
 
             if (this.status == 200) {
                 self._peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
@@ -242,8 +239,6 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     },
 
     _recycleXhr: function (xhr) {
-        var self = this;
-
         if (! xhr._sender)
             this._receivers.push (xhr);
         else
