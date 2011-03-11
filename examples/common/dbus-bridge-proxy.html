@@ -34,21 +34,25 @@
   <script type="text/javascript" src="/transport/evdDBusBridge.js"></script>
   <script type="text/javascript">
 
+var transport;
+
 var DBUS_ADDR = "alias:abstract=/org/eventdance/lib/examples/dbus-bridge";
-var dbusConn;
-var peer;
 var proxy;
 
-function onPageLoad () {
-    var transport = new Evd.LongPolling ({url: "/transport"});
+window.onload = function () {
+    transport = new Evd.WebTransport ();
     transport.addEventListener ("new-peer", onNewPeer);
+    transport.addEventListener ("peer-closed", onPeerClosed);
     transport.open ();
 }
 
-function onNewPeer (p) {
-    peer = p;
+window.onunload = function () {
+    if (transport)
+        transport.close ();
+}
 
-    new Evd.DBus.Connection ({
+function onNewPeer (peer) {
+     new Evd.DBus.Connection ({
         peer: peer,
         address: DBUS_ADDR,
         callback: function (conn, err) {
@@ -63,6 +67,12 @@ function onNewPeer (p) {
     });
 }
 
+function onPeerClosed () {
+    if (proxy) {
+        proxy.removeAllEventListeners ();
+        proxy = null;
+    }
+}
 
 function createProxy (conn) {
     new Evd.DBus.Proxy ({
@@ -78,7 +88,8 @@ function createProxy (conn) {
                 // connect to all proxy signals
                 proxy.addEventListener ("signal-emitted",
                     function (name, args) {
-                        log ("Notification message '"+args[0]+"' closed");
+                        if (name == "NotificationClosed")
+                            log ("Notification message '"+args[0]+"' closed");
                     });
             }
             else
@@ -112,14 +123,14 @@ function log (msg) {
   </script>
 </head>
 
-<body onload="onPageLoad ()" onunload="peer.close ()">
+<body>
   <h2>Example proxy for /org/freedesktop/Notifications</h2>
   <h3>Notify</h3
   <table>
    <tbody>
     <tr>
       <td>Title</td>
-      <td><input type="text" id="msg-title" value="Hi, dude!"/></td>
+      <td><input type="text" id="msg-title" value="Hello, world!"/></td>
     </tr>
     <tr>
       <td>Message</td>

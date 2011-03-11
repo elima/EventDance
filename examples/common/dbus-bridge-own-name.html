@@ -35,9 +35,10 @@
   <script type="text/javascript" src="/transport/evdDBusBridge.js"></script>
   <script type="text/javascript">
 
+var transport;
+
 var DBUS_ADDR = "alias:abstract=/org/eventdance/lib/examples/dbus-bridge";
 var dbusConn;
-var peer;
 
 var name = "org.eventdance.lib.examples";
 
@@ -52,13 +53,13 @@ var ifaceXml =
      </method> \
    </interface>";
 
-var obj = {};
-
-obj.Ask = function (args, invocation) {
-    setTimeout (function () {
-        var answer = confirm (args[0], args[0]);
-        invocation.returnValue ([answer == true]);
-    }, 10);
+function ExportedObj () {
+    this.Ask = function (args, invocation) {
+        setTimeout (function () {
+            var answer = confirm (args[0], args[0]);
+            invocation.returnValue ([answer == true]);
+        }, 10);
+    };
 }
 
 function $ (id) {
@@ -69,19 +70,21 @@ function log (msg) {
     $ ("log").innerHTML += "<div>> "+msg+"</div>";
 }
 
-function start () {
-    // create transport
-    var transport = new Evd.WebTransport ();
+window.onload = function () {
+    transport = new Evd.WebTransport ();
     transport.addEventListener ("new-peer", onNewPeer);
     transport.addEventListener ("peer-closed", onPeerClosed);
     transport.open ();
 }
 
-function onNewPeer (p) {
-    peer = p;
+window.onunload = function () {
+    if (transport)
+        transport.close ();
+}
+
+function onNewPeer (peer) {
     owned = false;
     ownerId = 0;
-
 
     // create DBus connection
     new Evd.DBus.Connection ({
@@ -101,9 +104,9 @@ function onNewPeer (p) {
     });
 }
 
-function onPeerClosed (p) {
-    peer = null;
+function onPeerClosed (peer) {
     dbusConn = null;
+    ownerId = 0;
     if (owned)
         nameLost ();
 }
@@ -140,7 +143,7 @@ function unownName () {
 }
 
 function nameAcquired (conn, name) {
-    $ ("owning_banner").innerHTML = "org.eventdance.examples owned";
+    $ ("owning_banner").innerHTML = name + " owned";
     $ ("owning_banner").className = "owned";
 
     $ ("own-btn").innerHTML = " Unown name ";
@@ -154,7 +157,7 @@ function nameAcquired (conn, name) {
 }
 
 function nameLost (conn, name, _ownerId) {
-    $ ("owning_banner").innerHTML = "org.eventdance.examples not owned";
+    $ ("owning_banner").innerHTML = name + " not owned";
     $ ("owning_banner").className = "not-owned";
 
     $ ("own-btn").innerHTML = " Own name ";
@@ -184,6 +187,7 @@ function ownNameSmart () {
 }
 
 function registerObject (conn) {
+    var obj = new ExportedObj ();
     conn.registerObject (obj,
                          "/org/eventdance/lib/examples/DBusBridge/OwnNameExample",
                          ifaceXml,
@@ -199,7 +203,7 @@ function registerObject (conn) {
   </script>
 </head>
 
-<body onload="start ()" onunload="peer.close ()">
+<body>
   <h2> Owning/unowning a name </h2>
   <h3 id="owning_banner"></h3>
 
