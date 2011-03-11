@@ -41,7 +41,7 @@ Evd.DBus = {
 
 // Evd.DBus.Connection
 Evd.DBus.Connection = new Evd.Constructor ();
-Evd.DBus.Connection.prototype = new Evd.Object ();
+Evd.DBus.Connection.prototype = new Evd.Object (Evd.DBus.Connection);
 
 Evd.DBus.Connection._serial = 0;
 
@@ -508,7 +508,7 @@ Evd.Object.extend (Evd.DBus.RegisteredObject.prototype, {
 
 // Evd.DBus.Proxy
 Evd.DBus.Proxy = new Evd.Constructor ();
-Evd.DBus.Proxy.prototype = new Evd.Object ();
+Evd.DBus.Proxy.prototype = new Evd.Object (Evd.DBus.Proxy);
 
 Evd.Object.extend (Evd.DBus.Proxy.prototype, {
     _init: function (args) {
