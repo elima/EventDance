@@ -368,8 +368,8 @@ static const TestCase test_cases[] =
         "[7,0,1,1,\"[]\"]", /* name-acquired signal */
         "[2,2,1,0,\"[1]\"]", /* register-object response */
         "[2,3,1,0,\"[1]\"]", /* new-proxy response */
-        "[13,1,1,1,\"[\\\"HelloWorld\\\",\\\"[ \\\\\\\"Hi there\\\\\\\" ]\\\",\\\"(s)\\\",0,0]\"]", /* call-method to registered object */
-        "[14,4,1,1,\"[\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\"]\"]", /* call-method-return to proxy */
+        "[13,1,1,1,\"[\\\"HelloWorld\\\",\\\"[\\\\\\\"Hi there\\\\\\\"]\\\",\\\"(s)\\\",0,0]\"]", /* call-method to registered object */
+        "[14,4,1,1,\"[\\\"[\\\\\\\"hello world!\\\\\\\"]\\\"]\"]", /* call-method-return to proxy */
       }
     },
 
@@ -388,7 +388,7 @@ static const TestCase test_cases[] =
         "[7,0,1,1,\"[]\"]", /* name-acquired signal */
         "[2,2,1,0,\"[1]\"]", /* register-object response */
         "[2,3,1,0,\"[1]\"]", /* new-proxy response */
-        "[15,0,1,1,\"[\\\"WorldGreets\\\",\\\"[ \\\\\\\"hello world!\\\\\\\" ]\\\",\\\"(s)\\\"]\"]", /* emit-signal received on proxy */
+        "[15,0,1,1,\"[\\\"WorldGreets\\\",\\\"[\\\\\\\"hello world!\\\\\\\"]\\\",\\\"(s)\\\"]\"]", /* emit-signal received on proxy */
       }
     },
   };
