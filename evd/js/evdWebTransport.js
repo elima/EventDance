@@ -37,6 +37,10 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
                     i++;
         };
 
+        this.removeAllEventListeners = function () {
+            eventListeners = [];
+        };
+
         this._fireEvent = function (eventName, args) {
             if (! eventListeners[eventName])
                 return;
