@@ -64,10 +64,17 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
         this._callback = args.callback;
 
         this._peer = args.peer;
-        peer.transport.addEventListener ("receive",
-            function (peer) {
-                self._processMsg (peer.receiveText ());
-            });
+
+        this._peerOnReceive = function (peer) {
+            self._processMsg (peer.receiveText ());
+        };
+        this._peer.transport.addEventListener ("receive", this._peerOnReceive);
+
+        this._peerOnClose = function (peer) {
+            if (peer == self._peer)
+                self.close ();
+        };
+        this._peer.transport.addEventListener ("peer-closed", this._peerOnClose);
 
         var addr = args.address;
 
@@ -484,6 +491,17 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
                            0,
                            subject,
                            msgArgs);
+    },
+
+    close: function () {
+        if (! this._peer)
+            return;
+
+        this._peer.transport.removeEventListener ("close", this._peerOnClose);
+        this._peer.transport.removeEventListener ("receive", this._peerOnReceive);
+        this._peer = null;
+
+        this._fireEvent ("close", []);
     }
 });
 
