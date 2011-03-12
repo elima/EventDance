@@ -45,6 +45,8 @@ struct _EvdTlsCredentialsPrivate
   gpointer cert_cb_user_data;
   gnutls_retr_st *cert_cb_certs;
   gint cert_cb_result;
+
+  guint async_ops_count;
 };
 
 struct CertData
@@ -141,6 +143,8 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
   priv->cert_cb_user_data = NULL;
   priv->cert_cb_certs = NULL;
   priv->cert_cb_result = 0;
+
+  priv->async_ops_count = 0;
 }
 
 static void
@@ -287,13 +291,16 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
   if (self->priv->dh_bits != 0)
     gnutls_certificate_set_dh_params (self->priv->cred, self->priv->dh_params);
 
-  self->priv->ready = TRUE;
-  self->priv->preparing = FALSE;
+  if (self->priv->async_ops_count == 0)
+    {
+      self->priv->ready = TRUE;
+      self->priv->preparing = FALSE;
 
-  g_signal_emit (self,
-                 evd_tls_credentials_signals[SIGNAL_READY],
-                 0,
-                 NULL);
+      g_signal_emit (self,
+                     evd_tls_credentials_signals[SIGNAL_READY],
+                     0,
+                     NULL);
+    }
 
   return TRUE;
 }
@@ -349,6 +356,18 @@ evd_tls_certificate_real_add_cert_from_file (GSimpleAsyncResult *res,
 
   g_simple_async_result_complete (res);
   g_object_unref (res);
+
+  self->priv->async_ops_count--;
+  if (self->priv->async_ops_count == 0 && self->priv->preparing)
+    {
+      self->priv->ready = TRUE;
+      self->priv->preparing = FALSE;
+
+      g_signal_emit (self,
+                     evd_tls_credentials_signals[SIGNAL_READY],
+                     0,
+                     NULL);
+    }
 }
 
 static void
@@ -370,7 +389,6 @@ evd_tls_certificate_on_cert_imported (GObject      *obj,
                                                          res,
                                                          &error))
         {
-          g_simple_async_result_set_from_error (result, error);
           g_object_unref (obj);
           data->error = error;
         }
@@ -403,7 +421,6 @@ evd_tls_certificate_on_privkey_imported (GObject      *obj,
                                                      res,
                                                      &error))
         {
-          g_simple_async_result_set_from_error (result, error);
           g_object_unref (obj);
           data->error = error;
         }
@@ -635,6 +652,8 @@ evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
                                     cancellable,
                                     evd_tls_certificate_on_privkey_imported,
                                     res);
+
+  self->priv->async_ops_count++;
 }
 
 gboolean
