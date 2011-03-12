@@ -83,12 +83,14 @@ main (gint argc, gchar *argv[])
   evd_web_selector_set_default_service (selector, EVD_SERVICE (web_dir));
   evd_web_transport_set_selector (transport, selector);
 
-  /* evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE); */
+  /*  evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE); */
   cred = evd_service_get_tls_credentials (EVD_SERVICE (selector));
-  g_object_set (cred,
-                "cert-file", "../tests/certs/x509-server.pem",
-                "key-file", "../tests/certs/x509-server-key.pem",
-                NULL);
+  evd_tls_credentials_add_certificate_from_file (cred,
+                                          "../tests/certs/x509-server.pem",
+                                          "../tests/certs/x509-server-key.pem",
+                                          NULL,
+                                          NULL,
+                                          NULL);
 
   /* start listening */
   addr = g_strdup_printf ("0.0.0.0:%d", LISTEN_PORT);
