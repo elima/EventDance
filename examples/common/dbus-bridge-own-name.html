@@ -168,7 +168,6 @@ function nameLost (conn, name, _ownerId) {
 
     log ("name lost");
     owned = false;
-    ownerId = 0;
 }
 
 function ownNameSmart () {
@@ -176,7 +175,6 @@ function ownNameSmart () {
         if (ownerId)
             dbusConn.unownName (ownerId, function (result, err) {
                 if (! err) {
-                     nameLost (dbusConn, name, ownerId);
                      ownerId = 0;
                      ownName (dbusConn);
                 }
