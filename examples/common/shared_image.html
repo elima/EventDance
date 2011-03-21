@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <title>Shared image - EventDance examples</title>
   <style>
     body {
         overflow: hidden;
@@ -40,11 +41,38 @@
 
   </style>
   <script type="text/javascript" src="sharedImage.js"></script>
-  <script type="text/javascript" src="/transport"></script>
+  <script type="text/javascript" src="/transport/evdWebTransport.js"></script>
   <script type="text/javascript">
 
-var sharedImage;
 var transport;
+var sharedImage;
+
+window.onload = function () {
+    transport = new Evd.WebTransport ();
+
+    transport.addEventListener ("new-peer", onNewPeer);
+    transport.addEventListener ("peer-closed", onPeerClosed);
+    transport.addEventListener ("receive", receive);
+
+    transport.open ();
+};
+
+window.onunload = function () {
+    if (transport)
+        transport.close ();
+}
+
+function onNewPeer (peer) {
+    sharedImage = new SharedImage ({
+        container: document.body,
+        peer: peer
+    });
+}
+
+function onPeerClosed () {
+    while (document.body.childNodes.length > 0)
+        document.body.removeChild (document.body.childNodes.item(0));
+}
 
 function receive (peer) {
     var data = peer.receiveText ();
@@ -60,25 +88,9 @@ function receive (peer) {
     }
 }
 
-function onNewPeer (peer) {
-    sharedImage = new SharedImage ({
-        container: document.body,
-        peer: peer
-    });
-}
-
-function start () {
-    transport = new Evd.LongPolling ({url: "/transport"});
-
-    transport.addEventListener ("new-peer", onNewPeer);
-    transport.addEventListener ("receive", receive);
-
-    transport.open ();
-}
-
   </script>
 </head>
 
-<body onload="start ()" onunload="transport.close ()">
+<body>
 </body>
 </html>

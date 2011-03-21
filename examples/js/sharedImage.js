@@ -93,7 +93,7 @@ selector.set_default_service (webDir);
 
 transport.selector = selector;
 
-selector.listen_async ("0.0.0.0:" + PORT, null,
+selector.listen ("0.0.0.0:" + PORT, null,
     function (service, result) {
         if (service.listen_finish (result))
             print ("Listening, now point your browser to http://localhost:" + PORT + "/shared_image.html");
