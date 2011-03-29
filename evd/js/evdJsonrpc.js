@@ -96,10 +96,10 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
             context.sendText (msg);
         }
         else if (this._transportWriteCb) {
-            this._transportWriteCb (this, msgSt);
+            this._transportWriteCb (this, msg);
         }
         else {
-            throw ("No transport to write message");
+            throw ("No transport to send message over");
         }
     },
 
