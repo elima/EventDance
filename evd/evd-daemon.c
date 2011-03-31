@@ -96,6 +96,7 @@ static void
 evd_daemon_on_user_interrupt (gint sig)
 {
   signal (SIGINT, NULL);
+  signal (SIGTERM, NULL);
 
   if (evd_daemon_default != NULL)
     evd_daemon_quit (evd_daemon_default);
@@ -169,7 +170,10 @@ evd_daemon_run (EvdDaemon *self)
     }
 
   if (self == evd_daemon_default)
-    signal (SIGINT, evd_daemon_on_user_interrupt);
+    {
+      signal (SIGINT, evd_daemon_on_user_interrupt);
+      signal (SIGTERM, evd_daemon_on_user_interrupt);
+    }
 
   g_main_loop_run (self->priv->main_loop);
 }
