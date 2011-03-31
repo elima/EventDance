@@ -130,12 +130,7 @@ evd_dbus_daemon_finalize (GObject *obj)
 
   if (self->priv->pid > 0)
     {
-      gchar *cmdline;
-
-      cmdline = g_strdup_printf ("kill %d", self->priv->pid);
-      g_spawn_command_line_async (cmdline, NULL);
-      g_free (cmdline);
-
+      kill (self->priv->pid, SIGTERM);
       g_spawn_close_pid (self->priv->pid);
     }
 
