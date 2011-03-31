@@ -128,6 +128,11 @@ void                evd_http_connection_set_current_request          (EvdHttpCon
                                                                       EvdHttpRequest    *request);
 EvdHttpRequest     *evd_http_connection_get_current_request          (EvdHttpConnection *self);
 
+gboolean            evd_http_connection_redirect                     (EvdHttpConnection  *self,
+                                                                      const gchar        *url,
+                                                                      gboolean            permanently,
+                                                                      GError            **error);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_CONNECTION_H__ */

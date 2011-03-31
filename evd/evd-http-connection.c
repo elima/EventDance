@@ -1182,3 +1182,35 @@ evd_http_connection_get_current_request (EvdHttpConnection *self)
 
   return self->priv->current_request;
 }
+
+gboolean
+evd_http_connection_redirect (EvdHttpConnection  *self,
+                              const gchar        *url,
+                              gboolean            permanently,
+                              GError            **error)
+{
+  SoupMessageHeaders *headers;
+  gboolean result;
+
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+  g_return_val_if_fail (url != NULL, FALSE);
+
+  headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  soup_message_headers_replace (headers, "Location", url);
+
+  result = evd_http_connection_respond (self,
+                                        SOUP_HTTP_1_1,
+                                        permanently ?
+                                        SOUP_STATUS_MOVED_PERMANENTLY :
+                                        SOUP_STATUS_MOVED_TEMPORARILY,
+                                        NULL,
+                                        headers,
+                                        NULL,
+                                        0,
+                                        TRUE,
+                                        error);
+
+  soup_message_headers_free (headers);
+
+  return result;
+}
