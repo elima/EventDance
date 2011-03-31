@@ -34,6 +34,8 @@
 
 #define DEFAULT_BASE_PATH "/transport"
 
+#define LONG_POLLING_TOKEN_NAME "lp"
+
 /* private data */
 struct _EvdWebTransportPrivate
 {
@@ -44,6 +46,7 @@ struct _EvdWebTransportPrivate
   EvdWebSelector *selector;
 
   EvdLongPolling *lp;
+  gchar *lp_base_path;
 };
 
 /* properties */
@@ -94,6 +97,10 @@ static gssize   evd_web_transport_send                 (EvdTransport  *transport
 static gboolean evd_web_transport_peer_is_connected    (EvdTransport *transport,
                                                         EvdPeer      *peer);
 
+static void     evd_web_transport_on_request           (EvdWebService     *self,
+                                                        EvdHttpConnection *conn,
+                                                        EvdHttpRequest    *request);
+
 G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_DIR,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_web_transport_transport_iface_init));
@@ -102,11 +109,14 @@ static void
 evd_web_transport_class_init (EvdWebTransportClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
 
   obj_class->dispose = evd_web_transport_dispose;
   obj_class->finalize = evd_web_transport_finalize;
   obj_class->get_property = evd_web_transport_get_property;
   obj_class->set_property = evd_web_transport_set_property;
+
+  web_service_class->request_handler = evd_web_transport_on_request;
 
   g_object_class_install_property (obj_class, PROP_BASE_PATH,
                                    g_param_spec_string ("base-path",
@@ -196,6 +206,7 @@ evd_web_transport_finalize (GObject *obj)
                                         self);
   g_object_unref (self->priv->lp);
 
+  g_free (self->priv->lp_base_path);
   g_free (self->priv->base_path);
 
   G_OBJECT_CLASS (evd_web_transport_parent_class)->finalize (obj);
@@ -364,19 +375,8 @@ evd_web_transport_peer_is_connected (EvdTransport *transport,
 static void
 evd_web_transport_associate_services (EvdWebTransport *self)
 {
-  gchar *path;
-
   if (self->priv->selector == NULL)
     return;
-
-  /* long-polling transport */
-  path = g_strdup_printf ("%s/lp", self->priv->base_path);
-  evd_web_selector_add_service (self->priv->selector,
-                                NULL,
-                                path,
-                                EVD_SERVICE (self->priv->lp),
-                                NULL);
-  g_free (path);
 
   evd_web_selector_add_service (self->priv->selector,
                                 NULL,
@@ -388,23 +388,39 @@ evd_web_transport_associate_services (EvdWebTransport *self)
 static void
 evd_web_transport_unassociate_services (EvdWebTransport *self)
 {
-  gchar *path;
-
   if (self->priv->selector == NULL)
     return;
-
-  /* long-polling transport */
-  path = g_strdup_printf ("%s/lp", self->priv->base_path);
-  evd_web_selector_remove_service (self->priv->selector,
-                                   NULL,
-                                   path,
-                                   EVD_SERVICE (self->priv->lp));
-  g_free (path);
 
   evd_web_selector_remove_service (self->priv->selector,
                                    NULL,
                                    self->priv->base_path,
                                    EVD_SERVICE (self));
+}
+
+static void
+evd_web_transport_on_request (EvdWebService     *web_service,
+                              EvdHttpConnection *conn,
+                              EvdHttpRequest    *request)
+{
+  EvdWebTransport *self = EVD_WEB_TRANSPORT (web_service);
+  SoupURI *uri;
+
+  uri = evd_http_request_get_uri (request);
+
+  if (g_strstr_len (uri->path, -1, self->priv->lp_base_path) == uri->path)
+    {
+      evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->lp),
+                                                   conn,
+                                                   request,
+                                                   NULL);
+    }
+  else
+    {
+      EVD_WEB_SERVICE_CLASS (evd_web_transport_parent_class)->
+        request_handler (web_service,
+                         conn,
+                         request);
+    }
 }
 
 /* public methods */
@@ -457,10 +473,15 @@ evd_web_transport_set_base_path (EvdWebTransport *self,
     {
       evd_web_transport_unassociate_services (self);
       g_free (self->priv->base_path);
+      g_free (self->priv->lp_base_path);
     }
 
   self->priv->base_path = g_strdup (base_path);
   evd_web_transport_associate_services (self);
+
+  self->priv->lp_base_path = g_strdup_printf ("%s/%s",
+                                              self->priv->base_path,
+                                              LONG_POLLING_TOKEN_NAME);
 
   evd_web_dir_set_alias (EVD_WEB_DIR (self), base_path);
 }
