@@ -1,4 +1,4 @@
-AC_PREREQ(2.62)
+AC_PREREQ(2.59)
 
 m4_define([prj_name],       [EventDance])
 m4_define([prj_short_name], [evd])
@@ -20,11 +20,9 @@ AC_INIT([prj_name],
 	[prj_version],
 	[prj_home])
 
-#AC_CONFIG_MACRO_DIR([build/autotools])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR([m4])
 
-#AM_INIT_AUTOMAKE([-Wno-portability])
 AM_INIT_AUTOMAKE
 
 # EventDance specific definitions
