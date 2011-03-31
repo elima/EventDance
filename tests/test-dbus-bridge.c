@@ -175,27 +175,6 @@ static const TestCase test_cases[] =
       }
     },
 
-    { "own-name/replace",
-      {
-        "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1*/
-        "[5,2,1,0,'[\"org.eventdance.lib.tests\",3]']", /* own-name */
-        NULL,
-        "[3,3,0,0,'[\"" DBUS_ADDR "\",false]']", /* new-connection 2 */
-        "[5,4,2,0,'[\"org.eventdance.lib.tests\",3]']", /* own-name */
-        NULL,
-        NULL,
-      },
-      {
-        "[2,1,0,0,\"[1]\"]", /* new-connection 1 response */
-        "[2,2,1,0,\"[1]\"]", /* own-name response */
-        "[7,0,1,1,\"[]\"]", /* name-acquired signal */
-        "[2,3,0,0,\"[2]\"]", /* new-connection 2 response */
-        "[2,4,2,0,\"[2]\"]", /* own-name response */
-        "[8,0,1,1,\"[]\"]", /* name-lost signal on connection 1 */
-        "[7,0,2,2,\"[]\"]", /* name-acquired signal */
-      }
-    },
-
     { "own-name/queue",
       {
         "[3,1,0,0,'[\"" DBUS_ADDR "\",true]']", /* new-connection 1*/
