@@ -410,3 +410,27 @@ evd_transport_close_peer (EvdTransport  *self,
 
   return TRUE;
 }
+
+EvdPeer *
+evd_transport_lookup_peer (EvdTransport *self, const gchar *peer_id)
+{
+  EvdPeerManager *peer_manager;
+  EvdPeer *peer = NULL;
+
+  peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
+  peer = evd_peer_manager_lookup_peer (peer_manager, peer_id);
+
+  if (peer != NULL)
+    {
+      EvdTransport *transport;
+
+      g_object_get (peer, "transport", &transport, NULL);
+
+      if (transport != self)
+        peer = NULL;
+
+      g_object_unref (transport);
+    }
+
+  return peer;
+}
