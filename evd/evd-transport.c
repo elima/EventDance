@@ -276,11 +276,11 @@ evd_transport_send (EvdTransport  *self,
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
   g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
 
-  if (EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
-                                                peer,
-                                                buffer,
-                                                size,
-                                                NULL) <= 0
+  if (! EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
+                                                  peer,
+                                                  buffer,
+                                                  size,
+                                                  NULL)
       && ! evd_peer_backlog_push_frame (peer, buffer, size, error))
     {
       return FALSE;

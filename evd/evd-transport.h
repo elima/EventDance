@@ -38,7 +38,7 @@ struct _EvdTransportInterface
   GTypeInterface parent_iface;
 
   /* virtual methods */
-  gssize    (* send)               (EvdTransport  *self,
+  gboolean  (* send)               (EvdTransport  *self,
                                     EvdPeer       *peer,
                                     const gchar   *buffer,
                                     gsize          size,
