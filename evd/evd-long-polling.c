@@ -49,7 +49,6 @@
 /* private data */
 struct _EvdLongPollingPrivate
 {
-  EvdPeerManager *peer_manager;
   const gchar *current_peer_id;
 };
 
@@ -132,8 +131,6 @@ evd_long_polling_init (EvdLongPolling *self)
   priv = EVD_LONG_POLLING_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->peer_manager = evd_peer_manager_get_default ();
-
   priv->current_peer_id = NULL;
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
@@ -148,10 +145,6 @@ evd_long_polling_dispose (GObject *obj)
 static void
 evd_long_polling_finalize (GObject *obj)
 {
-  EvdLongPolling *self = EVD_LONG_POLLING (obj);
-
-  g_object_unref (self->priv->peer_manager);
-
   G_OBJECT_CLASS (evd_long_polling_parent_class)->finalize (obj);
 }
 
@@ -387,8 +380,8 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
       peer_id = soup_message_headers_get_one (headers, PEER_ID_HEADER_NAME);
       self->priv->current_peer_id = peer_id;
       if (peer_id == NULL ||
-          (peer = evd_peer_manager_lookup_peer (self->priv->peer_manager,
-                                                peer_id)) == NULL)
+          (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
+                                             peer_id)) == NULL)
         {
           /* respond with 404 Not Found, forcing client to re-handshake */
           EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
