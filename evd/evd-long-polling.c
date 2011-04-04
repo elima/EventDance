@@ -73,7 +73,7 @@ static void     evd_long_polling_request_handler     (EvdWebService     *web_ser
 static gboolean evd_long_polling_remove              (EvdIoStreamGroup *io_stream_group,
                                                       GIOStream        *io_stream);
 
-static gssize   evd_long_polling_send                (EvdTransport *transport,
+static gboolean evd_long_polling_send                (EvdTransport *transport,
                                                       EvdPeer       *peer,
                                                       const gchar   *buffer,
                                                       gsize          size,
@@ -592,7 +592,7 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
   return result;
 }
 
-static gssize
+static gboolean
 evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
                                        EvdPeer         *peer,
                                        const gchar     *buffer,
@@ -611,11 +611,11 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
                    EVD_ERROR_INVALID_DATA,
                    "Unable to associate peer with long-polling transport");
 
-      return -1;
+      return FALSE;
     }
 
   if (g_queue_get_length (data->conns) == 0)
-    return 0;
+    return FALSE;
 
   conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
 
@@ -625,12 +625,12 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
                                     buffer,
                                     size,
                                     error))
-    return size;
+    return TRUE;
   else
-    return -1;
+    return FALSE;
 }
 
-static gssize
+static gboolean
 evd_long_polling_send (EvdTransport *transport,
                        EvdPeer       *peer,
                        const gchar   *buffer,
