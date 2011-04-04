@@ -223,9 +223,11 @@ evd_transport_create_new_peer (EvdTransport *self)
 
   peer_manager = evd_peer_manager_get_default ();
 
-  peer = evd_peer_manager_create_new_peer (peer_manager, self);
+  peer = g_object_new (EVD_TYPE_PEER,
+                       "transport", self,
+                       NULL);
 
-  g_object_unref (peer_manager);
+  evd_peer_manager_add_peer (peer_manager, peer);
 
   g_object_ref (peer);
   g_object_ref (self);

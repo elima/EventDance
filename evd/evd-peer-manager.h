@@ -26,7 +26,6 @@
 #include <glib-object.h>
 
 #include <evd-peer.h>
-#include <evd-transport.h>
 
 G_BEGIN_DECLS
 
@@ -69,8 +68,8 @@ EvdPeerManager     *evd_peer_manager_get_default              (void);
 
 EvdPeerManager     *evd_peer_manager_new                      (void);
 
-EvdPeer            *evd_peer_manager_create_new_peer          (EvdPeerManager *self,
-                                                               EvdTransport   *transport);
+void                evd_peer_manager_add_peer                 (EvdPeerManager *self,
+                                                               EvdPeer        *peer);
 
 EvdPeer            *evd_peer_manager_lookup_peer              (EvdPeerManager *self,
                                                                const gchar    *id);

@@ -258,23 +258,15 @@ evd_peer_manager_notify_new_peer (gpointer user_data)
   return FALSE;
 }
 
-EvdPeer *
-evd_peer_manager_create_new_peer (EvdPeerManager *self,
-                                  EvdTransport   *transport)
+void
+evd_peer_manager_add_peer (EvdPeerManager *self, EvdPeer *peer)
 {
-  EvdPeer *peer;
-  gchar *id;
+  const gchar *id;
 
-  g_return_val_if_fail (EVD_IS_PEER_MANAGER (self), NULL);
-  g_return_val_if_fail (EVD_IS_TRANSPORT (transport), NULL);
+  g_return_if_fail (EVD_IS_PEER_MANAGER (self));
+  g_return_if_fail (EVD_IS_PEER (peer));
 
-  id = evd_uuid_new ();
-
-  peer = g_object_new (EVD_TYPE_PEER,
-                       "id", id,
-                       "transport", transport,
-                       NULL);
-  g_free (id);
+  id = evd_peer_get_id (peer);
 
   g_object_set_data (G_OBJECT (peer), "peer-manager", self);
   g_object_ref (self);
@@ -285,7 +277,7 @@ evd_peer_manager_create_new_peer (EvdPeerManager *self,
                    evd_peer_manager_notify_new_peer,
                    peer);
 
-  return peer;
+  evd_peer_manager_cleanup_peers (self);
 }
 
 /**
