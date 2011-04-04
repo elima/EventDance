@@ -931,9 +931,8 @@ evd_http_connection_read_content (EvdHttpConnection   *self,
       return;
     }
 
-  if (self->priv->encoding == SOUP_ENCODING_NONE ||
-      (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
-       self->priv->content_len == 0) )
+  if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
+      self->priv->content_len == 0)
     {
       g_simple_async_result_set_op_res_gssize (res, 0);
 
@@ -974,14 +973,22 @@ evd_http_connection_read_content_finish (EvdHttpConnection  *self,
                                                error))
     {
       struct ContentReadData *data;
+      gssize size = 0;
+      gboolean _more = FALSE;
 
       data =
         g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
 
-      if (more != NULL)
-        *more = data->more;
+      if (data != NULL)
+        {
+          size = data->size;
+          _more = data->more;
+        }
 
-      return data->size;
+      if (more != NULL)
+        *more = _more;
+
+      return size;
     }
   else
     {
