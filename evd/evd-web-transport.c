@@ -88,7 +88,7 @@ static void     evd_web_transport_on_peer_closed       (EvdTransport *transport,
                                                         gboolean      gracefully,
                                                         gpointer      user_data);
 
-static gssize   evd_web_transport_send                 (EvdTransport  *transport,
+static gboolean evd_web_transport_send                 (EvdTransport  *transport,
                                                         EvdPeer       *peer,
                                                         const gchar   *buffer,
                                                         gsize          size,
@@ -320,7 +320,7 @@ evd_web_transport_validate_peer_transport (EvdWebTransport  *self,
   return TRUE;
 }
 
-static gssize
+static gboolean
 evd_web_transport_send (EvdTransport  *transport,
                         EvdPeer       *peer,
                         const gchar   *buffer,
@@ -340,11 +340,11 @@ evd_web_transport_send (EvdTransport  *transport,
                                size,
                                error))
     {
-      result = -1;
+      result = FALSE;
     }
   else
     {
-      result = size;
+      result = TRUE;
     }
 
   g_object_unref (_transport);
