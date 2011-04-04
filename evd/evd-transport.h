@@ -25,6 +25,7 @@
 
 #include <glib-object.h>
 
+#include <evd-peer-manager.h>
 #include <evd-peer.h>
 
 G_BEGIN_DECLS
@@ -73,6 +74,9 @@ struct _EvdTransportInterface
                                EvdPeer      *peer,
                                gboolean      gracefully,
                                gpointer      user_data);
+
+  /* members */
+  EvdPeerManager *peer_manager;
 };
 
 #define EVD_TYPE_TRANSPORT                 (evd_transport_get_type ())

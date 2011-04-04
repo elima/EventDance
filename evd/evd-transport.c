@@ -112,6 +112,16 @@ evd_transport_base_init (gpointer g_class)
 
       is_initialized = TRUE;
     }
+
+  iface->peer_manager = evd_peer_manager_get_default ();
+}
+
+static void
+evd_transport_base_finalize (gpointer g_class)
+{
+  EvdTransportInterface *iface = (EvdTransportInterface *) g_class;
+
+  g_object_unref (iface->peer_manager);
 }
 
 GType
@@ -124,6 +134,7 @@ evd_transport_get_type (void)
       static const GTypeInfo info = {
         sizeof (EvdTransportInterface),
         evd_transport_base_init,
+        evd_transport_base_finalize,
         NULL,
       };
 
@@ -221,7 +232,7 @@ evd_transport_create_new_peer (EvdTransport *self)
   EvdPeerManager *peer_manager;
   EvdPeer *peer;
 
-  peer_manager = evd_peer_manager_get_default ();
+  peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
 
   peer = g_object_new (EVD_TYPE_PEER,
                        "transport", self,
@@ -380,9 +391,8 @@ evd_transport_close_peer (EvdTransport  *self,
 
   g_object_ref (peer);
 
-  peer_manager = evd_peer_manager_get_default ();
+  peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
   evd_peer_manager_close_peer (peer_manager, peer, gracefully);
-  g_object_unref (peer_manager);
 
   evd_peer_close (peer, gracefully);
 
