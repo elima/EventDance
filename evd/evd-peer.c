@@ -23,6 +23,7 @@
 #include "evd-peer.h"
 
 #include "evd-transport.h"
+#include "evd-utils.h"
 
 G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
 
@@ -95,7 +96,7 @@ evd_peer_class_init (EvdPeerClass *class)
                                                         "Peer's UUID",
                                                         "A string representing the UUID of the peer",
                                                         NULL,
-                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_TRANSPORT,
@@ -125,6 +126,8 @@ evd_peer_init (EvdPeer *self)
 
   priv->idle_timer = g_timer_new ();
   priv->timeout_interval = DEFAULT_TIMEOUT_INTERVAL;
+
+  self->priv->id = evd_uuid_new ();
 }
 
 static void
@@ -170,10 +173,6 @@ evd_peer_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case PROP_ID:
-      self->priv->id = g_value_dup_string (value);
-      break;
-
     case PROP_TRANSPORT:
       self->priv->transport = EVD_TRANSPORT (g_value_dup_object (value));
       break;
@@ -217,20 +216,6 @@ evd_peer_backlog_free_frame (gpointer data, gpointer user_data)
 }
 
 /* public methods */
-
-EvdPeer *
-evd_peer_new (gchar *id)
-{
-  EvdPeer *self;
-
-  g_return_val_if_fail (id != NULL, NULL);
-
-  self = g_object_new (EVD_TYPE_PEER,
-                       "id", id,
-                       NULL);
-
-  return self;
-}
 
 const gchar *
 evd_peer_get_id (EvdPeer *self)

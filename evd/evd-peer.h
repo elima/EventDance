@@ -57,8 +57,6 @@ struct _EvdPeerClass
 
 GType             evd_peer_get_type                (void) G_GNUC_CONST;
 
-EvdPeer *         evd_peer_new                     (gchar *id);
-
 const gchar *     evd_peer_get_id                  (EvdPeer *self);
 
 gboolean          evd_peer_backlog_push_frame      (EvdPeer      *self,
