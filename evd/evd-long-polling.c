@@ -686,6 +686,8 @@ evd_long_polling_peer_closed (EvdTransport *transport,
 
   data = (EvdLongPollingPeerData *) g_object_get_data (G_OBJECT (peer),
                                                        PEER_DATA_KEY);
+  if (data == NULL)
+    return;
 
   while (g_queue_get_length (data->conns) > 0)
     {
