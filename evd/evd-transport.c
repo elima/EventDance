@@ -49,20 +49,20 @@ typedef struct
 
 static guint evd_transport_signals[SIGNAL_LAST] = { 0 };
 
-static void     evd_transport_receive_internal   (EvdTransport *self,
-                                                  EvdPeer      *peer,
-                                                  const gchar  *buffer,
-                                                  gsize         size);
-static void     evd_transport_notify_receive     (EvdTransport *self,
-                                                  EvdPeer      *peer);
+static void     evd_transport_receive_internal         (EvdTransport *self,
+                                                        EvdPeer      *peer,
+                                                        const gchar  *buffer,
+                                                        gsize         size);
+static void     evd_transport_notify_receive           (EvdTransport *self,
+                                                        EvdPeer      *peer);
 
-static void     evd_transport_notify_new_peer    (EvdTransport *self,
-                                                  EvdPeer      *peer);
+static void     evd_transport_notify_new_peer          (EvdTransport *self,
+                                                        EvdPeer      *peer);
 static EvdPeer *evd_transport_create_new_peer_internal (EvdTransport *self);
 
-static void     evd_transport_notify_peer_closed (EvdTransport *self,
-                                                  EvdPeer      *peer,
-                                                  gboolean      gracefully);
+static void     evd_transport_notify_peer_closed       (EvdTransport *self,
+                                                        EvdPeer      *peer,
+                                                        gboolean      gracefully);
 
 static void
 evd_transport_base_init (gpointer g_class)
