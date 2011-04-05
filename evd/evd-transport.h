@@ -109,6 +109,7 @@ gboolean        evd_transport_close_peer                    (EvdTransport  *self
                                                              gboolean       gracefully,
                                                              GError       **error);
 
+EvdPeer        *evd_transport_create_new_peer               (EvdTransport *self);
 EvdPeer        *evd_transport_lookup_peer                   (EvdTransport *self,
                                                              const gchar  *peer_id);
 

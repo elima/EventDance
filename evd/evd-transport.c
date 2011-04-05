@@ -58,7 +58,7 @@ static void     evd_transport_notify_receive     (EvdTransport *self,
 
 static void     evd_transport_notify_new_peer    (EvdTransport *self,
                                                   EvdPeer      *peer);
-static EvdPeer *evd_transport_create_new_peer    (EvdTransport *self);
+static EvdPeer *evd_transport_create_new_peer_internal (EvdTransport *self);
 
 static void     evd_transport_notify_peer_closed (EvdTransport *self,
                                                   EvdPeer      *peer,
@@ -73,7 +73,7 @@ evd_transport_base_init (gpointer g_class)
 
   iface->receive = evd_transport_receive_internal;
   iface->notify_receive = evd_transport_notify_receive;
-  iface->create_new_peer = evd_transport_create_new_peer;
+  iface->create_new_peer = evd_transport_create_new_peer_internal;
   iface->notify_new_peer = evd_transport_notify_new_peer;
   iface->notify_peer_closed = evd_transport_notify_peer_closed;
 
@@ -227,7 +227,7 @@ evd_transport_notify_new_peer_cb (gpointer user_data)
 }
 
 static EvdPeer *
-evd_transport_create_new_peer (EvdTransport *self)
+evd_transport_create_new_peer_internal (EvdTransport *self)
 {
   EvdPeerManager *peer_manager;
   EvdPeer *peer;
@@ -409,6 +409,20 @@ evd_transport_close_peer (EvdTransport  *self,
   g_object_unref (peer);
 
   return TRUE;
+}
+
+EvdPeer *
+evd_transport_create_new_peer (EvdTransport *self)
+{
+  EvdTransportInterface *iface;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
+
+  g_assert (iface->create_new_peer != NULL);
+
+  return iface->create_new_peer (self);
 }
 
 EvdPeer *
