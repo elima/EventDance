@@ -26,7 +26,6 @@
 #include <evd-web-dir.h>
 
 #include <evd-web-selector.h>
-#include <evd-long-polling.h>
 
 G_BEGIN_DECLS
 

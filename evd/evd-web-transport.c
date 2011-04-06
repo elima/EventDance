@@ -28,6 +28,8 @@
 #include "evd-peer-manager.h"
 #include "evd-web-dir.h"
 
+#include "evd-long-polling.h"
+
 #define EVD_WEB_TRANSPORT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                             EVD_TYPE_WEB_TRANSPORT, \
                                             EvdWebTransportPrivate))
