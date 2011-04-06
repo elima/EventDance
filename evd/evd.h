@@ -49,6 +49,7 @@
 #include <evd-peer-manager.h>
 #include <evd-http-request.h>
 #include <evd-long-polling.h>
+#include <evd-websocket-server.h>
 #include <evd-connection-pool.h>
 #include <evd-reproxy.h>
 #include <evd-web-selector.h>
