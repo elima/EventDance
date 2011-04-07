@@ -66,7 +66,7 @@ main (gint argc, gchar *argv[])
                                                       NULL);
 
   /* web transport */
-  transport = evd_web_transport_new ();
+  transport = evd_web_transport_new (NULL);
   g_signal_connect (transport,
                     "new-peer",
                     G_CALLBACK (transport_on_new_peer),

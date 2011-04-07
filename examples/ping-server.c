@@ -67,7 +67,7 @@ main (gint argc, gchar *argv[])
   evd_daemon = evd_daemon_get_default (&argc, &argv);
 
   /* web transport */
-  transport = evd_web_transport_new ();
+  transport = evd_web_transport_new (NULL);
   g_signal_connect (transport,
                     "receive",
                     G_CALLBACK (transport_on_receive),
