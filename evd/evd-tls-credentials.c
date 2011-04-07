@@ -389,19 +389,18 @@ evd_tls_certificate_on_cert_imported (GObject      *obj,
 
   data->ready++;
 
-  if (data->error == NULL)
+  if (! evd_tls_certificate_import_from_file_finish (EVD_TLS_CERTIFICATE (obj),
+                                                     res,
+                                                     data->error == NULL ? &error : NULL))
     {
-      if (! evd_tls_certificate_import_from_file_finish (EVD_TLS_CERTIFICATE (obj),
-                                                         res,
-                                                         &error))
-        {
-          g_object_unref (obj);
-          data->error = error;
-        }
-      else
-        {
-          data->cert = EVD_TLS_CERTIFICATE (obj);
-        }
+      g_object_unref (obj);
+
+      if (data->error == NULL)
+        data->error = error;
+    }
+  else
+    {
+      data->cert = EVD_TLS_CERTIFICATE (obj);
     }
 
   if (data->ready == 2)
@@ -421,19 +420,18 @@ evd_tls_certificate_on_privkey_imported (GObject      *obj,
 
   data->ready++;
 
-  if (data->error == NULL)
+  if (! evd_tls_privkey_import_from_file_finish (EVD_TLS_PRIVKEY (obj),
+                                                 res,
+                                                 data->error == NULL ? &error : NULL))
     {
-      if (! evd_tls_privkey_import_from_file_finish (EVD_TLS_PRIVKEY (obj),
-                                                     res,
-                                                     &error))
-        {
-          g_object_unref (obj);
-          data->error = error;
-        }
-      else
-        {
-          data->key = EVD_TLS_PRIVKEY (obj);
-        }
+      g_object_unref (obj);
+
+      if (data->error == NULL)
+        data->error = error;
+    }
+  else
+    {
+      data->key = EVD_TLS_PRIVKEY (obj);
     }
 
   if (data->ready == 2)
