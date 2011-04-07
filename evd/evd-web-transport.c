@@ -103,6 +103,9 @@ static void     evd_web_transport_on_request           (EvdWebService     *self,
                                                         EvdHttpConnection *conn,
                                                         EvdHttpRequest    *request);
 
+static void     evd_web_transport_set_base_path        (EvdWebTransport *self,
+                                                        const gchar     *base_path);
+
 G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_DIR,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_web_transport_transport_iface_init));
@@ -425,6 +428,18 @@ evd_web_transport_on_request (EvdWebService     *web_service,
     }
 }
 
+static void
+evd_web_transport_set_base_path (EvdWebTransport *self,
+                                 const gchar     *base_path)
+{
+  g_return_if_fail (base_path != NULL);
+
+  self->priv->base_path = g_strdup (base_path);
+  evd_web_transport_associate_services (self);
+
+  evd_web_dir_set_alias (EVD_WEB_DIR (self), base_path);
+}
+
 /* public methods */
 
 EvdWebTransport *
@@ -462,30 +477,6 @@ evd_web_transport_get_selector (EvdWebTransport *self)
   g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
 
   return self->priv->selector;
-}
-
-void
-evd_web_transport_set_base_path (EvdWebTransport *self,
-                                 const gchar     *base_path)
-{
-  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
-  g_return_if_fail (base_path != NULL);
-
-  if (self->priv->base_path != NULL)
-    {
-      evd_web_transport_unassociate_services (self);
-      g_free (self->priv->base_path);
-      g_free (self->priv->lp_base_path);
-    }
-
-  self->priv->base_path = g_strdup (base_path);
-  evd_web_transport_associate_services (self);
-
-  self->priv->lp_base_path = g_strdup_printf ("%s/%s",
-                                              self->priv->base_path,
-                                              LONG_POLLING_TOKEN_NAME);
-
-  evd_web_dir_set_alias (EVD_WEB_DIR (self), base_path);
 }
 
 const gchar *

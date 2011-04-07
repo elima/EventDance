@@ -61,8 +61,6 @@ void                evd_web_transport_set_selector      (EvdWebTransport *self,
                                                          EvdWebSelector  *selector);
 EvdWebSelector     *evd_web_transport_get_selector      (EvdWebTransport *self);
 
-void                evd_web_transport_set_base_path     (EvdWebTransport *self,
-                                                         const gchar     *base_path);
 const gchar        *evd_web_transport_get_base_path     (EvdWebTransport *self);
 
 G_END_DECLS
