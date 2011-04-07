@@ -189,8 +189,6 @@ evd_web_transport_init (EvdWebTransport *self)
     js_path = JSLIBDIR;
 
   evd_web_dir_set_root (EVD_WEB_DIR (self), js_path);
-
-  evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 
 static void
