@@ -123,6 +123,10 @@ gboolean            evd_http_connection_respond                      (EvdHttpCon
                                                                       gsize                size,
                                                                       gboolean             close_after,
                                                                       GError             **error);
+gboolean            evd_http_connection_respond_simple               (EvdHttpConnection   *self,
+                                                                      guint                status_code,
+                                                                      const gchar         *content,
+                                                                      gsize                size);
 
 void                evd_http_connection_set_current_request          (EvdHttpConnection *self,
                                                                       EvdHttpRequest    *request);

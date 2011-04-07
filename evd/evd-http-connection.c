@@ -1159,6 +1159,23 @@ evd_http_connection_respond (EvdHttpConnection   *self,
   return result;
 }
 
+gboolean
+evd_http_connection_respond_simple (EvdHttpConnection   *self,
+                                    guint                status_code,
+                                    const gchar         *content,
+                                    gsize                size)
+{
+  return evd_http_connection_respond (self,
+                                      SOUP_HTTP_1_0,
+                                      status_code,
+                                      NULL,
+                                      NULL,
+                                      content,
+                                      size,
+                                      TRUE,
+                                      NULL);
+}
+
 void
 evd_http_connection_set_current_request (EvdHttpConnection *self,
                                          EvdHttpRequest    *request)
