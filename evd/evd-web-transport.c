@@ -443,13 +443,14 @@ evd_web_transport_set_base_path (EvdWebTransport *self,
 /* public methods */
 
 EvdWebTransport *
-evd_web_transport_new (void)
+evd_web_transport_new (const gchar *base_path)
 {
-  EvdWebTransport *self;
+  if (base_path == NULL)
+    base_path = DEFAULT_BASE_PATH;
 
-  self = g_object_new (EVD_TYPE_WEB_TRANSPORT, NULL);
-
-  return self;
+  return g_object_new (EVD_TYPE_WEB_TRANSPORT,
+                       "base-path", base_path,
+                       NULL);
 }
 
 void

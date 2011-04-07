@@ -55,7 +55,7 @@ struct _EvdWebTransportClass
 
 GType               evd_web_transport_get_type          (void) G_GNUC_CONST;
 
-EvdWebTransport    *evd_web_transport_new               (void);
+EvdWebTransport    *evd_web_transport_new               (const gchar *base_path);
 
 void                evd_web_transport_set_selector      (EvdWebTransport *self,
                                                          EvdWebSelector  *selector);
