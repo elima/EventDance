@@ -64,6 +64,7 @@ typedef struct
   ConnStatus status;
   goffset frame_start;
   goffset offset;
+  gsize frame_size;
 } ConnData;
 
 static void     evd_websocket_server_class_init           (EvdWebsocketServerClass *class);
@@ -94,7 +95,7 @@ static void     evd_websocket_server_peer_closed          (EvdTransport *transpo
 static void     connection_read                           (GInputStream *stream,
                                                            ConnData     *data);
 
-static void     process_received_data                     (ConnData *data);
+static gboolean process_received_data                     (ConnData *data);
 
 G_DEFINE_TYPE_WITH_CODE (EvdWebsocketServer, evd_websocket_server, EVD_TYPE_WEB_SERVICE,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
@@ -139,6 +140,29 @@ notify_frame (EvdTransport *transport,
   iface->receive (transport, peer, buf, size);
 }
 
+static gboolean
+read_frame_len76 (ConnData *data)
+{
+  guint8 b;
+  guint8 b_v;
+
+  while (data->offset < data->size)
+    {
+      b = data->buf->str[data->offset];
+
+      data->offset++;
+
+      b_v = b & 0x7F;
+
+      data->frame_size = data->frame_size * 128 + b_v;
+
+      if ((b_v & 0x80) == 0)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 static void
 read_raw_msg (ConnData *data)
 {
@@ -169,7 +193,7 @@ read_text_msg (ConnData *data)
     }
 }
 
-static void
+static gboolean
 process_received_data (ConnData *data)
 {
   while (data->offset < data->size)
@@ -181,7 +205,12 @@ process_received_data (ConnData *data)
           frame_type = data->buf->str[data->offset];
           data->offset++;
 
-          if ((frame_type & 0x80) == 0x80)
+          if (frame_type == (gchar) 0xFF)
+            {
+              /* close handshake */
+              data->status = STATUS_CLOSING;
+            }
+          else if ((frame_type & 0x80) == 0x80)
             {
               /* raw data */
               data->status = STATUS_READING_TEXT;
@@ -201,6 +230,24 @@ process_received_data (ConnData *data)
         {
           read_raw_msg (data);
         }
+      else if (data->status == STATUS_CLOSING &&
+               (read_frame_len76 (data)))
+        {
+          if (data->frame_size == 0)
+            {
+              evd_transport_close_peer (data->transport,
+                                        data->peer,
+                                        TRUE,
+                                        NULL);
+            }
+          else
+            {
+              /* invalid close handshake, abort connection */
+              g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
+            }
+
+          return FALSE;
+        }
     }
 
   if (data->status == STATUS_IDLE)
@@ -210,6 +257,8 @@ process_received_data (ConnData *data)
       if (data->buf->len > BLOCK_SIZE)
         g_string_set_size (data->buf, BLOCK_SIZE);
     }
+
+  return TRUE;
 }
 
 static void
@@ -218,8 +267,13 @@ on_connection_read (GObject      *obj,
                     gpointer      user_data)
 {
   ConnData *data = user_data;
+  EvdConnection *conn;
   GError *error = NULL;
   gssize size;
+
+  conn = data->conn;
+
+  evd_peer_touch (data->peer);
 
   size = g_input_stream_read_finish (G_INPUT_STREAM (obj),
                                      res,
@@ -232,10 +286,12 @@ on_connection_read (GObject      *obj,
   else if (size > 0)
     {
       data->size += size;
-      process_received_data (data);
+
+      if (process_received_data (data))
+        connection_read (G_INPUT_STREAM (obj), data);
     }
 
-  connection_read (G_INPUT_STREAM (obj), data);
+  g_object_unref (conn);
 }
 
 static void
@@ -244,6 +300,7 @@ connection_read (GInputStream *stream, ConnData *data)
   if (data->offset + BLOCK_SIZE >= data->buf->len)
     g_string_set_size (data->buf, data->offset + BLOCK_SIZE);
 
+  g_object_ref (data->conn);
   g_input_stream_read_async (stream,
                              data->buf->str + data->offset,
                              BLOCK_SIZE,
@@ -334,6 +391,7 @@ handshake76_stage2 (EvdHttpConnection *conn, HandshakeData *data)
 
       conn_data->peer = data->peer;
       g_object_set_data (G_OBJECT (data->peer), PEER_DATA_KEY, conn);
+      g_object_ref (conn_data->peer);
 
       conn_data->conn = EVD_CONNECTION (conn);
       g_object_ref (conn_data->conn);
@@ -470,28 +528,6 @@ handshake76_stage1 (EvdWebsocketServer *self,
 }
 
 static void
-respond_request_with_error (EvdHttpConnection   *conn,
-                            SoupKnownStatusCode  code)
-{
-  GError *error = NULL;
-
-  if (! evd_http_connection_respond (conn,
-                                     SOUP_HTTP_1_1,
-                                     code,
-                                     NULL,
-                                     NULL,
-                                     NULL,
-                                     0,
-                                     TRUE,
-                                     &error))
-    {
-      /* @TODO: do proper logging */
-      g_debug ("Error responding WebSocket request: %s", error->message);
-      g_error_free (error);
-    }
-}
-
-static void
 evd_websocket_server_request_handler (EvdWebService     *web_service,
                                       EvdHttpConnection *conn,
                                       EvdHttpRequest    *request)
@@ -505,9 +541,11 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
   peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), uri->query);
   if (peer == NULL)
     {
-      respond_request_with_error (conn, SOUP_STATUS_NOT_FOUND);
+      evd_http_connection_respond_simple (conn, SOUP_STATUS_NOT_FOUND, NULL, 0);
       return;
     }
+
+  evd_peer_touch (peer);
 
   if (! handshake76_stage1 (EVD_WEBSOCKET_SERVER (web_service),
                             conn,
@@ -614,6 +652,7 @@ evd_websocket_server_remove (EvdIoStreamGroup *io_stream_group,
   g_string_free (data->buf, TRUE);
 
   g_object_unref (data->transport);
+  g_object_unref (data->peer);
   g_object_unref (data->conn);
 
   g_slice_free (ConnData, data);
