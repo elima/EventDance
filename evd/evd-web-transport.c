@@ -29,6 +29,7 @@
 #include "evd-web-dir.h"
 
 #include "evd-long-polling.h"
+#include "evd-websocket-server.h"
 
 #define EVD_WEB_TRANSPORT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                             EVD_TYPE_WEB_TRANSPORT, \
@@ -36,12 +37,22 @@
 
 #define DEFAULT_BASE_PATH "/transport"
 
+#define MECHANISM_HEADER_NAME "X-Org-EventDance-WebTransport-Mechanism"
+#define PEER_ID_HEADER_NAME   "X-Org-EventDance-WebTransport-Peer-Id"
+#define URL_HEADER_NAME       "X-Org-EventDance-WebTransport-Url"
+
+#define HANDSHAKE_TOKEN_NAME    "handshake"
 #define LONG_POLLING_TOKEN_NAME "lp"
+#define WEB_SOCKET_TOKEN_NAME   "ws"
+
+#define LONG_POLLING_MECHANISM_NAME "long-polling"
+#define WEB_SOCKET_MECHANISM_NAME   "web-socket"
 
 /* private data */
 struct _EvdWebTransportPrivate
 {
   gchar *base_path;
+  gchar *hs_base_path;
 
   EvdPeerManager *peer_manager;
 
@@ -49,6 +60,9 @@ struct _EvdWebTransportPrivate
 
   EvdLongPolling *lp;
   gchar *lp_base_path;
+
+  EvdWebsocketServer *ws;
+  gchar *ws_base_path;
 };
 
 /* properties */
@@ -80,11 +94,9 @@ static void     evd_web_transport_get_property         (GObject    *obj,
 static void     evd_web_transport_on_receive           (EvdTransport *transport,
                                                         EvdPeer      *peer,
                                                         gpointer      user_data);
-
 static void     evd_web_transport_on_new_peer          (EvdTransport *transport,
                                                         EvdPeer      *peer,
                                                         gpointer      user_data);
-
 static void     evd_web_transport_on_peer_closed       (EvdTransport *transport,
                                                         EvdPeer      *peer,
                                                         gboolean      gracefully,
@@ -184,6 +196,20 @@ evd_web_transport_init (EvdWebTransport *self)
                     G_CALLBACK (evd_web_transport_on_peer_closed),
                     self);
 
+  priv->ws = evd_websocket_server_new ();
+  g_signal_connect (priv->ws,
+                    "receive",
+                    G_CALLBACK (evd_web_transport_on_receive),
+                    self);
+  g_signal_connect (priv->ws,
+                    "new-peer",
+                    G_CALLBACK (evd_web_transport_on_new_peer),
+                    self);
+  g_signal_connect (priv->ws,
+                    "peer-closed",
+                    G_CALLBACK (evd_web_transport_on_peer_closed),
+                    self);
+
   js_path = g_getenv ("JSLIBDIR");
   if (js_path == NULL)
     js_path = JSLIBDIR;
@@ -204,12 +230,16 @@ evd_web_transport_finalize (GObject *obj)
 
   g_object_unref (self->priv->peer_manager);
 
+  g_free (self->priv->lp_base_path);
   g_signal_handlers_disconnect_by_func (self->priv->lp,
                                         evd_web_transport_on_receive,
                                         self);
   g_object_unref (self->priv->lp);
 
-  g_free (self->priv->lp_base_path);
+  g_free (self->priv->ws_base_path);
+  g_object_unref (self->priv->ws);
+
+  g_free (self->priv->hs_base_path);
   g_free (self->priv->base_path);
 
   G_OBJECT_CLASS (evd_web_transport_parent_class)->finalize (obj);
@@ -310,7 +340,8 @@ evd_web_transport_validate_peer_transport (EvdWebTransport  *self,
                                            EvdTransport     *peer_transport,
                                            GError          **error)
 {
-  if (peer_transport != EVD_TRANSPORT (self->priv->lp))
+  if (peer_transport != EVD_TRANSPORT (self->priv->lp) &&
+      peer_transport != EVD_TRANSPORT (self->priv->ws))
     {
       g_set_error_literal (error,
                            EVD_ERROR,
@@ -378,26 +409,110 @@ evd_web_transport_peer_is_connected (EvdTransport *transport,
 static void
 evd_web_transport_associate_services (EvdWebTransport *self)
 {
-  if (self->priv->selector == NULL)
-    return;
-
-  evd_web_selector_add_service (self->priv->selector,
-                                NULL,
-                                self->priv->base_path,
-                                EVD_SERVICE (self),
-                                NULL);
+  if (self->priv->selector != NULL)
+    evd_web_selector_add_service (self->priv->selector,
+                                  NULL,
+                                  self->priv->base_path,
+                                  EVD_SERVICE (self),
+                                  NULL);
 }
 
 static void
 evd_web_transport_unassociate_services (EvdWebTransport *self)
 {
-  if (self->priv->selector == NULL)
-    return;
+  if (self->priv->selector != NULL)
+    evd_web_selector_remove_service (self->priv->selector,
+                                     NULL,
+                                     self->priv->base_path,
+                                     EVD_SERVICE (self));
+}
 
-  evd_web_selector_remove_service (self->priv->selector,
-                                   NULL,
-                                   self->priv->base_path,
-                                   EVD_SERVICE (self));
+static void
+evd_web_transport_handshake (EvdWebTransport   *self,
+                             EvdHttpConnection *conn,
+                             EvdHttpRequest    *request,
+                             SoupURI           *uri)
+{
+  SoupMessageHeaders *req_headers;
+  SoupMessageHeaders *res_headers;
+  const gchar *mechanisms;
+  EvdPeer *peer;
+  const gchar *mechanism;
+  gchar *mechanism_url;
+  SoupHTTPVersion http_ver;
+  GError *error = NULL;
+
+  req_headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
+
+  /* choose among client's supported transports */
+  mechanisms = soup_message_headers_get_one (req_headers,
+                                             MECHANISM_HEADER_NAME);
+  if (mechanisms == NULL)
+    {
+      /* return 503 Service Unavailable, no mechanism can be negotiated */
+      evd_http_connection_respond_simple (conn,
+                                          SOUP_STATUS_SERVICE_UNAVAILABLE,
+                                          NULL,
+                                          0);
+      return;
+    }
+
+  if (g_strstr_len (mechanisms, -1, WEB_SOCKET_MECHANISM_NAME) != NULL)
+    {
+      SoupURI *ws_uri;
+
+      mechanism = WEB_SOCKET_MECHANISM_NAME;
+      peer = evd_transport_create_new_peer (EVD_TRANSPORT (self->priv->ws));
+
+      ws_uri = soup_uri_copy (uri);
+      soup_uri_set_scheme (ws_uri, WEB_SOCKET_TOKEN_NAME);
+      soup_uri_set_port (ws_uri, uri->port);
+      soup_uri_set_path (ws_uri, self->priv->ws_base_path);
+      mechanism_url = soup_uri_to_string (ws_uri, FALSE);
+      soup_uri_free (ws_uri);
+    }
+  else if (g_strstr_len (mechanisms, -1, LONG_POLLING_MECHANISM_NAME) != NULL)
+    {
+      mechanism = LONG_POLLING_MECHANISM_NAME;
+      peer = evd_transport_create_new_peer (EVD_TRANSPORT (self->priv->lp));
+      mechanism_url = g_strdup (self->priv->lp_base_path);
+    }
+  else
+    {
+      /* return 503 Service Unavailable, no mechanism can be negotiated */
+      evd_http_connection_respond_simple (conn,
+                                          SOUP_STATUS_SERVICE_UNAVAILABLE,
+                                          NULL,
+                                          0);
+      return;
+    }
+
+  /* prepare response */
+  res_headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  soup_message_headers_replace (res_headers, MECHANISM_HEADER_NAME, mechanism);
+  soup_message_headers_replace (res_headers,
+                                PEER_ID_HEADER_NAME,
+                                evd_peer_get_id (peer));
+  soup_message_headers_replace (res_headers, URL_HEADER_NAME, mechanism_url);
+  g_free (mechanism_url);
+
+  http_ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+  if (! evd_http_connection_respond (conn,
+                                     http_ver,
+                                     SOUP_STATUS_OK,
+                                     NULL,
+                                     res_headers,
+                                     NULL,
+                                     0,
+                                     TRUE,
+                                     &error))
+    {
+      /* @TODO: do proper logging */
+      g_debug ("Error responding handshake: %s", error->message);
+      g_error_free (error);
+    }
+
+  soup_message_headers_free (res_headers);
 }
 
 static void
@@ -410,13 +525,28 @@ evd_web_transport_on_request (EvdWebService     *web_service,
 
   uri = evd_http_request_get_uri (request);
 
-  if (g_strstr_len (uri->path, -1, self->priv->lp_base_path) == uri->path)
+  /* handshake? */
+  if (g_strcmp0 (uri->path, self->priv->hs_base_path) == 0)
+    {
+      evd_web_transport_handshake (self, conn, request, uri);
+    }
+  /* long-polling? */
+  else if (g_strstr_len (uri->path, -1, self->priv->lp_base_path) == uri->path)
     {
       evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->lp),
                                                    conn,
                                                    request,
                                                    NULL);
     }
+  /* web-socket? */
+  else if (g_strstr_len (uri->path, -1, self->priv->ws_base_path) == uri->path)
+    {
+      evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->ws),
+                                                   conn,
+                                                   request,
+                                                   NULL);
+    }
+  /* transport's static content */
   else
     {
       EVD_WEB_SERVICE_CLASS (evd_web_transport_parent_class)->
@@ -434,6 +564,16 @@ evd_web_transport_set_base_path (EvdWebTransport *self,
 
   self->priv->base_path = g_strdup (base_path);
   evd_web_transport_associate_services (self);
+
+  self->priv->hs_base_path = g_strdup_printf ("%s/%s",
+                                              self->priv->base_path,
+                                              HANDSHAKE_TOKEN_NAME);
+  self->priv->lp_base_path = g_strdup_printf ("%s/%s",
+                                              self->priv->base_path,
+                                              LONG_POLLING_TOKEN_NAME);
+  self->priv->ws_base_path = g_strdup_printf ("%s/%s",
+                                              self->priv->base_path,
+                                              WEB_SOCKET_TOKEN_NAME);
 
   evd_web_dir_set_alias (EVD_WEB_DIR (self), base_path);
 }
