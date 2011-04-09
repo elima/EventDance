@@ -345,6 +345,78 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     }
 });
 
+// Evd.WebSocket
+Evd.WebSocket = new Evd.Constructor ();
+Evd.WebSocket.prototype = new Evd.Object (Evd.WebSocket);
+
+Evd.Object.extend (Evd.WebSocket.prototype, {
+
+    _init: function (args) {
+        this._peerId = args.peerId;
+        this._onConnect = args.onConnect;
+        this._onReceive = args.onReceive;
+        this._onSend = args.onSend;
+        this._onDisconnect = args.onDisconnect;
+    },
+
+    open: function (address, callback) {
+        this._addr = address;
+        this._opened = true;
+
+        this._connect ();
+    },
+
+    _connect: function () {
+        var self = this;
+
+        this._ws = new WebSocket (this._addr + "?" + this._peerId);
+        this._ws.onopen = function () {
+            self._connected = true;
+
+            self._onConnect (true, null);
+            self._onSend (true, null);
+        };
+
+        this._ws.onmessage = function (e) {
+            self._onReceive (e.data, null);
+        };
+
+        this._ws.onclose = function (e) {
+            if (! self._opened)
+                return;
+
+            self._ws = null;
+
+            var fatal = ! self._connected;
+            self._connected = false;
+
+            self._onDisconnect (fatal);
+        };
+    },
+
+    canSend: function () {
+        return this._opened && this._ws != null && this._ws.readyState == 1;
+    },
+
+    send: function (data) {
+        this._ws.send (data);
+        this._onSend (true, null);
+    },
+
+    reconnect: function () {
+        this._connect ();
+    },
+
+    close: function (gracefully) {
+        this._opened = false;
+        this._connected = false;
+        this._peerId = null;
+
+        if (this._ws)
+            this._ws.close ();
+    }
+});
+
 // Evd.WebTransport
 Evd.WebTransport = new Evd.Constructor ();
 Evd.WebTransport.prototype = new Evd.Object (Evd.WebTransport);
