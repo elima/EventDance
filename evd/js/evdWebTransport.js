@@ -102,9 +102,9 @@ Evd.LongPolling.prototype = new Evd.Object (Evd.LongPolling);
 
 Evd.Object.extend (Evd.LongPolling.prototype, {
     PEER_DATA_KEY: "org.eventdance.lib.LongPolling",
-    PEER_ID_HEADER_NAME: "X-Org-EventDance-Peer-Id",
 
     _init: function (args) {
+        this._peerId = args.peerId;
         this._onConnect = args.onConnect;
         this._onReceive = args.onReceive;
         this._onSend = args.onSend;
@@ -130,32 +130,6 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             var xhr = this._setupNewXhr (false);
             this._receivers.push (xhr);
         }
-    },
-
-    handshake: function () {
-        var self = this;
-
-        this._peerId = null;
-
-        var xhr = new XMLHttpRequest ();
-
-        xhr.onreadystatechange = function () {
-            if (this.readyState != 4)
-                return;
-
-            if (this.status == 200) {
-                self._peerId = this.getResponseHeader (self.PEER_ID_HEADER_NAME);
-                self._onConnect (self._peerId, null);
-
-                self._connect ();
-            }
-            else {
-                self._onConnect (null, new Error ("Handshake failed with HTTP error " + this.status));
-            }
-        };
-
-        xhr.open ("POST", this._addr + "/handshake", true);
-        xhr.send ();
     },
 
     _readMsgHeader: function (data) {
@@ -250,8 +224,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     },
 
     _connectXhr: function (xhr) {
-        xhr.open ("GET", this._addr + "/receive", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
+        xhr.open ("GET", this._addr + "/receive?" + this._peerId, true);
 
         this._activeXhrs.push (xhr);
 
@@ -304,8 +277,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
         var xhr = this._senders.shift ();
 
-        xhr.open ("POST", this._addr + "/send", true);
-        xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
+        xhr.open ("POST", this._addr + "/send?" + this._peerId, true);
 
         this._activeXhrs.push (xhr);
 
@@ -316,9 +288,11 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         return this._senders.length > 0;
     },
 
-    open: function (address) {
-        this._addr = address + "/lp";
-        this.handshake ();
+    open: function (address, callback) {
+        this._addr = address;
+        this._opened = true;
+
+        this._connect ();
     },
 
     close: function (gracefully) {
@@ -326,18 +300,19 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
         var xhr;
 
-        if (gracefully) {
-            // send a 'close' command
-            xhr = new XMLHttpRequest ();
-            xhr.open ("POST", this._addr + "/close", false);
-            xhr.setRequestHeader (this.PEER_ID_HEADER_NAME, this._peerId);
-            xhr.send ();
-        }
-
         // cancel all active XHRs
         for (xhr in this._activeXhrs)
             xhr.abort ();
         this._activeXhrs = [];
+
+        if (gracefully) {
+            // send a 'close' command
+            xhr = new XMLHttpRequest ();
+            xhr.open ("POST", this._addr + "/close?" + this._peerId, false);
+            xhr.send ();
+        }
+
+        this._peerId = null;
     },
 
     reconnect: function () {
