@@ -398,6 +398,9 @@ Evd.WebTransport.prototype = new Evd.Object (Evd.WebTransport);
 
 Evd.WebTransport.DEFAULT_ADDR = "/transport";
 Evd.WebTransport.PEER_DATA_KEY = "org.eventdance.lib.WebTransport.data";
+Evd.WebTransport.PEER_ID_HEADER_NAME = "X-Org-EventDance-WebTransport-Peer-Id";
+Evd.WebTransport.MECHANISM_HEADER_NAME = "X-Org-EventDance-WebTransport-Mechanism";
+Evd.WebTransport.URL_HEADER_NAME = "X-Org-EventDance-WebTransport-Url";
 
 Evd.Object.extend (Evd.WebTransport.prototype, {
 
@@ -410,46 +413,90 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._opened = false;
         this._outBuf = [];
         this._flushBuf = [];
+        this._retryInterval = 500;
 
-        this._selectTransport ();
+        this._availableMechanisms = "long-polling";
+        if (window["WebSocket"])
+            this._availableMechanisms += ";web-socket";
     },
 
-    _selectTransport: function () {
-        // @TODO: select best transport available
-        // by now use LongPolling always
+    _setupMechanism: function (peerId) {
+        var transportProto = null;
+
+        if (this._mechanismName == "long-polling")
+            transportProto = Evd.LongPolling;
+        else if (this._mechanismName == "web-socket")
+            transportProto = Evd.WebSocket;
+        else {
+            // @TODO: raise error, failed to negotiate mechanism
+            alert ("No mechanism negotiated");
+            return;
+        }
 
         var self = this;
 
-        var transportProto = Evd.LongPolling;
-
         this._transport = new transportProto ({
-            onConnect: function (peerId, error) {
-                self._onConnect (peerId, error);
+            peerId: peerId,
+            onConnect: function (result, error) {
+                self._onConnect (result, error);
             },
             onReceive: function (msg, error) {
                 self._onReceive (msg, error);
             },
             onSend: function (result, error) {
                 self._onFlush (result, error);
+            },
+            onDisconnect: function (fatal) {
+                self._retry (fatal);
             }
         });
     },
 
-    _onConnect: function (peerId, error) {
-        if (! error) {
-            // create new peer
-            var peer = new Evd.Peer ({
-                id: peerId,
-                transport: this
-            });
-            peer[Evd.WebTransport.PEER_DATA_KEY] = {};
+    _handshake: function () {
+        var self = this;
 
-            this._peer = peer;
-            this._fireEvent ("new-peer", [peer]);
-        }
-        else {
-            this._retry (error);
-        }
+        this._peerId = null;
+
+        var xhr = new XMLHttpRequest ();
+
+        xhr.onreadystatechange = function () {
+            if (this.readyState != 4)
+                return;
+
+            if (this.status == 200) {
+                var peerId =
+                    this.getResponseHeader (Evd.WebTransport.PEER_ID_HEADER_NAME);
+                self._mechanismName =
+                    this.getResponseHeader (Evd.WebTransport.MECHANISM_HEADER_NAME);
+                self._mechanismUrl = this.getResponseHeader (Evd.WebTransport.URL_HEADER_NAME);
+
+                self._setupMechanism (peerId);
+
+                // create new peer
+                var peer = new Evd.Peer ({
+                    id: peerId,
+                    transport: self
+                 });
+                peer[Evd.WebTransport.PEER_DATA_KEY] = {};
+
+                self._transport.open (self._mechanismUrl);
+
+                self._peer = peer;
+                self._fireEvent ("new-peer", [peer]);
+            }
+            else {
+                self._retry (false);
+            }
+        };
+
+        xhr.open ("POST", this._addr + "/handshake", true);
+        xhr.setRequestHeader (Evd.WebTransport.MECHANISM_HEADER_NAME,
+                              this._availableMechanisms);
+        xhr.send ();
+    },
+
+    _onConnect: function (result, error) {
+        // @TODO
     },
 
     open: function (address) {
@@ -461,8 +508,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         if (address)
             this._addr = address.toString ();
 
-        var self = this;
-        this._transport.open (this._addr);
+        this._handshake ();
     },
 
     _flushing: function () {
@@ -504,7 +550,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = null;
         }
         else {
-            this._retry (error);
+            this._retry (error.code == 404);
         }
     },
 
@@ -522,38 +568,38 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             }
         }
         else {
-            this._retry (error);
+            this._retry (error.code == 404);
         }
     },
 
-    _retry: function (error) {
+    _retry: function (rehandshake) {
         if (! this._opened)
             return;
 
         // @TODO: implement a retry count and abort after a maximum.
         // Having fibonacci-based retry intervals would be nice.
 
-        if (error.code == 404) {
-            if (this._peer) {
+        if (rehandshake) {
+            if (this._peer)
                 this._closePeer (this._peer, false);
-                this._transport.handshake ();
-            }
-            else
-                this.close (false);
+
+            this._handshake ();
         }
         else {
             var self = this;
 
             // try reconnect
             setTimeout (function () {
-                            self._transport.reconnect ();
-                        }, 100);
+                            if (self._transport)
+                                self._transport.reconnect ();
+                        }, self._retryInterval);
 
             // retry send
             if (this._outBuf.length > 0) {
                 setTimeout (function () {
-                                self._flush ();
-                            }, 100);
+                                if (self._transport)
+                                    self._flush ();
+                            }, self._retryInterval);
             }
         }
     },
@@ -563,13 +609,36 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._outBuf = [];
         this._flushBuf = [];
 
-        this._fireEvent ("peer-closed", [peer, gracefully]);
         peer.close (gracefully);
+
+        this._fireEvent ("peer-closed", [peer, gracefully]);
     },
 
     closePeer: function (peer, gracefully) {
-        if (peer && peer == this._peer)
-            this._closePeer (peer, gracefully);
+        if (peer != this._peer)
+            return;
+
+        if (gracefully == undefined)
+            gracefully = true;
+
+        if (this._transport) {
+            this._transport.onConnect = null;
+            this._transport.onDisconnect = null;
+            this._transport.onSend = null;
+            this._transport.onReceive = null;
+
+            this._transport.close (gracefully);
+            this._transport = null;
+        }
+
+        this._closePeer (peer, gracefully);
+
+        if (this._opened) {
+            var self = this;
+            setTimeout (function () {
+                            self._handshake ();
+                        }, 100);
+        }
     },
 
     close: function (gracefully) {
@@ -580,8 +649,8 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             gracefully = true;
 
         this._opened = false;
-        this._transport.close (gracefully);
-        this._closePeer (this._peer, gracefully);
+
+        this.closePeer (this._peer, gracefully);
 
         this._fireEvent ("close", [gracefully]);
     }
