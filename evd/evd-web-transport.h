@@ -63,6 +63,9 @@ EvdWebSelector     *evd_web_transport_get_selector      (EvdWebTransport *self);
 
 const gchar        *evd_web_transport_get_base_path     (EvdWebTransport *self);
 
+void                evd_web_transport_set_enable_websocket (EvdWebTransport *self,
+                                                            gboolean         enabled);
+
 G_END_DECLS
 
 #endif /* __EVD_WEB_TRANSPORT_H__ */

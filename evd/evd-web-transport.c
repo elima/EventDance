@@ -63,6 +63,8 @@ struct _EvdWebTransportPrivate
 
   EvdWebsocketServer *ws;
   gchar *ws_base_path;
+
+  gboolean enable_ws;
 };
 
 /* properties */
@@ -215,6 +217,8 @@ evd_web_transport_init (EvdWebTransport *self)
     js_path = JSLIBDIR;
 
   evd_web_dir_set_root (EVD_WEB_DIR (self), js_path);
+
+  priv->enable_ws = TRUE;
 }
 
 static void
@@ -457,7 +461,8 @@ evd_web_transport_handshake (EvdWebTransport   *self,
       return;
     }
 
-  if (g_strstr_len (mechanisms, -1, WEB_SOCKET_MECHANISM_NAME) != NULL)
+  if (self->priv->enable_ws &&
+      g_strstr_len (mechanisms, -1, WEB_SOCKET_MECHANISM_NAME) != NULL)
     {
       SoupURI *ws_uri;
 
@@ -539,7 +544,8 @@ evd_web_transport_on_request (EvdWebService     *web_service,
                                                    NULL);
     }
   /* web-socket? */
-  else if (g_strstr_len (uri->path, -1, self->priv->ws_base_path) == uri->path)
+  else if (self->priv->enable_ws &&
+           g_strstr_len (uri->path, -1, self->priv->ws_base_path) == uri->path)
     {
       evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->ws),
                                                    conn,
@@ -624,4 +630,13 @@ evd_web_transport_get_base_path (EvdWebTransport *self)
   g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
 
   return self->priv->base_path;
+}
+
+void
+evd_web_transport_set_enable_websocket (EvdWebTransport *self,
+                                        gboolean         enabled)
+{
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
+
+  self->priv->enable_ws = enabled;
 }
