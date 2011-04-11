@@ -30,6 +30,8 @@ G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
                                               EVD_TYPE_TLS_CREDENTIALS, \
                                               EvdTlsCredentialsPrivate))
 
+#define MAX_DYNAMIC_CERTS 8
+
 /* private data */
 struct _EvdTlsCredentialsPrivate
 {
@@ -43,7 +45,9 @@ struct _EvdTlsCredentialsPrivate
 
   EvdTlsCredentialsCertCb cert_cb;
   gpointer cert_cb_user_data;
-  gnutls_retr_st *cert_cb_certs;
+  gpointer cert_cb_certs[MAX_DYNAMIC_CERTS];
+  gnutls_retr_st *cert_cb_ret_st;
+  gboolean inside_cert_cb;
   gint cert_cb_result;
 
   guint async_ops_count;
@@ -141,9 +145,8 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv->cert_cb = NULL;
   priv->cert_cb_user_data = NULL;
-  priv->cert_cb_certs = NULL;
   priv->cert_cb_result = 0;
-
+  priv->inside_cert_cb = FALSE;
   priv->async_ops_count = 0;
 }
 
@@ -236,9 +239,12 @@ evd_tls_credentials_server_cert_cb (gnutls_session_t  session,
 
   g_assert (self->priv->cert_cb != NULL);
 
-  self->priv->cert_cb_certs = st;
-  self->priv->cert_cb_certs->ncerts = 0;
+  self->priv->cert_cb_ret_st = st;
+  self->priv->cert_cb_ret_st->ncerts = 0;
+  self->priv->cert_cb_ret_st->deinit_all = 0;
+
   self->priv->cert_cb_result = 0;
+  self->priv->inside_cert_cb = TRUE;
 
   if (! self->priv->cert_cb (self,
                              tls_session,
@@ -249,7 +255,7 @@ evd_tls_credentials_server_cert_cb (gnutls_session_t  session,
       self->priv->cert_cb_result = -1;
     }
 
-  self->priv->cert_cb_certs = NULL;
+  self->priv->inside_cert_cb = FALSE;
 
   return self->priv->cert_cb_result;
 }
@@ -564,22 +570,37 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       return FALSE;
     }
 
-  if (self->priv->cert_cb_certs != NULL)
+  if (self->priv->inside_cert_cb)
     {
-      self->priv->cert_cb_certs->ncerts = 1;
-      self->priv->cert_cb_certs->deinit_all = 0;
+      gnutls_retr_st *ret_st;
 
-      if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
+      ret_st = self->priv->cert_cb_ret_st;
+
+      if (ret_st->ncerts >= MAX_DYNAMIC_CERTS)
         {
-          self->priv->cert_cb_certs->type = GNUTLS_CRT_X509;
-          self->priv->cert_cb_certs->cert.x509 = (gnutls_x509_crt_t *) &_cert;
-          self->priv->cert_cb_certs->key.x509 = (gnutls_x509_privkey_t) _privkey;
+          g_set_error (error,
+                       G_IO_ERROR,
+                       G_IO_ERROR_TOO_MANY_LINKS,
+                       "Too many certificates for credentials");
+          return FALSE;
         }
       else
         {
-          self->priv->cert_cb_certs->type = GNUTLS_CRT_OPENPGP;
-          self->priv->cert_cb_certs->cert.pgp = (gnutls_openpgp_crt_t) _cert;
-          self->priv->cert_cb_certs->key.pgp = (gnutls_openpgp_privkey_t) _privkey;
+          self->priv->cert_cb_certs[ret_st->ncerts] = _cert;
+          ret_st->ncerts++;
+
+          if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
+            {
+              ret_st->type = GNUTLS_CRT_X509;
+              ret_st->cert.x509 = (gnutls_x509_crt_t *) self->priv->cert_cb_certs;
+              ret_st->key.x509 = (gnutls_x509_privkey_t) _privkey;
+            }
+          else
+            {
+              ret_st->type = GNUTLS_CRT_OPENPGP;
+              ret_st->cert.pgp = (gnutls_openpgp_crt_t) _cert;
+              ret_st->key.pgp = (gnutls_openpgp_privkey_t) _privkey;
+            }
         }
     }
   else
