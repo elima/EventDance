@@ -470,7 +470,10 @@ evd_web_transport_handshake (EvdWebTransport   *self,
       peer = evd_transport_create_new_peer (EVD_TRANSPORT (self->priv->ws));
 
       ws_uri = soup_uri_copy (uri);
-      soup_uri_set_scheme (ws_uri, WEB_SOCKET_TOKEN_NAME);
+      if (evd_connection_get_tls_active (EVD_CONNECTION (conn)))
+        soup_uri_set_scheme (ws_uri, "wss");
+      else
+        soup_uri_set_scheme (ws_uri, "ws");
       soup_uri_set_port (ws_uri, uri->port);
       soup_uri_set_path (ws_uri, self->priv->ws_base_path);
       mechanism_url = soup_uri_to_string (ws_uri, FALSE);
