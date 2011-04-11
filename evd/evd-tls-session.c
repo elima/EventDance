@@ -942,7 +942,7 @@ evd_tls_session_get_server_name (EvdTlsSession *self)
 
           if (err == GNUTLS_E_SUCCESS && type == GNUTLS_NAME_DNS)
             {
-              self->priv->server_name = g_new0 (gchar, len);
+              self->priv->server_name = g_new0 (gchar, len + 1);
 
               if (err == GNUTLS_E_SHORT_MEMORY_BUFFER)
                 {
