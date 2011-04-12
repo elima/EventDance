@@ -307,12 +307,11 @@ evd_peer_is_alive (EvdPeer *self)
 {
   g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
 
- if (g_timer_elapsed (self->priv->idle_timer, NULL) <=
-     self->priv->timeout_interval)
-   return TRUE;
-
- return evd_transport_peer_is_connected (self->priv->transport,
-                                         self);
+  return
+    g_timer_elapsed (self->priv->idle_timer, NULL) <=
+    self->priv->timeout_interval ||
+    evd_transport_peer_is_connected (self->priv->transport,
+                                     self);
 }
 
 gboolean
