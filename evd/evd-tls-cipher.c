@@ -196,7 +196,7 @@ evd_tls_cipher_build_gcry_error (gcry_error_t   gcry_err,
                              gcry_strsource (gcry_err),
                              gcry_strerror (gcry_err));
   g_set_error_literal (error,
-                       EVD_TLS_GCRY_ERROR,
+                       EVD_GCRY_ERROR,
                        gcry_err,
                        err_msg);
   g_free (err_msg);

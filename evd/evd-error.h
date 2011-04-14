@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,14 +23,14 @@
 #ifndef __EVD_ERROR_H__
 #define __EVD_ERROR_H__
 
-#define EVD_ERROR_DOMAIN_STR "org.eventdance.lib.Errors"
+#define EVD_ERROR_DOMAIN_STR "org.eventdance.lib.Evd.ErrorDomain"
 #define EVD_ERROR            g_quark_from_string (EVD_ERROR_DOMAIN_STR)
 
-#define EVD_TLS_ERROR_DOMAIN_STR "org.eventdance.lib.TlsErrors"
+#define EVD_TLS_ERROR_DOMAIN_STR "org.eventdance.lib.Gnutls.ErrorDomain"
 #define EVD_TLS_ERROR            g_quark_from_string (EVD_TLS_ERROR_DOMAIN_STR)
 
-#define EVD_TLS_GCRY_ERROR_DOMAIN_STR "org.eventdance.lib.TlsGcryErrors"
-#define EVD_TLS_GCRY_ERROR            g_quark_from_string (EVD_TLS_GCRY_ERROR_DOMAIN_STR)
+#define EVD_GCRY_ERROR_DOMAIN_STR "org.eventdance.lib.Gcry.ErrorDomain"
+#define EVD_GCRY_ERROR            g_quark_from_string (EVD_GCRY_ERROR_DOMAIN_STR)
 
 typedef enum
 {
