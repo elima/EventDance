@@ -67,8 +67,6 @@ gboolean           evd_tls_privkey_import                  (EvdTlsPrivkey  *self
                                                             gsize               len,
                                                             GError            **error);
 
-gpointer           evd_tls_privkey_get_privkey             (EvdTlsPrivkey *self);
-
 void               evd_tls_privkey_import_from_file        (EvdTlsPrivkey       *self,
                                                             const gchar         *filename,
                                                             GCancellable        *cancellable,
@@ -77,6 +75,8 @@ void               evd_tls_privkey_import_from_file        (EvdTlsPrivkey       
 gboolean           evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self,
                                                             GAsyncResult   *result,
                                                             GError        **error);
+
+gpointer           evd_tls_privkey_get_native              (EvdTlsPrivkey *self);
 
 G_END_DECLS
 

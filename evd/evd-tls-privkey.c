@@ -402,7 +402,7 @@ evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self,
 }
 
 gpointer
-evd_tls_privkey_get_privkey (EvdTlsPrivkey *self)
+evd_tls_privkey_get_native (EvdTlsPrivkey *self)
 {
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), NULL);
 
