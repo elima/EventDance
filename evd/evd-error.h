@@ -20,17 +20,21 @@
  * for more details.
  */
 
+#include <glib.h>
+#include <gnutls/gnutls.h>
+#include <gcrypt.h>
+
 #ifndef __EVD_ERROR_H__
 #define __EVD_ERROR_H__
 
 #define EVD_ERROR_DOMAIN_STR "org.eventdance.lib.Evd.ErrorDomain"
 #define EVD_ERROR            g_quark_from_string (EVD_ERROR_DOMAIN_STR)
 
-#define EVD_TLS_ERROR_DOMAIN_STR "org.eventdance.lib.Gnutls.ErrorDomain"
-#define EVD_TLS_ERROR            g_quark_from_string (EVD_TLS_ERROR_DOMAIN_STR)
+#define EVD_GNUTLS_ERROR_DOMAIN_STR "org.eventdance.lib.Gnutls.ErrorDomain"
+#define EVD_GNUTLS_ERROR            g_quark_from_string (EVD_GNUTLS_ERROR_DOMAIN_STR)
 
-#define EVD_GCRY_ERROR_DOMAIN_STR "org.eventdance.lib.Gcry.ErrorDomain"
-#define EVD_GCRY_ERROR            g_quark_from_string (EVD_GCRY_ERROR_DOMAIN_STR)
+#define EVD_GCRYPT_ERROR_DOMAIN_STR "org.eventdance.lib.Gcry.ErrorDomain"
+#define EVD_GCRYPT_ERROR            g_quark_from_string (EVD_GCRYPT_ERROR_DOMAIN_STR)
 
 typedef enum
 {
@@ -65,5 +69,11 @@ typedef enum
   EVD_ERROR_PADDING8,
   EVD_ERROR_PADDING9,
 } EvdErrorEnum;
+
+
+void         evd_error_build_gnutls         (gint     gnutls_error,
+                                             GError **error);
+void         evd_error_build_gcrypt         (gcry_error_t   gcrypt_error,
+                                             GError       **error);
 
 #endif /* __EVD_ERROR_H__ */

@@ -31,6 +31,7 @@ lib_LTLIBRARIES = lib@EVD_API_NAME@.la
 
 # libevd
 source_c = \
+	evd-error.c \
 	evd-utils.c \
 	evd-marshal.c \
 	evd-resolver.c \
