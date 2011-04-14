@@ -67,7 +67,7 @@ gboolean           evd_tls_certificate_import                  (EvdTlsCertificat
                                                                 gsize               len,
                                                                 GError            **error);
 
-gpointer           evd_tls_certificate_get_certificate         (EvdTlsCertificate *self);
+gpointer           evd_tls_certificate_get_native              (EvdTlsCertificate *self);
 
 gchar             *evd_tls_certificate_get_dn                  (EvdTlsCertificate  *self,
                                                                 GError            **error);

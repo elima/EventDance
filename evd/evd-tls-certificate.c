@@ -398,7 +398,7 @@ evd_tls_certificate_import_from_file_finish (EvdTlsCertificate  *self,
 }
 
 gpointer
-evd_tls_certificate_get_certificate (EvdTlsCertificate *self)
+evd_tls_certificate_get_native (EvdTlsCertificate *self)
 {
   g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), NULL);
 
