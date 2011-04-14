@@ -65,8 +65,7 @@ evd_tls_init (GError **error)
         }
       else
         {
-          evd_tls_build_error (err_code,
-                               error);
+          evd_error_build_gnutls (err_code, error);
 
           result = FALSE;
         }
@@ -96,16 +95,6 @@ evd_tls_deinit (void)
     }
 
   G_UNLOCK (evd_tls_init);
-}
-
-void
-evd_tls_build_error (gint     error_code,
-                     GError **error)
-{
-  g_set_error_literal (error,
-                       EVD_TLS_ERROR,
-                       error_code,
-                       gnutls_strerror (error_code));
 }
 
 void

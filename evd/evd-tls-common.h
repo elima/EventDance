@@ -59,9 +59,6 @@ typedef enum
 gboolean evd_tls_init                      (GError **error);
 void     evd_tls_deinit                    (void);
 
-void     evd_tls_build_error               (gint     error_code,
-                                            GError **error);
-
 void     evd_tls_free_certificates         (GList *certificates);
 
 void     evd_tls_generate_dh_params        (guint                bit_length,
@@ -69,7 +66,6 @@ void     evd_tls_generate_dh_params        (guint                bit_length,
                                             GAsyncReadyCallback  callback,
                                             GCancellable        *cancellable,
                                             gpointer             user_data);
-
 gpointer evd_tls_generate_dh_params_finish (GAsyncResult  *result,
                                             GError       **error);
 
