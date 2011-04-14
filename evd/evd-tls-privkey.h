@@ -43,13 +43,6 @@ struct _EvdTlsPrivkeyClass
   GObjectClass parent_class;
 };
 
-typedef enum
-{
-  EVD_TLS_PRIVKEY_TYPE_UNKNOWN,
-  EVD_TLS_PRIVKEY_TYPE_X509    = GNUTLS_CRT_X509,
-  EVD_TLS_PRIVKEY_TYPE_OPENPGP = GNUTLS_CRT_OPENPGP
-} EvdTlsPrivkeyType;
-
 #define EVD_TYPE_TLS_PRIVKEY           (evd_tls_privkey_get_type ())
 #define EVD_TLS_PRIVKEY(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_TLS_PRIVKEY, EvdTlsPrivkey))
 #define EVD_TLS_PRIVKEY_CLASS(obj)     (G_TYPE_CHECK_CLASS_CAST ((obj), EVD_TYPE_TLS_PRIVKEY, EvdTlsPrivkeyClass))

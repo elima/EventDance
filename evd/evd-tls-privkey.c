@@ -23,9 +23,10 @@
 #include <gnutls/x509.h>
 #include <gnutls/openpgp.h>
 
+#include "evd-tls-privkey.h"
+
 #include "evd-error.h"
 #include "evd-tls-common.h"
-#include "evd-tls-privkey.h"
 
 G_DEFINE_TYPE (EvdTlsPrivkey, evd_tls_privkey, G_TYPE_OBJECT)
 
@@ -39,7 +40,7 @@ struct _EvdTlsPrivkeyPrivate
   gnutls_x509_privkey_t x509_privkey;
   gnutls_openpgp_privkey_t openpgp_privkey;
 
-  EvdTlsPrivkeyType type;
+  EvdTlsCertificateType type;
 };
 
 
@@ -84,9 +85,9 @@ evd_tls_privkey_class_init (EvdTlsPrivkeyClass *class)
                                    g_param_spec_uint ("type",
                                                       "Privkey type",
                                                       "The type of privkey (X.509 or OPENPGP)",
-                                                      EVD_TLS_PRIVKEY_TYPE_UNKNOWN,
-                                                      EVD_TLS_PRIVKEY_TYPE_OPENPGP,
-                                                      EVD_TLS_PRIVKEY_TYPE_UNKNOWN,
+                                                      EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
+                                                      EVD_TLS_CERTIFICATE_TYPE_OPENPGP,
+                                                      EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
@@ -105,7 +106,7 @@ evd_tls_privkey_init (EvdTlsPrivkey *self)
   priv->x509_privkey = NULL;
   priv->openpgp_privkey = NULL;
 
-  self->priv->type = EVD_TLS_PRIVKEY_TYPE_UNKNOWN;
+  self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
 static void
@@ -179,18 +180,18 @@ evd_tls_privkey_cleanup (EvdTlsPrivkey *self)
       self->priv->openpgp_privkey = NULL;
     }
 
-  self->priv->type = EVD_TLS_PRIVKEY_TYPE_UNKNOWN;
+  self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
-static EvdTlsPrivkeyType
+static EvdTlsCertificateType
 evd_tls_privkey_detect_type (const gchar *raw_data)
 {
   if (g_strstr_len (raw_data, 26, "BEGIN RSA PRIVATE KEY") != NULL)
-    return EVD_TLS_PRIVKEY_TYPE_X509;
+    return EVD_TLS_CERTIFICATE_TYPE_X509;
   else if (g_strstr_len (raw_data, 32, "BEGIN PGP PRIVATE KEY BLOCK") != NULL)
-    return EVD_TLS_PRIVKEY_TYPE_OPENPGP;
+    return EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
   else
-    return EVD_TLS_PRIVKEY_TYPE_UNKNOWN;
+    return EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
 
 static gboolean
@@ -220,7 +221,7 @@ evd_tls_privkey_import_x509 (EvdTlsPrivkey      *self,
       evd_tls_privkey_cleanup (self);
 
       self->priv->x509_privkey = privkey;
-      self->priv->type = EVD_TLS_PRIVKEY_TYPE_X509;
+      self->priv->type = EVD_TLS_CERTIFICATE_TYPE_X509;
 
       return TRUE;
     }
@@ -275,7 +276,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
                         gsize           size,
                         GError        **error)
 {
-  EvdTlsPrivkeyType type;
+  EvdTlsCertificateType type;
 
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), FALSE);
   g_return_val_if_fail (raw_data != NULL, FALSE);
@@ -283,7 +284,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
   type = evd_tls_privkey_detect_type (raw_data);
   switch (type)
     {
-    case EVD_TLS_PRIVKEY_TYPE_X509:
+    case EVD_TLS_CERTIFICATE_TYPE_X509:
       {
         if (evd_tls_privkey_import_x509 (self,
                                              raw_data,
@@ -297,7 +298,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
         break;
       }
 
-    case EVD_TLS_PRIVKEY_TYPE_OPENPGP:
+    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
       {
         gint err_code;
         gnutls_openpgp_privkey_t privkey;
@@ -323,7 +324,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
             evd_tls_privkey_cleanup (self);
 
             self->priv->openpgp_privkey = privkey;
-            self->priv->type = EVD_TLS_PRIVKEY_TYPE_OPENPGP;
+            self->priv->type = EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
 
             return TRUE;
           }
@@ -406,9 +407,9 @@ evd_tls_privkey_get_native (EvdTlsPrivkey *self)
 {
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), NULL);
 
-  if (self->priv->type == EVD_TLS_PRIVKEY_TYPE_X509)
+  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
     return self->priv->x509_privkey;
-  else if (self->priv->type == EVD_TLS_PRIVKEY_TYPE_OPENPGP)
+  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
     return self->priv->openpgp_privkey;
   else
     return NULL;
