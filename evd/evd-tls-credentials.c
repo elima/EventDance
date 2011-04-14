@@ -24,6 +24,8 @@
 
 #include "evd-tls-credentials.h"
 
+#include "evd-error.h"
+
 G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
 
 #define EVD_TLS_CREDENTIALS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -624,7 +626,7 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error);
+          evd_error_build_gnutls (err_code, error);
           return FALSE;
         }
     }

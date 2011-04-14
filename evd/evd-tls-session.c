@@ -346,7 +346,7 @@ evd_tls_session_handshake_internal (EvdTlsSession  *self,
     }
   else if (gnutls_error_is_fatal (err_code) == 1)
     {
-      evd_tls_build_error (err_code, error);
+      evd_error_build_gnutls (err_code, error);
 
       return -1;
     }
@@ -386,7 +386,7 @@ evd_tls_session_bind_credentials (EvdTlsSession      *self,
 
   if (err_code != GNUTLS_E_SUCCESS)
     {
-      evd_tls_build_error (err_code, error);
+      evd_error_build_gnutls (err_code, error);
 
       return FALSE;
     }
@@ -433,7 +433,7 @@ evd_tls_session_shutdown (EvdTlsSession           *self,
       err_code = gnutls_bye (self->priv->session, how);
       if (err_code < 0 && gnutls_error_is_fatal (err_code) != 0)
         {
-          evd_tls_build_error (err_code, error);
+          evd_error_build_gnutls (err_code, error);
           return FALSE;
         }
 
@@ -478,7 +478,7 @@ evd_tls_session_set_server_name_internal (EvdTlsSession  *self,
 
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error);
+          evd_error_build_gnutls (err_code, error);
 
           return FALSE;
         }
@@ -580,7 +580,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
       err_code = gnutls_init (&self->priv->session, self->priv->mode);
       if (err_code != GNUTLS_E_SUCCESS)
         {
-          evd_tls_build_error (err_code, error);
+          evd_error_build_gnutls (err_code, error);
           return -1;
         }
       else
@@ -594,7 +594,7 @@ evd_tls_session_handshake (EvdTlsSession  *self,
 
           if (err_code != GNUTLS_E_SUCCESS)
             {
-              evd_tls_build_error (err_code, error);
+              evd_error_build_gnutls (err_code, error);
               return -1;
             }
 
@@ -664,7 +664,7 @@ evd_tls_session_read (EvdTlsSession  *self,
     {
       if (gnutls_error_is_fatal (result) != 0)
         {
-          evd_tls_build_error (result, error);
+          evd_error_build_gnutls (result, error);
           result = -1;
         }
       else
@@ -696,7 +696,7 @@ evd_tls_session_write (EvdTlsSession  *self,
     {
       if (gnutls_error_is_fatal (result) != 0)
         {
-          evd_tls_build_error (result, error);
+          evd_error_build_gnutls (result, error);
           result = -1;
         }
       else
@@ -819,7 +819,7 @@ evd_tls_session_verify_peer (EvdTlsSession  *self,
     {
       if (err_code != GNUTLS_E_NO_CERTIFICATE_FOUND)
         {
-          evd_tls_build_error (err_code, error);
+          evd_error_build_gnutls (err_code, error);
 
           return -1;
         }

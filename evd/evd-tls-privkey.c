@@ -227,7 +227,7 @@ evd_tls_privkey_import_x509 (EvdTlsPrivkey      *self,
     }
   else
     {
-      evd_tls_build_error (err_code, error);
+      evd_error_build_gnutls (err_code, error);
     }
 
   return FALSE;
@@ -330,7 +330,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
           }
         else
           {
-            evd_tls_build_error (err_code, error);
+            evd_error_build_gnutls (err_code, error);
           }
 
         break;
@@ -349,10 +349,10 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
           }
         else
           {
-            if (error != NULL)
-              *error = g_error_new (EVD_ERROR,
-                                    EVD_ERROR_INVALID_DATA,
-                                    "Unable to detect privkey type when trying to import");
+            g_set_error_literal (error,
+                                 G_IO_ERROR,
+                                 G_IO_ERROR_INVALID_DATA,
+                                 "Unable to detect privkey type when trying to import");
           }
 
         break;

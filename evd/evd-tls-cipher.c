@@ -183,25 +183,6 @@ evd_tls_cipher_get_property (GObject    *obj,
     }
 }
 
-static void
-evd_tls_cipher_build_gcry_error (gcry_error_t   gcry_err,
-                                 GError       **error)
-{
-  gchar *err_msg;
-
-  if (error == NULL)
-    return;
-
-  err_msg = g_strdup_printf ("%s: %s",
-                             gcry_strsource (gcry_err),
-                             gcry_strerror (gcry_err));
-  g_set_error_literal (error,
-                       EVD_GCRY_ERROR,
-                       gcry_err,
-                       err_msg);
-  g_free (err_msg);
-}
-
 static gcry_cipher_hd_t
 evd_tls_cipher_create_new_handler (EvdTlsCipher *self, GError **error)
 {
@@ -211,7 +192,7 @@ evd_tls_cipher_create_new_handler (EvdTlsCipher *self, GError **error)
   gcry_err = gcry_cipher_open (&hd, self->priv->algo, self->priv->mode, 0);
   if (gcry_err != 0)
     {
-      evd_tls_cipher_build_gcry_error (gcry_err, error);
+      evd_error_build_gcrypt (gcry_err, error);
       return NULL;
     }
 
@@ -345,7 +326,7 @@ evd_tls_cipher_do_in_thread (GSimpleAsyncResult *res,
 
   if (gcry_err != 0)
     {
-      evd_tls_cipher_build_gcry_error (gcry_err, &error);
+      evd_error_build_gcrypt (gcry_err, &error);
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);
     }
@@ -410,7 +391,7 @@ evd_tls_cipher_do (EvdTlsCipher        *self,
 
       gcry_err = gcry_cipher_setkey (hd, _key, _key_size);
       if (gcry_err != 0)
-        evd_tls_cipher_build_gcry_error (gcry_err, &error);
+        evd_error_build_gcrypt (gcry_err, &error);
     }
 
   if (error != NULL)
