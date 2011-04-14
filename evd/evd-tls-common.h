@@ -56,18 +56,14 @@ typedef enum
   EVD_TLS_VERIFY_STATE_NOT_ACTIVE       = 1 << 7
 } EvdTlsVerifyState;
 
-gboolean evd_tls_init              (GError **error);
-void     evd_tls_deinit            (void);
+gboolean evd_tls_init                      (GError **error);
+void     evd_tls_deinit                    (void);
 
-void     evd_tls_build_error       (gint     error_code,
-                                    GError **error);
+void     evd_tls_build_error               (gint     error_code,
+                                            GError **error);
 
-void     evd_tls_free_certificates (GList *certificates);
+void     evd_tls_free_certificates         (GList *certificates);
 
-/**
- * evd_tls_generate_dh_params:
- * @user_data: (allow-none):
- **/
 void     evd_tls_generate_dh_params        (guint                bit_length,
                                             gboolean             regenerate,
                                             GAsyncReadyCallback  callback,
