@@ -37,13 +37,15 @@ noinst_PROGRAMS = \
 	test-json-filter \
 	test-resolver \
 	test-dbus-bridge \
-	test-tls-cipher
+	test-tls-cipher \
+	test-pki
 
 TESTS = \
 	test-json-filter \
 	test-resolver \
 	test-dbus-bridge \
-	test-tls-cipher
+	test-tls-cipher \
+	test-pki
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -69,6 +71,11 @@ test_dbus_bridge_SOURCES = test-dbus-bridge.c
 test_tls_cipher_CFLAGS = $(AM_CFLAGS)
 test_tls_cipher_LDADD = $(AM_LIBS)
 test_tls_cipher_SOURCES = test-tls-cipher.c
+
+# test-pki
+test_pki_CFLAGS = $(AM_CFLAGS)
+test_pki_LDADD = $(AM_LIBS)
+test_pki_SOURCES = test-pki.c
 
 if HAVE_JS
 noinst_PROGRAMS += test-all-js
