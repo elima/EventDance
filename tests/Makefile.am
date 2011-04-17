@@ -1,12 +1,15 @@
 MAINTAINERCLEANFILES = \
 	Makefile.in
 
+tests_dir = `pwd`/
+
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
 	$(TLS_CFLAGS) \
 	$(UUID_CFLAGS) \
 	$(JSON_CFLAGS) \
 	$(SOUP_CFLAGS) \
+	-DTESTS_DIR="\"$(tests_dir)\"" \
 	-Wall -g3 -O0 -ggdb \
 	-I$(top_srcdir)/evd
 
