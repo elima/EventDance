@@ -25,6 +25,8 @@
 
 #include <glib-object.h>
 
+#include <evd-pki-privkey.h>
+
 G_BEGIN_DECLS
 
 typedef struct _EvdTlsPrivkey EvdTlsPrivkey;
@@ -70,6 +72,9 @@ gboolean           evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self
                                                             GError        **error);
 
 gpointer           evd_tls_privkey_get_native              (EvdTlsPrivkey *self);
+
+EvdPkiPrivkey *    evd_tls_privkey_get_pki_key             (EvdTlsPrivkey  *self,
+                                                            GError        **error);
 
 G_END_DECLS
 

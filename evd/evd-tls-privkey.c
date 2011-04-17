@@ -22,6 +22,7 @@
 
 #include <gnutls/x509.h>
 #include <gnutls/openpgp.h>
+#include <gcrypt.h>
 
 #include "evd-tls-privkey.h"
 
@@ -258,6 +259,59 @@ evd_tls_privkey_import_from_file_thread (GSimpleAsyncResult *res,
   g_object_unref (res);
 }
 
+static gcry_sexp_t
+get_sexp_for_rsa_key (EvdTlsPrivkey *self, GError **error)
+{
+  gint err = 0;
+  gcry_error_t gcry_err;
+  gcry_sexp_t key_sexp = NULL;
+
+  gnutls_datum_t m;
+  gnutls_datum_t e;
+  gnutls_datum_t d;
+  gnutls_datum_t p;
+  gnutls_datum_t q;
+  gnutls_datum_t u;
+
+  /* obtain key parameters */
+  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
+    err = gnutls_x509_privkey_export_rsa_raw (self->priv->x509_privkey,
+                                              &m, &e, &d, &p, &q, &u);
+  else
+    err = gnutls_openpgp_privkey_export_rsa_raw (self->priv->openpgp_privkey,
+                                                 &m, &e, &d, &p, &q, &u);
+
+  if (err != GNUTLS_E_SUCCESS)
+    {
+      evd_error_build_gnutls (err, error);
+      return NULL;
+    }
+
+  /* build a GRCY S-expression */
+  const gchar *sexp_format = "(private-key (rsa (n %b) (e %b) (d %b) (p %b) (q %b) (u %b)))";
+  gcry_err = gcry_sexp_build (&key_sexp, NULL, sexp_format,
+                              m.size, m.data,
+                              e.size, e.data,
+                              d.size, d.data,
+                              p.size, p.data,
+                              q.size, q.data,
+                              u.size, u.data);
+  if (err != GPG_ERR_NO_ERROR)
+    {
+      evd_error_build_gcrypt (err, error);
+      key_sexp = NULL;
+    }
+
+  gnutls_free (m.data);
+  gnutls_free (e.data);
+  gnutls_free (d.data);
+  gnutls_free (p.data);
+  gnutls_free (q.data);
+  gnutls_free (u.data);
+
+  return key_sexp;
+}
+
 /* public methods */
 
 EvdTlsPrivkey *
@@ -413,4 +467,52 @@ evd_tls_privkey_get_native (EvdTlsPrivkey *self)
     return self->priv->openpgp_privkey;
   else
     return NULL;
+}
+
+EvdPkiPrivkey *
+evd_tls_privkey_get_pki_key (EvdTlsPrivkey *self, GError **error)
+{
+  EvdPkiPrivkey *key = NULL;
+  gnutls_pk_algorithm_t algo;
+  gcry_sexp_t key_sexp;
+
+  g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), NULL);
+
+  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_UNKNOWN)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
+                           "Failed to get key from not initialized private key");
+      return NULL;
+    }
+
+  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
+    algo = gnutls_x509_privkey_get_pk_algorithm (self->priv->x509_privkey);
+  else
+    algo = gnutls_openpgp_privkey_get_pk_algorithm (self->priv->openpgp_privkey, NULL);
+
+  if (algo == GNUTLS_PK_RSA)
+    key_sexp = get_sexp_for_rsa_key (self, error);
+  else
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_NOT_SUPPORTED,
+                           "Only RSA keys are currently supported");
+      key_sexp = NULL;
+    }
+
+  if (key_sexp != NULL)
+    {
+      key = evd_pki_privkey_new ();
+      if (! evd_pki_privkey_import_native (key, (gpointer) key_sexp, error))
+        {
+          gcry_sexp_release (key_sexp);
+          g_object_unref (key);
+          key = NULL;
+        }
+    }
+
+  return key;
 }
