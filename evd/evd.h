@@ -61,6 +61,7 @@
 #include <evd-jsonrpc.h>
 #include <evd-tls-cipher.h>
 #include <evd-pki-privkey.h>
+#include <evd-pki-pubkey.h>
 #include <evd-daemon.h>
 
 #endif /* __EVD_H__ */

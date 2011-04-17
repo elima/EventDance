@@ -76,6 +76,7 @@ source_c = \
 	evd-jsonrpc.c \
 	evd-tls-cipher.c \
 	evd-pki-privkey.c \
+	evd-pki-pubkey.c \
 	evd-daemon.c
 
 source_h = \
@@ -122,6 +123,7 @@ source_h = \
 	evd-tls-cipher.h \
 	evd-pki-common.h \
 	evd-pki-privkey.h \
+	evd-pki-pubkey.h \
 	evd-daemon.h
 
 source_h_priv = \
