@@ -25,6 +25,8 @@
 
 #include <glib-object.h>
 
+#include <evd-pki-pubkey.h>
+
 G_BEGIN_DECLS
 
 typedef struct _EvdTlsCertificate EvdTlsCertificate;
@@ -81,6 +83,9 @@ void               evd_tls_certificate_import_from_file        (EvdTlsCertificat
                                                                 gpointer             user_data);
 gboolean           evd_tls_certificate_import_from_file_finish (EvdTlsCertificate  *self,
                                                                 GAsyncResult       *result,
+                                                                GError            **error);
+
+EvdPkiPubkey *     evd_tls_certificate_get_pki_key             (EvdTlsCertificate  *self,
                                                                 GError            **error);
 
 G_END_DECLS
