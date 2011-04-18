@@ -117,7 +117,7 @@ EvdDaemon *
 evd_daemon_new (gint *argc, gchar **argv[])
 {
   EvdDaemon *self;
-  gboolean daemonize;
+  gboolean daemonize = FALSE;
   GOptionContext *context;
 
   const GOptionEntry entries[] =
