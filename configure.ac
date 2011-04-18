@@ -1,3 +1,25 @@
+#
+# configure.ac
+#
+# EventDance, Peer-to-peer IPC library <http://eventdance.org>
+#
+# Copyright (C) 2009/2010/2011, Igalia S.L.
+#
+# Authors:
+#   Eduardo Lima Mitev <elima@igalia.com>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public License
+# version 3, or (at your option) any later version as published by
+# the Free Software Foundation.
+#
+# This library is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License at http://www.gnu.org/licenses/lgpl-3.0.txt
+# for more details.
+#
+
 AC_PREREQ(2.59)
 
 m4_define([prj_name],       [EventDance])
@@ -110,6 +132,7 @@ echo ""
 echo "   EventDance $VERSION"
 echo "   ====================="
 echo ""
+echo "              Install prefix:   ${prefix}"
 echo "    Build introspection data:   ${enable_introspection}"
 echo "     Build API documentation:   ${enable_gtk_doc}"
 echo "      Enable automated tests:   ${enable_tests}"
