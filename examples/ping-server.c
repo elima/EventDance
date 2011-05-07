@@ -35,7 +35,7 @@ on_listen (GObject      *service,
       g_debug ("%s", error->message);
       g_error_free (error);
 
-      evd_daemon_quit (evd_daemon);
+      evd_daemon_quit (evd_daemon, -1);
     }
 }
 

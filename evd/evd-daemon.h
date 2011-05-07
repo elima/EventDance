@@ -60,8 +60,9 @@ GType               evd_daemon_get_type                (void) G_GNUC_CONST;
 EvdDaemon *         evd_daemon_get_default             (gint *argc, gchar **argv[]);
 EvdDaemon *         evd_daemon_new                     (gint *argc, gchar **argv[]);
 
-void                evd_daemon_run                     (EvdDaemon  *self);
-void                evd_daemon_quit                    (EvdDaemon *self);
+gint                evd_daemon_run                     (EvdDaemon  *self);
+void                evd_daemon_quit                    (EvdDaemon *self,
+                                                        gint       exit_code);
 
 gboolean            evd_daemon_daemonize               (EvdDaemon  *self,
                                                         GError    **error);

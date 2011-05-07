@@ -45,6 +45,8 @@ struct _EvdDaemonPrivate
 
   gboolean daemonize;
   gboolean daemonized;
+
+  gint exit_code;
 };
 
 static EvdDaemon *evd_daemon_default = NULL;
@@ -77,6 +79,8 @@ evd_daemon_init (EvdDaemon *self)
 
   priv->daemonize = FALSE;
   priv->daemonized = FALSE;
+
+  priv->exit_code = 0;
 }
 
 static void
@@ -99,7 +103,7 @@ evd_daemon_on_user_interrupt (gint sig)
   signal (SIGTERM, NULL);
 
   if (evd_daemon_default != NULL)
-    evd_daemon_quit (evd_daemon_default);
+    evd_daemon_quit (evd_daemon_default, -sig);
 }
 
 /* public methods */
@@ -151,10 +155,10 @@ evd_daemon_get_main_loop (EvdDaemon *self)
   return self->priv->main_loop;
 }
 
-void
+gint
 evd_daemon_run (EvdDaemon *self)
 {
-  g_return_if_fail (EVD_IS_DAEMON (self));
+  g_return_val_if_fail (EVD_IS_DAEMON (self), -1);
 
   if (! self->priv->daemonized && self->priv->daemonize)
     {
@@ -165,7 +169,7 @@ evd_daemon_run (EvdDaemon *self)
           /* @TODO: log error */
           g_debug ("Error daemonizing: %s", error->message);
           g_error_free (error);
-          return;
+          return -1;
         }
     }
 
@@ -176,10 +180,12 @@ evd_daemon_run (EvdDaemon *self)
     }
 
   g_main_loop_run (self->priv->main_loop);
+
+  return self->priv->exit_code;
 }
 
 void
-evd_daemon_quit (EvdDaemon *self)
+evd_daemon_quit (EvdDaemon *self, gint exit_code)
 {
   g_return_if_fail (EVD_IS_DAEMON (self));
 
