@@ -432,7 +432,7 @@ evd_dbus_bridge_send (EvdDBusBridge *self,
 {
   gchar *json;
 
-  json = g_strdup_printf ("[%u,%lu,%u,%u,\"[%s]\"]",
+  json = g_strdup_printf ("[%u,%" G_GUINT64_FORMAT ",%u,%u,\"[%s]\"]",
                           cmd,
                           serial,
                           conn_id,

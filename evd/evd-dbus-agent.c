@@ -1191,7 +1191,7 @@ evd_dbus_agent_get_method_invocation (GObject  *object,
       g_set_error (error,
                    G_IO_ERROR,
                    G_IO_ERROR_INVALID_ARGUMENT,
-                   "Method invocation serial '%lu' is invalid",
+                   "Method invocation serial '%" G_GUINT64_FORMAT "' is invalid",
                    serial);
       return NULL;
     }
@@ -1241,7 +1241,7 @@ evd_dbus_agent_method_call_return (GObject  *object,
       g_set_error (error,
                    G_IO_ERROR,
                    G_IO_ERROR_INVALID_ARGUMENT,
-                   "No method call with serial '%lu'",
+                   "No method call with serial '%" G_GUINT64_FORMAT  "'",
                    serial);
       return FALSE;
     }
