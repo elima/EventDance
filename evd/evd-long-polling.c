@@ -287,6 +287,8 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
 
   uri = evd_http_request_get_uri (request);
 
+  self->priv->current_peer_id = uri->query;
+
   if (uri->query == NULL ||
       (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
                                          uri->query)) == NULL)
@@ -299,7 +301,6 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
     }
 
   evd_peer_touch (peer);
-  self->priv->current_peer_id = evd_peer_get_id (peer);
 
   action = evd_long_polling_resolve_action (self, request);
 
