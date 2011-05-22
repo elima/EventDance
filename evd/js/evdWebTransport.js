@@ -500,7 +500,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         xhr.open ("POST", this._addr + "/handshake", true);
         xhr.setRequestHeader (Evd.WebTransport.MECHANISM_HEADER_NAME,
                               this._availableMechanisms);
-        xhr.send ();
+        xhr.send ("");
     },
 
     _onConnect: function (result, error) {
