@@ -29,12 +29,19 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
             if (! eventListeners[eventName])
                 return;
 
-            var i = 0;
-            while (i < eventListeners[eventName].length)
+            for (var i=0; i<eventListeners[eventName].length; i++)
                 if (eventListeners[eventName][i] === handler)
-                    eventListeners[eventName].splice (i, 1);
-                else
-                    i++;
+                    eventListeners[eventName][i] = null;
+
+            setTimeout (function () {
+                var handlers = [];
+
+                for (var i=0; i<eventListeners[eventName].length; i++)
+                    if (eventListeners[eventName][i])
+                        handlers.push (eventListeners[eventName][i]);
+
+                eventListeners[eventName] = handlers;
+            }, 1);
         };
 
         this.removeAllEventListeners = function () {
@@ -46,7 +53,8 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
                 return;
 
             for (var i=0; i<eventListeners[eventName].length; i++)
-                eventListeners[eventName][i].apply (this, args);
+                if (eventListeners[eventName][i])
+                    eventListeners[eventName][i].apply (this, args);
         };
     };
 
