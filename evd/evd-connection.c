@@ -1114,6 +1114,9 @@ evd_connection_starttls (EvdConnection       *self,
                                              FALSE);
 
   self->priv->tls_handshaking = TRUE;
+
+  if (mode == EVD_TLS_MODE_CLIENT && self->priv->cond & G_IO_OUT)
+    evd_connection_tls_handshake (self);
 }
 
 gboolean
