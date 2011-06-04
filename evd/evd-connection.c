@@ -1057,27 +1057,24 @@ evd_connection_starttls (EvdConnection       *self,
 
   /* @TODO: use cancellable object for something */
 
-  if (self->priv->tls_active)
-    {
-      GSimpleAsyncResult *result;
-
-      result = g_simple_async_result_new_error (G_OBJECT (self),
-                                                callback,
-                                                user_data,
-                                                G_IO_ERROR,
-                                                G_IO_ERROR_BUSY,
-                                                "SSL/TLS was already started");
-      g_simple_async_result_complete_in_idle (result);
-      g_object_unref (result);
-
-      return;
-    }
-
   self->priv->starttls_result =
     g_simple_async_result_new (G_OBJECT (self),
                                callback,
                                user_data,
                                evd_connection_starttls);
+
+  if (self->priv->tls_active)
+    {
+      g_simple_async_result_set_error (self->priv->starttls_result,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_BUSY,
+                                       "SSL/TLS was already started");
+      g_simple_async_result_complete_in_idle (self->priv->starttls_result);
+      g_object_unref (self->priv->starttls_result);
+      self->priv->starttls_result = NULL;
+
+      return;
+    }
 
   self->priv->tls_active = TRUE;
 
