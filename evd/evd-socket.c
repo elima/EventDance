@@ -266,7 +266,7 @@ evd_socket_class_init (EvdSocketClass *class)
   g_object_class_install_property (obj_class, PROP_IO_STREAM_TYPE,
                                    g_param_spec_gtype ("io-stream-type",
                                                        "The IO stream GType",
-                                                       "The GType of the socket's IO stream returned by #evd_socket_get_io_stream",
+                                                       "The GType of the IO stream returned by socket when connected",
                                                        EVD_TYPE_CONNECTION,
                                                        G_PARAM_READWRITE |
                                                        G_PARAM_STATIC_STRINGS));
