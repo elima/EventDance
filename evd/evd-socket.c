@@ -442,8 +442,7 @@ evd_socket_set_socket (EvdSocket *self, GSocket *socket)
 }
 
 static gboolean
-evd_socket_setup (EvdSocket  *self,
-                  GError    **error)
+evd_socket_setup (EvdSocket *self, GError **error)
 {
   if (self->priv->socket == NULL)
     {
