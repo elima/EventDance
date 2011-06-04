@@ -889,17 +889,15 @@ evd_socket_check_availability (EvdSocket  *self,
                            G_IO_ERROR,
                            G_IO_ERROR_PENDING,
                            "Socket has outstanding operation");
-
       return FALSE;
     }
 
   if (SOCKET_ACTIVE (self))
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_ALREADY_ACTIVE,
+                           G_IO_ERROR,
+                           G_IO_ERROR_BUSY,
                            "Socket is currently active, should be closed first before requesting new operation");
-
       return FALSE;
     }
 
