@@ -1370,6 +1370,12 @@ evd_socket_connect_addr (EvdSocket           *self,
   return;
 }
 
+/**
+ * evd_socket_connect_finish:
+ * @result: (type Gio.AsyncResult):
+ *
+ * Returns: (transfer full) (type Gio.IOStream):
+ **/
 GIOStream *
 evd_socket_connect_finish (EvdSocket     *self,
                            GAsyncResult  *result,
