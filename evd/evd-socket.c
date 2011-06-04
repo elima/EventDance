@@ -855,7 +855,8 @@ evd_socket_on_address_resolved (GObject      *obj,
 static void
 evd_socket_resolve_address (EvdSocket       *self,
                             const gchar     *address,
-                            EvdSocketState   action)
+                            EvdSocketState   action,
+                            GCancellable    *cancellable)
 {
   EvdResolver *resolver;
   self->priv->sub_status = action;
@@ -865,7 +866,7 @@ evd_socket_resolve_address (EvdSocket       *self,
   g_object_ref (self);
   evd_resolver_resolve_async (resolver,
                               address,
-                              NULL,
+                              cancellable,
                               evd_socket_on_address_resolved,
                               self);
 }
@@ -1328,9 +1329,10 @@ evd_socket_connect_to (EvdSocket           *self,
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_CONNECTING);
-
-  return;
+  evd_socket_resolve_address (self,
+                              address,
+                              EVD_SOCKET_STATE_CONNECTING,
+                              cancellable);
 }
 
 void
@@ -1433,9 +1435,10 @@ evd_socket_listen (EvdSocket           *self,
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_LISTENING);
-
-  return;
+  evd_socket_resolve_address (self,
+                              address,
+                              EVD_SOCKET_STATE_LISTENING,
+                              cancellable);
 }
 
 gboolean
@@ -1508,9 +1511,10 @@ evd_socket_bind (EvdSocket           *self,
 
   evd_socket_set_status (self, EVD_SOCKET_STATE_RESOLVING);
 
-  evd_socket_resolve_address (self, address, EVD_SOCKET_STATE_BOUND);
-
-  return;
+  evd_socket_resolve_address (self,
+                              address,
+                              EVD_SOCKET_STATE_BOUND,
+                              cancellable);
 }
 
 gboolean
