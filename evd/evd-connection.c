@@ -71,7 +71,7 @@ struct _EvdConnectionPrivate
   gboolean tls_handshaking;
   gboolean tls_active;
   EvdTlsSession *tls_session;
-  GSimpleAsyncResult *starttls_result;
+  GSimpleAsyncResult *async_result;
 
   gboolean connected;
   gboolean closing;
@@ -263,7 +263,7 @@ evd_connection_init (EvdConnection *self)
   priv->write_src_id = 0;
   priv->close_src_id = 0;
 
-  priv->starttls_result = NULL;
+  priv->async_result = NULL;
   priv->tls_session = NULL;
   priv->tls_active = FALSE;
 
@@ -307,8 +307,8 @@ evd_connection_finalize (GObject *obj)
   if (self->priv->tls_session != NULL)
     g_object_unref (self->priv->tls_session);
 
-  if (self->priv->starttls_result != NULL)
-    g_object_unref (self->priv->starttls_result);
+  if (self->priv->async_result != NULL)
+    g_object_unref (self->priv->async_result);
 
   G_OBJECT_CLASS (evd_connection_parent_class)->finalize (obj);
 }
@@ -432,12 +432,12 @@ evd_connection_close_internal (GIOStream     *stream,
       self->priv->write_src_id = 0;
     }
 
-  if (self->priv->starttls_result != NULL)
+  if (self->priv->async_result != NULL)
     {
       GSimpleAsyncResult *res;
 
-      res = self->priv->starttls_result;
-      self->priv->starttls_result = NULL;
+      res = self->priv->async_result;
+      self->priv->async_result = NULL;
 
       if (self->priv->tls_handshaking)
         g_simple_async_result_set_error (res,
@@ -601,8 +601,8 @@ evd_connection_tls_handshake (EvdConnection *self)
 
   self->priv->tls_handshaking = FALSE;
 
-  res = self->priv->starttls_result;
-  self->priv->starttls_result = NULL;
+  res = self->priv->async_result;
+  self->priv->async_result = NULL;
 
   if (result < 0)
     {
@@ -1057,7 +1057,7 @@ evd_connection_starttls (EvdConnection       *self,
 
   /* @TODO: use cancellable object for something */
 
-  self->priv->starttls_result =
+  self->priv->async_result =
     g_simple_async_result_new (G_OBJECT (self),
                                callback,
                                user_data,
@@ -1065,13 +1065,13 @@ evd_connection_starttls (EvdConnection       *self,
 
   if (self->priv->tls_active)
     {
-      g_simple_async_result_set_error (self->priv->starttls_result,
+      g_simple_async_result_set_error (self->priv->async_result,
                                        G_IO_ERROR,
                                        G_IO_ERROR_BUSY,
                                        "SSL/TLS was already started");
-      g_simple_async_result_complete_in_idle (self->priv->starttls_result);
-      g_object_unref (self->priv->starttls_result);
-      self->priv->starttls_result = NULL;
+      g_simple_async_result_complete_in_idle (self->priv->async_result);
+      g_object_unref (self->priv->async_result);
+      self->priv->async_result = NULL;
 
       return;
     }
