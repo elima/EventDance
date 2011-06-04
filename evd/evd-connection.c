@@ -1064,8 +1064,8 @@ evd_connection_starttls (EvdConnection       *self,
       result = g_simple_async_result_new_error (G_OBJECT (self),
                                                 callback,
                                                 user_data,
-                                                EVD_ERROR,
-                                                EVD_ERROR_ALREADY_ACTIVE,
+                                                G_IO_ERROR,
+                                                G_IO_ERROR_BUSY,
                                                 "SSL/TLS was already started");
       g_simple_async_result_complete_in_idle (result);
       g_object_unref (result);
