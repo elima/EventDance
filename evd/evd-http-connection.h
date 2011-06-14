@@ -137,6 +137,8 @@ gboolean            evd_http_connection_redirect                     (EvdHttpCon
                                                                       gboolean            permanently,
                                                                       GError            **error);
 
+gboolean            evd_http_connection_get_keepalive                (EvdHttpConnection *self);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_CONNECTION_H__ */

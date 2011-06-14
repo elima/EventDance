@@ -55,6 +55,8 @@ struct _EvdHttpConnectionPrivate
   gsize content_read;
 
   EvdHttpRequest *current_request;
+
+  gboolean keepalive;
 };
 
 /* properties */
@@ -141,6 +143,8 @@ evd_http_connection_init (EvdHttpConnection *self)
 
   priv->encoding = SOUP_ENCODING_UNRECOGNIZED;
   priv->content_len = 0;
+
+  priv->keepalive = FALSE;
 }
 
 static void
@@ -333,6 +337,10 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
             soup_message_headers_get_encoding (headers);
           self->priv->content_len =
             soup_message_headers_get_content_length (headers);
+
+          self->priv->keepalive =
+            g_strcmp0 (soup_message_headers_get_one (headers, "Connection"),
+                       "keep-alive") == 0;
         }
       else
         {
@@ -556,6 +564,8 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
 
       return;
     }
+
+  self->priv->keepalive = FALSE;
 
   self->priv->async_result =
     g_simple_async_result_new (G_OBJECT (self),
@@ -1235,4 +1245,12 @@ evd_http_connection_redirect (EvdHttpConnection  *self,
   soup_message_headers_free (headers);
 
   return result;
+}
+
+gboolean
+evd_http_connection_get_keepalive (EvdHttpConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+
+  return self->priv->keepalive;
 }
