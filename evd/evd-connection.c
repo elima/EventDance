@@ -1266,6 +1266,19 @@ evd_connection_set_group (EvdConnection    *self,
   return TRUE;
 }
 
+/**
+ * evd_connection_get_group:
+ *
+ * Returns: (transfer none):
+ **/
+EvdIoStreamGroup *
+evd_connection_get_group (EvdConnection *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
+
+  return self->priv->group;
+}
+
 void
 evd_connection_lock_close (EvdConnection *self)
 {
