@@ -178,6 +178,11 @@ evd_io_stream_connection_on_group_changed (EvdConnection    *conn,
   if (old_group == self)
     {
       self->priv->group_changed = TRUE;
+
+      g_signal_handlers_disconnect_by_func (conn,
+                                            evd_io_stream_connection_on_group_changed,
+                                            self);
+
       evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self),
                                   G_IO_STREAM (conn));
     }
