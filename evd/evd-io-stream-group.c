@@ -53,10 +53,6 @@ static void     evd_io_stream_group_init               (EvdIoStreamGroup *self);
 
 static void     evd_io_stream_group_finalize           (GObject *obj);
 
-static void     evd_io_stream_group_set_property       (GObject      *obj,
-                                                        guint         prop_id,
-                                                        const GValue *value,
-                                                        GParamSpec   *pspec);
 static void     evd_io_stream_group_get_property       (GObject    *obj,
                                                         guint       prop_id,
                                                         GValue     *value,
@@ -73,7 +69,6 @@ evd_io_stream_group_class_init (EvdIoStreamGroupClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_io_stream_group_finalize;
-  obj_class->set_property = evd_io_stream_group_set_property;
   obj_class->get_property = evd_io_stream_group_get_property;
 
   class->add = evd_io_stream_group_add_internal;
@@ -121,24 +116,6 @@ evd_io_stream_group_finalize (GObject *obj)
   g_object_unref (self->priv->output_throttle);
 
   G_OBJECT_CLASS (evd_io_stream_group_parent_class)->finalize (obj);
-}
-
-static void
-evd_io_stream_group_set_property (GObject      *obj,
-                                  guint         prop_id,
-                                  const GValue *value,
-                                  GParamSpec   *pspec)
-{
-  EvdIoStreamGroup *self;
-
-  self = EVD_IO_STREAM_GROUP (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static void
