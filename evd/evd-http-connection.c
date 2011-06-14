@@ -886,7 +886,7 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
 
   stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
 
-  return g_output_stream_write (stream, buffer, size, cancellable, error) == size;
+  return g_output_stream_write (stream, buffer, size, NULL, error) == size;
 }
 
 void
