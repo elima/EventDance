@@ -444,6 +444,11 @@ evd_web_dir_file_on_info (GObject      *object,
   soup_message_headers_set_content_length (headers,
                                            g_file_info_get_size (info));
 
+  if (evd_http_connection_get_keepalive (conn))
+    soup_message_headers_replace (headers, "Connection", "keep-alive");
+  else
+    soup_message_headers_replace (headers, "Connection", "close");
+
   if (evd_http_connection_write_response_headers (conn,
                                                   ver,
                                                   SOUP_STATUS_OK,
