@@ -44,20 +44,22 @@ struct _EvdWebServiceClass
   EvdServiceClass parent_class;
 
   /* virtual methods */
-  void     (* request_handler)   (EvdWebService     *self,
-                                  EvdHttpConnection *conn,
-                                  EvdHttpRequest    *request);
+  void     (* request_handler)             (EvdWebService     *self,
+                                            EvdHttpConnection *conn,
+                                            EvdHttpRequest    *request);
 
-  void     (* return_connection) (EvdWebService     *self,
-                                  EvdHttpConnection *conn);
+  void     (* return_connection)           (EvdWebService     *self,
+                                            EvdHttpConnection *conn);
+  void     (* flush_and_return_connection) (EvdWebService     *self,
+                                            EvdHttpConnection *conn);
 
-  gboolean (* respond)           (EvdWebService       *self,
-                                  EvdHttpConnection   *conn,
-                                  guint                status_code,
-                                  SoupMessageHeaders  *headers,
-                                  gchar               *content,
-                                  gsize                size,
-                                  GError             **error);
+  gboolean (* respond)                     (EvdWebService       *self,
+                                            EvdHttpConnection   *conn,
+                                            guint                status_code,
+                                            SoupMessageHeaders  *headers,
+                                            gchar               *content,
+                                            gsize                size,
+                                            GError             **error);
 
   /* signals */
   void (* signal_request_headers) (EvdWebService *self,
