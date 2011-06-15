@@ -744,6 +744,7 @@ evd_http_connection_read_response_headers_finish (EvdHttpConnection   *self,
         g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
 
       headers = response->headers;
+      response->headers = NULL;
 
       if (version != NULL)
         *version = response->version;
