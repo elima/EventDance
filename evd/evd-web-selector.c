@@ -155,14 +155,12 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
   EvdWebSelector *self = EVD_WEB_SELECTOR (web_service);
   EvdService *service;
 
-  const gchar *method;
   const gchar *path;
   SoupMessageHeaders *headers;
   const gchar *domain;
 
   GError *error = NULL;
 
-  method = evd_http_request_get_method (request);
   path = evd_http_request_get_path (request);
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
