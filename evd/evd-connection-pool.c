@@ -277,6 +277,7 @@ evd_connection_pool_socket_on_close (EvdSocket *socket, gpointer user_data)
   if (total >= self->priv->max_conns ||
       (total >= self->priv->min_conns && ! HAS_REQUESTS (self)) )
     {
+      g_queue_remove (self->priv->sockets, socket);
       g_object_unref (socket);
     }
   else
