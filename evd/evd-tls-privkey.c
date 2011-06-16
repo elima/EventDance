@@ -58,10 +58,6 @@ static void     evd_tls_privkey_init               (EvdTlsPrivkey *self);
 static void     evd_tls_privkey_finalize           (GObject *obj);
 static void     evd_tls_privkey_dispose            (GObject *obj);
 
-static void     evd_tls_privkey_set_property       (GObject      *obj,
-                                                    guint         prop_id,
-                                                    const GValue *value,
-                                                    GParamSpec   *pspec);
 static void     evd_tls_privkey_get_property       (GObject    *obj,
                                                     guint       prop_id,
                                                     GValue     *value,
@@ -79,7 +75,6 @@ evd_tls_privkey_class_init (EvdTlsPrivkeyClass *class)
   obj_class->dispose = evd_tls_privkey_dispose;
   obj_class->finalize = evd_tls_privkey_finalize;
   obj_class->get_property = evd_tls_privkey_get_property;
-  obj_class->set_property = evd_tls_privkey_set_property;
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_TYPE,
@@ -124,24 +119,6 @@ evd_tls_privkey_finalize (GObject *obj)
   evd_tls_privkey_cleanup (self);
 
   G_OBJECT_CLASS (evd_tls_privkey_parent_class)->finalize (obj);
-}
-
-static void
-evd_tls_privkey_set_property (GObject      *obj,
-                                  guint         prop_id,
-                                  const GValue *value,
-                                  GParamSpec   *pspec)
-{
-  EvdTlsPrivkey *self;
-
-  self = EVD_TLS_PRIVKEY (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static void
