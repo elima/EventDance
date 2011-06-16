@@ -273,9 +273,9 @@ get_sexp_for_rsa_key (EvdTlsPrivkey *self, GError **error)
                               p.size, p.data,
                               q.size, q.data,
                               u.size, u.data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (gcry_err != GPG_ERR_NO_ERROR)
     {
-      evd_error_build_gcrypt (err, error);
+      evd_error_build_gcrypt (gcry_err, error);
       key_sexp = NULL;
     }
 
