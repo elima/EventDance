@@ -262,9 +262,9 @@ get_sexp_for_rsa_key (EvdTlsCertificate *self, GError **error)
   gcry_err = gcry_sexp_build (&key_sexp, NULL, sexp_format,
                               m.size, m.data,
                               e.size, e.data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (gcry_err != GPG_ERR_NO_ERROR)
     {
-      evd_error_build_gcrypt (err, error);
+      evd_error_build_gcrypt (gcry_err, error);
       key_sexp = NULL;
     }
 
