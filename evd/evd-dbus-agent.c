@@ -211,10 +211,7 @@ evd_dbus_agent_free_obj_conn_data (gpointer data)
 static void
 evd_dbus_agent_free_proxy_data (gpointer data)
 {
-  ObjectData *obj_data;
   ProxyData *proxy_data = (ProxyData *) data;
-
-  obj_data = proxy_data->obj_data;
 
   if (proxy_data->proxy != NULL)
     {
