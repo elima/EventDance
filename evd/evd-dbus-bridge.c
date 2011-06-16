@@ -1020,12 +1020,10 @@ evd_dbus_proxy_on_call_method_return (GObject      *obj,
     {
       gchar *json;
       gchar *escaped_json;
-      const gchar *signature;
       gchar *args;
 
       json = json_gvariant_serialize_data (ret_variant, NULL);
       escaped_json = escape_json_for_args (json);
-      signature = g_variant_get_type_string (ret_variant);
       args = g_strdup_printf ("\\\"%s\\\"", escaped_json);
 
       evd_dbus_bridge_send (closure->bridge,
