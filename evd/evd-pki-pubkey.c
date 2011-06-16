@@ -54,10 +54,6 @@ static void     evd_pki_pubkey_init               (EvdPkiPubkey *self);
 static void     evd_pki_pubkey_finalize           (GObject *obj);
 static void     evd_pki_pubkey_dispose            (GObject *obj);
 
-static void     evd_pki_pubkey_set_property       (GObject      *obj,
-                                                   guint         prop_id,
-                                                   const GValue *value,
-                                                   GParamSpec   *pspec);
 static void     evd_pki_pubkey_get_property       (GObject    *obj,
                                                    guint       prop_id,
                                                    GValue     *value,
@@ -73,7 +69,6 @@ evd_pki_pubkey_class_init (EvdPkiPubkeyClass *class)
   obj_class->dispose = evd_pki_pubkey_dispose;
   obj_class->finalize = evd_pki_pubkey_finalize;
   obj_class->get_property = evd_pki_pubkey_get_property;
-  obj_class->set_property = evd_pki_pubkey_set_property;
 
   /* install properties */
   g_object_class_install_property (obj_class, PROP_TYPE,
@@ -117,24 +112,6 @@ evd_pki_pubkey_finalize (GObject *obj)
     gcry_sexp_release (self->priv->key_sexp);
 
   G_OBJECT_CLASS (evd_pki_pubkey_parent_class)->finalize (obj);
-}
-
-static void
-evd_pki_pubkey_set_property (GObject      *obj,
-                             guint         prop_id,
-                             const GValue *value,
-                             GParamSpec   *pspec)
-{
-  EvdPkiPubkey *self;
-
-  self = EVD_PKI_PUBKEY (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static void
