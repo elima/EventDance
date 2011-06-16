@@ -126,15 +126,6 @@ static void     evd_dbus_bridge_init                   (EvdDBusBridge *self);
 static void     evd_dbus_bridge_finalize               (GObject *obj);
 static void     evd_dbus_bridge_dispose                (GObject *obj);
 
-static void     evd_dbus_bridge_set_property           (GObject      *obj,
-                                                        guint         prop_id,
-                                                        const GValue *value,
-                                                        GParamSpec   *pspec);
-static void     evd_dbus_bridge_get_property           (GObject    *obj,
-                                                        guint       prop_id,
-                                                        GValue     *value,
-                                                        GParamSpec *pspec);
-
 static void     evd_dbus_bridge_send                   (EvdDBusBridge *self,
                                                         GObject       *obj,
                                                         guint8         cmd,
@@ -181,8 +172,6 @@ evd_dbus_bridge_class_init (EvdDBusBridgeClass *class)
 
   obj_class->dispose = evd_dbus_bridge_dispose;
   obj_class->finalize = evd_dbus_bridge_finalize;
-  obj_class->get_property = evd_dbus_bridge_get_property;
-  obj_class->set_property = evd_dbus_bridge_set_property;
 
   g_type_class_add_private (obj_class, sizeof (EvdDBusBridgePrivate));
 }
@@ -216,44 +205,6 @@ evd_dbus_bridge_finalize (GObject *obj)
   //  EvdDBusBridge *self = EVD_DBUS_BRIDGE (obj);
 
   G_OBJECT_CLASS (evd_dbus_bridge_parent_class)->finalize (obj);
-}
-
-static void
-evd_dbus_bridge_set_property (GObject      *obj,
-                              guint         prop_id,
-                              const GValue *value,
-                              GParamSpec   *pspec)
-{
-  EvdDBusBridge *self;
-
-  self = EVD_DBUS_BRIDGE (obj);
-
-  switch (prop_id)
-    {
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
-}
-
-static void
-evd_dbus_bridge_get_property (GObject    *obj,
-                              guint       prop_id,
-                              GValue     *value,
-                              GParamSpec *pspec)
-{
-  EvdDBusBridge *self;
-
-  self = EVD_DBUS_BRIDGE (obj);
-
-  switch (prop_id)
-    {
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static gchar *
