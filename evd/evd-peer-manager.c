@@ -261,12 +261,8 @@ evd_peer_manager_notify_new_peer (gpointer user_data)
 void
 evd_peer_manager_add_peer (EvdPeerManager *self, EvdPeer *peer)
 {
-  const gchar *id;
-
   g_return_if_fail (EVD_IS_PEER_MANAGER (self));
   g_return_if_fail (EVD_IS_PEER (peer));
-
-  id = evd_peer_get_id (peer);
 
   g_object_set_data (G_OBJECT (peer), "peer-manager", self);
   g_object_ref (self);
