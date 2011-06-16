@@ -201,8 +201,7 @@ evd_poll_check_and_consume_interrupt_event (EvdPoll            *self,
 
       /* self-pipe trick, here we just read long enough to guarantee that pipe
          is empty, and next call to write will edge-trigger a read event again */
-      read (self->priv->interrupt_fds[0], buf, 1024);
-      return TRUE;
+      return read (self->priv->interrupt_fds[0], buf, 1024) > 0;
     }
   else
     {
@@ -387,13 +386,13 @@ evd_poll_epoll_ctl (EvdPoll      *self,
   return result;
 }
 
-static void
+static gboolean
 evd_poll_interrupt_epoll_wait (EvdPoll *self)
 {
   const gchar *buf = " ";
 
   /* self-pipe trick, here we write to pipe to wake up epoll_wait */
-  write (self->priv->interrupt_fds[1], buf, 1);
+  return write (self->priv->interrupt_fds[1], buf, 1) > 0;
 }
 
 static void
