@@ -237,10 +237,9 @@ evd_dbus_daemon_initable_init (GInitable     *initable,
   else
     {
       gchar buf[256] = { 0, };
-      gssize size;
       gchar **lines;
 
-      size = read (stdout_fd, buf, 256);
+      read (stdout_fd, buf, 256);
       lines = g_strsplit (buf, "\n", 0);
       self->priv->addr = g_strdup (lines[0]);
       g_strfreev (lines);
