@@ -250,6 +250,8 @@ evd_http_request_to_string (EvdHttpRequest *self,
   gchar *st;
   GString *buf;
   gchar *result;
+  SoupMessageHeaders *headers;
+  gchar *path;
 
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
@@ -258,12 +260,30 @@ evd_http_request_to_string (EvdHttpRequest *self,
   buf = g_string_new ("");
 
   /* send status line */
+  path = evd_http_request_get_path (self);
   st = g_strdup_printf ("%s %s HTTP/1.%d\r\n",
                         self->priv->method,
-                        self->priv->path,
+                        path,
                         version);
+  g_free (path);
+
   g_string_append_len (buf, st, strlen (st));
   g_free (st);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  /* determine 'Host' header */
+  if (soup_message_headers_get_one (headers, "Host") == NULL)
+    {
+      if (self->priv->uri->port == 80)
+        st = g_strdup_printf ("%s", self->priv->uri->host);
+      else
+        st = g_strdup_printf ("%s:%d",
+                              self->priv->uri->host,
+                              self->priv->uri->port);
+      soup_message_headers_replace (headers, "Host", st);
+      g_free (st);
+    }
 
   headers_st = evd_http_message_headers_to_string (EVD_HTTP_MESSAGE (self),
                                                    &headers_size);
