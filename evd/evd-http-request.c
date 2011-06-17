@@ -193,11 +193,18 @@ evd_http_request_get_property (GObject    *obj,
 /* public methods */
 
 EvdHttpRequest *
-evd_http_request_new (void)
+evd_http_request_new (const gchar *method, const gchar *url)
 {
   EvdHttpRequest *self;
+  SoupURI *uri;
 
-  self = g_object_new (EVD_TYPE_HTTP_REQUEST, NULL);
+  uri = soup_uri_new (url);
+
+  self = g_object_new (EVD_TYPE_HTTP_REQUEST,
+                       "method", method,
+                       "uri", uri,
+                       NULL);
+  soup_uri_free (uri);
 
   return self;
 }

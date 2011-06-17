@@ -55,7 +55,8 @@ struct _EvdHttpRequestClass
 
 GType                    evd_http_request_get_type          (void) G_GNUC_CONST;
 
-EvdHttpRequest          *evd_http_request_new               (void);
+EvdHttpRequest          *evd_http_request_new               (const gchar *method,
+                                                             const gchar *url);
 
 const gchar             *evd_http_request_get_method        (EvdHttpRequest *self);
 
