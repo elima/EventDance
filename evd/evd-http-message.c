@@ -206,6 +206,9 @@ evd_http_message_get_headers (EvdHttpMessage *self)
 {
   g_return_val_if_fail (EVD_IS_HTTP_MESSAGE (self), NULL);
 
+  if (self->priv->headers == NULL)
+    self->priv->headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_REQUEST);
+
   return self->priv->headers;
 }
 
