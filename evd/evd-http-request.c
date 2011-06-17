@@ -36,7 +36,6 @@ G_DEFINE_TYPE (EvdHttpRequest, evd_http_request, EVD_TYPE_HTTP_MESSAGE)
 struct _EvdHttpRequestPrivate
 {
   gchar *method;
-  gchar *path;
   SoupURI *uri;
 };
 
@@ -85,9 +84,9 @@ evd_http_request_class_init (EvdHttpRequestClass *class)
   g_object_class_install_property (obj_class, PROP_PATH,
                                    g_param_spec_string ("path",
                                                         "URI path",
-                                                        "The path portion of the requested URL",
+                                                        "The full path portion of the requested URL",
                                                         "",
-                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_URI,
@@ -122,7 +121,6 @@ evd_http_request_finalize (GObject *obj)
   EvdHttpRequest *self = EVD_HTTP_REQUEST (obj);
 
   g_free (self->priv->method);
-  g_free (self->priv->path);
 
   if (self->priv->uri != NULL)
     soup_uri_free (self->priv->uri);
@@ -144,10 +142,6 @@ evd_http_request_set_property (GObject      *obj,
     {
     case PROP_METHOD:
       self->priv->method = g_value_dup_string (value);
-      break;
-
-    case PROP_PATH:
-      self->priv->path = g_value_dup_string (value);
       break;
 
     case PROP_URI:
@@ -177,7 +171,7 @@ evd_http_request_get_property (GObject    *obj,
       break;
 
     case PROP_PATH:
-      g_value_set_string (value, self->priv->path);
+      g_value_take_string (value, evd_http_request_get_path (self));
       break;
 
     case PROP_URI:
@@ -217,12 +211,12 @@ evd_http_request_get_method (EvdHttpRequest *self)
   return self->priv->method;
 }
 
-const gchar *
+gchar *
 evd_http_request_get_path (EvdHttpRequest *self)
 {
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
-  return self->priv->path;
+  return soup_uri_to_string (self->priv->uri, TRUE);
 }
 
 /**

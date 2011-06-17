@@ -300,7 +300,6 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
                                   "version", version,
                                   "headers", headers,
                                   "method", method,
-                                  "path", path,
                                   "uri", uri,
                                   NULL);
 

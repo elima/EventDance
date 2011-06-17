@@ -60,7 +60,7 @@ EvdHttpRequest          *evd_http_request_new               (const gchar *method
 
 const gchar             *evd_http_request_get_method        (EvdHttpRequest *self);
 
-const gchar             *evd_http_request_get_path          (EvdHttpRequest *self);
+ gchar                  *evd_http_request_get_path          (EvdHttpRequest *self);
 
 SoupURI                 *evd_http_request_get_uri           (EvdHttpRequest *self);
 
