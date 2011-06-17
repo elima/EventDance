@@ -67,6 +67,10 @@ SoupURI                 *evd_http_request_get_uri           (EvdHttpRequest *sel
 gchar                   *evd_http_request_to_string         (EvdHttpRequest *self,
                                                              gsize          *size);
 
+void             evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
+                                                              const gchar    *user,
+                                                              const gchar    *passw);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_REQUEST_H__ */

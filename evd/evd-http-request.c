@@ -300,3 +300,31 @@ evd_http_request_to_string (EvdHttpRequest *self,
 
   return result;
 }
+
+void
+evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
+                                             const gchar    *user,
+                                             const gchar    *passw)
+{
+  gchar *st;
+  gchar *b64_st;
+  SoupMessageHeaders *headers;
+
+  g_return_if_fail (EVD_IS_HTTP_REQUEST (self));
+
+  if (user == NULL)
+    user = "";
+  if (passw == NULL)
+    passw = "";
+
+  st = g_strdup_printf ("%s:%s", user, passw);
+  b64_st = g_base64_encode ((guchar *) st, strlen (st));
+  g_free (st);
+
+  st = g_strdup_printf ("Basic %s", b64_st);
+  g_free (b64_st);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+  soup_message_headers_replace (headers, "Authorization", st);
+  g_free (st);
+}
