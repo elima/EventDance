@@ -193,21 +193,15 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
     }
   else
     {
-      SoupHTTPVersion ver;
-
       /* no service found, respond with a 403 Forbidden message
          and close the connection */
-
-      ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
-      evd_http_connection_respond (conn,
-                                   ver,
-                                   403,
-                                   NULL,
-                                   NULL,
-                                   NULL,
-                                   0,
-                                   TRUE,
-                                   NULL);
+      EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
+                                                 conn,
+                                                 SOUP_STATUS_FORBIDDEN,
+                                                 NULL,
+                                                 NULL,
+                                                 0,
+                                                 NULL);
     }
 }
 
