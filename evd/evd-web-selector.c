@@ -155,18 +155,18 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
   EvdWebSelector *self = EVD_WEB_SELECTOR (web_service);
   EvdService *service;
 
-  const gchar *path;
+  SoupURI *uri;
   SoupMessageHeaders *headers;
   const gchar *domain;
 
   GError *error = NULL;
 
-  path = evd_http_request_get_path (request);
+  uri = evd_http_request_get_uri (request);
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
   domain = soup_message_headers_get_one (headers, "host");
 
-  if ( (service = evd_web_selector_find_match (self, domain, path)) == NULL)
+  if ( (service = evd_web_selector_find_match (self, domain, uri->path)) == NULL)
     service = self->priv->default_service;
 
   if (service != NULL)
