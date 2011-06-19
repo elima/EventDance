@@ -49,7 +49,6 @@ struct _EvdBufferedOutputStreamPrivate
   gint priority;
 
   GSimpleAsyncResult *async_result;
-  gsize requested_size;
   gssize actual_size;
 };
 
@@ -155,7 +154,6 @@ evd_buffered_output_stream_init (EvdBufferedOutputStream *self)
   priv->priority = G_PRIORITY_DEFAULT;
 
   priv->async_result = NULL;
-  priv->requested_size = 0;
   priv->actual_size = 0;
 }
 
@@ -307,6 +305,12 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
   GError *error = NULL;
   gssize actual_size;
+  GSimpleAsyncResult *res;
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_buffered_output_stream_write_async);
 
   actual_size = evd_buffered_output_stream_write (stream,
                                                   buffer,
@@ -316,29 +320,21 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
 
   if (actual_size < 0)
     {
-      GSimpleAsyncResult *res;
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
 
-      res = g_simple_async_result_new_from_error (G_OBJECT (self),
-                                                  callback,
-                                                  user_data,
-                                                  error);
+      g_output_stream_clear_pending (stream);
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
-
-      g_error_free (error);
 
       return;
     }
 
   if (actual_size == size)
     {
-      GSimpleAsyncResult *res;
-
-      res = g_simple_async_result_new (G_OBJECT (self),
-                                       callback,
-                                       user_data,
-                                       evd_buffered_output_stream_write_async);
       g_simple_async_result_set_op_res_gssize (res, actual_size);
+
+      g_output_stream_clear_pending (stream);
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
     }
@@ -347,6 +343,8 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
       /* there was not enough space in the buffer to hold all data */
 
       /* @TODO: cache what was left unbuffered and add it after buffer is flushed */
+
+      self->priv->async_result = res;
     }
 }
 
@@ -355,12 +353,16 @@ evd_buffered_output_stream_write_finish (GOutputStream  *stream,
                                          GAsyncResult   *result,
                                          GError        **error)
 {
-  EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
+  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result), error))
-    return self->priv->actual_size;
+  if (! g_simple_async_result_propagate_error (res, error))
+    {
+      return g_simple_async_result_get_op_res_gssize (res);
+    }
   else
-    return -1;
+    {
+      return -1;
+    }
 }
 
 static void
@@ -369,11 +371,12 @@ evd_buffered_output_stream_on_base_stream_flushed (GObject      *obj,
                                                    gpointer      user_data)
 {
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (user_data);
-  GSimpleAsyncResult *res;
   GError *error = NULL;
 
   if (self->priv->async_result != NULL)
     {
+      GSimpleAsyncResult *res;
+
       res = self->priv->async_result;
       self->priv->async_result = NULL;
 
@@ -442,6 +445,8 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
           self->priv->async_result = NULL;
 
           g_simple_async_result_set_from_error (res, _error);
+
+          g_output_stream_clear_pending (stream);
           g_simple_async_result_complete_in_idle (res);
           g_object_unref (res);
         }
@@ -455,7 +460,6 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
     {
       g_string_erase (self->priv->buffer, 0, actual_size);
       self->priv->actual_size += actual_size;
-      self->priv->requested_size -= actual_size;
 
       if (self->priv->async_result != NULL)
         {
@@ -652,25 +656,6 @@ evd_buffered_output_stream_notify_write (EvdBufferedOutputStream *self)
   if ( self->priv->flushing ||
        (self->priv->auto_flush && self->priv->buffer->len > 0) )
     {
-      GError *error = NULL;
-
-      if (! evd_buffered_output_stream_flush (G_OUTPUT_STREAM (self),
-                                              NULL,
-                                              &error))
-        {
-          if (self->priv->async_result != NULL)
-            {
-              GSimpleAsyncResult *res;
-
-              res = self->priv->async_result;
-              self->priv->async_result = NULL;
-
-              g_simple_async_result_set_from_error (res, error);
-              g_simple_async_result_complete (res);
-              g_object_unref (res);
-            }
-
-          g_error_free (error);
-        }
+      evd_buffered_output_stream_flush (G_OUTPUT_STREAM (self), NULL, NULL);
     }
 }
