@@ -555,7 +555,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
     }
 
   self->priv->invocation_counter++;
-  id = self->priv->invocation_counter + 1;
+  id = self->priv->invocation_counter;
   id_st = g_strdup_printf ("%" G_GUINTPTR_FORMAT ".%u", (guintptr) self, id);
   id_node = json_node_new (JSON_NODE_VALUE);
   json_node_set_string (id_node, id_st);
