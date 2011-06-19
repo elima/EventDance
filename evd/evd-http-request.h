@@ -70,6 +70,9 @@ gchar                   *evd_http_request_to_string         (EvdHttpRequest *sel
 void             evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
                                                               const gchar    *user,
                                                               const gchar    *passw);
+gboolean         evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
+                                                              gchar          **user,
+                                                              gchar          **password);
 
 G_END_DECLS
 

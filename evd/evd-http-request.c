@@ -328,3 +328,40 @@ evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
   soup_message_headers_replace (headers, "Authorization", st);
   g_free (st);
 }
+
+gboolean
+evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
+                                             gchar          **user,
+                                             gchar          **password)
+{
+  SoupMessageHeaders *headers;
+  const gchar *auth_st;
+  gchar *st;
+  gsize len;
+  gchar **tokens = NULL;
+  guint tokens_len;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), FALSE);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  auth_st = soup_message_headers_get_one (headers, "Authorization");
+  if (auth_st == NULL || strlen (auth_st) < 7)
+    return FALSE;
+
+  st = (gchar *) g_base64_decode (auth_st + 6, &len);
+  tokens = g_strsplit (st, ":", 2);
+  g_free (st);
+
+  tokens_len = g_strv_length (tokens);
+
+  if (tokens_len > 0 && user != NULL)
+    *user = g_strdup (tokens[0]);
+
+  if (tokens_len > 1 && password != NULL)
+    *password = g_strdup (tokens[1]);
+
+  g_strfreev (tokens);
+
+  return TRUE;
+}
