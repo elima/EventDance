@@ -85,11 +85,6 @@ static void     evd_http_connection_init               (EvdHttpConnection *self)
 static void     evd_http_connection_finalize           (GObject *obj);
 static void     evd_http_connection_dispose            (GObject *obj);
 
-static void     evd_http_connection_get_property       (GObject    *obj,
-                                                        guint       prop_id,
-                                                        GValue     *value,
-                                                        GParamSpec *pspec);
-
 static gboolean evd_http_connection_close              (GIOStream     *stream,
                                                         GCancellable  *cancellable,
                                                         GError       **error);
@@ -112,7 +107,6 @@ evd_http_connection_class_init (EvdHttpConnectionClass *class)
 
   obj_class->dispose = evd_http_connection_dispose;
   obj_class->finalize = evd_http_connection_finalize;
-  obj_class->get_property = evd_http_connection_get_property;
 
   io_stream_class = G_IO_STREAM_CLASS (class);
   io_stream_class->close_fn = evd_http_connection_close;
@@ -164,24 +158,6 @@ evd_http_connection_finalize (GObject *obj)
   g_string_free (self->priv->buf, TRUE);
 
   G_OBJECT_CLASS (evd_http_connection_parent_class)->finalize (obj);
-}
-
-static void
-evd_http_connection_get_property (GObject    *obj,
-                                  guint       prop_id,
-                                  GValue     *value,
-                                  GParamSpec *pspec)
-{
-  EvdHttpConnection *self;
-
-  self = EVD_HTTP_CONNECTION (obj);
-
-  switch (prop_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
-      break;
-    }
 }
 
 static gboolean
