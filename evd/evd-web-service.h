@@ -57,7 +57,7 @@ struct _EvdWebServiceClass
                                             EvdHttpConnection   *conn,
                                             guint                status_code,
                                             SoupMessageHeaders  *headers,
-                                            gchar               *content,
+                                            const gchar         *content,
                                             gsize                size,
                                             GError             **error);
 

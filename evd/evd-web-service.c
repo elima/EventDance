@@ -51,7 +51,7 @@ static gboolean evd_web_service_respond                     (EvdWebService      
                                                              EvdHttpConnection   *conn,
                                                              guint                status_code,
                                                              SoupMessageHeaders  *headers,
-                                                             gchar               *content,
+                                                             const gchar         *content,
                                                              gsize                size,
                                                              GError             **error);
 
@@ -274,7 +274,7 @@ evd_web_service_respond (EvdWebService       *self,
                          EvdHttpConnection   *conn,
                          guint                status_code,
                          SoupMessageHeaders  *headers,
-                         gchar               *content,
+                         const gchar         *content,
                          gsize                size,
                          GError             **error)
 {
