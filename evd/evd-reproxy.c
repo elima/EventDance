@@ -439,10 +439,10 @@ evd_reproxy_connection_accepted (EvdService *service, EvdConnection *conn)
       evd_reproxy_hop_backend (self);
     }
 
-  evd_connection_pool_get_connection_async (backend,
-                                            NULL,
-                                            evd_reproxy_backend_on_connection,
-                                            self);
+  evd_connection_pool_get_connection (backend,
+                                      NULL,
+                                      evd_reproxy_backend_on_connection,
+                                      self);
 
   evd_reproxy_enqueue_connection (self, conn);
 }

@@ -336,10 +336,10 @@ evd_connection_pool_has_free_connections (EvdConnectionPool *self)
 }
 
 void
-evd_connection_pool_get_connection_async (EvdConnectionPool   *self,
-                                          GCancellable        *cancellable,
-                                          GAsyncReadyCallback  callback,
-                                          gpointer             user_data)
+evd_connection_pool_get_connection (EvdConnectionPool   *self,
+                                    GCancellable        *cancellable,
+                                    GAsyncReadyCallback  callback,
+                                    gpointer             user_data)
 {
   GSimpleAsyncResult *res;
 
@@ -348,7 +348,7 @@ evd_connection_pool_get_connection_async (EvdConnectionPool   *self,
   res = g_simple_async_result_new (G_OBJECT (self),
                                    callback,
                                    user_data,
-                                   evd_connection_pool_get_connection_async);
+                                   evd_connection_pool_get_connection);
 
   if (g_queue_get_length (self->priv->conns) > 0)
     {
@@ -376,7 +376,7 @@ evd_connection_pool_get_connection_finish (EvdConnectionPool  *self,
   g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), NULL);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                G_OBJECT (self),
-                               evd_connection_pool_get_connection_async),
+                               evd_connection_pool_get_connection),
                         NULL);
 
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),

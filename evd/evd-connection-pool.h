@@ -60,7 +60,7 @@ EvdConnectionPool     *evd_connection_pool_new                      (const gchar
 
 gboolean               evd_connection_pool_has_free_connections     (EvdConnectionPool *self);
 
-void                   evd_connection_pool_get_connection_async     (EvdConnectionPool   *self,
+void                   evd_connection_pool_get_connection           (EvdConnectionPool   *self,
                                                                      GCancellable        *cancellable,
                                                                      GAsyncReadyCallback  callback,
                                                                      gpointer             user_data);
