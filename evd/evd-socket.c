@@ -1306,6 +1306,7 @@ evd_socket_connect_to (EvdSocket           *self,
   GError *error = NULL;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
+  g_return_if_fail (address != NULL);
 
   self->priv->async_result =
     g_simple_async_result_new (G_OBJECT (self),
