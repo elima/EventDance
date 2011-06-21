@@ -175,7 +175,7 @@ evd_jsonrpc_build_message (EvdJsonrpc  *self,
                            const gchar *method_name,
                            JsonNode    *id,
                            JsonNode    *params,
-                           const gchar *err_msg)
+                           JsonNode    *error)
 {
   JsonNode *root;
   JsonObject *obj;
@@ -196,17 +196,19 @@ evd_jsonrpc_build_message (EvdJsonrpc  *self,
 
   json_object_set_member (obj, "id", id_node);
 
-  if (params == NULL)
-    {
-      params_node = json_node_new (JSON_NODE_ARRAY);
-      json_node_take_array (params_node, json_array_new ());
-    }
-  else
-    params_node = json_node_copy (params);
-
   if (request)
     {
       JsonNode *method_node;
+
+      if (params == NULL)
+        {
+          params_node = json_node_new (JSON_NODE_ARRAY);
+          json_node_take_array (params_node, json_array_new ());
+        }
+      else
+        {
+          params_node = json_node_copy (params);
+        }
 
       method_node = json_node_new (JSON_NODE_VALUE);
       json_node_set_string (method_node, method_name);
@@ -216,13 +218,15 @@ evd_jsonrpc_build_message (EvdJsonrpc  *self,
     }
   else
     {
-      if (err_msg == NULL)
+      if (params == NULL)
+        params_node = json_node_new (JSON_NODE_NULL);
+      else
+        params_node = json_node_copy (params);
+
+      if (error == NULL)
         error_node = json_node_new (JSON_NODE_NULL);
       else
-        {
-          error_node = json_node_new (JSON_NODE_VALUE);
-          json_node_set_string (error_node, err_msg);
-        }
+        error_node = json_node_copy (error);
 
       json_object_set_member (obj, "error", error_node);
       json_object_set_member (obj, "result", params_node);
@@ -499,6 +503,58 @@ evd_jsonrpc_transport_on_receive (EvdTransport *transport,
     }
 }
 
+static gboolean
+evd_jsonrpc_respond_full (EvdJsonrpc  *self,
+                          guint        invocation_id,
+                          JsonNode    *result_node,
+                          JsonNode    *error_node,
+                          gpointer     context,
+                          GError     **error)
+{
+  JsonNode *id_node;
+  gchar *msg;
+  gboolean res = TRUE;
+
+  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
+  g_return_val_if_fail (invocation_id > 0, FALSE);
+
+  if ((context == NULL || ! EVD_IS_PEER (context)) &&
+      self->priv->write_cb == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_CLOSED,
+                           "Failed to respond method, no transport associated");
+      return FALSE;
+    }
+
+  id_node = g_hash_table_lookup (self->priv->invocations_in, &invocation_id);
+
+  if (id_node == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_ARGUMENT,
+                           "No method invocation found with such id");
+      return FALSE;
+    }
+
+  msg = evd_jsonrpc_build_message (self,
+                                   FALSE,
+                                   NULL,
+                                   id_node,
+                                   result_node,
+                                   error_node);
+
+  g_hash_table_remove (self->priv->invocations_in, &invocation_id);
+
+  res = evd_jsonrpc_transport_write (self, msg, strlen (msg), context, error);
+
+  g_free (msg);
+
+  return res;
+}
+
 /* public methods */
 
 EvdJsonrpc *
@@ -667,43 +723,27 @@ evd_jsonrpc_respond (EvdJsonrpc  *self,
                      gpointer     context,
                      GError     **error)
 {
-  JsonNode *id_node;
-  gchar *msg;
-  gboolean res = TRUE;
+  return evd_jsonrpc_respond_full (self,
+                                   invocation_id,
+                                   result,
+                                   NULL,
+                                   context,
+                                   error);
+}
 
-  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
-  g_return_val_if_fail (invocation_id > 0, FALSE);
-
-  if ((context == NULL || ! EVD_IS_PEER (context)) &&
-      self->priv->write_cb == NULL)
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_CLOSED,
-                           "Failed to respond method, no transport associated");
-      return FALSE;
-    }
-
-  id_node = g_hash_table_lookup (self->priv->invocations_in, &invocation_id);
-
-  if (id_node == NULL)
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_INVALID_ARGUMENT,
-                           "No method invocation found with such id");
-      return FALSE;
-    }
-
-  msg = evd_jsonrpc_build_message (self, FALSE, NULL, id_node, result, NULL);
-
-  g_hash_table_remove (self->priv->invocations_in, &invocation_id);
-
-  res = evd_jsonrpc_transport_write (self, msg, strlen (msg), context, error);
-
-  g_free (msg);
-
-  return res;
+gboolean
+evd_jsonrpc_respond_error (EvdJsonrpc  *self,
+                           guint        invocation_id,
+                           JsonNode    *json_error,
+                           gpointer     context,
+                           GError     **error)
+{
+  return evd_jsonrpc_respond_full (self,
+                                   invocation_id,
+                                   NULL,
+                                   json_error,
+                                   context,
+                                   error);
 }
 
 void
