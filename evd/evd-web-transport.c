@@ -54,8 +54,6 @@ struct _EvdWebTransportPrivate
   gchar *base_path;
   gchar *hs_base_path;
 
-  EvdPeerManager *peer_manager;
-
   EvdWebSelector *selector;
 
   EvdLongPolling *lp;
@@ -180,8 +178,6 @@ evd_web_transport_init (EvdWebTransport *self)
   priv = EVD_WEB_TRANSPORT_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->peer_manager = evd_peer_manager_get_default ();
-
   priv->selector = NULL;
 
   priv->lp = evd_long_polling_new ();
@@ -231,8 +227,6 @@ static void
 evd_web_transport_finalize (GObject *obj)
 {
   EvdWebTransport *self = EVD_WEB_TRANSPORT (obj);
-
-  g_object_unref (self->priv->peer_manager);
 
   g_free (self->priv->lp_base_path);
   g_signal_handlers_disconnect_by_func (self->priv->lp,
