@@ -484,8 +484,8 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_INITIALIZED,
+        *error = g_error_new (G_IO_ERROR,
+                              G_IO_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting 'dn'");
 
       break;
@@ -528,8 +528,8 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_INITIALIZED,
+        *error = g_error_new (G_IO_ERROR,
+                              G_IO_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting expiration time");
 
       break;
@@ -572,8 +572,8 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
 
     default:
       if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_NOT_INITIALIZED,
+        *error = g_error_new (G_IO_ERROR,
+                              G_IO_ERROR_NOT_INITIALIZED,
                               "Certificate not initialized when requesting activation time");
 
       break;
