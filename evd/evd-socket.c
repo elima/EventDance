@@ -530,8 +530,8 @@ evd_socket_check_address (EvdSocket       *self,
   else if (self->priv->family != g_socket_address_get_family (address))
     {
       if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_INVALID_ADDRESS,
+        *error = g_error_new (G_IO_ERROR,
+                              G_IO_ERROR_INVALID_ARGUMENT,
                               "Socket family and address family mismatch");
 
       return FALSE;
@@ -821,8 +821,8 @@ evd_socket_on_address_resolved (GObject      *obj,
         }
       else
         {
-          error = g_error_new (EVD_ERROR,
-                               EVD_ERROR_INVALID_ADDRESS,
+          error = g_error_new (G_IO_ERROR,
+                               G_IO_ERROR_INVALID_ARGUMENT,
                                "None of the resolved addresses match socket family");
         }
 
