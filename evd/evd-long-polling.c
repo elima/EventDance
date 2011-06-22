@@ -513,10 +513,9 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
   if (data == NULL)
     {
       g_set_error (error,
-                   EVD_ERROR,
-                   EVD_ERROR_INVALID_DATA,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_DATA,
                    "Unable to associate peer with long-polling transport");
-
       return FALSE;
     }
 

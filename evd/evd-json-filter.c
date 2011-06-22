@@ -21,6 +21,7 @@
  */
 
 #include <string.h>
+#include <gio/gio.h>
 
 #include "evd-error.h"
 #include "evd-json-filter.h"
@@ -521,12 +522,10 @@ evd_json_filter_feed_len (EvdJsonFilter  *self,
     {
       if (! evd_json_filter_process (self, (gint) buffer[i], i))
         {
-          if (error != NULL)
-            {
-              *error = g_error_new (EVD_ERROR,
-                                    EVD_ERROR_INVALID_DATA,
-                                    "Malformed JSON sequence at offset %d", i);
-            }
+          g_set_error (error,
+                       G_IO_ERROR,
+                       G_IO_ERROR_INVALID_DATA,
+                       "Malformed JSON sequence at offset %d", i);
 
           return FALSE;
         }

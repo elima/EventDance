@@ -299,8 +299,8 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
           soup_message_headers_free (headers);
 
           g_simple_async_result_set_error (res,
-                                           EVD_ERROR,
-                                           EVD_ERROR_INVALID_DATA,
+                                           G_IO_ERROR,
+                                           G_IO_ERROR_INVALID_DATA,
                                            "Failed to parse HTTP request headers");
         }
 
@@ -334,8 +334,8 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
       else
         {
           g_simple_async_result_set_error (res,
-                                           EVD_ERROR,
-                                           EVD_ERROR_INVALID_DATA,
+                                           G_IO_ERROR,
+                                           G_IO_ERROR_INVALID_DATA,
                                            "Failed to parse HTTP response headers");
         }
     }

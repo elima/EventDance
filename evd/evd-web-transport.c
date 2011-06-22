@@ -342,8 +342,8 @@ evd_web_transport_validate_peer_transport (EvdWebTransport  *self,
       peer_transport != EVD_TRANSPORT (self->priv->ws))
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_INVALID_DATA,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
                            "Invalid peer transport");
 
       return FALSE;

@@ -362,8 +362,8 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
         else
           {
             if (error != NULL)
-              *error = g_error_new (EVD_ERROR,
-                                    EVD_ERROR_INVALID_DATA,
+              *error = g_error_new (G_IO_ERROR,
+                                    G_IO_ERROR_INVALID_DATA,
                                     "Unable to detect certificate type when trying to import");
           }
 
@@ -508,8 +508,8 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
       {
         time = gnutls_x509_crt_get_expiration_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_ERROR,
-                                EVD_ERROR_INVALID_DATA,
+          *error = g_error_new (G_IO_ERROR,
+                                G_IO_ERROR_INVALID_DATA,
                                 "Failed to obtain expiration time from X.509 certificate");
 
         break;
@@ -519,8 +519,8 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
       {
         time = gnutls_openpgp_crt_get_expiration_time (self->priv->openpgp_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_ERROR,
-                                EVD_ERROR_INVALID_DATA,
+          *error = g_error_new (G_IO_ERROR,
+                                G_IO_ERROR_INVALID_DATA,
                                 "Failed to obtain expiration time from OpenPGP certificate");
 
         break;
@@ -552,8 +552,8 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
       {
         time = gnutls_x509_crt_get_activation_time (self->priv->x509_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_ERROR,
-                                EVD_ERROR_INVALID_DATA,
+          *error = g_error_new (G_IO_ERROR,
+                                G_IO_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from X.509 certificate");
 
         break;
@@ -563,8 +563,8 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
       {
         time = gnutls_openpgp_crt_get_creation_time (self->priv->openpgp_cert);
         if (time == -1 && error != NULL)
-          *error = g_error_new (EVD_ERROR,
-                                EVD_ERROR_INVALID_DATA,
+          *error = g_error_new (G_IO_ERROR,
+                                G_IO_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from OpenPGP certificate");
 
         break;

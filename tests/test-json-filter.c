@@ -110,11 +110,12 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
                                             &error));
 
       g_assert_error (error,
-                      EVD_ERROR,
-                      EVD_ERROR_INVALID_DATA);
-    }
+                      G_IO_ERROR,
+                      G_IO_ERROR_INVALID_DATA);
 
-  error = NULL;
+      g_error_free (error);
+      error = NULL;
+    }
 
   /* good */
   for (i=0; i<sizeof (good) / sizeof (gchar *); i++)
