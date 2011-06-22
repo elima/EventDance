@@ -1014,8 +1014,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
             }
           else
             {
-              error = g_error_new (EVD_ERROR,
-                                   EVD_ERROR_UNKNOWN,
+              error = g_error_new (G_IO_ERROR,
+                                   G_IO_ERROR_UNKNOWN,
                                    "Unknown socket error");
             }
 
