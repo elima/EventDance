@@ -55,9 +55,26 @@ struct _EvdConnectionPoolPrivate
   GType connection_type;
 };
 
+/* properties */
+enum
+{
+  PROP_0,
+  PROP_ADDRESS,
+  PROP_CONNECTION_TYPE
+};
+
 static void     evd_connection_pool_class_init            (EvdConnectionPoolClass *class);
 static void     evd_connection_pool_init                  (EvdConnectionPool *self);
 static void     evd_connection_pool_finalize              (GObject *obj);
+
+static void     evd_connection_pool_set_property          (GObject      *obj,
+                                                           guint         prop_id,
+                                                           const GValue *value,
+                                                           GParamSpec   *pspec);
+static void     evd_connection_pool_get_property          (GObject    *obj,
+                                                           guint       prop_id,
+                                                           GValue     *value,
+                                                           GParamSpec *pspec);
 
 static void     evd_connection_pool_foreach_unref_conn    (gpointer data,
                                                            gpointer user_data);
@@ -80,6 +97,24 @@ evd_connection_pool_class_init (EvdConnectionPoolClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_connection_pool_finalize;
+  obj_class->set_property = evd_connection_pool_set_property;
+  obj_class->get_property = evd_connection_pool_get_property;
+
+  g_object_class_install_property (obj_class, PROP_ADDRESS,
+                                   g_param_spec_string ("address",
+                                                        "Address",
+                                                        "The target socket address to connect to",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_CONNECTION_TYPE,
+                                   g_param_spec_gtype ("connection-type",
+                                                       "Connection type",
+                                                       "The GType of the connections handled by the pool",
+                                                       EVD_TYPE_CONNECTION,
+                                                       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_type_class_add_private (obj_class, sizeof (EvdConnectionPoolPrivate));
 }
@@ -92,14 +127,15 @@ evd_connection_pool_init (EvdConnectionPool *self)
   priv = EVD_CONNECTION_POOL_GET_PRIVATE (self);
   self->priv = priv;
 
+  self->priv->target = NULL;
+  self->priv->connection_type = EVD_TYPE_CONNECTION;
+
   priv->min_conns = DEFAULT_MIN_CONNS;
   priv->max_conns = DEFAULT_MAX_CONNS;
 
   priv->conns = g_queue_new ();
   priv->sockets = g_queue_new ();
   priv->requests = g_queue_new ();
-
-  priv->connection_type = EVD_TYPE_CONNECTION;
 }
 
 static void
@@ -125,6 +161,60 @@ evd_connection_pool_finalize (GObject *obj)
   g_queue_free (self->priv->requests);
 
   G_OBJECT_CLASS (evd_connection_pool_parent_class)->finalize (obj);
+}
+
+static void
+evd_connection_pool_set_property (GObject      *obj,
+                                  guint         prop_id,
+                                  const GValue *value,
+                                  GParamSpec   *pspec)
+{
+  EvdConnectionPool *self;
+
+  self = EVD_CONNECTION_POOL (obj);
+
+  switch (prop_id)
+    {
+    case PROP_ADDRESS:
+      if (self->priv->target != NULL)
+        g_free (self->priv->target);
+      self->priv->target = g_value_dup_string (value);
+      break;
+
+    case PROP_CONNECTION_TYPE:
+      self->priv->connection_type = g_value_get_gtype (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+      break;
+    }
+}
+
+static void
+evd_connection_pool_get_property (GObject    *obj,
+                                  guint       prop_id,
+                                  GValue     *value,
+                                  GParamSpec *pspec)
+{
+  EvdConnectionPool *self;
+
+  self = EVD_CONNECTION_POOL (obj);
+
+  switch (prop_id)
+    {
+    case PROP_ADDRESS:
+      g_value_set_string (value, self->priv->target);
+      break;
+
+    case PROP_CONNECTION_TYPE:
+      g_value_set_gtype (value, self->priv->connection_type);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
+      break;
+    }
 }
 
 static void
@@ -316,10 +406,10 @@ evd_connection_pool_new (const gchar *address, GType connection_type)
   g_return_val_if_fail (g_type_is_a (connection_type, EVD_TYPE_CONNECTION),
                         NULL);
 
-  self = g_object_new (EVD_TYPE_CONNECTION_POOL, NULL);
-
-  self->priv->target = g_strdup (address);
-  self->priv->connection_type = connection_type;
+  self = g_object_new (EVD_TYPE_CONNECTION_POOL,
+                       "address", address,
+                       "connection-type", connection_type,
+                       NULL);
 
   while (g_queue_get_length (self->priv->sockets) < self->priv->min_conns)
     evd_connection_pool_create_new_socket (self);
