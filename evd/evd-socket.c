@@ -649,8 +649,8 @@ evd_socket_listen_addr_internal (EvdSocket *self, GSocketAddress *address, GErro
          during 'state-changed' signal handler after call to bind */
 
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_CLOSED,
+                           G_IO_ERROR,
+                           G_IO_ERROR_CLOSED,
                            "Socket has been closed");
 
       return FALSE;
@@ -1186,8 +1186,8 @@ evd_socket_close (EvdSocket *self, GError **error)
       self->priv->async_result = NULL;
 
       g_simple_async_result_set_error (res,
-                                       EVD_ERROR,
-                                       EVD_ERROR_CLOSED,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_CLOSED,
                                        "Socket has been closed");
       g_simple_async_result_complete (res);
       g_object_unref (res);

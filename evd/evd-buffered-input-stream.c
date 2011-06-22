@@ -281,8 +281,8 @@ evd_buffered_input_stream_close (GInputStream  *stream,
       self->priv->async_result = NULL;
 
       g_simple_async_result_set_error (res,
-                                       EVD_ERROR,
-                                       EVD_ERROR_CLOSED,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_CLOSED,
                                        "Buffered input stream closed during async operation");
 
       g_simple_async_result_complete (res);

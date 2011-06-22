@@ -441,8 +441,8 @@ evd_connection_close_internal (GIOStream     *stream,
 
       if (self->priv->tls_handshaking)
         g_simple_async_result_set_error (res,
-                                         EVD_ERROR,
-                                         EVD_ERROR_CLOSED,
+                                         G_IO_ERROR,
+                                         G_IO_ERROR_CLOSED,
                                          "Connection closed during TLS handshake");
       g_simple_async_result_complete (res);
       g_object_unref (res);

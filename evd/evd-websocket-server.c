@@ -26,7 +26,6 @@
 
 #include "evd-websocket-server.h"
 
-#include "evd-error.h"
 #include "evd-transport.h"
 #include "evd-http-connection.h"
 
@@ -281,7 +280,7 @@ on_connection_read (GObject      *obj,
                                      &error);
   if (size < 0)
     {
-      if (! g_error_matches (error, EVD_ERROR, EVD_ERROR_CLOSED))
+      if (! g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CLOSED))
         {
           /* @TODO: do proper error logging */
           g_debug ("Error reading from WebSocket: %s", error->message);
