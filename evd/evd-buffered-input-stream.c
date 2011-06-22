@@ -208,6 +208,8 @@ do_read (gpointer user_data)
           self->priv->actual_size += size;
         }
 
+      g_input_stream_clear_pending (G_INPUT_STREAM (self));
+
       g_simple_async_result_complete (res);
       g_object_unref (res);
     }
@@ -252,8 +254,6 @@ evd_buffered_input_stream_read_finish (GInputStream  *stream,
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (stream);
 
-  g_input_stream_clear_pending (stream);
-
   if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result), error))
     return self->priv->actual_size;
   else
@@ -267,6 +267,12 @@ evd_buffered_input_stream_close (GInputStream  *stream,
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (stream);
 
+  if (self->priv->read_src_id != 0)
+    {
+      g_source_remove (self->priv->read_src_id);
+      self->priv->read_src_id = 0;
+    }
+
   if (self->priv->async_result != NULL)
     {
       GSimpleAsyncResult *res;
@@ -274,14 +280,13 @@ evd_buffered_input_stream_close (GInputStream  *stream,
       res = self->priv->async_result;
       self->priv->async_result = NULL;
 
+      g_simple_async_result_set_error (res,
+                                       EVD_ERROR,
+                                       EVD_ERROR_CLOSED,
+                                       "Buffered input stream closed during async operation");
+
       g_simple_async_result_complete (res);
       g_object_unref (res);
-    }
-
-  if (self->priv->read_src_id != 0)
-    {
-      g_source_remove (self->priv->read_src_id);
-      self->priv->read_src_id = 0;
     }
 
   return TRUE;
