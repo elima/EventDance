@@ -139,7 +139,9 @@ evd_web_selector_find_match (EvdWebSelector *self,
             g_regex_match (candidate->domain_regex, domain, 0, NULL)) &&
            (candidate->path_pattern == NULL ||
             g_regex_match (candidate->path_regex, path, 0, NULL)) )
-        return candidate->service;
+        {
+          return candidate->service;
+        }
 
       node = node->next;
     }
@@ -177,8 +179,6 @@ evd_web_selector_request_handler (EvdWebService     *web_service,
                                                        conn,
                                                        request,
                                                        EVD_SERVICE (self));
-
-          return;
         }
       else
         {
