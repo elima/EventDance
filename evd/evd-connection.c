@@ -733,20 +733,21 @@ evd_connection_socket_input_stream_drained (GInputStream *stream,
   if (CLOSED (self))
     return;
 
-  if (self->priv->delayed_close)
+  if (self->priv->delayed_close && ! self->priv->close_locked)
     {
       evd_connection_close_in_idle (self);
     }
   else
     {
       GError *error = NULL;
+
       self->priv->cond &= ~G_IO_IN;
 
       if (! evd_socket_watch_condition (self->priv->socket,
                                         ~self->priv->cond,
                                         &error))
         {
-          // @TODO: handle error
+          /* @TODO: handle error */
           g_error_free (error);
         }
     }
@@ -1293,6 +1294,9 @@ evd_connection_unlock_close (EvdConnection *self)
   g_return_if_fail (EVD_IS_CONNECTION (self));
 
   self->priv->close_locked = FALSE;
+
+  if (self->priv->delayed_close)
+    evd_connection_close_in_idle (self);
 }
 
 void
