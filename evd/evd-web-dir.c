@@ -388,7 +388,10 @@ evd_web_dir_file_on_info (GObject      *object,
   SoupMessageHeaders *headers;
 
   request = evd_http_connection_get_current_request (conn);
-  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+  if (request != NULL)
+    ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+  else
+    ver = SOUP_HTTP_1_1;
 
   info = g_file_query_info_finish (G_FILE (object), res, &error);
   if (info == NULL)
