@@ -656,6 +656,40 @@ evd_http_connection_read_content_block (EvdHttpConnection *self,
                              self);
 }
 
+static void
+evd_http_connection_on_write_request_headers (GObject      *obj,
+                                              GAsyncResult *res,
+                                              gpointer      user_data)
+{
+  gssize size;
+  GError *error = NULL;
+  EvdHttpConnection *self = EVD_HTTP_CONNECTION (user_data);
+
+  if (self->priv->async_result != NULL)
+    {
+      GSimpleAsyncResult *_res;
+
+      _res = self->priv->async_result;
+      self->priv->async_result = NULL;
+      g_io_stream_clear_pending (G_IO_STREAM (self));
+
+      size = g_output_stream_write_finish (G_OUTPUT_STREAM (obj),
+                                           res,
+                                           &error);
+
+      if (size < 0)
+        {
+          g_simple_async_result_set_from_error (_res, error);
+          g_error_free (error);
+        }
+
+      g_simple_async_result_complete (_res);
+      g_object_unref (_res);
+    }
+
+  g_object_unref (self);
+}
+
 /* public methods */
 
 EvdHttpConnection *
@@ -1206,4 +1240,72 @@ evd_http_connection_get_keepalive (EvdHttpConnection *self)
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
 
   return self->priv->keepalive;
+}
+
+void
+evd_http_connection_write_request_headers (EvdHttpConnection   *self,
+                                           EvdHttpRequest      *request,
+                                           GCancellable        *cancellable,
+                                           GAsyncReadyCallback  callback,
+                                           gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+  GOutputStream *stream;
+  gchar *st;
+  gsize size;
+  GError *error = NULL;
+
+  g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
+  g_return_if_fail (EVD_IS_HTTP_REQUEST (request));
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_http_connection_write_request_headers);
+
+  if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
+    {
+      g_simple_async_result_set_from_error (res, error);
+      g_error_free (error);
+
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+
+      return;
+    }
+
+  self->priv->async_result = res;
+
+  st = evd_http_request_to_string (request, &size);
+
+  g_object_ref (self);
+
+  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+  g_output_stream_write_async (stream,
+                               st,
+                               size,
+                               G_PRIORITY_DEFAULT,
+                               cancellable,
+                               callback != NULL ?
+                               evd_http_connection_on_write_request_headers :
+                               NULL,
+                               self);
+
+  g_free (st);
+}
+
+gboolean
+evd_http_connection_write_request_headers_finish (EvdHttpConnection  *self,
+                                                  GAsyncResult       *result,
+                                                  GError            **error)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                     G_OBJECT (self),
+                                     evd_http_connection_write_request_headers),
+                        FALSE);
+
+  return
+    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                             error);
 }

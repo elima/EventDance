@@ -139,6 +139,15 @@ gboolean            evd_http_connection_redirect                     (EvdHttpCon
 
 gboolean            evd_http_connection_get_keepalive                (EvdHttpConnection *self);
 
+void                evd_http_connection_write_request_headers        (EvdHttpConnection   *self,
+                                                                      EvdHttpRequest      *request,
+                                                                      GCancellable        *cancellable,
+                                                                      GAsyncReadyCallback  callback,
+                                                                      gpointer             user_data);
+gboolean            evd_http_connection_write_request_headers_finish (EvdHttpConnection  *self,
+                                                                      GAsyncResult       *result,
+                                                                      GError            **error);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_CONNECTION_H__ */
