@@ -1001,8 +1001,8 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
           if (self->priv->status == EVD_SOCKET_STATE_CONNECTING)
             {
               /* assume connection was refused */
-              error = g_error_new (EVD_ERROR,
-                                   EVD_ERROR_REFUSED,
+              error = g_error_new (G_IO_ERROR,
+                                   G_IO_ERROR_CONNECTION_REFUSED,
                                    "Connection refused");
               evd_socket_deliver_async_result_error (self,
                                                      self->priv->async_result,
