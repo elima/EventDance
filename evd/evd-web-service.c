@@ -279,12 +279,25 @@ evd_web_service_respond (EvdWebService       *self,
 {
   EvdHttpRequest *request;
   SoupHTTPVersion ver;
+  gboolean free_headers = FALSE;
+  gboolean result;
 
   request = evd_http_connection_get_current_request (conn);
   if (request == NULL)
     ver = SOUP_HTTP_1_1;
   else
     ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+
+  if (evd_http_connection_get_keepalive (conn))
+    {
+      if (headers == NULL)
+        {
+          headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+          free_headers = TRUE;
+        }
+
+      soup_message_headers_replace (headers, "Connection", "keep-alive");
+    }
 
   if (evd_http_connection_respond (conn,
                                    ver,
@@ -298,14 +311,19 @@ evd_web_service_respond (EvdWebService       *self,
     {
       EVD_WEB_SERVICE_GET_CLASS (self)->flush_and_return_connection (self, conn);
 
-      return TRUE;
+      result = TRUE;
     }
   else
     {
       evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
 
-      return FALSE;
+      result = FALSE;
     }
+
+  if (free_headers)
+    soup_message_headers_free (headers);
+
+  return result;
 }
 
 /* public methods */
