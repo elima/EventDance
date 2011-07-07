@@ -99,8 +99,6 @@ static void     evd_http_connection_read_content_block (EvdHttpConnection *self,
                                                         void              *buf,
                                                         gsize              size);
 
-
-
 static void
 evd_http_connection_class_init (EvdHttpConnectionClass *class)
 {
@@ -219,7 +217,7 @@ evd_http_connection_response_headers_destroy (gpointer data)
   g_free (response);
 }
 
-SoupURI *
+static SoupURI *
 evd_http_connection_build_uri (EvdHttpConnection  *self,
                                const gchar        *path,
                                SoupMessageHeaders *headers)
@@ -359,7 +357,7 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
 
 static gint
 evd_http_connection_find_end_headers_mark (const GString *buf,
-                                           gint          last_pos)
+                                           gint           last_pos)
 {
   gint i;
 
