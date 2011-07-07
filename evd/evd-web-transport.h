@@ -53,18 +53,18 @@ struct _EvdWebTransportClass
 #define EVD_WEB_TRANSPORT_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_WEB_TRANSPORT, EvdWebTransportClass))
 
 
-GType               evd_web_transport_get_type             (void) G_GNUC_CONST;
+GType               evd_web_transport_get_type                    (void) G_GNUC_CONST;
 
-EvdWebTransport    *evd_web_transport_new                  (const gchar *base_path);
+EvdWebTransport    *evd_web_transport_new                         (const gchar *base_path);
 
-void                evd_web_transport_set_selector         (EvdWebTransport *self,
-                                                            EvdWebSelector  *selector);
-EvdWebSelector     *evd_web_transport_get_selector         (EvdWebTransport *self);
+void                evd_web_transport_set_selector                (EvdWebTransport *self,
+                                                                   EvdWebSelector  *selector);
+EvdWebSelector     *evd_web_transport_get_selector                (EvdWebTransport *self);
 
-const gchar        *evd_web_transport_get_base_path        (EvdWebTransport *self);
+const gchar        *evd_web_transport_get_base_path               (EvdWebTransport *self);
 
-void                evd_web_transport_set_enable_websocket (EvdWebTransport *self,
-                                                            gboolean         enabled);
+void                evd_web_transport_set_enable_websocket        (EvdWebTransport *self,
+                                                                   gboolean         enabled);
 
 void                evd_web_transport_get_validate_peer_arguments (EvdWebTransport    *self,
                                                                    EvdPeer            *peer,
