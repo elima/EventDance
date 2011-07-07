@@ -26,6 +26,7 @@
 
 #include "evd-error.h"
 #include "evd-buffered-input-stream.h"
+#include "evd-http-chunked-decoder.h"
 
 G_DEFINE_TYPE (EvdHttpConnection, evd_http_connection, EVD_TYPE_CONNECTION)
 
@@ -43,6 +44,7 @@ struct _EvdHttpConnectionPrivate
   GSimpleAsyncResult *async_result;
 
   GString *buf;
+  gchar *last_buf_block;
 
   gint priority;
 
@@ -57,6 +59,8 @@ struct _EvdHttpConnectionPrivate
   EvdHttpRequest *current_request;
 
   gboolean keepalive;
+
+  GConverter *chunked_decoder;
 };
 
 /* properties */
@@ -134,6 +138,10 @@ evd_http_connection_init (EvdHttpConnection *self)
   priv->content_len = 0;
 
   priv->keepalive = FALSE;
+
+  priv->chunked_decoder = G_CONVERTER (evd_http_chunked_decoder_new ());
+
+  priv->last_buf_block = NULL;
 }
 
 static void
@@ -156,6 +164,11 @@ evd_http_connection_finalize (GObject *obj)
   EvdHttpConnection *self = EVD_HTTP_CONNECTION (obj);
 
   g_string_free (self->priv->buf, TRUE);
+
+  g_object_unref (self->priv->chunked_decoder);
+
+  if (self->priv->last_buf_block != NULL)
+    g_slice_free1 (CONTENT_BLOCK_SIZE, self->priv->last_buf_block);
 
   G_OBJECT_CLASS (evd_http_connection_parent_class)->finalize (obj);
 }
@@ -532,23 +545,106 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
 static void
 evd_http_connection_read_next_content_block (EvdHttpConnection *self)
 {
-  void *buf;
   gsize new_block_size;
+  gchar *buf;
 
-  if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH)
-    new_block_size = MIN (self->priv->content_len - self->priv->content_read,
-                          CONTENT_BLOCK_SIZE);
+  new_block_size = CONTENT_BLOCK_SIZE;
+
+  if (self->priv->encoding == SOUP_ENCODING_CHUNKED)
+    {
+      if (self->priv->last_buf_block == NULL)
+        self->priv->last_buf_block = g_slice_alloc (CONTENT_BLOCK_SIZE);
+
+      buf = self->priv->last_buf_block;
+    }
   else
-    new_block_size = CONTENT_BLOCK_SIZE;
+    {
+      if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH)
+        new_block_size = MIN (self->priv->content_len - self->priv->content_read,
+                              CONTENT_BLOCK_SIZE);
 
-  /* enlarge buffer, if necessary */
-  if (self->priv->buf->len < self->priv->content_read + new_block_size)
-    g_string_set_size (self->priv->buf,
-                       self->priv->content_read + new_block_size);
+      /* enlarge buffer, if necessary */
+      if (self->priv->buf->len < self->priv->content_read + new_block_size)
+        g_string_set_size (self->priv->buf,
+                           self->priv->content_read + new_block_size);
 
-  buf = self->priv->buf->str + self->priv->buf->len - new_block_size;
+      buf = self->priv->buf->str + self->priv->buf->len - new_block_size;
+    }
 
-  evd_http_connection_read_content_block (self, buf, new_block_size);
+  evd_http_connection_read_content_block (self,
+                                          buf,
+                                          new_block_size);
+}
+
+static gboolean
+evd_http_connection_process_read_content (EvdHttpConnection  *self,
+                                          gsize               size,
+                                          gboolean           *done,
+                                          GError            **error)
+{
+  gboolean result = TRUE;
+
+  if (self->priv->encoding == SOUP_ENCODING_CHUNKED)
+    {
+      gchar outbuf[1024 + 1] = { 0, };
+      GConverterResult result;
+      gsize total_bytes_read = 0;
+      gsize bytes_read = 0;
+      gsize bytes_written = 0;
+
+      do
+        {
+          result =
+            g_converter_convert (self->priv->chunked_decoder,
+                                 self->priv->last_buf_block + total_bytes_read,
+                                 size - total_bytes_read,
+                                 outbuf,
+                                 1024,
+                                 G_CONVERTER_NO_FLAGS,
+                                 &bytes_read,
+                                 &bytes_written,
+                                 error);
+
+          total_bytes_read += bytes_read;
+
+          g_string_append_len (self->priv->buf, outbuf, bytes_written);
+          self->priv->content_read += bytes_written;
+        }
+      while (result != G_CONVERTER_ERROR &&
+             result != G_CONVERTER_FINISHED &&
+             total_bytes_read < size);
+
+      if (result == G_CONVERTER_FINISHED)
+        {
+          g_converter_reset (self->priv->chunked_decoder);
+          *done = TRUE;
+        }
+      else if (result == G_CONVERTER_ERROR)
+        {
+          result = FALSE;
+
+          g_converter_reset (self->priv->chunked_decoder);
+          *done = TRUE;
+        }
+    }
+  else
+    {
+      self->priv->content_read += size;
+
+      /* are we done reading? */
+      if (! evd_connection_is_connected (EVD_CONNECTION (self))
+
+          || ( (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH
+                && self->priv->content_read >= self->priv->content_len)
+
+               && (self->priv->encoding != SOUP_ENCODING_EOF)
+               && (self->priv->encoding != SOUP_ENCODING_UNRECOGNIZED)) )
+        {
+          *done = TRUE;
+        }
+    }
+
+  return result;
 }
 
 static void
@@ -566,17 +662,13 @@ evd_http_connection_on_read_content_block (GObject      *obj,
                                            res,
                                            &error)) > 0)
     {
-      self->priv->content_read += size;
-
-      /* are we done reading? */
-      if (! evd_connection_is_connected (EVD_CONNECTION (self))
-
-          || ( (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH
-                && self->priv->content_read >= self->priv->content_len)
-
-               && (self->priv->encoding != SOUP_ENCODING_EOF) ) )
+      if (! evd_http_connection_process_read_content (self,
+                                                      size,
+                                                      &done,
+                                                      &error))
         {
-          done = TRUE;
+          g_simple_async_result_set_from_error (self->priv->async_result, error);
+          g_error_free (error);
         }
     }
   else if (size == 0)
@@ -940,11 +1032,6 @@ evd_http_connection_read_content (EvdHttpConnection   *self,
       return;
     }
 
-  /* @TODO: consider chunked encoding */
-  if (self->priv->encoding == SOUP_ENCODING_UNRECOGNIZED
-      || self->priv->encoding == SOUP_ENCODING_CHUNKED)
-    self->priv->encoding = SOUP_ENCODING_EOF;
-
   self->priv->async_result = res;
   evd_http_connection_read_content_block (self, buffer, size);
 }
@@ -1030,11 +1117,6 @@ evd_http_connection_read_all_content (EvdHttpConnection   *self,
 
       return;
     }
-
-  /* @TODO: consider chunked encoding */
-  if (self->priv->encoding == SOUP_ENCODING_UNRECOGNIZED ||
-      self->priv->encoding == SOUP_ENCODING_CHUNKED)
-    self->priv->encoding = SOUP_ENCODING_EOF;
 
   self->priv->content_read = 0;
   g_string_set_size (self->priv->buf, 0);
