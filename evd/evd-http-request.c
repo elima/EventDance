@@ -285,6 +285,11 @@ evd_http_request_to_string (EvdHttpRequest *self,
       g_free (st);
     }
 
+  /* set 'User-Agent' header if not present.
+     (some server won't answer the request if this is not set */
+  if (soup_message_headers_get_one (headers, "User-Agent") == NULL)
+    soup_message_headers_replace (headers, "User-Agent", "evd");
+
   headers_st = evd_http_message_headers_to_string (EVD_HTTP_MESSAGE (self),
                                                    &headers_size);
   g_string_append_len (buf, headers_st, headers_size);
