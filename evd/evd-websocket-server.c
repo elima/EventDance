@@ -377,6 +377,7 @@ handshake76_stage2 (EvdHttpConnection *conn, HandshakeData *data)
       ! evd_http_connection_write_content (conn,
                                            (gchar *) md5,
                                            16,
+                                           FALSE,
                                            &error))
     {
       /* @TODO: do proper logging */

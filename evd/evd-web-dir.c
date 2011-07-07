@@ -302,6 +302,7 @@ evd_web_dir_file_on_block_read (GObject      *object,
       if (! evd_http_connection_write_content (binding->conn,
                                                binding->buffer,
                                                size,
+                                               FALSE,
                                                &error))
         {
           evd_web_dir_handle_content_error (binding, error);

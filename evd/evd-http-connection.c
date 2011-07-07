@@ -882,6 +882,7 @@ gboolean
 evd_http_connection_write_content (EvdHttpConnection  *self,
                                    const gchar        *buffer,
                                    gsize               size,
+                                   gboolean            more,
                                    GError            **error)
 {
   GOutputStream *stream;
@@ -1142,6 +1143,7 @@ evd_http_connection_respond (EvdHttpConnection   *self,
           evd_http_connection_write_content (self,
                                              content,
                                              size,
+                                             FALSE,
                                              error))
         {
           result = TRUE;

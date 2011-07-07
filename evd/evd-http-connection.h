@@ -88,6 +88,7 @@ gboolean            evd_http_connection_write_response_headers       (EvdHttpCon
 gboolean            evd_http_connection_write_content                (EvdHttpConnection  *self,
                                                                       const gchar        *buffer,
                                                                       gsize               size,
+                                                                      gboolean            more,
                                                                       GError            **error);
 
 void                evd_http_connection_read_content                 (EvdHttpConnection   *self,
