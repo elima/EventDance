@@ -39,34 +39,34 @@ struct _EvdTransportInterface
   GTypeInterface parent_iface;
 
   /* virtual methods */
-  gboolean  (* send)               (EvdTransport  *self,
-                                    EvdPeer       *peer,
-                                    const gchar   *buffer,
-                                    gsize          size,
-                                    GError       **error);
-  void      (* notify_receive)     (EvdTransport *self,
-                                    EvdPeer      *peer);
-  void      (* receive)            (EvdTransport *self,
-                                    EvdPeer      *peer,
-                                    const gchar  *buffer,
-                                    gsize         size);
+  gboolean  (* send)                 (EvdTransport  *self,
+                                      EvdPeer       *peer,
+                                      const gchar   *buffer,
+                                      gsize          size,
+                                      GError       **error);
+  void      (* notify_receive)       (EvdTransport *self,
+                                      EvdPeer      *peer);
+  void      (* receive)              (EvdTransport *self,
+                                      EvdPeer      *peer,
+                                      const gchar  *buffer,
+                                      gsize         size);
 
-  void      (* notify_new_peer)    (EvdTransport *self, EvdPeer *peer);
-  EvdPeer * (* create_new_peer)    (EvdTransport *self);
+  void      (* notify_new_peer)      (EvdTransport *self, EvdPeer *peer);
+  EvdPeer * (* create_new_peer)      (EvdTransport *self);
 
-  void      (* notify_peer_closed) (EvdTransport *self,
-                                    EvdPeer      *peer,
-                                    gboolean      gracefully);
-  void      (* peer_closed)        (EvdTransport *self,
-                                    EvdPeer      *peer,
-                                    gboolean      gracefully);
+  void      (* notify_peer_closed)   (EvdTransport *self,
+                                      EvdPeer      *peer,
+                                      gboolean      gracefully);
+  void      (* peer_closed)          (EvdTransport *self,
+                                      EvdPeer      *peer,
+                                      gboolean      gracefully);
 
   guint     (* notify_validate_peer) (EvdTransport *self, EvdPeer *peer);
 
-  gboolean  (* peer_is_connected)  (EvdTransport *self, EvdPeer *peer);
+  gboolean  (* peer_is_connected)    (EvdTransport *self, EvdPeer *peer);
 
-  gboolean  (* accept_peer)        (EvdTransport *self, EvdPeer *peer);
-  gboolean  (* reject_peer)        (EvdTransport *self, EvdPeer *peer);
+  gboolean  (* accept_peer)          (EvdTransport *self, EvdPeer *peer);
+  gboolean  (* reject_peer)          (EvdTransport *self, EvdPeer *peer);
 
   /* signals */
   void (* signal_receive)        (EvdTransport *self,
