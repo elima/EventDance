@@ -510,17 +510,17 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
                                         gpointer             source_tag)
 {
   GError *error = NULL;
+  GSimpleAsyncResult *res;
 
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
 
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   source_tag);
+
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      GSimpleAsyncResult *res;
-
-      res = g_simple_async_result_new (G_OBJECT (self),
-                                       callback,
-                                       user_data,
-                                       source_tag);
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);
 
@@ -532,11 +532,9 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
 
   self->priv->keepalive = FALSE;
 
-  self->priv->async_result =
-    g_simple_async_result_new (G_OBJECT (self),
-                               callback,
-                               user_data,
-                               source_tag);
+  self->priv->async_result = res;
+
+  g_string_set_size (self->priv->buf, 0);
 
   self->priv->last_headers_pos = 12;
   evd_http_connection_read_headers_block (self);
