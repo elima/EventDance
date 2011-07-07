@@ -24,8 +24,8 @@
 #define __EVD_WEB_TRANSPORT_H__
 
 #include <evd-web-dir.h>
-
 #include <evd-web-selector.h>
+#include <evd-peer.h>
 
 G_BEGIN_DECLS
 
@@ -65,6 +65,11 @@ const gchar        *evd_web_transport_get_base_path        (EvdWebTransport *sel
 
 void                evd_web_transport_set_enable_websocket (EvdWebTransport *self,
                                                             gboolean         enabled);
+
+void                evd_web_transport_get_validate_peer_arguments (EvdWebTransport    *self,
+                                                                   EvdPeer            *peer,
+                                                                   EvdHttpConnection **conn,
+                                                                   EvdHttpRequest    **request);
 
 G_END_DECLS
 
