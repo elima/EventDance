@@ -32,6 +32,8 @@
 
 #include "evd-daemon.h"
 
+#include "evd-utils.h"
+
 G_DEFINE_TYPE (EvdDaemon, evd_daemon, G_TYPE_OBJECT)
 
 #define EVD_DAEMON_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -252,4 +254,23 @@ evd_daemon_daemonize (EvdDaemon *self, GError **error)
   g_free (err_msg);
 
   return FALSE;
+}
+
+/**
+ * evd_daemon_set_timeout:
+ * @function: (scope notify):
+ **/
+void
+evd_daemon_set_timeout (EvdDaemon  *self,
+                        guint       timeout,
+                        GSourceFunc function,
+                        gpointer    user_data)
+{
+  g_return_if_fail (EVD_IS_DAEMON (self));
+
+  evd_timeout_add (g_main_loop_get_context (self->priv->main_loop),
+                   timeout,
+                   G_PRIORITY_DEFAULT,
+                   function,
+                   user_data);
 }
