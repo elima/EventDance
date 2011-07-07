@@ -25,6 +25,13 @@
 
 #include <glib.h>
 
+typedef enum
+{
+  EVD_VALIDATE_ACCEPT  = 0,
+  EVD_VALIDATE_REJECT  = 1,
+  EVD_VALIDATE_PENDING = 2
+} EvdValidateEnum;
+
 guint   evd_timeout_add (GMainContext *context,
                          guint         timeout,
                          gint          priority,
