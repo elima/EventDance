@@ -339,6 +339,7 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
     {
       g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
 
+      g_object_ref (conn);
       evd_http_connection_read_all_content (conn,
                                             NULL,
                                             evd_long_polling_conn_on_content_read,
@@ -570,12 +571,11 @@ evd_long_polling_remove (EvdIoStreamGroup *io_stream_group,
     {
       EvdLongPollingPeerData *data;
 
+      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, NULL);
+
       data = g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
       if (data != NULL)
-        {
-          g_queue_remove (data->conns, conn);
-          g_object_unref (conn);
-        }
+        g_queue_remove (data->conns, conn);
 
       g_object_unref (peer);
     }
@@ -602,7 +602,9 @@ evd_long_polling_peer_closed (EvdTransport *transport,
 
       g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, NULL);
 
-      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
+      EVD_WEB_SERVICE_GET_CLASS (transport)->
+        flush_and_return_connection (EVD_WEB_SERVICE (transport), conn);
+
       g_object_unref (conn);
     }
   g_queue_free (data->conns);
