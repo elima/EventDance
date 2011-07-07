@@ -64,5 +64,6 @@
 #include <evd-pki-privkey.h>
 #include <evd-pki-pubkey.h>
 #include <evd-daemon.h>
+#include <evd-http-chunked-decoder.h>
 
 #endif /* __EVD_H__ */

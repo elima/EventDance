@@ -78,7 +78,8 @@ source_c = \
 	evd-pki.c \
 	evd-pki-privkey.c \
 	evd-pki-pubkey.c \
-	evd-daemon.c
+	evd-daemon.c \
+	evd-http-chunked-decoder.c
 
 source_h = \
 	evd.h \
@@ -126,7 +127,8 @@ source_h = \
 	evd-pki.h \
 	evd-pki-privkey.h \
 	evd-pki-pubkey.h \
-	evd-daemon.h
+	evd-daemon.h \
+	evd-http-chunked-decoder.h
 
 source_h_priv = \
 	evd-marshal.h \
