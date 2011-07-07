@@ -37,6 +37,7 @@ enum
   SIGNAL_RECEIVE,
   SIGNAL_NEW_PEER,
   SIGNAL_PEER_CLOSED,
+  SIGNAL_VALIDATE_PEER,
   SIGNAL_LAST
 };
 
@@ -63,6 +64,12 @@ static EvdPeer *evd_transport_create_new_peer_internal (EvdTransport *self);
 static void     evd_transport_notify_peer_closed       (EvdTransport *self,
                                                         EvdPeer      *peer,
                                                         gboolean      gracefully);
+static guint    evd_transport_notify_validate_peer     (EvdTransport *self,
+                                                        EvdPeer      *peer);
+static gboolean evd_transport_validate_peer_signal_acc (GSignalInvocationHint *hint,
+                                                        GValue                *return_accu,
+                                                        const GValue          *handler_return,
+                                                        gpointer               data);
 
 static void
 evd_transport_base_init (gpointer g_class)
@@ -76,6 +83,7 @@ evd_transport_base_init (gpointer g_class)
   iface->create_new_peer = evd_transport_create_new_peer_internal;
   iface->notify_new_peer = evd_transport_notify_new_peer;
   iface->notify_peer_closed = evd_transport_notify_peer_closed;
+  iface->notify_validate_peer = evd_transport_notify_validate_peer;
 
   if (! is_initialized)
     {
@@ -110,6 +118,16 @@ evd_transport_base_init (gpointer g_class)
                       EVD_TYPE_PEER,
                       G_TYPE_BOOLEAN);
 
+      evd_transport_signals[SIGNAL_VALIDATE_PEER] =
+        g_signal_new ("validate-peer",
+                      G_TYPE_FROM_CLASS (g_class),
+                      G_SIGNAL_ACTION,
+                      G_STRUCT_OFFSET (EvdTransportInterface, signal_validate_peer),
+                      evd_transport_validate_peer_signal_acc, NULL,
+                      evd_marshal_UINT__OBJECT,
+                      G_TYPE_UINT, 1,
+                      EVD_TYPE_PEER);
+
       is_initialized = TRUE;
     }
 
@@ -122,6 +140,30 @@ evd_transport_base_finalize (gpointer g_class)
   EvdTransportInterface *iface = (EvdTransportInterface *) g_class;
 
   g_object_unref (iface->peer_manager);
+}
+
+static gboolean
+evd_transport_validate_peer_signal_acc (GSignalInvocationHint *hint,
+                                        GValue                *return_accu,
+                                        const GValue          *handler_return,
+                                        gpointer               data)
+{
+  guint signal_result;
+  guint global_result;
+
+  global_result = g_value_get_uint (return_accu);
+  signal_result = g_value_get_uint (handler_return);
+
+  if (signal_result == EVD_VALIDATE_REJECT)
+    global_result = EVD_VALIDATE_REJECT;
+  else if (signal_result == EVD_VALIDATE_PENDING)
+    global_result = EVD_VALIDATE_PENDING;
+  else if (global_result != EVD_VALIDATE_PENDING)
+    global_result = EVD_VALIDATE_ACCEPT;
+
+  g_value_set_uint (return_accu, global_result);
+
+  return (global_result != EVD_VALIDATE_REJECT);
 }
 
 GType
@@ -229,24 +271,23 @@ evd_transport_notify_new_peer_cb (gpointer user_data)
 static EvdPeer *
 evd_transport_create_new_peer_internal (EvdTransport *self)
 {
-  EvdPeerManager *peer_manager;
   EvdPeer *peer;
-
-  peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
+  guint validate_result;
 
   peer = g_object_new (EVD_TYPE_PEER,
                        "transport", self,
                        NULL);
 
-  evd_peer_manager_add_peer (peer_manager, peer);
-
-  g_object_ref (peer);
-  g_object_ref (self);
-  evd_timeout_add (g_main_context_get_thread_default (),
-                   0,
-                   G_PRIORITY_DEFAULT,
-                   evd_transport_notify_new_peer_cb,
-                   peer);
+  validate_result = evd_transport_notify_validate_peer (self, peer);
+  if (validate_result == EVD_VALIDATE_REJECT)
+    {
+      g_object_unref (peer);
+      return NULL;
+    }
+  else if (validate_result == EVD_VALIDATE_ACCEPT)
+    {
+      evd_transport_accept_peer (self, peer);
+    }
 
   return peer;
 }
@@ -262,6 +303,40 @@ evd_transport_notify_peer_closed (EvdTransport *self,
                  peer,
                  gracefully,
                  NULL);
+}
+
+static guint
+evd_transport_notify_validate_peer (EvdTransport *self, EvdPeer *peer)
+{
+  guint result;
+
+  g_signal_emit (self,
+                 evd_transport_signals[SIGNAL_VALIDATE_PEER],
+                 0,
+                 peer,
+                 &result);
+
+  return result;
+}
+
+static gboolean
+evd_transport_accept_peer_internal (EvdTransport *self, EvdPeer *peer)
+{
+  EvdPeerManager *peer_manager;
+
+  peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
+
+  evd_peer_manager_add_peer (peer_manager, peer);
+
+  g_object_ref (peer);
+  g_object_ref (self);
+  evd_timeout_add (NULL,
+                   0,
+                   G_PRIORITY_DEFAULT,
+                   evd_transport_notify_new_peer_cb,
+                   peer);
+
+  return TRUE;
 }
 
 /* public methods */
@@ -447,4 +522,39 @@ evd_transport_lookup_peer (EvdTransport *self, const gchar *peer_id)
     }
 
   return peer;
+}
+
+gboolean
+evd_transport_accept_peer (EvdTransport *self, EvdPeer *peer)
+{
+  EvdTransportInterface *iface;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
+  if (iface->accept_peer == NULL || iface->accept_peer (self, peer))
+    return evd_transport_accept_peer_internal (self, peer);
+  else
+    return FALSE;
+}
+
+gboolean
+evd_transport_reject_peer (EvdTransport *self, EvdPeer *peer)
+{
+  EvdTransportInterface *iface;
+
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
+  if (iface->reject_peer == NULL || iface->reject_peer (self, peer))
+    {
+      g_object_unref (peer);
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
 }

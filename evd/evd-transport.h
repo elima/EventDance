@@ -25,6 +25,7 @@
 
 #include <glib-object.h>
 
+#include <evd-utils.h>
 #include <evd-peer-manager.h>
 #include <evd-peer.h>
 
@@ -60,20 +61,29 @@ struct _EvdTransportInterface
                                     EvdPeer      *peer,
                                     gboolean      gracefully);
 
+  guint     (* notify_validate_peer) (EvdTransport *self, EvdPeer *peer);
+
   gboolean  (* peer_is_connected)  (EvdTransport *self, EvdPeer *peer);
 
-  /* signals */
-  void (* signal_receive)     (EvdTransport *self,
-                               EvdPeer      *peer,
-                               gpointer      user_data);
+  gboolean  (* accept_peer)        (EvdTransport *self, EvdPeer *peer);
+  gboolean  (* reject_peer)        (EvdTransport *self, EvdPeer *peer);
 
-  void (* signal_new_peer)    (EvdTransport *self,
-                               EvdPeer      *peer,
-                               gpointer      user_data);
-  void (* signal_peer_closed) (EvdTransport *self,
-                               EvdPeer      *peer,
-                               gboolean      gracefully,
-                               gpointer      user_data);
+  /* signals */
+  void (* signal_receive)        (EvdTransport *self,
+                                  EvdPeer      *peer,
+                                  gpointer      user_data);
+
+  void  (* signal_new_peer)      (EvdTransport *self,
+                                  EvdPeer      *peer,
+                                  gpointer      user_data);
+  void  (* signal_peer_closed)   (EvdTransport *self,
+                                  EvdPeer      *peer,
+                                  gboolean      gracefully,
+                                  gpointer      user_data);
+
+  guint (* signal_validate_peer) (EvdTransport *self,
+                                  EvdPeer      *peer,
+                                  gpointer      user_data);
 
   /* members */
   EvdPeerManager *peer_manager;
@@ -112,6 +122,11 @@ gboolean        evd_transport_close_peer                    (EvdTransport  *self
 EvdPeer        *evd_transport_create_new_peer               (EvdTransport *self);
 EvdPeer        *evd_transport_lookup_peer                   (EvdTransport *self,
                                                              const gchar  *peer_id);
+
+gboolean        evd_transport_accept_peer                   (EvdTransport *self,
+                                                             EvdPeer      *peer);
+gboolean        evd_transport_reject_peer                   (EvdTransport *self,
+                                                             EvdPeer      *peer);
 
 G_END_DECLS
 
