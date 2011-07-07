@@ -235,6 +235,8 @@ evd_connection_pool_connection_on_close (EvdConnection *conn,
       evd_connection_pool_reuse_socket (self, socket);
     }
 
+  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+
   g_object_unref (conn);
 }
 
@@ -291,6 +293,36 @@ evd_connection_pool_finish_request (EvdConnectionPool  *self,
 }
 
 static void
+evd_connection_pool_new_connection (EvdConnectionPool *self,
+                                    EvdConnection     *conn)
+{
+  if (HAS_REQUESTS (self))
+    {
+      GSimpleAsyncResult *res;
+
+      res = G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (self->priv->requests));
+
+      g_signal_handlers_disconnect_by_func (conn,
+                                        evd_connection_pool_connection_on_close,
+                                        self);
+
+      evd_connection_pool_finish_request (self, conn, res);
+
+      if (TOTAL_SOCKETS (self) < self->priv->min_conns)
+        evd_connection_pool_create_new_socket (self);
+    }
+  else
+    {
+      g_signal_connect (conn,
+                        "close",
+                        G_CALLBACK (evd_connection_pool_connection_on_close),
+                        self);
+
+      g_queue_push_tail (self->priv->conns, conn);
+    }
+}
+
+static void
 evd_connection_pool_socket_on_connect (GObject      *obj,
                                        GAsyncResult *res,
                                        gpointer      user_data)
@@ -307,39 +339,25 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
       EvdSocket *socket;
 
       conn = EVD_CONNECTION (io_stream);
-      socket = evd_connection_get_socket (conn);
+      evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 
+      socket = evd_connection_get_socket (conn);
       g_queue_remove (self->priv->sockets, socket);
 
-      if (HAS_REQUESTS (self))
-        {
-          GSimpleAsyncResult *res;
+      g_assert (socket == EVD_SOCKET (obj));
 
-          res = G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (self->priv->requests));
-
-          g_signal_handlers_disconnect_by_func (conn,
-                                        evd_connection_pool_connection_on_close,
-                                        self);
-
-          evd_connection_pool_finish_request (self, conn, res);
-
-          if (TOTAL_SOCKETS (self) < self->priv->min_conns)
-            evd_connection_pool_create_new_socket (self);
-        }
-      else
-        {
-          g_signal_connect (conn,
-                           "close",
-                           G_CALLBACK (evd_connection_pool_connection_on_close),
-                            self);
-          g_queue_push_tail (self->priv->conns, conn);
-        }
+      evd_connection_pool_new_connection (self, conn);
     }
   else
     {
       /* @TODO: handle error */
       g_debug ("error connection: %s", error->message);
       g_error_free (error);
+
+      evd_socket_close (EVD_SOCKET (obj), NULL);
+
+      g_object_ref (EVD_SOCKET (obj));
+      evd_connection_pool_reuse_socket (self, EVD_SOCKET (obj));
     }
 }
 
@@ -483,4 +501,27 @@ evd_connection_pool_get_connection_finish (EvdConnectionPool  *self,
     {
       return NULL;
     }
+}
+
+gboolean
+evd_connection_pool_recycle (EvdConnectionPool *self,
+                             EvdConnection     *conn)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), FALSE);
+  g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
+
+  if (g_io_stream_is_closed (G_IO_STREAM (conn)))
+    return FALSE;
+
+  if (TOTAL_SOCKETS (self) >= self->priv->max_conns)
+    return FALSE;
+
+  if (evd_connection_get_group (conn) != EVD_IO_STREAM_GROUP (self))
+    evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
+                             G_IO_STREAM (conn));
+
+  g_object_ref (conn);
+  evd_connection_pool_new_connection (self, conn);
+
+  return TRUE;
 }

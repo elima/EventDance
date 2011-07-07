@@ -68,6 +68,9 @@ EvdConnection         *evd_connection_pool_get_connection_finish    (EvdConnecti
                                                                      GAsyncResult       *result,
                                                                      GError            **error);
 
+gboolean               evd_connection_pool_recycle                  (EvdConnectionPool *self,
+                                                                     EvdConnection     *conn);
+
 G_END_DECLS
 
 #endif /* __EVD_CONNECTION_POOL_H__ */
