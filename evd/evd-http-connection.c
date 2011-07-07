@@ -782,6 +782,45 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
   g_object_unref (self);
 }
 
+static gboolean
+evd_http_connection_write_chunk (EvdHttpConnection   *self,
+                                 const gchar         *buffer,
+                                 gsize                size,
+                                 GError            **error)
+{
+  gchar *chunk_hdr;
+  GError *_error = NULL;
+  gboolean result = TRUE;
+
+  self->priv->encoding = SOUP_ENCODING_EOF;
+
+  chunk_hdr = g_strdup_printf ("%x\r\n", (guint) size);
+  result = evd_http_connection_write_content (self,
+                                              chunk_hdr,
+                                              strlen (chunk_hdr),
+                                              TRUE,
+                                              &_error);
+
+  if (result && size > 0)
+    result = evd_http_connection_write_content (self,
+                                                buffer,
+                                                size,
+                                                TRUE,
+                                                _error == NULL ? &_error : NULL);
+
+  if (result)
+    result = evd_http_connection_write_content (self, "\r\n", 2, TRUE,
+                                                _error == NULL ? &_error : NULL);
+
+  self->priv->encoding = SOUP_ENCODING_CHUNKED;
+
+  g_free (chunk_hdr);
+  if (_error != NULL)
+    g_propagate_error (error, _error);
+
+  return result;
+}
+
 /* public methods */
 
 EvdHttpConnection *
@@ -957,6 +996,12 @@ evd_http_connection_write_response_headers (EvdHttpConnection   *self,
           g_string_append_len (buf, st, strlen (st));
           g_free (st);
         }
+
+      self->priv->encoding = soup_message_headers_get_encoding (headers);
+    }
+  else
+    {
+      self->priv->encoding = SOUP_ENCODING_EOF;
     }
 
   g_string_append_len (buf, "\r\n", 2);
@@ -977,19 +1022,49 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
                                    gboolean            more,
                                    GError            **error)
 {
-  GOutputStream *stream;
-
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
 
-  if (size == 0)
-    return TRUE;
+  if (self->priv->encoding == SOUP_ENCODING_CHUNKED)
+    {
+       if (size == 0 || evd_http_connection_write_chunk (self,
+                                                         buffer,
+                                                         size,
+                                                         error))
+        {
+          if (! more)
+            return evd_http_connection_write_chunk (self,
+                                                    NULL,
+                                                    0,
+                                                    error);
+          else
+            return TRUE;
+        }
+      else
+        {
+          return FALSE;
+        }
+    }
+  else
+    {
+      GOutputStream *stream;
+      gssize size_written;
 
-  /* @TODO: here we apply necessary transformation to buffer, depending
-     on current state of connection (e.g chunked transfer, gzipped, etc) */
+      stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
 
-  stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
-
-  return g_output_stream_write (stream, buffer, size, NULL, error) == size;
+      size_written = g_output_stream_write (stream, buffer, size, NULL, error);
+      if (size_written < size)
+        {
+          g_set_error (error,
+                       G_IO_ERROR,
+                       G_IO_ERROR_AGAIN,
+                       "Resource temporarily unavailable, output buffer full");
+          return FALSE;
+        }
+      else
+        {
+          return TRUE;
+        }
+    }
 }
 
 void

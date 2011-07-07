@@ -374,7 +374,6 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
                                        gsize               size,
                                        GError            **error)
 {
-  gboolean result = TRUE;
   guint8 hdr[17];
   gsize hdr_len = 1;
   gchar *len_st;
@@ -403,19 +402,9 @@ evd_long_polling_write_frame_delivery (EvdLongPolling     *self,
       g_free (len_st);
     }
 
-  if (! evd_http_connection_write_content (conn,
-                                           (gchar *) hdr,
-                                           hdr_len,
-                                           error) ||
-      ! evd_http_connection_write_content (conn,
-                                           buf,
-                                           size,
-                                           error))
-    {
-      result = FALSE;
-    }
+  evd_http_connection_write_content (conn, (gchar *) hdr, hdr_len, TRUE, NULL);
 
-  return result;
+  return evd_http_connection_write_content (conn, buf, size, TRUE, error);
 }
 
 static gboolean
@@ -448,7 +437,12 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
   /* build and send HTTP headers */
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
   soup_message_headers_replace (headers, "Content-type", "text/plain; charset=utf-8");
-  soup_message_headers_replace (headers, "Connection", "close");
+  soup_message_headers_replace (headers, "Transfer-Encoding", "chunked");
+
+  if (evd_http_connection_get_keepalive (conn))
+    soup_message_headers_replace (headers, "Connection", "keep-alive");
+  else
+    soup_message_headers_replace (headers, "Connection", "close");
 
   if (evd_http_connection_write_response_headers (conn,
                                                   SOUP_HTTP_1_1,
@@ -489,11 +483,17 @@ evd_long_polling_actual_send (EvdLongPolling     *self,
           result = FALSE;
         }
 
+      /* notify end of content */
+      evd_http_connection_write_content (conn, NULL, 0, FALSE, NULL);
+
       /* flush connection's buffer, and shutdown connection after */
-      evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
+      EVD_WEB_SERVICE_GET_CLASS (self)->
+        flush_and_return_connection (EVD_WEB_SERVICE (self), conn);
     }
 
   soup_message_headers_free (headers);
+
+  g_object_unref (conn);
 
   return result;
 }
