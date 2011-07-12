@@ -354,16 +354,8 @@ evd_web_service_add_connection_with_request (EvdWebService     *self,
 
   old_service = EVD_SERVICE (g_object_get_data (G_OBJECT (conn),
                                                 RETURN_DATA_KEY));
-  if (return_to != NULL && old_service != NULL)
-    {
-      g_object_weak_unref (G_OBJECT (old_service),
-                           evd_web_service_on_service_destroyed,
-                           conn);
 
-      g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, NULL);
-    }
-
-  if (return_to != NULL)
+  if (old_service == NULL && return_to != NULL)
     {
       g_object_set_data (G_OBJECT (conn), RETURN_DATA_KEY, return_to);
 
