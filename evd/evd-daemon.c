@@ -115,6 +115,8 @@ evd_daemon_get_default (gint *argc, gchar **argv[])
 {
   if (evd_daemon_default == NULL)
     evd_daemon_default = evd_daemon_new (argc, argv);
+  else
+    g_object_ref (evd_daemon_default);
 
   return evd_daemon_default;
 }
