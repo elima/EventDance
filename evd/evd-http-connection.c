@@ -1048,7 +1048,11 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
       stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
 
       size_written = g_output_stream_write (stream, buffer, size, NULL, error);
-      if (size_written < size)
+      if (size_written < 0)
+        {
+          return FALSE;
+        }
+      else if (size_written < size)
         {
           g_set_error (error,
                        G_IO_ERROR,
