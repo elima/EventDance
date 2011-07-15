@@ -252,8 +252,6 @@ evd_web_transport_finalize (GObject *obj)
   g_free (self->priv->base_path);
 
   G_OBJECT_CLASS (evd_web_transport_parent_class)->finalize (obj);
-
-  g_debug ("web transport finalized");
 }
 
 static void
