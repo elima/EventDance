@@ -260,8 +260,6 @@ evd_transport_notify_new_peer_cb (gpointer user_data)
 
   evd_transport_notify_new_peer (self, peer);
 
-  g_object_unref (self);
-
   g_object_unref (peer);
   g_object_unref (self);
 
@@ -329,7 +327,6 @@ evd_transport_accept_peer_internal (EvdTransport *self, EvdPeer *peer)
   evd_peer_manager_add_peer (peer_manager, peer);
 
   g_object_ref (peer);
-  g_object_ref (self);
   evd_timeout_add (NULL,
                    0,
                    G_PRIORITY_DEFAULT,
