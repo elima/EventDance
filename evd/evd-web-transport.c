@@ -681,11 +681,14 @@ evd_web_transport_handshake (EvdWebTransport   *self,
                               data,
                               evd_web_transport_free_validate_peer_args);
 
+      g_object_ref (peer);
       g_signal_connect (conn,
                         "close",
                         G_CALLBACK (evd_web_transport_conn_on_close),
                         peer);
     }
+
+  g_object_unref (peer);
 }
 
 static void
@@ -773,6 +776,8 @@ evd_web_transport_accept_peer (EvdTransport *transport, EvdPeer *peer)
 
   g_object_set_data (G_OBJECT (peer), VALIDATE_PEER_ARGS_DATA_KEY, NULL);
 
+  g_object_unref (peer);
+
   return TRUE;
 }
 
@@ -798,6 +803,8 @@ evd_web_transport_reject_peer (EvdTransport *transport, EvdPeer *peer)
                                                   NULL);
 
   g_object_set_data (G_OBJECT (peer), VALIDATE_PEER_ARGS_DATA_KEY, NULL);
+
+  g_object_unref (peer);
 
   return TRUE;
 }

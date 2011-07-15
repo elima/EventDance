@@ -247,6 +247,8 @@ evd_long_polling_conn_on_content_read (GObject      *obj,
                                 NULL,
                                 0,
                                 NULL);
+
+  g_object_unref (peer);
 }
 
 static gchar *
@@ -337,6 +339,7 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
   /* send? */
   else if (g_strcmp0 (action, ACTION_SEND) == 0)
     {
+      g_object_ref (peer);
       g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
 
       g_object_ref (conn);

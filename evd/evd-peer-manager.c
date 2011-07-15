@@ -246,6 +246,7 @@ evd_peer_manager_notify_new_peer (gpointer user_data)
   peer = EVD_PEER (user_data);
   self = EVD_PEER_MANAGER (g_object_get_data (G_OBJECT (peer), "peer-manager"));
 
+  g_object_ref (peer);
   g_hash_table_insert (self->priv->peers,
                        g_strdup (evd_peer_get_id (peer)),
                        peer);
