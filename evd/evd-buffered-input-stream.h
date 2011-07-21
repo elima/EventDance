@@ -56,42 +56,21 @@ GType                   evd_buffered_input_stream_get_type          (void) G_GNU
 
 EvdBufferedInputStream *evd_buffered_input_stream_new               (GInputStream *base_stream);
 
-/**
- * evd_buffered_input_stream_unread:
- * @buffer: (type utf8):
- **/
 gssize                  evd_buffered_input_stream_unread            (EvdBufferedInputStream  *self,
                                                                      const void              *buffer,
                                                                      gsize                    size,
                                                                      GCancellable            *cancellable,
                                                                      GError                 **error);
 
-/**
- * evd_buffered_input_stream_read_str:
- * @size: (inout):
- * @user_data: (allow-none):
- **/
 gchar                  *evd_buffered_input_stream_read_str          (EvdBufferedInputStream *self,
                                                                      gssize                 *size,
                                                                      GError                **error);
-
-/**
- * evd_buffered_input_stream_read_str_async:
- * @callback: (scope async): the #GAsyncReadyCallback
- **/
 void                    evd_buffered_input_stream_read_str_async    (EvdBufferedInputStream *stream,
                                                                      gsize                   count,
                                                                      int                     io_priority,
                                                                      GCancellable           *cancellable,
                                                                      GAsyncReadyCallback     callback,
                                                                      gpointer                user_data);
-
-/**
- * evd_buffered_input_stream_read_str_finish:
- * @size: (out):
- *
- * Returns:
- **/
 gchar                  *evd_buffered_input_stream_read_str_finish   (EvdBufferedInputStream  *self,
                                                                      GAsyncResult            *result,
                                                                      gssize                  *size,
