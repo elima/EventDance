@@ -272,7 +272,7 @@ evd_daemon_daemonize (EvdDaemon *self, GError **error)
 
 /**
  * evd_daemon_set_timeout:
- * @function: (scope notify):
+ * @function: (scope notified):
  **/
 void
 evd_daemon_set_timeout (EvdDaemon  *self,
