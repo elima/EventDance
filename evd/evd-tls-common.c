@@ -131,6 +131,11 @@ evd_tls_generate_dh_params (guint                bit_length,
                                  user_data);
 }
 
+/**
+ * evd_tls_generate_dh_params_finish:
+ *
+ * Returns: (transfer none):
+ **/
 gpointer
 evd_tls_generate_dh_params_finish (GAsyncResult  *result,
                                    GError       **error)
