@@ -1165,6 +1165,11 @@ evd_dbus_agent_get_registered_object_interface (GObject  *object,
     return reg_obj_data->iface_info;
 }
 
+/**
+ * evd_dbus_agent_get_method_invocation:
+ *
+ * Returns: (transfer none):
+ **/
 GDBusMethodInvocation *
 evd_dbus_agent_get_method_invocation (GObject  *object,
                                       guint     registration_id,
