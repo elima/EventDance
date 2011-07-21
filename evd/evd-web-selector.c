@@ -220,7 +220,7 @@ evd_web_selector_new (void)
 /**
  * evd_web_selector_add_service:
  * @domain_pattern: (allow-none):
- * @path_patter: (allow-none):
+ * @path_pattern: (allow-none):
  *
  **/
 gboolean
