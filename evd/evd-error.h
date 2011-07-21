@@ -66,7 +66,7 @@ typedef enum
 
 void         evd_error_build_gnutls         (gint     gnutls_error,
                                              GError **error);
-void         evd_error_build_gcrypt         (gcry_error_t   gcrypt_error,
-                                             GError       **error);
+void         evd_error_build_gcrypt         (guint    gcrypt_error,
+                                             GError **error);
 
 #endif /* __EVD_ERROR_H__ */

@@ -33,8 +33,8 @@ evd_error_build_gnutls (gint     gnutls_error,
 }
 
 void
-evd_error_build_gcrypt (gcry_error_t   gcrypt_error,
-                        GError       **error)
+evd_error_build_gcrypt (guint    gcrypt_error,
+                        GError **error)
 {
   g_set_error_literal (error,
                        EVD_GCRYPT_ERROR,
