@@ -1127,6 +1127,11 @@ evd_socket_new (void)
   return self;
 }
 
+/**
+ * evd_socket_get_socket:
+ *
+ * Returns: (transfer none):
+ **/
 GSocket *
 evd_socket_get_socket (EvdSocket *self)
 {
@@ -1208,6 +1213,11 @@ evd_socket_close (EvdSocket *self, GError **error)
   return result;
 }
 
+/**
+ * evd_socket_get_remote_address:
+ *
+ * Returns: (transfer full):
+ **/
 GSocketAddress *
 evd_socket_get_remote_address (EvdSocket  *self,
                                GError    **error)
@@ -1220,6 +1230,11 @@ evd_socket_get_remote_address (EvdSocket  *self,
     return g_socket_get_remote_address (self->priv->socket, error);
 }
 
+/**
+ * evd_socket_get_local_address:
+ *
+ * Returns: (transfer full):
+ **/
 GSocketAddress *
 evd_socket_get_local_address (EvdSocket  *self,
                               GError    **error)
@@ -1281,7 +1296,7 @@ evd_socket_get_condition (EvdSocket *self)
 
 /**
  * evd_socket_set_notify_condition_callback:
- * @callback: (allow-none):
+ * @callback: (scope notified) (allow-none):
  * @user_data: (allow-none):
  *
  **/
