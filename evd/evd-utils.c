@@ -25,6 +25,12 @@
 
 #include "evd-utils.h"
 
+/**
+ * evd_timeout_add:
+ * @callback: (scope notified):
+ * @user_data: (allow-none):
+ *
+ **/
 guint
 evd_timeout_add (GMainContext *context,
                  guint         timeout,
