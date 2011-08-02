@@ -497,10 +497,7 @@ evd_connection_close_internal (GIOStream     *stream,
   evd_socket_close (self->priv->socket, (_error == NULL) ? &_error : NULL);
 
   if (_error != NULL)
-    {
-      g_propagate_error (error, _error);
-      g_error_free (_error);
-    }
+    g_propagate_error (error, _error);
 
   g_signal_emit (self, evd_connection_signals[SIGNAL_CLOSE], 0, NULL);
 
