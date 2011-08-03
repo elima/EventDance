@@ -27,12 +27,14 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
+#include <pwd.h>
 
 #include <gio/gio.h>
 
 #include "evd-daemon.h"
 
 #include "evd-utils.h"
+#include "evd-error.h"
 
 G_DEFINE_TYPE (EvdDaemon, evd_daemon, G_TYPE_OBJECT)
 
@@ -287,4 +289,58 @@ evd_daemon_set_timeout (EvdDaemon  *self,
                    G_PRIORITY_DEFAULT,
                    function,
                    user_data);
+}
+
+gboolean
+evd_daemon_set_user_id (EvdDaemon  *self,
+                        gint        user_id,
+                        GError    **error)
+{
+  g_return_val_if_fail (EVD_IS_DAEMON (self), FALSE);
+
+  errno = 0;
+  if (setuid (user_id) != 0)
+    {
+      g_set_error (error,
+                   EVD_ERRNO_ERROR,
+                   errno,
+                   "%s",
+                   strerror (errno));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+
+gboolean
+evd_daemon_set_user (EvdDaemon    *self,
+                     const gchar  *username,
+                     GError      **error)
+{
+  struct passwd *buf;
+
+  g_return_val_if_fail (EVD_IS_DAEMON (self), FALSE);
+  g_return_val_if_fail (username != NULL, FALSE);
+
+  errno = 0;
+  buf = getpwnam (username);
+  if (buf == NULL)
+    {
+      if (errno != 0)
+        g_set_error (error,
+                     EVD_ERRNO_ERROR,
+                     errno,
+                     "%s",
+                     strerror (errno));
+      else
+        g_set_error (error,
+                     G_IO_ERROR,
+                     G_IO_ERROR_NOT_FOUND,
+                     "User %s not found",
+                     username);
+
+      return FALSE;
+    }
+
+  return evd_daemon_set_user_id (self, buf->pw_uid, error);
 }

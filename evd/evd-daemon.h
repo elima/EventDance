@@ -72,6 +72,13 @@ void                evd_daemon_set_timeout             (EvdDaemon  *self,
                                                         GSourceFunc function,
                                                         gpointer    user_data);
 
+gboolean            evd_daemon_set_user_id             (EvdDaemon  *self,
+                                                        gint        user_id,
+                                                        GError    **error);
+gboolean            evd_daemon_set_user                (EvdDaemon    *self,
+                                                        const gchar  *username,
+                                                        GError      **error);
+
 G_END_DECLS
 
 #endif /* __EVD_DAEMON_H__ */
