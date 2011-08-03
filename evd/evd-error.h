@@ -36,6 +36,9 @@
 #define EVD_GCRYPT_ERROR_DOMAIN_STR "org.eventdance.lib.Gcry.ErrorDomain"
 #define EVD_GCRYPT_ERROR            g_quark_from_string (EVD_GCRYPT_ERROR_DOMAIN_STR)
 
+#define EVD_ERRNO_ERROR_DOMAIN_STR "org.eventdance.lib.Errno.ErrorDomain"
+#define EVD_ERRNO_ERROR            g_quark_from_string (EVD_ERRNO_ERROR_DOMAIN_STR)
+
 typedef enum
 {
   EVD_ERROR_NONE,
