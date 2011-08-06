@@ -20,7 +20,11 @@
  * for more details.
  */
 
+#include <errno.h>
+
 #include "evd-dbus-daemon.h"
+
+#include "evd-error.h"
 
 #define EVD_DBUS_DAEMON_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                           EVD_TYPE_DBUS_DAEMON, \
@@ -238,13 +242,28 @@ evd_dbus_daemon_initable_init (GInitable     *initable,
     {
       gchar buf[256] = { 0, };
       gchar **lines;
+      gssize size;
 
-      read (stdout_fd, buf, 256);
-      lines = g_strsplit (buf, "\n", 0);
-      self->priv->addr = g_strdup (lines[0]);
-      g_strfreev (lines);
+      errno = 0;
+      size = read (stdout_fd, buf, 256);
+      if (size >= 0)
+        {
+          lines = g_strsplit (buf, "\n", 0);
+          self->priv->addr = g_strdup (lines[0]);
+          g_strfreev (lines);
 
-      return TRUE;
+          return TRUE;
+        }
+      else
+        {
+          g_set_error (error,
+                       EVD_ERRNO_ERROR,
+                       errno,
+                       "Failed to D-Bus daemon address from stdout: %s",
+                       strerror (errno));
+
+          return FALSE;
+        }
     }
 }
 
