@@ -74,7 +74,7 @@ expand_content_files= \
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 
 INCLUDES=-I$(top_srcdir) -I$(top_srcdir)/evd $(GLIB_CFLAGS)
-GTKDOC_LIBS=$(top_builddir)/evd/libevd-@EVD_API_VERSION@.la $(GLIB_CFLAGS)
+GTKDOC_LIBS=$(top_builddir)/evd/libevd-@EVD_API_VERSION@.la $(GLIB_LIBS)
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make
