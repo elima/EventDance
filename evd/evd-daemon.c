@@ -275,20 +275,22 @@ evd_daemon_daemonize (EvdDaemon *self, GError **error)
 /**
  * evd_daemon_set_timeout:
  * @function: (scope notified):
+ *
+ * Returns:
  **/
-void
-evd_daemon_set_timeout (EvdDaemon  *self,
-                        guint       timeout,
-                        GSourceFunc function,
-                        gpointer    user_data)
+guint
+evd_daemon_set_timeout (EvdDaemon   *self,
+                        guint        timeout,
+                        GSourceFunc  function,
+                        gpointer     user_data)
 {
-  g_return_if_fail (EVD_IS_DAEMON (self));
+  g_return_val_if_fail (EVD_IS_DAEMON (self), 0);
 
-  evd_timeout_add (g_main_loop_get_context (self->priv->main_loop),
-                   timeout,
-                   G_PRIORITY_DEFAULT,
-                   function,
-                   user_data);
+  return evd_timeout_add (g_main_loop_get_context (self->priv->main_loop),
+                          timeout,
+                          G_PRIORITY_DEFAULT,
+                          function,
+                          user_data);
 }
 
 gboolean

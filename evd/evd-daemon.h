@@ -67,7 +67,7 @@ void                evd_daemon_quit                    (EvdDaemon *self,
 gboolean            evd_daemon_daemonize               (EvdDaemon  *self,
                                                         GError    **error);
 
-void                evd_daemon_set_timeout             (EvdDaemon  *self,
+guint               evd_daemon_set_timeout             (EvdDaemon  *self,
                                                         guint       timeout,
                                                         GSourceFunc function,
                                                         gpointer    user_data);
