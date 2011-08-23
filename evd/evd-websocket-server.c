@@ -357,13 +357,22 @@ handshake76_stage2 (EvdHttpConnection *conn, HandshakeData *data)
   uri = evd_http_request_get_uri (data->request);
   ws_uri = soup_uri_copy (uri);
   if (evd_connection_get_tls_active (EVD_CONNECTION (conn)))
-    soup_uri_set_scheme (ws_uri, "wss");
+    {
+      soup_uri_set_scheme (ws_uri, "wss");
+      if (uri->port == 443)
+        soup_uri_set_port (ws_uri, 0);
+    }
   else
-    soup_uri_set_scheme (ws_uri, "ws");
-  soup_uri_set_port (ws_uri, uri->port);
+    {
+      soup_uri_set_scheme (ws_uri, "ws");
+      if (uri->port == 80)
+        soup_uri_set_port (ws_uri, 0);
+    }
+
   ws_uri_str = soup_uri_to_string (ws_uri, FALSE);
   soup_message_headers_replace (headers, "Sec-WebSocket-Location",
                                 ws_uri_str);
+  g_debug ("%s", ws_uri_str);
   g_free (ws_uri_str);
   soup_uri_free (ws_uri);
 
