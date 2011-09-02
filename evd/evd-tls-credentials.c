@@ -48,7 +48,7 @@ struct _EvdTlsCredentialsPrivate
   EvdTlsCredentialsCertCb cert_cb;
   gpointer cert_cb_user_data;
   gpointer cert_cb_certs[MAX_DYNAMIC_CERTS];
-  gnutls_retr_st *cert_cb_ret_st;
+  gnutls_retr2_st *cert_cb_ret_st;
   gboolean inside_cert_cb;
   gint cert_cb_result;
 
@@ -228,8 +228,12 @@ evd_tls_credentials_get_property (GObject    *obj,
 }
 
 static gint
-evd_tls_credentials_server_cert_cb (gnutls_session_t  session,
-                                    gnutls_retr_st   *st)
+evd_tls_credentials_server_cert_cb (gnutls_session_t             session,
+                                    const gnutls_datum_t        *req_ca_dn,
+                                    gint                         nreqs,
+                                    const gnutls_pk_algorithm_t *pk_algos,
+                                    gint                         pk_algos_length,
+                                    gnutls_retr2_st             *st)
 {
   EvdTlsCredentials *self;
   EvdTlsSession *tls_session;
@@ -286,7 +290,7 @@ evd_tls_credentials_prepare_finish (EvdTlsCredentials  *self,
 
   if (self->priv->cert_cb != NULL)
     {
-      gnutls_certificate_server_set_retrieve_function (self->priv->cred,
+      gnutls_certificate_set_retrieve_function (self->priv->cred,
                                             evd_tls_credentials_server_cert_cb);
 
       /* @TODO: client side cert retrieval disabled by now */
@@ -512,7 +516,7 @@ evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
   if (self->priv->cred == NULL)
     gnutls_certificate_allocate_credentials (&self->priv->cred);
 
-  gnutls_certificate_server_set_retrieve_function (self->priv->cred,
+  gnutls_certificate_set_retrieve_function (self->priv->cred,
                                             evd_tls_credentials_server_cert_cb);
 
   /* @TODO: client cert retrieval disabled by now */
@@ -572,7 +576,7 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
 
   if (self->priv->inside_cert_cb)
     {
-      gnutls_retr_st *ret_st;
+      gnutls_retr2_st *ret_st;
 
       ret_st = self->priv->cert_cb_ret_st;
 
@@ -591,13 +595,13 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
 
           if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
             {
-              ret_st->type = GNUTLS_CRT_X509;
+              ret_st->cert_type = GNUTLS_CRT_X509;
               ret_st->cert.x509 = (gnutls_x509_crt_t *) self->priv->cert_cb_certs;
               ret_st->key.x509 = (gnutls_x509_privkey_t) _privkey;
             }
           else
             {
-              ret_st->type = GNUTLS_CRT_OPENPGP;
+              ret_st->cert_type = GNUTLS_CRT_OPENPGP;
               ret_st->cert.pgp = (gnutls_openpgp_crt_t) _cert;
               ret_st->key.pgp = (gnutls_openpgp_privkey_t) _privkey;
             }
