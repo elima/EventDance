@@ -611,7 +611,6 @@ evd_tls_session_handshake (EvdTlsSession  *self,
                                               evd_tls_session_push);
           gnutls_transport_set_pull_function (self->priv->session,
                                               evd_tls_session_pull);
-          gnutls_transport_set_lowat (self->priv->session, 0);
 
           cred = evd_tls_session_get_credentials (self);
           if (! evd_tls_credentials_ready (cred))
