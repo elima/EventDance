@@ -34,7 +34,8 @@ G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
 
 #define DEFAULT_ALLOW_PUT FALSE
 
-#define BLOCK_SIZE 0xFFFF
+#define BLOCK_SIZE 0x0FFF
+
 
 #define DEFAULT_DIRECTORY_INDEX "index.html"
 
@@ -252,7 +253,7 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
   g_slice_free (EvdWebDirBinding, binding);
 
   EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
-    return_connection (EVD_WEB_SERVICE (self), conn);
+    flush_and_return_connection (EVD_WEB_SERVICE (self), conn);
 
   g_object_unref (conn);
 }
