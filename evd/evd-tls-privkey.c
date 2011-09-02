@@ -42,6 +42,8 @@ struct _EvdTlsPrivkeyPrivate
   gnutls_openpgp_privkey_t openpgp_privkey;
 
   EvdTlsCertificateType type;
+
+  gboolean native_stolen;
 };
 
 
@@ -103,6 +105,8 @@ evd_tls_privkey_init (EvdTlsPrivkey *self)
   priv->openpgp_privkey = NULL;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
+
+  priv->native_stolen = FALSE;
 }
 
 static void
@@ -148,15 +152,19 @@ evd_tls_privkey_cleanup (EvdTlsPrivkey *self)
 {
   if (self->priv->x509_privkey != NULL)
     {
-      gnutls_x509_privkey_deinit (self->priv->x509_privkey);
+      if (! self->priv->native_stolen)
+        gnutls_x509_privkey_deinit (self->priv->x509_privkey);
       self->priv->x509_privkey = NULL;
     }
 
   if (self->priv->openpgp_privkey != NULL)
     {
-      gnutls_openpgp_privkey_deinit (self->priv->openpgp_privkey);
+      if (! self->priv->native_stolen)
+        gnutls_openpgp_privkey_deinit (self->priv->openpgp_privkey);
       self->priv->openpgp_privkey = NULL;
     }
+
+  self->priv->native_stolen = FALSE;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
@@ -444,6 +452,21 @@ evd_tls_privkey_get_native (EvdTlsPrivkey *self)
     return self->priv->openpgp_privkey;
   else
     return NULL;
+}
+
+gpointer
+evd_tls_privkey_steal_native (EvdTlsPrivkey *self)
+{
+  gpointer native;
+
+  g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), NULL);
+
+  native = evd_tls_privkey_get_native (self);
+
+  if (native != NULL)
+    self->priv->native_stolen = TRUE;
+
+  return native;
 }
 
 EvdPkiPrivkey *

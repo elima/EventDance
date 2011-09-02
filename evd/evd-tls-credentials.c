@@ -562,8 +562,8 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       return FALSE;
     }
 
-  _cert = evd_tls_certificate_get_native (cert);
-  _privkey = evd_tls_privkey_get_native (privkey);
+  _cert = evd_tls_certificate_steal_native (cert);
+  _privkey = evd_tls_privkey_steal_native (privkey);
 
   if (_cert == NULL || _privkey == NULL)
     {

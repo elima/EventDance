@@ -72,6 +72,7 @@ gboolean           evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self
                                                             GError        **error);
 
 gpointer           evd_tls_privkey_get_native              (EvdTlsPrivkey *self);
+gpointer           evd_tls_privkey_steal_native            (EvdTlsPrivkey *self);
 
 EvdPkiPrivkey *    evd_tls_privkey_get_pki_key             (EvdTlsPrivkey  *self,
                                                             GError        **error);
