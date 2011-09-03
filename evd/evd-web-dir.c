@@ -36,7 +36,6 @@ G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
 
 #define BLOCK_SIZE 0x0FFF
 
-
 #define DEFAULT_DIRECTORY_INDEX "index.html"
 
 /* private data */
@@ -52,7 +51,7 @@ typedef struct
 {
   EvdWebDir *web_dir;
   GFile *file;
-  GIOStream *io_stream;
+  GInputStream *file_input_stream;
   EvdHttpConnection *conn;
   void *buffer;
   gsize size;
@@ -242,8 +241,8 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
                                         binding);
 
   g_object_unref (binding->file);
-  if (binding->io_stream != NULL)
-    g_object_unref (binding->io_stream);
+  if (binding->file_input_stream != NULL)
+    g_object_unref (binding->file_input_stream);
 
   if (binding->buffer != NULL)
     g_slice_free1 (BLOCK_SIZE, binding->buffer);
@@ -303,7 +302,7 @@ evd_web_dir_file_on_block_read (GObject      *object,
       if (! evd_http_connection_write_content (binding->conn,
                                                binding->buffer,
                                                size,
-                                               FALSE,
+                                               TRUE,
                                                &error))
         {
           evd_web_dir_handle_content_error (binding, error);
@@ -332,13 +331,10 @@ evd_web_dir_file_on_block_read (GObject      *object,
 static void
 evd_web_dir_file_read_block (EvdWebDirBinding *binding)
 {
-  GInputStream *stream;
-
-  if (evd_connection_get_max_writable (EVD_CONNECTION (binding->conn)) > 0)
+  if (! g_input_stream_has_pending (binding->file_input_stream) &&
+      evd_connection_get_max_writable (EVD_CONNECTION (binding->conn)) > 0)
     {
-      stream = g_io_stream_get_input_stream (binding->io_stream);
-
-      g_input_stream_read_async (stream,
+      g_input_stream_read_async (binding->file_input_stream,
                                  binding->buffer,
                                  BLOCK_SIZE,
                                  evd_connection_get_priority (EVD_CONNECTION (binding->conn)),
@@ -362,8 +358,11 @@ evd_web_dir_file_on_open (GObject      *object,
                                                   res,
                                                   &error)) != NULL)
     {
-      binding->io_stream = G_IO_STREAM (io_stream);
+      binding->file_input_stream =
+        g_io_stream_get_input_stream (G_IO_STREAM (io_stream));
+
       binding->buffer = g_slice_alloc (BLOCK_SIZE);
+
       evd_web_dir_file_read_block (binding);
     }
   else
@@ -485,7 +484,7 @@ evd_web_dir_conn_on_write (EvdConnection *conn, gpointer user_data)
 {
   EvdWebDirBinding *binding = (EvdWebDirBinding *) user_data;
 
-  if (binding->io_stream != NULL)
+  if (binding->file_input_stream != NULL)
     evd_web_dir_file_read_block (binding);
 }
 
