@@ -177,6 +177,10 @@ evd_tls_session_dispose (GObject *obj)
 
   if (self->priv->cred != NULL)
     {
+      if (self->priv->cred_ready_sig_id != 0)
+        g_signal_handler_disconnect (self->priv->cred,
+                                     self->priv->cred_ready_sig_id);
+
       g_object_unref (self->priv->cred);
       self->priv->cred = NULL;
     }
