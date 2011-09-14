@@ -655,19 +655,21 @@ evd_connection_read_wait_timeout (gpointer user_data)
 {
   EvdConnection *self = EVD_CONNECTION (user_data);
 
-  if (CLOSED (self))
-    return FALSE;
-
-  self->priv->read_src_id = 0;
-
-  evd_connection_manage_read_condition (self);
-
-  if (self->priv->delayed_close &&
-      ! READ_PENDING (self))
+  if (! CLOSED (self))
     {
-      g_object_ref (self);
-      evd_connection_close_in_idle_cb (self);
+      self->priv->read_src_id = 0;
+
+      evd_connection_manage_read_condition (self);
+
+      if (self->priv->delayed_close &&
+          ! READ_PENDING (self))
+        {
+          g_object_ref (self);
+          evd_connection_close_in_idle_cb (self);
+        }
     }
+
+  g_object_unref (self);
 
   return FALSE;
 }
@@ -677,12 +679,14 @@ evd_connection_write_wait_timeout (gpointer user_data)
 {
   EvdConnection *self = EVD_CONNECTION (user_data);
 
-  if (CLOSED (self))
-    return FALSE;
+  if (! CLOSED (self))
+    {
+      self->priv->write_src_id = 0;
 
-  self->priv->write_src_id = 0;
+      evd_connection_manage_write_condition (self);
+    }
 
-  evd_connection_manage_write_condition (self);
+  g_object_unref (self);
 
   return FALSE;
 }
@@ -778,12 +782,16 @@ evd_connection_delay_read (EvdThrottledInputStream *stream,
   EvdConnection *self = EVD_CONNECTION (user_data);
 
   if (self->priv->read_src_id == 0)
-    self->priv->read_src_id =
-      evd_timeout_add (NULL,
-                       wait,
-                       evd_socket_get_priority (self->priv->socket),
-                       evd_connection_read_wait_timeout,
-                       self);
+    {
+      g_object_ref (self);
+
+      self->priv->read_src_id =
+        evd_timeout_add (NULL,
+                         wait,
+                         evd_socket_get_priority (self->priv->socket),
+                         evd_connection_read_wait_timeout,
+                         self);
+    }
 }
 
 static void
@@ -794,12 +802,16 @@ evd_connection_delay_write (EvdThrottledOutputStream *stream,
   EvdConnection *self = EVD_CONNECTION (user_data);
 
   if (self->priv->write_src_id == 0)
-    self->priv->write_src_id =
-      evd_timeout_add (NULL,
-                       wait,
-                       evd_socket_get_priority (self->priv->socket),
-                       evd_connection_write_wait_timeout,
-                       self);
+    {
+      g_object_ref (self);
+
+      self->priv->write_src_id =
+        evd_timeout_add (NULL,
+                         wait,
+                         evd_socket_get_priority (self->priv->socket),
+                         evd_connection_write_wait_timeout,
+                         self);
+    }
 }
 
 static void
