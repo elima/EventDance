@@ -451,10 +451,9 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
           g_object_unref (res);
         }
 
-      if (error != NULL)
-        *error = _error;
-      else
-        g_error_free (_error);
+      g_propagate_error (error, _error);
+
+      return FALSE;
     }
   else if (actual_size > 0)
     {
