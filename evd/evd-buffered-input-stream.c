@@ -358,7 +358,7 @@ evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
       g_string_prepend_len (self->priv->buffer, buffer, size);
 
       if (! self->priv->frozen)
-        evd_buffered_input_stream_thaw (self, 0);
+        evd_buffered_input_stream_thaw (self, G_PRIORITY_DEFAULT);
 
       return size;
     }
