@@ -182,7 +182,7 @@ do_read (gpointer user_data)
   self->priv->read_src_id = 0;
 
   if (self->priv->async_result == NULL)
-    return 0;
+    return FALSE;
 
   size =
     G_INPUT_STREAM_GET_CLASS (self)->read_fn (G_INPUT_STREAM (self),
