@@ -180,6 +180,14 @@ evd_throttled_input_stream_read (GInputStream  *stream,
                           &actual_size);
         }
     }
+  else
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_WOULD_BLOCK,
+                           "Resource temporarily unavailable");
+      actual_size = -1;
+    }
 
   if (wait > 0)
     {

@@ -187,6 +187,7 @@ evd_socket_input_stream_read (GInputStream  *stream,
   gssize actual_size = 0;
   gchar *buf;
   gssize bag_size = 0;
+  gboolean drained = FALSE;
 
   buf = (gchar *) buffer;
 
@@ -204,7 +205,7 @@ evd_socket_input_stream_read (GInputStream  *stream,
   if (self->priv->has_bag)
     {
       buf[0] = self->priv->bag;
-      buf = (gchar *) ( ((void *) buf) + 1);
+      buf = buf + 1;
       bag_size = 1;
     }
   else
@@ -212,36 +213,31 @@ evd_socket_input_stream_read (GInputStream  *stream,
       size++;
     }
 
-  if ( (actual_size += g_socket_receive (socket,
-                                         buf,
-                                         size,
-                                         cancellable,
-                                         &_error)) < 0)
+  actual_size = g_socket_receive (socket,
+                                  buf,
+                                  size,
+                                  cancellable,
+                                  &_error);
+  if (actual_size < 0)
     {
-      if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
+      if (g_error_matches (_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+        drained = TRUE;
+
+      if (bag_size > 0)
         {
-          g_error_free (_error);
           actual_size = 0;
+          g_clear_error (&_error);
         }
       else
         {
-          if (error != NULL)
-            *error = _error;
-          else
-            g_error_free (_error);
-          return -1;
+          g_propagate_error (error, _error);
         }
     }
-
-  if (actual_size < size)
+  else if (actual_size < size)
     {
       self->priv->has_bag = FALSE;
-      g_object_ref (self);
-      g_signal_emit (self,
-                     evd_socket_input_stream_signals[SIGNAL_DRAINED],
-                     0,
-                     NULL);
-      g_object_unref (self);
+
+      drained = TRUE;
     }
   else
     {
@@ -249,6 +245,16 @@ evd_socket_input_stream_read (GInputStream  *stream,
       buf[actual_size-1] = '\0';
       actual_size--;
       self->priv->has_bag = TRUE;
+    }
+
+  if (drained)
+    {
+      g_object_ref (self);
+      g_signal_emit (self,
+                     evd_socket_input_stream_signals[SIGNAL_DRAINED],
+                     0,
+                     NULL);
+      g_object_unref (self);
     }
 
   return actual_size + bag_size;

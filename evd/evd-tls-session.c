@@ -290,11 +290,10 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
                                self->priv->push_user_data,
                                &error);
 
-  //  g_debug ("TLS pushed %d out of %d", res, size);
-
   if (res < 0)
     {
-      if (! self->priv->write_shutdown || error->code != G_IO_ERROR_CLOSED)
+      if (! self->priv->write_shutdown ||
+          g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CLOSED))
         {
           /* @TODO: Handle transport error */
           g_debug ("TLS session transport error during push: %s", error->message);
@@ -320,18 +319,24 @@ evd_tls_session_pull (gnutls_transport_ptr_t  ptr,
                                self->priv->pull_user_data,
                                &error);
 
-  //  g_debug ("TLS pulled %d out of %d", res, size);
-
   if (res < 0)
     {
-      /* @TODO: handle transport error */
-      g_debug ("TLS transport error during pull: %s", error->message);
+      if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+        {
+          gnutls_transport_set_errno (self->priv->session, EAGAIN);
+          res = -1;
+        }
+      else
+        {
+          /* @TODO: handle transport error */
+          g_debug ("TLS transport error during pull: %s", error->message);
+        }
+
       g_error_free (error);
     }
   else if (res == 0)
     {
-      gnutls_transport_set_errno (self->priv->session, EAGAIN);
-      res = -1;
+      /* @TODO: handle end of stream */
     }
 
   return res;

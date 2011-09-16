@@ -137,34 +137,59 @@ evd_buffered_input_stream_read (GInputStream  *stream,
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (stream);
   gchar *buf;
-  GInputStream *base_stream;
   gssize read_from_buf = 0;
   gssize read_from_stream = 0;
 
   if (self->priv->frozen)
-    return 0;
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_WOULD_BLOCK,
+                           "Resource temporarily unavailable");
+      return -1;
+    }
 
+  /* read from buffer first */
   if (self->priv->buffer->len > 0)
     {
       read_from_buf = MIN (self->priv->buffer->len, size);
       g_memmove (buffer, self->priv->buffer->str, read_from_buf);
       size -= read_from_buf;
 
-      buf = (gchar *) ( ((guintptr) buffer) + read_from_buf);
+      buf = buffer + read_from_buf;
     }
   else
     {
       buf = buffer;
     }
 
-  base_stream =
-    g_filter_input_stream_get_base_stream (G_FILTER_INPUT_STREAM (self));
+  /* if not enough, read from base stream */
+  if (size > 0)
+    {
+      GInputStream *base_stream;
+      GError *_error = NULL;
 
-  read_from_stream = g_input_stream_read (base_stream,
-                                          buf,
-                                          size,
-                                          cancellable,
-                                          error);
+      base_stream =
+        g_filter_input_stream_get_base_stream (G_FILTER_INPUT_STREAM (self));
+
+      read_from_stream = g_input_stream_read (base_stream,
+                                              buf,
+                                              size,
+                                              cancellable,
+                                              &_error);
+      if (read_from_stream < 0)
+        {
+          if (read_from_buf > 0)
+            {
+              g_clear_error (&_error);
+              read_from_stream = 0;
+            }
+          else
+            {
+              g_propagate_error (error, _error);
+            }
+        }
+    }
 
   if (read_from_stream >= 0 && read_from_buf > 0)
     g_string_erase (self->priv->buffer, 0, read_from_buf);
@@ -190,6 +215,12 @@ do_read (gpointer user_data)
                                               self->priv->requested_size,
                                               NULL,
                                               &error);
+
+  if (size < 0 && g_error_matches (error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+    {
+      g_error_free (error);
+      return FALSE;
+    }
 
   if (size != 0)
     {
