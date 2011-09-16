@@ -614,6 +614,9 @@ evd_connection_tls_handshake (EvdConnection *self)
     {
       evd_buffered_output_stream_set_auto_flush (self->priv->buf_output_stream,
                                                  TRUE);
+
+      evd_buffered_input_stream_thaw (self->priv->buf_input_stream,
+                                      evd_socket_get_priority (self->priv->socket));
     }
   else
     {
