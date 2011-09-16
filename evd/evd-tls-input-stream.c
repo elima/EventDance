@@ -20,10 +20,10 @@
  * for more details.
  */
 
-#include <gnutls/gnutls.h>
-#include <evd-tls-session.h>
-
 #include "evd-tls-input-stream.h"
+
+#include "evd-error.h"
+#include "evd-tls-session.h"
 
 G_DEFINE_TYPE (EvdTlsInputStream, evd_tls_input_stream, G_TYPE_FILTER_INPUT_STREAM)
 
@@ -161,7 +161,7 @@ evd_tls_input_stream_pull (EvdTlsSession  *session,
                            GError        **error)
 {
   EvdTlsInputStream *self = EVD_TLS_INPUT_STREAM (user_data);
-  gssize result = GNUTLS_E_AGAIN;
+  gssize result;
   GInputStream *base_stream;
 
   base_stream =
@@ -208,9 +208,11 @@ evd_tls_input_stream_read (GInputStream  *stream,
      abruptly closing TLS connection */
   if (actual_size < 0)
     {
-      if (_error->code == GNUTLS_E_UNEXPECTED_PACKET_LENGTH)
+      if (g_error_matches (_error,
+                           EVD_GNUTLS_ERROR,
+                           GNUTLS_E_UNEXPECTED_PACKET_LENGTH))
         {
-          g_error_free (_error);
+          g_clear_error (&_error);
           actual_size = 0;
 
           g_input_stream_clear_pending (stream);
@@ -218,8 +220,7 @@ evd_tls_input_stream_read (GInputStream  *stream,
         }
       else
         {
-          if (error != NULL)
-            *error = _error;
+          g_propagate_error (error, _error);
         }
     }
 
