@@ -176,7 +176,6 @@ evd_socket_output_stream_write (GOutputStream  *stream,
                                 GError       **error)
 {
   EvdSocketOutputStream *self = EVD_SOCKET_OUTPUT_STREAM (stream);
-  GError *_error = NULL;
   GSocket *socket;
   gssize actual_size = 0;
 
@@ -191,29 +190,13 @@ evd_socket_output_stream_write (GOutputStream  *stream,
       return -1;
     }
 
-  if ( (actual_size = g_socket_send (socket,
-                                     buffer,
-                                     size,
-                                     cancellable,
-                                     &_error)) < 0)
-    {
-      if ( (_error)->code == G_IO_ERROR_WOULD_BLOCK)
-        {
-          g_error_free (_error);
-          actual_size = 0;
-        }
-      else
-        {
-          if (error != NULL)
-            *error = _error;
-          else
-            g_error_free (_error);
+  actual_size = g_socket_send (socket,
+                               buffer,
+                               size,
+                               cancellable,
+                               error);
 
-          return -1;
-        }
-    }
-
-  if (actual_size < size)
+  if (actual_size >= 0 && actual_size < size)
     {
       g_object_ref (self);
       g_signal_emit (self,

@@ -161,7 +161,13 @@ evd_tls_output_stream_push (EvdTlsSession  *session,
   gssize result;
 
   if (g_output_stream_is_closed (G_OUTPUT_STREAM (self)))
-    return 0;
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_CLOSED,
+                           "TLS output stream is already closed");
+      return -1;
+    }
 
   result =
     G_OUTPUT_STREAM_CLASS (evd_tls_output_stream_parent_class)->
