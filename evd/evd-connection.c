@@ -749,6 +749,7 @@ evd_connection_socket_input_stream_drained (GInputStream *stream,
                                         &error))
         {
           /* @TODO: handle error */
+          g_warning ("Undandled error: watch socket condition error: %s", error->message);
           g_error_free (error);
         }
     }
@@ -770,6 +771,7 @@ evd_connection_socket_output_stream_filled (GOutputStream *stream,
                                     &error))
     {
       // @TODO: handle error
+      g_warning ("Undandled error: watch socket condition error: %s", error->message);
       g_error_free (error);
     }
 }
