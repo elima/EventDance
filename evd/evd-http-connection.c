@@ -480,6 +480,7 @@ evd_http_connection_read_headers_block (EvdHttpConnection *self)
   if (new_block_size <= 0)
     {
       /* @TODO: handle error, max header size reached */
+      g_warning ("Unhandled error: max header size reached");
       return;
     }
 
