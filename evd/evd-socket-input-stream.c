@@ -195,10 +195,9 @@ evd_socket_input_stream_read (GInputStream  *stream,
   if (socket == NULL)
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_NOT_READABLE,
-                           "Socket is not readable");
-
+                           G_IO_ERROR,
+                           G_IO_ERROR_NOT_INITIALIZED,
+                           "Input stream socket not initialized");
       return -1;
     }
 

@@ -551,9 +551,9 @@ evd_buffered_output_stream_close (GOutputStream  *stream,
       self->priv->async_result = NULL;
 
       g_simple_async_result_set_error (res,
-                                       EVD_ERROR,
-                                       EVD_ERROR_NOT_WRITABLE,
-                                       "Stream has been closed");
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_CLOSED,
+                                       "Buffered output stream is closed");
 
       g_simple_async_result_complete (res);
       g_object_unref (res);

@@ -185,10 +185,9 @@ evd_socket_output_stream_write (GOutputStream  *stream,
   if (socket == NULL)
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_NOT_WRITABLE,
-                           "Socket is not writable");
-
+                           G_IO_ERROR,
+                           G_IO_ERROR_NOT_INITIALIZED,
+                           "Output stream socket not initialized");
       return -1;
     }
 
