@@ -21,6 +21,7 @@
  */
 
 #include <gnutls/openpgp.h>
+#include <gnutls/x509.h>
 
 #include "evd-tls-credentials.h"
 
@@ -53,6 +54,9 @@ struct _EvdTlsCredentialsPrivate
   gint cert_cb_result;
 
   guint async_ops_count;
+
+  GList *x509_privkeys;
+  GList *openpgp_privkeys;
 };
 
 struct CertData
@@ -93,6 +97,9 @@ static void     evd_tls_credentials_get_property       (GObject    *obj,
                                                         guint       prop_id,
                                                         GValue     *value,
                                                         GParamSpec *pspec);
+
+static void     evd_tls_credentials_free_x509_key      (gpointer data);
+static void     evd_tls_credentials_free_openpgp_key   (gpointer data);
 
 static void
 evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
@@ -150,6 +157,9 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
   priv->cert_cb_result = 0;
   priv->inside_cert_cb = FALSE;
   priv->async_ops_count = 0;
+
+  priv->x509_privkeys = NULL;
+  priv->openpgp_privkeys = NULL;
 }
 
 static void
@@ -168,6 +178,11 @@ evd_tls_credentials_finalize (GObject *obj)
 
   if (self->priv->dh_params != NULL)
     gnutls_dh_params_deinit (self->priv->dh_params);
+
+  g_list_free_full (self->priv->x509_privkeys,
+                    evd_tls_credentials_free_x509_key);
+  g_list_free_full (self->priv->openpgp_privkeys,
+                    evd_tls_credentials_free_openpgp_key);
 
   G_OBJECT_CLASS (evd_tls_credentials_parent_class)->finalize (obj);
 }
@@ -225,6 +240,18 @@ evd_tls_credentials_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static void
+evd_tls_credentials_free_x509_key (gpointer data)
+{
+  gnutls_x509_privkey_deinit (data);
+}
+
+static void
+evd_tls_credentials_free_openpgp_key (gpointer data)
+{
+  gnutls_openpgp_privkey_deinit (data);
 }
 
 static gint
@@ -562,8 +589,15 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       return FALSE;
     }
 
-  _cert = evd_tls_certificate_steal_native (cert);
+  _cert = evd_tls_certificate_get_native (cert);
   _privkey = evd_tls_privkey_steal_native (privkey);
+
+  if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
+    self->priv->x509_privkeys = g_list_append (self->priv->x509_privkeys,
+                                               _privkey);
+  else
+    self->priv->openpgp_privkeys = g_list_append (self->priv->openpgp_privkeys,
+                                                  _privkey);
 
   if (_cert == NULL || _privkey == NULL)
     {
