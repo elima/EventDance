@@ -226,6 +226,7 @@ evd_socket_input_stream_read (GInputStream  *stream,
       if (bag_size > 0)
         {
           actual_size = 0;
+          self->priv->has_bag = FALSE;
           g_clear_error (&_error);
         }
       else
