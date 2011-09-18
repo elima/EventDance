@@ -133,40 +133,6 @@ evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
 }
 
 static void
-evd_tls_dh_generator_source_destroy_notify (gpointer data)
-{
-  evd_tls_dh_generator_free_source ((EvdTlsDhParamsSource *) data);
-}
-
-static void
-evd_tls_dh_generator_setup_result_from_source (EvdTlsDhParamsSource  *source,
-                                               GSimpleAsyncResult    *result)
-{
-  gnutls_dh_params_t dh_params = NULL;
-  gint err_code;
-
-  err_code = gnutls_dh_params_init (&dh_params);
-  if (err_code == GNUTLS_E_SUCCESS)
-    err_code = gnutls_dh_params_cpy (dh_params, source->dh_params);
-
-  if (err_code != GNUTLS_E_SUCCESS)
-    {
-      GError *error = NULL;
-
-      evd_error_build_gnutls (err_code, &error);
-
-      g_simple_async_result_set_from_error (result, error);
-      g_error_free (error);
-    }
-  else
-    {
-      g_simple_async_result_set_op_res_gpointer (result,
-                                    (gpointer) source->dh_params,
-                                    evd_tls_dh_generator_source_destroy_notify);
-    }
-}
-
-static void
 evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
                                     GObject            *object,
                                     GCancellable       *cancellable)
@@ -174,6 +140,8 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
   EvdTlsDhParamsSource *source;
   gnutls_dh_params_t dh_params;
   gint err_code;
+  GSimpleAsyncResult *item;
+  GError *error = NULL;
 
   source = (EvdTlsDhParamsSource *) g_simple_async_result_get_source_tag (res);
 
@@ -183,44 +151,46 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
   if (err_code == GNUTLS_E_SUCCESS)
     err_code = gnutls_dh_params_generate2 (dh_params, source->dh_bits);
 
+  g_mutex_lock (source->mutex);
+
   if (err_code != GNUTLS_E_SUCCESS)
+    evd_error_build_gnutls (err_code, &error);
+  else
+    source->dh_params = dh_params;
+
+  while ( (item =
+           G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (source->queue)))
+          != NULL)
     {
-      GError *error = NULL;
+      if (error != NULL)
+        {
+          g_simple_async_result_set_from_error (item, error);
+        }
+      else
+        {
+          g_simple_async_result_set_op_res_gpointer (item,
+                                                   (gpointer) source->dh_params,
+                                                   NULL);
+        }
 
-      evd_error_build_gnutls (err_code, &error);
+      if (item != res)
+        g_simple_async_result_complete_in_idle (item);
+      g_object_unref (item);
+    }
 
-      g_simple_async_result_set_from_error (res, error);
+  g_queue_free (source->queue);
+  source->queue = NULL;
+
+  if (error != NULL)
+    {
       g_error_free (error);
+
+      g_hash_table_remove (source->parent->priv->cache, &source->dh_bits);
 
       evd_tls_dh_generator_free_source (source);
     }
-  else
-    {
-      GSimpleAsyncResult *item;
 
-      /* fill the cache with the generated params */
-      g_mutex_lock (source->mutex);
-      source->dh_params = dh_params;
-
-      evd_tls_dh_generator_setup_result_from_source (source, res);
-
-      /* the first AsyncResult in the queue is the one passed to this
-         function and will be completed automatically */
-      g_queue_pop_head (source->queue);
-
-      while ( (item =
-               G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (source->queue)))
-               != NULL)
-        {
-          evd_tls_dh_generator_setup_result_from_source (source, item);
-
-          g_simple_async_result_complete_in_idle (item);
-        }
-      g_queue_free (source->queue);
-      source->queue = NULL;
-
-      g_mutex_unlock (source->mutex);
-    }
+  g_mutex_unlock (source->mutex);
 }
 
 /* public methods */
@@ -271,8 +241,11 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
         {
           if (! regenerate)
             {
-              evd_tls_dh_generator_setup_result_from_source (source, result);
+              g_simple_async_result_set_op_res_gpointer (result,
+                                                   (gpointer) source->dh_params,
+                                                   NULL);
               g_simple_async_result_complete_in_idle (result);
+              g_object_unref (result);
 
               done = TRUE;
             }
