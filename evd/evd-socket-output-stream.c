@@ -178,6 +178,8 @@ evd_socket_output_stream_write (GOutputStream  *stream,
   EvdSocketOutputStream *self = EVD_SOCKET_OUTPUT_STREAM (stream);
   GSocket *socket;
   gssize actual_size = 0;
+  GError *_error = NULL;
+  gboolean filled = FALSE;
 
   socket = evd_socket_get_socket (self->priv->socket);
 
@@ -194,9 +196,21 @@ evd_socket_output_stream_write (GOutputStream  *stream,
                                buffer,
                                size,
                                cancellable,
-                               error);
+                               &_error);
 
-  if (actual_size >= 0 && actual_size < size)
+  if (actual_size < 0)
+    {
+      if (g_error_matches (_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+        filled = TRUE;
+
+      g_propagate_error (error, _error);
+    }
+  else if (actual_size < size)
+    {
+      filled = TRUE;
+    }
+
+  if (filled)
     {
       g_object_ref (self);
       g_signal_emit (self,
