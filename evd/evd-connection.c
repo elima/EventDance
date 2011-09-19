@@ -424,12 +424,14 @@ evd_connection_close_internal (GIOStream     *stream,
     {
       g_source_remove (self->priv->read_src_id);
       self->priv->read_src_id = 0;
+      g_object_unref (self);
     }
 
   if (self->priv->write_src_id != 0)
     {
       g_source_remove (self->priv->write_src_id);
       self->priv->write_src_id = 0;
+      g_object_unref (self);
     }
 
   if (self->priv->async_result != NULL)
