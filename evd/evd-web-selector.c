@@ -89,7 +89,11 @@ evd_web_selector_dispose (GObject *obj)
 {
   EvdWebSelector *self = EVD_WEB_SELECTOR (obj);
 
-  evd_web_selector_set_default_service (self, NULL);
+  if (self->priv->default_service != NULL)
+    {
+      g_object_unref (self->priv->default_service);
+      self->priv->default_service = NULL;
+    }
 
   g_list_foreach (self->priv->candidates,
                   evd_web_selector_free_candidate,
