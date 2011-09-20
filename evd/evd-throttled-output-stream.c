@@ -195,6 +195,14 @@ evd_throttled_output_stream_write (GOutputStream  *stream,
                           &actual_size);
         }
     }
+  else
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_WOULD_BLOCK,
+                   "Resource temporarily unavailable");
+      actual_size = -1;
+    }
 
   return actual_size;
 }
