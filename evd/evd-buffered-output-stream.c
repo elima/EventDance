@@ -266,13 +266,12 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
   gssize actual_size;
   gsize buffered_size = 0;
+  GError *_error = NULL;
 
   if (self->priv->buffer->len > 0 ||
       ! self->priv->auto_flush)
     {
-      actual_size = evd_buffered_output_stream_fill (self,
-                                                     buffer,
-                                                     size);
+      actual_size = evd_buffered_output_stream_fill (self, buffer, size);
     }
   else
     {
@@ -280,13 +279,27 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
                                                            buffer,
                                                            size,
                                                            cancellable,
-                                                           error);
+                                                           &_error);
 
-      if (actual_size >= 0 && actual_size < size)
+      if (actual_size < 0)
+        {
+          if (g_error_matches (_error, G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
+            {
+              buffered_size = evd_buffered_output_stream_fill (self, buffer, size);
+              actual_size = 0;
+
+              g_clear_error (&_error);
+            }
+          else
+            {
+              g_propagate_error (error, _error);
+            }
+        }
+      else if (actual_size < size)
         {
           buffered_size = evd_buffered_output_stream_fill (self,
-                                   (void *) (((guintptr) buffer) + actual_size),
-                                   size - actual_size);
+                                                           buffer + actual_size,
+                                                           size - actual_size);
         }
     }
 
