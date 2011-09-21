@@ -103,6 +103,9 @@ void               evd_connection_unlock_close         (EvdConnection *self);
 void               evd_connection_flush_and_shutdown   (EvdConnection  *self,
                                                         GCancellable   *cancellable);
 
+gchar *            evd_connection_get_remote_address_as_string (EvdConnection  *self,
+                                                                GError        **error);
+
 EvdStreamThrottle *evd_connection_get_input_throttle   (EvdConnection *self);
 EvdStreamThrottle *evd_connection_get_output_throttle  (EvdConnection *self);
 

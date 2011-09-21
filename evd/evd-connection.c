@@ -20,6 +20,10 @@
  * for more details.
  */
 
+#ifdef HAVE_GIO_UNIX
+#include <gio/gunixsocketaddress.h>
+#endif
+
 #include "evd-connection.h"
 
 #include "evd-error.h"
@@ -1347,4 +1351,43 @@ evd_connection_get_output_throttle (EvdConnection *self)
   g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
 
   return self->priv->output_throttle;
+}
+
+gchar *
+evd_connection_get_remote_address_as_string (EvdConnection  *self,
+                                             GError        **error)
+{
+  GSocket *socket;
+  GSocketAddress *sock_addr;
+  gchar *addr_str = NULL;
+  GSocketFamily family;
+
+  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
+
+  socket = evd_socket_get_socket (self->priv->socket);
+  sock_addr = g_socket_get_remote_address (socket, error);
+  if (sock_addr == NULL)
+    return NULL;
+
+  family = g_socket_address_get_family (sock_addr);
+  if (family == G_SOCKET_FAMILY_IPV4 || family == G_SOCKET_FAMILY_IPV6)
+    {
+      /* inet socket address */
+      GInetAddress *inet_addr;
+
+      inet_addr =
+        g_inet_socket_address_get_address (G_INET_SOCKET_ADDRESS (sock_addr));
+      addr_str = g_inet_address_to_string (inet_addr);
+    }
+  else
+    {
+      /* unix socket address */
+      GUnixSocketAddress *unix_addr = G_UNIX_SOCKET_ADDRESS (sock_addr);
+
+      addr_str = g_strdup (g_unix_socket_address_get_path (unix_addr));
+    }
+
+  g_object_unref (sock_addr);
+
+  return addr_str;
 }
