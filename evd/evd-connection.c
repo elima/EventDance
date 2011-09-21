@@ -1380,12 +1380,21 @@ evd_connection_get_remote_address_as_string (EvdConnection  *self,
       addr_str = g_inet_address_to_string (inet_addr);
     }
   else
+#ifdef HAVE_GIO_UNIX
     {
       /* unix socket address */
       GUnixSocketAddress *unix_addr = G_UNIX_SOCKET_ADDRESS (sock_addr);
 
       addr_str = g_strdup (g_unix_socket_address_get_path (unix_addr));
     }
+#else
+  {
+    g_error_set (error,
+                 G_IO_ERROR,
+                 G_IO_ERROR_NOT_SUPPORTED,
+                 "Socket address family not supported");
+  }
+#endif
 
   g_object_unref (sock_addr);
 
