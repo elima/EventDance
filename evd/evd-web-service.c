@@ -326,6 +326,98 @@ evd_web_service_respond (EvdWebService       *self,
   return result;
 }
 
+static gchar *
+evd_web_service_build_log_entry (EvdWebService      *self,
+                                 const gchar        *format,
+                                 EvdHttpConnection  *conn,
+                                 EvdHttpRequest     *request,
+                                 guint               status_code,
+                                 gsize               content_size,
+                                 GError            **error)
+{
+  gchar *entry;
+  SoupMessageHeaders *headers;
+  const gchar *user_agent;
+  const gchar *referer;
+  gchar *remote_addr;
+  GDateTime *date;
+  gchar *date_str;
+  gchar *user;
+  gchar *path;
+
+  /* @TODO: format is currently ignored, and a standard Apache log entry format
+     is used */
+
+  g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), NULL);
+
+  if (! EVD_IS_HTTP_CONNECTION (conn))
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Cannot build log entry, invalid HTTP connection");
+      return NULL;
+    }
+
+  if (! EVD_IS_HTTP_REQUEST (request))
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_ARGUMENT,
+                   "Cannot build log entry, invalid HTTP request");
+      return NULL;
+    }
+
+  remote_addr =
+    evd_connection_get_remote_address_as_string (EVD_CONNECTION (conn), NULL);
+  if (remote_addr == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_DATA,
+                   "Cannot build log entry, unable to determine remote address");
+      return NULL;
+    }
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
+
+  user_agent = soup_message_headers_get_one (headers, "user-agent");
+  if (user_agent == NULL)
+    user_agent = "-";
+
+  referer = soup_message_headers_get_one (headers, "referer");
+  if (referer == NULL)
+    referer = "-";
+
+  date = g_date_time_new_now_local ();
+  date_str = g_date_time_format (date, "%e/%b/%Y:%H:%M:%S %z");
+  g_date_time_unref (date);
+
+  if (! evd_http_request_get_basic_auth_credentials (request, &user, NULL))
+    user = g_strdup ("-");
+
+  path = evd_http_request_get_path (request);
+
+  entry = g_strdup_printf ("%s - %s [%s] \"%s %s HTTP/1.%d\" %u %lu \"%s\" \"%s\"",
+                           remote_addr,
+                           user,
+                           date_str,
+                           evd_http_request_get_method (request),
+                           path,
+                           evd_http_message_get_version (EVD_HTTP_MESSAGE (request)),
+                           status_code,
+                           (guint64) content_size,
+                           referer,
+                           user_agent);
+
+  g_free (remote_addr);
+  g_free (date_str);
+  g_free (user);
+  g_free (path);
+
+  return entry;
+}
+
 /* public methods */
 
 EvdWebService *
