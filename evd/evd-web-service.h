@@ -61,6 +61,13 @@ struct _EvdWebServiceClass
                                             gsize                size,
                                             GError             **error);
 
+  gboolean (* log)                         (EvdWebService      *self,
+                                            EvdHttpConnection  *conn,
+                                            EvdHttpRequest     *request,
+                                            guint               status_code,
+                                            gsize               content_size,
+                                            GError            **error);
+
   /* signals */
   void (* signal_request_headers) (EvdWebService *self,
                                    EvdHttpConnection *connection,
@@ -84,6 +91,9 @@ gboolean          evd_web_service_add_connection_with_request (EvdWebService    
                                                                EvdHttpConnection *conn,
                                                                EvdHttpRequest    *request,
                                                                EvdService        *return_to);
+
+#define EVD_WEB_SERVICE_LOG(web_service, conn, request, status_code, content_size, error) \
+  (EVD_WEB_SERVICE_GET_CLASS (web_service)->log (web_service, conn, request, status_code, content_size, error))
 
 G_END_DECLS
 
