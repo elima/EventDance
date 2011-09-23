@@ -84,6 +84,8 @@ struct _EvdConnectionPrivate
 
   EvdStreamThrottle *input_throttle;
   EvdStreamThrottle *output_throttle;
+
+  gchar *remote_addr_st;
 };
 
 /* signals */
@@ -280,6 +282,8 @@ evd_connection_init (EvdConnection *self)
   priv->output_throttle = evd_stream_throttle_new ();
 
   priv->cond = 0;
+
+  priv->remote_addr_st = NULL;
 }
 
 static void
@@ -313,6 +317,8 @@ evd_connection_finalize (GObject *obj)
 
   if (self->priv->async_result != NULL)
     g_object_unref (self->priv->async_result);
+
+  g_free (self->priv->remote_addr_st);
 
   G_OBJECT_CLASS (evd_connection_parent_class)->finalize (obj);
 }
@@ -1055,6 +1061,12 @@ evd_connection_set_socket (EvdConnection *self,
   evd_connection_socket_on_condition (self->priv->socket,
                                   evd_socket_get_condition (self->priv->socket),
                                   self);
+
+  /* cache remote address as string to have if available for logging, even after
+     socket closed. */
+  g_free (self->priv->remote_addr_st);
+  self->priv->remote_addr_st =
+    evd_connection_get_remote_address_as_string (self, NULL);
 }
 
 /**
@@ -1401,7 +1413,19 @@ evd_connection_get_remote_address_as_string (EvdConnection  *self,
 
   g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
 
+  if (self->priv->remote_addr_st != NULL)
+    return g_strdup (self->priv->remote_addr_st);
+
   socket = evd_socket_get_socket (self->priv->socket);
+  if (! G_IS_SOCKET (socket))
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_INITIALIZED,
+                   "The connection's socket is not initialized or has already been closed");
+      return NULL;
+    }
+
   sock_addr = g_socket_get_remote_address (socket, error);
   if (sock_addr == NULL)
     return NULL;
