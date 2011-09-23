@@ -432,8 +432,15 @@ evd_service_add (EvdIoStreamGroup *group,
   EvdConnection *conn;
 
   if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
-                                                                   io_stream))
-    return FALSE;
+                                                                   io_stream) ||
+      ! evd_connection_is_connected (EVD_CONNECTION (io_stream)))
+    {
+      return FALSE;
+    }
+
+  /* @TODO: implement connection limit */
+
+  /* @TODO: check if connection type matches service's io_stream_type */
 
   conn = EVD_CONNECTION (io_stream);
 
@@ -441,10 +448,6 @@ evd_service_add (EvdIoStreamGroup *group,
                     "close",
                     G_CALLBACK (evd_service_connection_on_close),
                     self);
-
-  /* @TODO: implement connection limit */
-
-  /* @TODO: check if connection type matches service's io_stream_type */
 
   evd_service_validate_connection (self, conn);
 
