@@ -73,6 +73,9 @@ struct _EvdWebServiceClass
                                    EvdHttpConnection *connection,
                                    EvdHttpRequest *request,
                                    gpointer user_data);
+  void (* signal_log_entry)       (EvdWebService *self,
+                                   const gchar   *entry,
+                                   gpointer       user_data);
 };
 
 #define EVD_TYPE_WEB_SERVICE           (evd_web_service_get_type ())

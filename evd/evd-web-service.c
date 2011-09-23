@@ -33,6 +33,7 @@ G_DEFINE_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 enum
 {
   SIGNAL_REQUEST_HEADERS,
+  SIGNAL_LOG_ENTRY,
   SIGNAL_LAST
 };
 
@@ -80,6 +81,16 @@ evd_web_service_class_init (EvdWebServiceClass *class)
                   G_TYPE_NONE, 2,
                   EVD_TYPE_HTTP_CONNECTION,
                   EVD_TYPE_HTTP_REQUEST);
+
+  evd_web_service_signals[SIGNAL_LOG_ENTRY] =
+    g_signal_new ("log-entry",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdWebServiceClass, signal_log_entry),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__STRING,
+                  G_TYPE_NONE, 1,
+                  G_TYPE_STRING);
 }
 
 static void
