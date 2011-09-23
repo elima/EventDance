@@ -982,6 +982,9 @@ evd_connection_set_socket (EvdConnection *self,
   g_return_if_fail (EVD_IS_CONNECTION (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
 
+  if (socket == self->priv->socket)
+    return;
+
   if (self->priv->socket != NULL)
     {
       g_signal_handlers_disconnect_by_func (self->priv->socket,
