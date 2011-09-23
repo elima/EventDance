@@ -921,10 +921,16 @@ evd_connection_teardown_streams (EvdConnection *self)
   g_object_unref (self->priv->buf_output_stream);
 
   if (self->priv->tls_input_stream != NULL)
-    g_object_unref (self->priv->tls_input_stream);
+    {
+      g_object_unref (self->priv->tls_input_stream);
+      self->priv->tls_input_stream = NULL;
+    }
 
   if (self->priv->tls_output_stream != NULL)
-    g_object_unref (self->priv->tls_output_stream);
+    {
+      g_object_unref (self->priv->tls_output_stream);
+      self->priv->tls_output_stream = NULL;
+    }
 
   g_object_unref (self->priv->throt_input_stream);
   g_object_unref (self->priv->throt_output_stream);
@@ -1002,8 +1008,21 @@ evd_connection_set_socket (EvdConnection *self,
                                             evd_connection_socket_on_condition,
                                             self);
 
-  self->priv->tls_handshaking = FALSE;
-  self->priv->tls_active = FALSE;
+  /* reset TLS if active */
+  if (self->priv->tls_active)
+    {
+      self->priv->tls_active = FALSE;
+
+      self->priv->tls_handshaking = FALSE;
+
+      g_assert (EVD_IS_TLS_INPUT_STREAM (self->priv->tls_input_stream));
+      g_object_unref (self->priv->tls_input_stream);
+      self->priv->tls_input_stream = NULL;
+
+      g_assert (EVD_IS_TLS_INPUT_STREAM (self->priv->tls_output_stream));
+      g_object_unref (self->priv->tls_output_stream);
+      self->priv->tls_output_stream = NULL;
+    }
 
   if (self->priv->socket_input_stream == NULL)
     {
@@ -1103,6 +1122,7 @@ evd_connection_starttls (EvdConnection       *self,
 
   g_object_set (session, "mode", mode, NULL);
 
+  g_assert (self->priv->tls_input_stream == NULL);
   self->priv->tls_input_stream =
     evd_tls_input_stream_new (session,
                               G_INPUT_STREAM (self->priv->throt_input_stream));
@@ -1115,6 +1135,7 @@ evd_connection_starttls (EvdConnection       *self,
     evd_buffered_input_stream_new (
       G_INPUT_STREAM (self->priv->tls_input_stream));
 
+  g_assert (self->priv->tls_output_stream == NULL);
   self->priv->tls_output_stream =
     evd_tls_output_stream_new (session,
                                G_OUTPUT_STREAM (self->priv->throt_output_stream));
