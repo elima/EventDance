@@ -1094,30 +1094,43 @@ evd_connection_starttls (EvdConnection       *self,
                          gpointer             user_data)
 {
   EvdTlsSession *session;
+  GSimpleAsyncResult *res;
 
   g_return_if_fail (EVD_IS_CONNECTION (self));
   g_return_if_fail (mode == EVD_TLS_MODE_CLIENT || mode == EVD_TLS_MODE_SERVER);
 
   /* @TODO: use cancellable object for something */
 
-  self->priv->async_result =
-    g_simple_async_result_new (G_OBJECT (self),
-                               callback,
-                               user_data,
-                               evd_connection_starttls);
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_connection_starttls);
 
-  if (self->priv->tls_active)
+  if (! self->priv->connected)
     {
-      g_simple_async_result_set_error (self->priv->async_result,
+      g_simple_async_result_set_error (res,
                                        G_IO_ERROR,
-                                       G_IO_ERROR_BUSY,
-                                       "SSL/TLS was already started");
-      g_simple_async_result_complete_in_idle (self->priv->async_result);
-      g_object_unref (self->priv->async_result);
-      self->priv->async_result = NULL;
+                                       G_IO_ERROR_CLOSED,
+                                       "The connection has been closed");
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
 
       return;
     }
+
+  if (self->priv->tls_active)
+    {
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_BUSY,
+                                       "SSL/TLS was already started");
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+
+      return;
+    }
+
+  self->priv->async_result = res;
 
   self->priv->tls_active = TRUE;
 
