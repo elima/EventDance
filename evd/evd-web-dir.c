@@ -53,9 +53,13 @@ typedef struct
   GFile *file;
   GFileIOStream *file_io_stream;
   EvdHttpConnection *conn;
+  EvdHttpRequest *request;
   void *buffer;
   gsize size;
   gchar *filename;
+  gsize response_content_size;
+  guint response_status_code;
+  gboolean response_headers_sent;
 } EvdWebDirBinding;
 
 /* properties */
@@ -234,11 +238,20 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
 
   /* @TODO: consider caching the GFile for future requests */
 
+  EVD_WEB_SERVICE_LOG (EVD_WEB_SERVICE (binding->web_dir),
+                       binding->conn,
+                       binding->request,
+                       binding->response_status_code,
+                       binding->response_content_size,
+                       NULL);
+
   self = binding->web_dir;
   conn = binding->conn;
   g_signal_handlers_disconnect_by_func (conn,
                                         evd_web_dir_conn_on_write,
                                         binding);
+
+  g_object_unref (binding->request);
 
   g_object_unref (binding->file);
   if (binding->file_io_stream != NULL)
@@ -261,27 +274,26 @@ static void
 evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
                                   GError           *error)
 {
-  guint status_code;
-
   switch (error->code)
     {
     case G_IO_ERROR_NOT_FOUND:
-      status_code = SOUP_STATUS_NOT_FOUND;
+      binding->response_status_code = SOUP_STATUS_NOT_FOUND;
       break;
 
     default:
-      status_code = SOUP_STATUS_IO_ERROR;
+      binding->response_status_code = SOUP_STATUS_IO_ERROR;
       break;
     }
 
-  EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
-    respond (EVD_WEB_SERVICE (binding->web_dir),
-             binding->conn,
-             status_code,
-             NULL,
-             NULL,
-             0,
-             NULL);
+  if (! binding->response_headers_sent)
+    EVD_WEB_SERVICE_CLASS (evd_web_dir_parent_class)->
+      respond (EVD_WEB_SERVICE (binding->web_dir),
+               binding->conn,
+               binding->response_status_code,
+               NULL,
+               NULL,
+               0,
+               NULL);
 
   evd_web_dir_finish_request (binding);
 }
@@ -308,12 +320,10 @@ evd_web_dir_file_on_block_read (GObject      *object,
           evd_web_dir_handle_content_error (binding, error);
           g_error_free (error);
         }
-      else if (size < BLOCK_SIZE) /* EOF */
-        {
-          evd_web_dir_finish_request (binding);
-        }
       else
         {
+          binding->response_content_size += size;
+
           evd_web_dir_file_read_block (binding);
         }
     }
@@ -460,6 +470,9 @@ evd_web_dir_file_on_info (GObject      *object,
                                                   headers,
                                                   &error))
     {
+      binding->response_headers_sent = TRUE;
+      binding->response_status_code = SOUP_STATUS_OK;
+
       /* now open file */
       g_file_open_readwrite_async (file,
                                    evd_connection_get_priority (EVD_CONNECTION (conn)),
@@ -545,6 +558,13 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                  0,
                  NULL);
 
+      EVD_WEB_SERVICE_LOG (web_service,
+                           conn,
+                           request,
+                           SOUP_STATUS_METHOD_NOT_ALLOWED,
+                           0,
+                           NULL);
+
       return;
     }
 
@@ -566,6 +586,15 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                      NULL,
                      0,
                      NULL);
+
+          EVD_WEB_SERVICE_LOG (web_service,
+                               conn,
+                               request,
+                               SOUP_STATUS_NOT_FOUND,
+                               0,
+                               NULL);
+
+          return;
         }
     }
   else
@@ -587,6 +616,9 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
                     "write",
                     G_CALLBACK (evd_web_dir_conn_on_write),
                     binding);
+
+  g_object_ref (request);
+  binding->request = request;
 
   evd_web_dir_request_file (self, filename, binding);
 
