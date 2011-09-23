@@ -59,6 +59,13 @@ static gboolean evd_web_service_respond                     (EvdWebService      
 static void     evd_web_service_flush_and_return_connection (EvdWebService     *self,
                                                              EvdHttpConnection *conn);
 
+static gboolean evd_web_service_log                         (EvdWebService      *self,
+                                                             EvdHttpConnection  *conn,
+                                                             EvdHttpRequest     *request,
+                                                             guint               status_code,
+                                                             gsize               content_size,
+                                                             GError            **error);
+
 static void
 evd_web_service_class_init (EvdWebServiceClass *class)
 {
@@ -68,6 +75,7 @@ evd_web_service_class_init (EvdWebServiceClass *class)
   class->return_connection = evd_web_service_return_connection;
   class->respond = evd_web_service_respond;
   class->flush_and_return_connection = evd_web_service_flush_and_return_connection;
+  class->log = evd_web_service_log;
 
   service_class->connection_accepted = evd_web_service_connection_accepted;
 
@@ -427,6 +435,39 @@ evd_web_service_build_log_entry (EvdWebService      *self,
   g_free (path);
 
   return entry;
+}
+
+static gboolean
+evd_web_service_log (EvdWebService      *self,
+                     EvdHttpConnection  *conn,
+                     EvdHttpRequest     *request,
+                     guint               status_code,
+                     gsize               content_size,
+                     GError            **error)
+{
+  gchar *log_entry;
+
+  /* @TODO: provide a 'log-format' property to EvdWebService to use here */
+  log_entry = evd_web_service_build_log_entry (self,
+                                               NULL,
+                                               conn,
+                                               request,
+                                               status_code,
+                                               content_size,
+                                               error);
+
+  if (log_entry == NULL)
+    return FALSE;
+
+  g_signal_emit (self,
+                 evd_web_service_signals[SIGNAL_LOG_ENTRY],
+                 0,
+                 log_entry,
+                 NULL);
+
+  g_free (log_entry);
+
+  return TRUE;
 }
 
 /* public methods */
