@@ -409,7 +409,7 @@ evd_web_service_build_log_entry (EvdWebService      *self,
     referer = "-";
 
   date = g_date_time_new_now_local ();
-  date_str = g_date_time_format (date, "%e/%b/%Y:%H:%M:%S %z");
+  date_str = g_date_time_format (date, "%d/%b/%Y:%H:%M:%S %z");
   g_date_time_unref (date);
 
   if (! evd_http_request_get_basic_auth_credentials (request, &user, NULL))
