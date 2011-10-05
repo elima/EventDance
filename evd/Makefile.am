@@ -11,10 +11,16 @@ jslibdir = $(libdir)/@EVD_API_NAME@/js
 
 CLEANFILES = *~ @EVD_API_NAME@.pc
 
-AM_CFLAGS = $(GLIB_CFLAGS) -Wall -Werror -g3 -O0 -ggdb \
+AM_CFLAGS = $(GLIB_CFLAGS) -Wall \
 	-DPKGDATADIR="\"$(pkgdatadir)\"" \
 	-DJSLIBDIR="\"$(jslibdir)\"" \
 	-DENABLE_TESTS="\"$(enable_tests)\""
+
+if ENABLE_DEBUG
+AM_CFLAGS += -Werror -g3 -O0 -ggdb
+else
+AM_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
+endif
 
 evd-marshal.h: evd-marshal.list
 	glib-genmarshal --header \

@@ -117,6 +117,14 @@ AC_ARG_ENABLE(tests,
 
 AM_CONDITIONAL(ENABLE_TESTS, test x"${enable_tests}" = x"yes")
 
+# Debug
+AC_ARG_ENABLE(debug,
+        AS_HELP_STRING([--enable-debug[=@<:@no/yes@:>@]],
+                [Enable debug mode by adding -ggdb, -g3, -O0 and -Werror to CFLAGS [default=no]]),,
+                [enable_debug=no])
+
+AM_CONDITIONAL(ENABLE_DEBUG, test x"${enable_debug}" = x"yes")
+
 # Output files
 AC_OUTPUT([
 	Makefile
@@ -135,6 +143,7 @@ echo ""
 echo "              Install prefix:   ${prefix}"
 echo "    Build introspection data:   ${enable_introspection}"
 echo "     Build API documentation:   ${enable_gtk_doc}"
+echo "           Enable debug mode:   ${enable_debug}"
 echo "      Enable automated tests:   ${enable_tests}"
 echo "     Enable Javascript tests:   ${enable_js}"
 echo ""

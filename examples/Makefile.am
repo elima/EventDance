@@ -10,8 +10,13 @@ AM_CFLAGS = \
 	$(JSON_CFLAGS) \
 	$(SOUP_CFLAGS) \
 	-DEXAMPLES_COMMON_DIR="\"$(examples_common_dir)\"" \
-	-Wall -g3 -O0 -ggdb \
 	-I$(top_srcdir)/evd
+
+if ENABLE_DEBUG
+AM_CFLAGS += -Werror -g3 -O0 -ggdb
+else
+AM_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
+endif
 
 AM_LIBS = \
 	$(GLIB_LIBS) \
