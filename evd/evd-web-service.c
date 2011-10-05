@@ -417,7 +417,7 @@ evd_web_service_build_log_entry (EvdWebService      *self,
 
   path = evd_http_request_get_path (request);
 
-  entry = g_strdup_printf ("%s - %s [%s] \"%s %s HTTP/1.%d\" %u %lu \"%s\" \"%s\"",
+  entry = g_strdup_printf ("%s - %s [%s] \"%s %s HTTP/1.%d\" %u %" G_GSIZE_FORMAT " \"%s\" \"%s\"",
                            remote_addr,
                            user,
                            date_str,
@@ -425,7 +425,7 @@ evd_web_service_build_log_entry (EvdWebService      *self,
                            path,
                            evd_http_message_get_version (EVD_HTTP_MESSAGE (request)),
                            status_code,
-                           (guint64) content_size,
+                           content_size,
                            referer,
                            user_agent);
 
