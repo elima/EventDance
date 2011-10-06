@@ -113,9 +113,6 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
     _init: function (args) {
         this._peerId = args.peerId;
-        this._onConnect = args.onConnect;
-        this._onReceive = args.onReceive;
-        this._onSend = args.onSend;
         this._onError = args.onError;
 
         this._nrReceivers = 1;
@@ -125,6 +122,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         this._receivers = [];
 
         this._opened = false;
+        this._connected = false;
 
         this._activeXhrs = [];
 
@@ -174,7 +172,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             msg = data.substr (hdr_len, msg_len);
             data = data.substr (hdr_len + msg_len);
 
-            this._onReceive (msg, null);
+            this._fireEvent ("receive", [msg, null]);
         }
     },
 
@@ -189,6 +187,11 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
         };
 
         xhr.onreadystatechange = function () {
+            if (! self._connected && this.readyState == 1 && ! this._sender) {
+                self._connected = true;
+                self._fireEvent ("connect", [true, null]);
+            }
+
             if (this.readyState != 4)
                 return;
 
@@ -203,13 +206,13 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
                 error.code = this.status;
 
                 if (this._sender)
-                    self._onSend (false, error);
+                    self._fireEvent ("send", [false, error]);
                 else
-                    self._onReceive (null, error);
+                    self._fireEvent ("receive", [null, error]);
             }
             else {
                 if (this._sender)
-                    self._onSend (true, null);
+                    self._fireEvent ("send", [true, null]);
                 else
                     setTimeout (function () {
                                     self._connect ();
@@ -305,6 +308,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
     close: function (gracefully) {
         this._opened = false;
+        this._connected = false;
 
         var xhr;
 
@@ -336,10 +340,6 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
 
     _init: function (args) {
         this._peerId = args.peerId;
-        this._onConnect = args.onConnect;
-        this._onReceive = args.onReceive;
-        this._onSend = args.onSend;
-        this._onDisconnect = args.onDisconnect;
     },
 
     open: function (address, callback) {
@@ -352,16 +352,27 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
     _connect: function () {
         var self = this;
 
+        if (this._ws != null) {
+            this._ws.onopen = null;
+            this._ws.onmessage = null;
+            this._ws.onerror = null;
+            this._onclose = null;
+        }
+
         this._ws = new WebSocket (this._addr + "?" + this._peerId);
         this._ws.onopen = function () {
             self._connected = true;
 
-            self._onConnect (true, null);
-            self._onSend (true, null);
+            self._fireEvent ("connect", [true, null]);
+            self._fireEvent ("send", [true, null]);
         };
 
         this._ws.onmessage = function (e) {
-            self._onReceive (e.data, null);
+            self._fireEvent ("receive", [e.data, null]);
+        };
+
+        this._ws.onerror = function (e) {
+            alert (e);
         };
 
         this._ws.onclose = function (e) {
@@ -373,7 +384,7 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
             var fatal = ! self._connected;
             self._connected = false;
 
-            self._onDisconnect (fatal);
+            self._fireEvent ("disconnect", [fatal]);
         };
     },
 
@@ -383,7 +394,7 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
 
     send: function (data) {
         this._ws.send (data);
-        this._onSend (true, null);
+        this._fireEvent ("send", [true, null]);
     },
 
     reconnect: function () {
@@ -404,11 +415,13 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
 Evd.WebTransport = new Evd.Constructor ();
 Evd.WebTransport.prototype = new Evd.Object (Evd.WebTransport);
 
-Evd.WebTransport.DEFAULT_ADDR = "/transport";
-Evd.WebTransport.PEER_DATA_KEY = "org.eventdance.lib.WebTransport.data";
-Evd.WebTransport.PEER_ID_HEADER_NAME = "X-Org-EventDance-WebTransport-Peer-Id";
-Evd.WebTransport.MECHANISM_HEADER_NAME = "X-Org-EventDance-WebTransport-Mechanism";
-Evd.WebTransport.URL_HEADER_NAME = "X-Org-EventDance-WebTransport-Url";
+Evd.Object.extend (Evd.WebTransport, {
+    DEFAULT_ADDR: "/transport",
+    PEER_DATA_KEY: "org.eventdance.lib.WebTransport.data",
+    PEER_ID_HEADER_NAME: "X-Org-EventDance-WebTransport-Peer-Id",
+    MECHANISM_HEADER_NAME: "X-Org-EventDance-WebTransport-Mechanism",
+    URL_HEADER_NAME: "X-Org-EventDance-WebTransport-Url"
+});
 
 Evd.Object.extend (Evd.WebTransport.prototype, {
 
@@ -422,13 +435,29 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._outBuf = [];
         this._flushBuf = [];
         this._retryInterval = 500;
+        this._retryCount = 0;
 
         this._availableMechanisms = "long-polling";
         if (window["WebSocket"])
             this._availableMechanisms += ";web-socket";
     },
 
+    _onDisconnect: function (fatal) {
+        if (this._mechanismName == "web-socket" && this._retryCount > 3) {
+            this._availableMechanisms = this._availableMechanisms.replace (";web-socket", "");
+
+            fatal = true;
+        }
+
+        this._retry (fatal);
+    },
+
     _setupMechanism: function (peerId) {
+        if (this._transport != null) {
+            this._transport.removeAllEventListeners ();
+            this._transport = null;
+        }
+
         var transportProto = null;
 
         if (this._mechanismName == "long-polling")
@@ -437,33 +466,38 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             transportProto = Evd.WebSocket;
         else {
             // @TODO: raise error, failed to negotiate mechanism
-            alert ("No mechanism negotiated");
+            throw ("No mechanism can be negotiated");
             return;
         }
 
         var self = this;
 
-        this._transport = new transportProto ({
-            peerId: peerId,
-            onConnect: function (result, error) {
+        this._transport = new transportProto ({ peerId: peerId });
+
+        this._transport.addEventListener ("connect",
+            function (result, error) {
                 self._onConnect (result, error);
-            },
-            onReceive: function (msg, error) {
+            });
+        this._transport.addEventListener ("receive",
+            function (msg, error) {
                 self._onReceive (msg, error);
-            },
-            onSend: function (result, error) {
+            });
+        this._transport.addEventListener ("send",
+            function (result, error) {
                 self._onFlush (result, error);
-            },
-            onDisconnect: function (fatal) {
-                self._retry (fatal);
-            }
-        });
+            });
+        this._transport.addEventListener ("disconnect",
+            function (fatal) {
+                self._onDisconnect (fatal);
+            });
     },
 
     _handshake: function () {
         var self = this;
 
         this._peerId = null;
+
+        this._outBuf = [];
 
         var xhr = new XMLHttpRequest ();
 
@@ -487,10 +521,8 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
                  });
                 peer[Evd.WebTransport.PEER_DATA_KEY] = {};
 
-                self._transport.open (self._mechanismUrl);
-
                 self._peer = peer;
-                self._fireEvent ("new-peer", [peer]);
+                self._transport.open (self._mechanismUrl);
             }
             else {
                 self._retry (false);
@@ -503,8 +535,13 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         xhr.send ("");
     },
 
+    _connect: function (peer) {
+    },
+
     _onConnect: function (result, error) {
-        // @TODO
+        this._retryCount = 0;
+
+        this._fireEvent ("new-peer", [this._peer]);
     },
 
     open: function (address) {
@@ -591,6 +628,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             if (this._peer)
                 this._closePeer (this._peer, false);
 
+            this._retryCount++;
             this._handshake ();
         }
         else {
@@ -630,11 +668,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             gracefully = true;
 
         if (this._transport) {
-            this._transport.onConnect = null;
-            this._transport.onDisconnect = null;
-            this._transport.onSend = null;
-            this._transport.onReceive = null;
-
+            this._transport.removeAllEventListeners ();
             this._transport.close (gracefully);
             this._transport = null;
         }
