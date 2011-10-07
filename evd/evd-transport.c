@@ -555,3 +555,39 @@ evd_transport_reject_peer (EvdTransport *self, EvdPeer *peer)
       return FALSE;
     }
 }
+
+/**
+ * evd_transport_get_peer_manager:
+ *
+ * Returns: (transfer none):
+ **/
+EvdPeerManager *
+evd_transport_get_peer_manager (EvdTransport *self)
+{
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  return EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
+}
+
+/**
+ * evd_transport_set_peer_manager:
+ *
+ **/
+void
+evd_transport_set_peer_manager (EvdTransport   *self,
+                                EvdPeerManager *peer_manager)
+{
+  EvdTransportInterface *iface;
+
+  g_return_if_fail (EVD_IS_TRANSPORT (self));
+  g_return_if_fail (EVD_IS_PEER_MANAGER (peer_manager));
+
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
+
+  if (iface->peer_manager != peer_manager)
+    {
+      g_object_unref (iface->peer_manager);
+      iface->peer_manager = peer_manager;
+      g_object_ref (iface->peer_manager);
+    }
+}

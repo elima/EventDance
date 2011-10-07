@@ -128,6 +128,10 @@ gboolean        evd_transport_accept_peer                   (EvdTransport *self,
 gboolean        evd_transport_reject_peer                   (EvdTransport *self,
                                                              EvdPeer      *peer);
 
+EvdPeerManager *evd_transport_get_peer_manager              (EvdTransport *self);
+void            evd_transport_set_peer_manager              (EvdTransport   *self,
+                                                             EvdPeerManager *peer_manager);
+
 G_END_DECLS
 
 #endif /* __EVD_TRANSPORT_H__ */
