@@ -308,10 +308,19 @@ evd_peer_is_alive (EvdPeer *self)
   g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
 
   return
-    g_timer_elapsed (self->priv->idle_timer, NULL) <=
-    self->priv->timeout_interval ||
-    evd_transport_peer_is_connected (self->priv->transport,
-                                     self);
+    ! self->priv->closed &&
+    (g_timer_elapsed (self->priv->idle_timer, NULL) <=
+     self->priv->timeout_interval ||
+     evd_transport_peer_is_connected (self->priv->transport,
+                                      self));
+}
+
+gboolean
+evd_peer_is_closed (EvdPeer *self)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+
+  return self->priv->closed;
 }
 
 gboolean
