@@ -35,7 +35,7 @@
                                            EVD_TYPE_LONG_POLLING, \
                                            EvdLongPollingPrivate))
 
-#define PEER_DATA_KEY       "org.eventdance.lib.LongPolling"
+#define PEER_DATA_KEY       "org.eventdance.lib.LongPolling.PEER_DATA"
 #define CONN_PEER_KEY_GET   PEER_DATA_KEY ".GET"
 #define CONN_PEER_KEY_POST  PEER_DATA_KEY ".POST"
 
@@ -278,6 +278,15 @@ evd_long_polling_resolve_action (EvdLongPolling *self,
 }
 
 static void
+evd_long_polling_free_peer_data (gpointer _data)
+{
+  EvdLongPollingPeerData *data = _data;
+
+  g_queue_free (data->conns);
+  g_free (data);
+}
+
+static void
 evd_long_polling_request_handler (EvdWebService     *web_service,
                                   EvdHttpConnection *conn,
                                   EvdHttpRequest    *request)
@@ -317,7 +326,10 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
           data = g_new0 (EvdLongPollingPeerData, 1);
           data->conns = g_queue_new ();
 
-          g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, data);
+          g_object_set_data_full (G_OBJECT (peer),
+                                  PEER_DATA_KEY,
+                                  data,
+                                  evd_long_polling_free_peer_data);
         }
 
       g_object_ref (conn);
@@ -610,9 +622,6 @@ evd_long_polling_peer_closed (EvdTransport *transport,
 
       g_object_unref (conn);
     }
-  g_queue_free (data->conns);
-
-  g_free (data);
 
   g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
 }
