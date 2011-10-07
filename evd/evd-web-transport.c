@@ -51,6 +51,8 @@
 
 #define VALIDATE_PEER_ARGS_DATA_KEY "org.eventdance.lib.WebTransport.VALIDATE_PEER_ARGS"
 
+#define PEER_DATA_KEY "org.eventdance.lib.WebTransport.PEER_DATA"
+
 /* private data */
 struct _EvdWebTransportPrivate
 {
@@ -399,74 +401,34 @@ evd_web_transport_on_peer_closed (EvdTransport *transport,
 }
 
 static gboolean
-evd_web_transport_validate_peer_transport (EvdWebTransport  *self,
-                                           EvdTransport     *peer_transport,
-                                           GError          **error)
-{
-  if (peer_transport != EVD_TRANSPORT (self->priv->lp) &&
-      peer_transport != EVD_TRANSPORT (self->priv->ws))
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_INVALID_DATA,
-                           "Invalid peer transport");
-
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-static gboolean
 evd_web_transport_send (EvdTransport  *transport,
                         EvdPeer       *peer,
                         const gchar   *buffer,
                         gsize          size,
                         GError       **error)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (transport);
   EvdTransport *_transport;
-  gssize result = 0;
 
-  g_object_get (peer, "transport", &_transport, NULL);
+  _transport = g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
+  g_assert (EVD_IS_TRANSPORT (_transport));
 
-  if (! evd_web_transport_validate_peer_transport (self, _transport, error)
-      || ! evd_transport_send (_transport,
-                               peer,
-                               buffer,
-                               size,
-                               error))
-    {
-      result = FALSE;
-    }
-  else
-    {
-      result = TRUE;
-    }
-
-  g_object_unref (_transport);
-
-  return result;
+  return evd_transport_send (_transport,
+                             peer,
+                             buffer,
+                             size,
+                             error);
 }
 
 static gboolean
 evd_web_transport_peer_is_connected (EvdTransport *transport,
                                      EvdPeer      *peer)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (transport);
   EvdTransport *_transport;
-  gboolean result = FALSE;
 
-  g_object_get (peer, "transport", &_transport, NULL);
+  _transport = g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
+  g_assert (EVD_IS_TRANSPORT (_transport));
 
-  if (! evd_web_transport_validate_peer_transport (self, transport, NULL))
-    result = FALSE;
-  else
-    result = evd_transport_peer_is_connected (_transport, peer);
-
-  g_object_unref (_transport);
-
-  return result;
+  return evd_transport_peer_is_connected (_transport, peer);
 }
 
 static void
@@ -581,6 +543,7 @@ evd_web_transport_handshake (EvdWebTransport   *self,
   const gchar *mechanisms;
   EvdPeer *peer;
   const gchar *mechanism = NULL;
+  EvdTransport *actual_transport;
 
   req_headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
@@ -605,17 +568,20 @@ evd_web_transport_handshake (EvdWebTransport   *self,
   self->priv->peer_arg_conn = conn;
   self->priv->peer_arg_request = request;
 
+  /* create peer */
+  peer = evd_transport_create_new_peer (EVD_TRANSPORT (self));
+
   /* choose among client's supported transports */
   if (self->priv->enable_ws &&
       g_strstr_len (mechanisms, -1, WEB_SOCKET_MECHANISM_NAME) != NULL)
     {
       mechanism = WEB_SOCKET_MECHANISM_NAME;
-      peer = evd_transport_create_new_peer (EVD_TRANSPORT (self->priv->ws));
+      actual_transport = EVD_TRANSPORT (self->priv->ws);
     }
   else if (g_strstr_len (mechanisms, -1, LONG_POLLING_MECHANISM_NAME) != NULL)
     {
       mechanism = LONG_POLLING_MECHANISM_NAME;
-      peer = evd_transport_create_new_peer (EVD_TRANSPORT (self->priv->lp));
+      actual_transport = EVD_TRANSPORT (self->priv->lp);
     }
 
   /* teardown peer arguments */
@@ -635,6 +601,13 @@ evd_web_transport_handshake (EvdWebTransport   *self,
                  NULL);
       return;
     }
+
+  /* associate peer with its initial transport */
+  g_object_ref (actual_transport);
+  g_object_set_data_full (G_OBJECT (peer),
+                          PEER_DATA_KEY,
+                          actual_transport,
+                          g_object_unref);
 
   /* check result of peer validation (triggered by call to create_new_peer()) */
   if (self->priv->validate_peer_result == EVD_VALIDATE_ACCEPT)
@@ -689,6 +662,19 @@ evd_web_transport_handshake (EvdWebTransport   *self,
   g_object_unref (peer);
 }
 
+static EvdWebService *
+get_actual_transport_from_path (EvdWebTransport *self,
+                                const gchar     *path)
+{
+  if (g_strstr_len (path, -1, self->priv->lp_base_path) == path)
+    return EVD_WEB_SERVICE (self->priv->lp);
+  else if (self->priv->enable_ws &&
+           g_strstr_len (path, -1, self->priv->ws_base_path) == path)
+    return EVD_WEB_SERVICE (self->priv->ws);
+  else
+    return NULL;
+}
+
 static void
 evd_web_transport_on_request (EvdWebService     *web_service,
                               EvdHttpConnection *conn,
@@ -696,6 +682,7 @@ evd_web_transport_on_request (EvdWebService     *web_service,
 {
   EvdWebTransport *self = EVD_WEB_TRANSPORT (web_service);
   SoupURI *uri;
+  EvdWebService *actual_service;
 
   uri = evd_http_request_get_uri (request);
 
@@ -704,24 +691,43 @@ evd_web_transport_on_request (EvdWebService     *web_service,
     {
       evd_web_transport_handshake (self, conn, request);
     }
-  /* long-polling? */
-  else if (g_strstr_len (uri->path, -1, self->priv->lp_base_path) == uri->path)
+  /* longpolling or websocket? */
+  else if ((actual_service =
+            get_actual_transport_from_path (self, uri->path)) != NULL)
     {
-      evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->lp),
+      EvdPeer *peer;
+      EvdTransport *current_transport;
+
+      if (uri->query == NULL ||
+          (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
+                                             uri->query)) == NULL)
+        {
+          EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
+                                                     conn,
+                                                     SOUP_STATUS_NOT_FOUND,
+                                                     NULL,
+                                                     NULL,
+                                                     0,
+                                                     NULL);
+          return;
+        }
+
+      current_transport = EVD_TRANSPORT (g_object_get_data (G_OBJECT (peer),
+                                                            PEER_DATA_KEY));
+      if (current_transport != EVD_TRANSPORT (actual_service))
+        {
+          g_object_ref (actual_service);
+          g_object_set_data_full (G_OBJECT (peer),
+                                  PEER_DATA_KEY,
+                                  actual_service,
+                                  g_object_unref);
+        }
+
+      evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (actual_service),
                                                    conn,
                                                    request,
                                                    NULL);
     }
-  /* web-socket? */
-  else if (self->priv->enable_ws &&
-           g_strstr_len (uri->path, -1, self->priv->ws_base_path) == uri->path)
-    {
-      evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (self->priv->ws),
-                                                   conn,
-                                                   request,
-                                                   NULL);
-    }
-  /* transport's static content */
   else
     {
       EVD_WEB_SERVICE_CLASS (evd_web_transport_parent_class)->
@@ -756,7 +762,15 @@ evd_web_transport_set_base_path (EvdWebTransport *self,
 static gboolean
 evd_web_transport_accept_peer (EvdTransport *transport, EvdPeer *peer)
 {
+  EvdPeerManager *peer_manager;
   ValidatePeerData *data;
+
+  peer_manager = evd_transport_get_peer_manager (transport);
+
+  evd_peer_manager_add_peer (peer_manager, peer);
+
+  EVD_TRANSPORT_GET_INTERFACE (transport)->
+    notify_new_peer (transport, peer);
 
   data = g_object_get_data (G_OBJECT (peer), VALIDATE_PEER_ARGS_DATA_KEY);
   if (data == NULL)
