@@ -35,6 +35,8 @@ G_DEFINE_TYPE (EvdPeerManager, evd_peer_manager, G_TYPE_OBJECT)
 
 #define DEFAULT_PEER_CLEANUP_INTERVAL 5 /* seconds */
 
+#define PEER_DATA_KEY "org.eventdance.lib.PeerManager.PEER_DATA"
+
 /* private data */
 struct _EvdPeerManagerPrivate
 {
@@ -209,6 +211,23 @@ evd_peer_manager_cleanup_peers (EvdPeerManager *self)
     }
 }
 
+static gboolean
+evd_peer_manager_notify_new_peer (gpointer user_data)
+{
+  EvdPeerManager *self;
+  EvdPeer *peer;
+
+  peer = EVD_PEER (user_data);
+  self = EVD_PEER_MANAGER (g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY));
+
+  g_signal_emit (self, evd_peer_manager_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
+
+  g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
+  g_object_unref (self);
+
+  return FALSE;
+}
+
 /* public methods */
 
 /**
@@ -237,35 +256,18 @@ evd_peer_manager_new (void)
   return self;
 }
 
-static gboolean
-evd_peer_manager_notify_new_peer (gpointer user_data)
-{
-  EvdPeerManager *self;
-  EvdPeer *peer;
-
-  peer = EVD_PEER (user_data);
-  self = EVD_PEER_MANAGER (g_object_get_data (G_OBJECT (peer), "peer-manager"));
-
-  g_object_ref (peer);
-  g_hash_table_insert (self->priv->peers,
-                       g_strdup (evd_peer_get_id (peer)),
-                       peer);
-
-  g_signal_emit (self, evd_peer_manager_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
-
-  g_object_set_data (G_OBJECT (peer), "peer-manager", NULL);
-  g_object_unref (self);
-
-  return FALSE;
-}
-
 void
 evd_peer_manager_add_peer (EvdPeerManager *self, EvdPeer *peer)
 {
   g_return_if_fail (EVD_IS_PEER_MANAGER (self));
   g_return_if_fail (EVD_IS_PEER (peer));
 
-  g_object_set_data (G_OBJECT (peer), "peer-manager", self);
+  g_object_ref (peer);
+  g_hash_table_insert (self->priv->peers,
+                       g_strdup (evd_peer_get_id (peer)),
+                       peer);
+
+  g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, self);
   g_object_ref (self);
 
   evd_timeout_add (g_main_context_get_thread_default (),
