@@ -48,7 +48,7 @@ static void     evd_web_service_connection_accepted         (EvdService    *serv
 static void     evd_web_service_return_connection           (EvdWebService     *self,
                                                              EvdHttpConnection *conn);
 
-static gboolean evd_web_service_respond                     (EvdWebService       *self,
+static gboolean evd_web_service_respond_internal            (EvdWebService       *self,
                                                              EvdHttpConnection   *conn,
                                                              guint                status_code,
                                                              SoupMessageHeaders  *headers,
@@ -73,7 +73,7 @@ evd_web_service_class_init (EvdWebServiceClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
   class->return_connection = evd_web_service_return_connection;
-  class->respond = evd_web_service_respond;
+  class->respond = evd_web_service_respond_internal;
   class->flush_and_return_connection = evd_web_service_flush_and_return_connection;
   class->log = evd_web_service_log;
 
@@ -288,13 +288,13 @@ evd_web_service_flush_and_return_connection (EvdWebService     *self,
 }
 
 static gboolean
-evd_web_service_respond (EvdWebService       *self,
-                         EvdHttpConnection   *conn,
-                         guint                status_code,
-                         SoupMessageHeaders  *headers,
-                         const gchar         *content,
-                         gsize                size,
-                         GError             **error)
+evd_web_service_respond_internal (EvdWebService       *self,
+                                  EvdHttpConnection   *conn,
+                                  guint                status_code,
+                                  SoupMessageHeaders  *headers,
+                                  const gchar         *content,
+                                  gsize                size,
+                                  GError             **error)
 {
   EvdHttpRequest *request;
   SoupHTTPVersion ver;
@@ -514,4 +514,30 @@ evd_web_service_add_connection_with_request (EvdWebService     *self,
 
   return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                                   G_IO_STREAM (conn));
+}
+
+gboolean
+evd_web_service_respond (EvdWebService       *self,
+                         EvdHttpConnection   *conn,
+                         guint                status_code,
+                         SoupMessageHeaders  *headers,
+                         const gchar         *content,
+                         gsize                size,
+                         GError             **error)
+{
+  EvdWebServiceClass *class;
+
+  g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
+
+  class = EVD_WEB_SERVICE_GET_CLASS (self);
+
+  g_assert (class->respond != NULL);
+  return class->respond (self,
+                         conn,
+                         status_code,
+                         headers,
+                         content,
+                         size,
+                         error);
 }
