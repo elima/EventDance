@@ -441,7 +441,7 @@ evd_transport_peer_is_connected (EvdTransport *self,
   return EVD_TRANSPORT_GET_INTERFACE (self)->peer_is_connected (self, peer);
 }
 
-gboolean
+void
 evd_transport_close_peer (EvdTransport  *self,
                           EvdPeer       *peer,
                           gboolean       gracefully,
@@ -451,12 +451,12 @@ evd_transport_close_peer (EvdTransport  *self,
   EvdPeerManager *peer_manager;
   gpointer bag;
 
-  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
-  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+  g_return_if_fail (EVD_IS_TRANSPORT (self));
+  g_return_if_fail (EVD_IS_PEER (peer));
 
   bag = g_object_get_data (G_OBJECT (peer), PEER_CLOSING_KEY);
   if (bag != NULL)
-    return TRUE;
+    return;
 
   g_object_ref (self);
   g_object_set_data (G_OBJECT (peer), PEER_CLOSING_KEY, self);
@@ -479,8 +479,6 @@ evd_transport_close_peer (EvdTransport  *self,
   g_object_unref (self);
 
   g_object_unref (peer);
-
-  return TRUE;
 }
 
 EvdPeer *
