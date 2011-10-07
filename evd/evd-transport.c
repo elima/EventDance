@@ -241,29 +241,36 @@ evd_transport_receive_internal (EvdTransport *self,
   msg->size = 0;
 }
 
-static void
-evd_transport_notify_new_peer (EvdTransport *self,
-                               EvdPeer      *peer)
-{
-  g_signal_emit (self, evd_transport_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
-}
-
 static gboolean
 evd_transport_notify_new_peer_cb (gpointer user_data)
 {
   EvdPeer *peer =  EVD_PEER (user_data);
-  EvdTransport *self;
 
-  /* @TODO: check if peer is still open */
+  if (! evd_peer_is_closed (peer))
+    {
+      EvdTransport *self;
 
-  g_object_get (peer, "transport", &self, NULL);
+      g_object_get (peer, "transport", &self, NULL);
 
-  evd_transport_notify_new_peer (self, peer);
+      g_signal_emit (self, evd_transport_signals[SIGNAL_NEW_PEER], 0, peer, NULL);
+
+      g_object_unref (self);
+    }
 
   g_object_unref (peer);
-  g_object_unref (self);
 
   return FALSE;
+}
+
+static void
+evd_transport_notify_new_peer (EvdTransport *self, EvdPeer *peer)
+{
+  g_object_ref (peer);
+  evd_timeout_add (NULL,
+                   0,
+                   G_PRIORITY_DEFAULT,
+                   evd_transport_notify_new_peer_cb,
+                   peer);
 }
 
 static EvdPeer *
@@ -326,12 +333,7 @@ evd_transport_accept_peer_internal (EvdTransport *self, EvdPeer *peer)
 
   evd_peer_manager_add_peer (peer_manager, peer);
 
-  g_object_ref (peer);
-  evd_timeout_add (NULL,
-                   0,
-                   G_PRIORITY_DEFAULT,
-                   evd_transport_notify_new_peer_cb,
-                   peer);
+  evd_transport_notify_new_peer (self, peer);
 
   return TRUE;
 }
