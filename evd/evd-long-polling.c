@@ -304,10 +304,13 @@ evd_long_polling_request_handler (EvdWebService     *web_service,
       (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
                                          uri->query)) == NULL)
     {
-      evd_http_connection_respond_simple (conn,
-                                          SOUP_STATUS_NOT_FOUND,
-                                          NULL,
-                                          0);
+      EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
+                                                 conn,
+                                                 SOUP_STATUS_NOT_FOUND,
+                                                 NULL,
+                                                 NULL,
+                                                 0,
+                                                 NULL);
       return;
     }
 
