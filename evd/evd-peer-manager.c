@@ -44,6 +44,7 @@ struct _EvdPeerManagerPrivate
 
   GTimer *peer_cleanup_timer;
   guint peer_cleanup_interval;
+  guint peer_cleanup_src_id;
 
   GQueue *removal_list;
 };
@@ -144,6 +145,9 @@ evd_peer_manager_finalize (GObject *obj)
   g_hash_table_unref (self->priv->peers);
 
   g_timer_destroy (self->priv->peer_cleanup_timer);
+
+  if (self->priv->peer_cleanup_src_id != 0)
+    g_source_remove (self->priv->peer_cleanup_src_id);
 
   G_OBJECT_CLASS (evd_peer_manager_parent_class)->finalize (obj);
 
@@ -279,6 +283,18 @@ evd_peer_manager_add_peer (EvdPeerManager *self, EvdPeer *peer)
   evd_peer_manager_cleanup_peers (self);
 }
 
+static gboolean
+evd_peer_manager_cleanup_peers_cb (gpointer user_data)
+{
+  EvdPeerManager *self = EVD_PEER_MANAGER (user_data);
+
+  self->priv->peer_cleanup_src_id = 0;
+
+  evd_peer_manager_cleanup_peers (self);
+
+  return FALSE;
+}
+
 /**
  * evd_peer_manager_lookup_peer:
  *
@@ -292,10 +308,16 @@ evd_peer_manager_lookup_peer (EvdPeerManager *self, const gchar *id)
   g_return_val_if_fail (EVD_IS_PEER_MANAGER (self), NULL);
   g_return_val_if_fail (id != NULL, NULL);
 
-  evd_peer_manager_cleanup_peers (self);
-
   peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
                                         (gconstpointer) id));
+
+  /* trigger a peer cleanup in idle */
+  self->priv->peer_cleanup_src_id =
+    evd_timeout_add (NULL,
+                     0,
+                     G_PRIORITY_DEFAULT,
+                     evd_peer_manager_cleanup_peers_cb,
+                     self);
 
   return peer;
 }

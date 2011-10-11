@@ -712,6 +712,8 @@ evd_web_transport_on_request (EvdWebService     *web_service,
           return;
         }
 
+      evd_peer_touch (peer);
+
       current_transport = EVD_TRANSPORT (g_object_get_data (G_OBJECT (peer),
                                                             PEER_DATA_KEY));
       if (current_transport != EVD_TRANSPORT (actual_service))
