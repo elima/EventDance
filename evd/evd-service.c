@@ -130,7 +130,7 @@ evd_service_class_init (EvdServiceClass *class)
   g_object_class_install_property (obj_class, PROP_TLS_AUTOSTART,
                                    g_param_spec_boolean ("tls-autostart",
                                                          "Autostart TLS in connections",
-                                                         "Returns TRUE if TLS upgrade should be performed automatically upon incomming connections",
+                                                         "Returns TRUE if TLS upgrade should be performed automatically upon incoming connections",
                                                          FALSE,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
