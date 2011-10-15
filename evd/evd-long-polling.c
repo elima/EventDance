@@ -541,6 +541,8 @@ evd_long_polling_select_conn_and_send (EvdLongPolling  *self,
   if (g_queue_get_length (data->conns) == 0)
     return FALSE;
 
+  evd_peer_touch (peer);
+
   conn = EVD_HTTP_CONNECTION (g_queue_pop_head (data->conns));
 
   if (evd_long_polling_actual_send (self,
