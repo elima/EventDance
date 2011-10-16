@@ -781,3 +781,59 @@ evd_jsonrpc_unuse_transport (EvdJsonrpc *self, EvdTransport *transport)
                                             self);
     }
 }
+
+/**
+ * evd_jsonrpc_send_notification:
+ * @params: (allow-none):
+ * @context: (allow-none):
+ * @error: (allow-none):
+ *
+ * Returns:
+ **/
+gboolean
+evd_jsonrpc_send_notification (EvdJsonrpc   *self,
+                               const gchar  *notification_name,
+                               JsonNode     *params,
+                               gpointer      context,
+                               GError      **error)
+{
+  gboolean result = FALSE;
+  gchar *msg;
+
+  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
+  g_return_val_if_fail (notification_name != NULL, FALSE);
+
+  if ((context == NULL || ! EVD_IS_PEER (context)) &&
+      self->priv->write_cb == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_CLOSED,
+                   "Failed to send notificaton, no transport associated");
+      return FALSE;
+    }
+
+  msg = evd_jsonrpc_build_message (self,
+                                   TRUE,
+                                   notification_name,
+                                   NULL,
+                                   params,
+                                   NULL);
+
+  if (! evd_jsonrpc_transport_write (self,
+                                     msg,
+                                     strlen (msg),
+                                     context,
+                                     error))
+    {
+      result = FALSE;
+    }
+  else
+    {
+      result = TRUE;
+    }
+
+  g_free (msg);
+
+  return result;
+}

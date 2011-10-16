@@ -53,25 +53,34 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
         }
         else if (msg["method"] !== undefined && msg["params"] !== undefined) {
             /* a JSON-RPC request */
-            var self = this;
-            var invObj = this._newInvocationObj (msg.id,
-                                                 msg.method,
-                                                 msg.params,
-                                                 null);
-            var key = invObj.id.toString ();
-            this._invocationsIn[key] = invObj;
 
-            if (this._registeredMethods[invObj.method]) {
-                this._registeredMethods[invObj.method] (this,
-                                                        invObj.params,
-                                                        key,
-                                                        context);
+            if (msg.id === null) {
+                /* a JSON-RPC notification */
+                this._fireEvent (msg.method, [msg.params, context]);
             }
-            else if (this._methodCallCb)
-                this._methodCallCb (invObj.method, invObj.params, key, context);
             else {
-                // method not handled, respond call with error
-                this.respondError (key, "Method '"+invObj.method+"' not handled", context);
+                /* a JSON-RPC method call */
+
+                var self = this;
+                var invObj = this._newInvocationObj (msg.id,
+                                                     msg.method,
+                                                     msg.params,
+                                                     null);
+                var key = invObj.id.toString ();
+                this._invocationsIn[key] = invObj;
+
+                if (this._registeredMethods[invObj.method]) {
+                    this._registeredMethods[invObj.method] (this,
+                                                            invObj.params,
+                                                            key,
+                                                            context);
+                }
+                else if (this._methodCallCb)
+                    this._methodCallCb (invObj.method, invObj.params, key, context);
+                else {
+                    // method not handled, respond call with error
+                    this.respondError (key, "Method '"+invObj.method+"' not handled", context);
+                }
             }
         }
         else {
@@ -163,5 +172,19 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
 
     unuseTransport: function (transport) {
         transport.removeEventListener ("receive", this._transportOnReceive);
+    },
+
+    sendNotification: function (notificationName, params, context) {
+        // @TODO: validate params to be an array
+
+        var msg = {
+            id: null,
+            method: methodName,
+            params: params
+        };
+
+        var msgSt = JSON.stringify (msg);
+
+        this._transportWrite (msgSt, context);
     }
 });

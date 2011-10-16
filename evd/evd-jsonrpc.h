@@ -114,6 +114,12 @@ void                 evd_jsonrpc_use_transport                (EvdJsonrpc   *sel
 void                 evd_jsonrpc_unuse_transport              (EvdJsonrpc   *self,
                                                                EvdTransport *transport);
 
+gboolean             evd_jsonrpc_send_notification            (EvdJsonrpc   *self,
+                                                               const gchar  *notification_name,
+                                                               JsonNode     *params,
+                                                               gpointer      context,
+                                                               GError      **error);
+
 G_END_DECLS
 
 #endif /* __EVD_JSONRPC_H__ */
