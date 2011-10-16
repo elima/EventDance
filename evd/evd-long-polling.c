@@ -591,6 +591,8 @@ evd_long_polling_remove (EvdIoStreamGroup *io_stream_group,
     {
       EvdLongPollingPeerData *data;
 
+      evd_peer_touch (peer);
+
       g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, NULL);
 
       data = g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);

@@ -440,7 +440,15 @@ evd_transport_peer_is_connected (EvdTransport *self,
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
   g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
 
-  return EVD_TRANSPORT_GET_INTERFACE (self)->peer_is_connected (self, peer);
+  if (EVD_TRANSPORT_GET_INTERFACE (self)->peer_is_connected (self, peer))
+    {
+      evd_peer_touch (peer);
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
 }
 
 void
