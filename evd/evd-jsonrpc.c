@@ -392,12 +392,13 @@ evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
 
   parser = json_parser_new ();
 
-  g_assert (json_parser_load_from_data (parser,
-                                        buffer,
-                                        size,
-                                        NULL));
+  json_parser_load_from_data (parser,
+                              buffer,
+                              size,
+                              NULL);
 
   root = json_parser_get_root (parser);
+  g_assert (root != NULL);
 
   if (! JSON_NODE_HOLDS_OBJECT (root))
     {
