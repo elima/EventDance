@@ -48,6 +48,16 @@ struct _EvdIoStreamGroupClass
                             GIOStream        *io_stream);
   gboolean (* remove)      (EvdIoStreamGroup *self,
                             GIOStream        *io_stream);
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_IO_STREAM_GROUP           (evd_io_stream_group_get_type ())

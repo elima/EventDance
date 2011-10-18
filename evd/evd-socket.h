@@ -79,6 +79,16 @@ struct _EvdSocketClass
   void (* new_connection) (EvdSocket *self,
                            GIOStream *socket,
                            gpointer   user_data);
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_SOCKET           (evd_socket_get_type ())

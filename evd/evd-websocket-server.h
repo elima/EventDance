@@ -33,11 +33,24 @@ typedef struct _EvdWebsocketServerClass EvdWebsocketServerClass;
 struct _EvdWebsocketServer
 {
   EvdWebService parent;
+
+  /* padding for future private struct */
+  gpointer _padding_;
 };
 
 struct _EvdWebsocketServerClass
 {
   EvdWebServiceClass parent_class;
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_WEBSOCKET_SERVER           (evd_websocket_server_get_type ())

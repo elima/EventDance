@@ -37,6 +37,9 @@ typedef struct _EvdWebServiceClass EvdWebServiceClass;
 struct _EvdWebService
 {
   EvdService parent;
+
+  /* padding for future private struct */
+  gpointer _padding_;
 };
 
 struct _EvdWebServiceClass
@@ -76,6 +79,16 @@ struct _EvdWebServiceClass
   void (* signal_log_entry)       (EvdWebService *self,
                                    const gchar   *entry,
                                    gpointer       user_data);
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_WEB_SERVICE           (evd_web_service_get_type ())

@@ -42,6 +42,16 @@ struct _EvdBufferedInputStream
 struct _EvdBufferedInputStreamClass
 {
   GBufferedInputStreamClass parent_class;
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_BUFFERED_INPUT_STREAM           (evd_buffered_input_stream_get_type ())

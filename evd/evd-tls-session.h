@@ -56,6 +56,16 @@ struct _EvdTlsSession
 struct _EvdTlsSessionClass
 {
   GObjectClass parent_class;
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_TLS_SESSION           (evd_tls_session_get_type ())

@@ -55,6 +55,16 @@ struct _EvdConnectionClass
                           EvdIoStreamGroup *old_group,
                           gpointer          user_data);
   void (* write)         (EvdConnection *self);
+
+  /* padding for future expansion */
+  void (* _padding_0_) (void);
+  void (* _padding_1_) (void);
+  void (* _padding_2_) (void);
+  void (* _padding_3_) (void);
+  void (* _padding_4_) (void);
+  void (* _padding_5_) (void);
+  void (* _padding_6_) (void);
+  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_CONNECTION           (evd_connection_get_type ())
