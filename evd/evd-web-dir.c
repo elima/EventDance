@@ -51,7 +51,7 @@ typedef struct
 {
   EvdWebDir *web_dir;
   GFile *file;
-  GFileIOStream *file_io_stream;
+  GFileInputStream *file_input_stream;
   EvdHttpConnection *conn;
   EvdHttpRequest *request;
   void *buffer;
@@ -254,8 +254,8 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
   g_object_unref (binding->request);
 
   g_object_unref (binding->file);
-  if (binding->file_io_stream != NULL)
-    g_object_unref (binding->file_io_stream);
+  if (binding->file_input_stream != NULL)
+    g_object_unref (binding->file_input_stream);
 
   if (binding->buffer != NULL)
     g_slice_free1 (BLOCK_SIZE, binding->buffer);
@@ -343,7 +343,7 @@ evd_web_dir_file_read_block (EvdWebDirBinding *binding)
 {
   GInputStream *stream;
 
-  stream = g_io_stream_get_input_stream (G_IO_STREAM (binding->file_io_stream));
+  stream = G_INPUT_STREAM (binding->file_input_stream);
 
   if (! g_input_stream_has_pending (stream) &&
       evd_connection_get_max_writable (EVD_CONNECTION (binding->conn)) > 0)
@@ -367,9 +367,9 @@ evd_web_dir_file_on_open (GObject      *object,
   GFile *file = G_FILE (object);
   GError *error = NULL;
 
-  if ( (binding->file_io_stream = g_file_open_readwrite_finish (file,
-                                                               res,
-                                                               &error)) != NULL)
+  if ( (binding->file_input_stream = g_file_read_finish (file,
+                                                         res,
+                                                         &error)) != NULL)
     {
       binding->buffer = g_slice_alloc (BLOCK_SIZE);
 
@@ -474,11 +474,11 @@ evd_web_dir_file_on_info (GObject      *object,
       binding->response_status_code = SOUP_STATUS_OK;
 
       /* now open file */
-      g_file_open_readwrite_async (file,
-                                   evd_connection_get_priority (EVD_CONNECTION (conn)),
-                                   NULL,
-                                   evd_web_dir_file_on_open,
-                                   binding);
+      g_file_read_async (file,
+                         evd_connection_get_priority (EVD_CONNECTION (conn)),
+                         NULL,
+                         evd_web_dir_file_on_open,
+                         binding);
     }
   else
     {
@@ -497,7 +497,7 @@ evd_web_dir_conn_on_write (EvdConnection *conn, gpointer user_data)
 {
   EvdWebDirBinding *binding = (EvdWebDirBinding *) user_data;
 
-  if (binding->file_io_stream != NULL)
+  if (binding->file_input_stream != NULL)
     evd_web_dir_file_read_block (binding);
 }
 
