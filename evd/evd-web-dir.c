@@ -333,6 +333,8 @@ evd_web_dir_file_on_block_read (GObject      *object,
     }
   else
     {
+      /* @TODO: do proper logging */
+      g_debug ("Error reading file block: %s", error->message);
       evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
     }
@@ -377,6 +379,8 @@ evd_web_dir_file_on_open (GObject      *object,
     }
   else
     {
+      /* @TODO: do proper logging */
+      g_debug ("Error opening file: %s", error->message);
       evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
     }
