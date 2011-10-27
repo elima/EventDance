@@ -80,6 +80,10 @@ gboolean            evd_daemon_set_user                (EvdDaemon    *self,
                                                         const gchar  *username,
                                                         GError      **error);
 
+void                evd_daemon_set_pid_file            (EvdDaemon   *self,
+                                                        const gchar *pid_file);
+const gchar *       evd_daemon_get_pid_file            (EvdDaemon *self);
+
 G_END_DECLS
 
 #endif /* __EVD_DAEMON_H__ */

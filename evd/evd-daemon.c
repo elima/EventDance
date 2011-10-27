@@ -29,6 +29,7 @@
 #include <string.h>
 #include <pwd.h>
 
+#include <glib/gprintf.h>
 #include <gio/gio.h>
 
 #include "evd-daemon.h"
@@ -51,6 +52,8 @@ struct _EvdDaemonPrivate
   gboolean daemonized;
 
   gint exit_code;
+
+  gchar *pid_file;
 };
 
 static EvdDaemon *evd_daemon_default = NULL;
@@ -85,6 +88,8 @@ evd_daemon_init (EvdDaemon *self)
   priv->daemonized = FALSE;
 
   priv->exit_code = 0;
+
+  priv->pid_file = NULL;
 }
 
 static void
@@ -93,6 +98,8 @@ evd_daemon_finalize (GObject *obj)
   EvdDaemon *self = EVD_DAEMON (obj);
 
   g_main_loop_unref (self->priv->main_loop);
+
+  g_free (self->priv->pid_file);
 
   G_OBJECT_CLASS (evd_daemon_parent_class)->finalize (obj);
 
@@ -183,6 +190,20 @@ evd_daemon_run (EvdDaemon *self, GError **error)
   if (! self->priv->daemonized && self->priv->daemonize)
     {
       if (! evd_daemon_daemonize (self, error))
+        return -1;
+    }
+
+  /* write PID file */
+  if (self->priv->pid_file != NULL)
+    {
+      gint pid;
+      gint len;
+      gchar buf[10];
+
+      pid = getpid ();
+      len = g_sprintf (buf, "%d", pid);
+
+      if (! g_file_set_contents (self->priv->pid_file, buf, len, error))
         return -1;
     }
 
@@ -342,4 +363,30 @@ evd_daemon_set_user (EvdDaemon    *self,
     }
 
   return evd_daemon_set_user_id (self, buf->pw_uid, error);
+}
+
+void
+evd_daemon_set_pid_file (EvdDaemon *self, const gchar *pid_file)
+{
+  g_return_if_fail (EVD_IS_DAEMON (self));
+
+  if (g_main_loop_is_running (self->priv->main_loop))
+    {
+      g_warning ("Ignoring PID file change because daemon is already running");
+      return;
+    }
+
+  g_free (self->priv->pid_file);
+  self->priv->pid_file = NULL;
+
+  if (pid_file != NULL)
+    self->priv->pid_file = g_strdup (pid_file);
+}
+
+const gchar *
+evd_daemon_get_pid_file (EvdDaemon *self)
+{
+  g_return_val_if_fail (EVD_IS_DAEMON (self), NULL);
+
+  return self->priv->pid_file;
 }
