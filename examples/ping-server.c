@@ -102,7 +102,7 @@ main (gint argc, gchar *argv[])
   g_free (addr);
 
   /* start the show */
-  evd_daemon_run (evd_daemon);
+  evd_daemon_run (evd_daemon, NULL);
 
   /* free stuff */
   g_object_unref (transport);

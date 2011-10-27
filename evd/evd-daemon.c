@@ -174,29 +174,26 @@ evd_daemon_get_main_loop (EvdDaemon *self)
 }
 
 gint
-evd_daemon_run (EvdDaemon *self)
+evd_daemon_run (EvdDaemon *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_DAEMON (self), -1);
+  g_return_val_if_fail (! g_main_loop_is_running (self->priv->main_loop), -1);
 
+  /* daemonize */
   if (! self->priv->daemonized && self->priv->daemonize)
     {
-      GError *error = NULL;
-
-      if (! evd_daemon_daemonize (self, &error))
-        {
-          /* @TODO: log error */
-          g_debug ("Error daemonizing: %s", error->message);
-          g_error_free (error);
-          return -1;
-        }
+      if (! evd_daemon_daemonize (self, error))
+        return -1;
     }
 
+  /* hook SIGINT and SIGTERM if this is the default daemon */
   if (self == evd_daemon_default)
     {
       signal (SIGINT, evd_daemon_on_user_interrupt);
       signal (SIGTERM, evd_daemon_on_user_interrupt);
     }
 
+  /* finally, run the main loop */
   g_main_loop_run (self->priv->main_loop);
 
   return self->priv->exit_code;
