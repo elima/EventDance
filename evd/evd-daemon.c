@@ -251,7 +251,6 @@ evd_daemon_daemonize (EvdDaemon *self, GError **error)
 {
   pid_t pid, sid;
   gchar *err_st;
-  gchar *err_msg;
 
   errno = 0;
 
@@ -297,13 +296,12 @@ evd_daemon_daemonize (EvdDaemon *self, GError **error)
 
  error:
   err_st = strerror (errno);
-  err_msg = g_strdup_printf ("Failed to daemonize process: %s", err_st);
+  g_set_error (error,
+               G_IO_ERROR,
+               g_io_error_from_errno (errno),
+               "Failed to daemonize process: %s",
+               err_st);
   g_free (err_st);
-  g_set_error_literal (error,
-                       G_IO_ERROR,
-                       g_io_error_from_errno (errno),
-                       err_msg);
-  g_free (err_msg);
 
   return FALSE;
 }
