@@ -196,14 +196,15 @@ evd_daemon_run (EvdDaemon *self, GError **error)
   /* write PID file */
   if (self->priv->pid_file != NULL)
     {
+      const gint BUF_SIZE = 20;
       gint pid;
-      gint len;
-      gchar buf[10];
+      gchar buf[BUF_SIZE];
 
       pid = getpid ();
-      len = g_sprintf (buf, "%d", pid);
+      g_snprintf (buf, BUF_SIZE - 1, "%d\n", pid);
+      buf[BUF_SIZE - 1] = '\0';
 
-      if (! g_file_set_contents (self->priv->pid_file, buf, len, error))
+      if (! g_file_set_contents (self->priv->pid_file, buf, -1, error))
         return -1;
     }
 
