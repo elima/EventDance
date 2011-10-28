@@ -206,6 +206,23 @@ evd_daemon_run (EvdDaemon *self, GError **error)
 
       if (! g_file_set_contents (self->priv->pid_file, buf, -1, error))
         return -1;
+
+      /* force PID-file permissions to 00644 */
+      if (chmod (self->priv->pid_file,
+                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0)
+        {
+          gchar *err_st;
+
+          err_st = strerror (errno);
+          g_set_error (error,
+                       G_IO_ERROR,
+                       g_io_error_from_errno (errno),
+                       "Failed to set permissions on PID file: %s",
+                       err_st);
+          g_free (err_st);
+
+          return -1;
+        }
     }
 
   /* hook SIGINT and SIGTERM if this is the default daemon */
