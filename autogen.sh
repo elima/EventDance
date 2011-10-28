@@ -15,7 +15,7 @@ if test -z $GTKDOCIZE; then
         echo "*** No gtk-doc support ***"
         echo "EXTRA_DIST =" > gtk-doc.make
 else
-        gtkdocize || exit $?
+        gtkdocize --copy || exit $?
         # we need to patch gtk-doc.make to support pretty output with
         # libtool 1.x.  Should be fixed in the next version of gtk-doc.
         # To be more resilient with the various versions of gtk-doc one
