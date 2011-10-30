@@ -24,6 +24,7 @@
 #define __EVD_TRANSPORT_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
 
 #include <evd-utils.h>
 #include <evd-peer-manager.h>
@@ -68,6 +69,11 @@ struct _EvdTransportInterface
   gboolean  (* accept_peer)          (EvdTransport *self, EvdPeer *peer);
   gboolean  (* reject_peer)          (EvdTransport *self, EvdPeer *peer);
 
+  void      (* open)                 (EvdTransport       *self,
+                                      const gchar        *address,
+                                      GSimpleAsyncResult *async_result,
+                                      GCancellable       *cancellable);
+
   /* signals */
   void (* signal_receive)        (EvdTransport *self,
                                   EvdPeer      *peer,
@@ -106,11 +112,11 @@ struct _EvdTransportInterface
 
 GType           evd_transport_get_type                      (void);
 
-gboolean        evd_transport_send                          (EvdTransport *self,
+gboolean        evd_transport_send                          (EvdTransport  *self,
                                                              EvdPeer       *peer,
                                                              const gchar   *buffer,
                                                              gsize          size,
-                                                             GError        **error);
+                                                             GError       **error);
 gboolean        evd_transport_send_text                     (EvdTransport  *self,
                                                              EvdPeer       *peer,
                                                              const gchar   *text,
@@ -141,6 +147,15 @@ gboolean        evd_transport_reject_peer                   (EvdTransport *self,
 EvdPeerManager *evd_transport_get_peer_manager              (EvdTransport *self);
 void            evd_transport_set_peer_manager              (EvdTransport   *self,
                                                              EvdPeerManager *peer_manager);
+
+void            evd_transport_open                          (EvdTransport        *self,
+                                                             const gchar         *address,
+                                                             GCancellable        *cancellable,
+                                                             GAsyncReadyCallback  callback,
+                                                             gpointer             user_data);
+gboolean        evd_transport_open_finish                   (EvdTransport  *self,
+                                                             GAsyncResult  *result,
+                                                             GError       **error);
 
 G_END_DECLS
 

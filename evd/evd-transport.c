@@ -84,6 +84,7 @@ evd_transport_base_init (gpointer g_class)
   iface->notify_new_peer = evd_transport_notify_new_peer;
   iface->notify_peer_closed = evd_transport_notify_peer_closed;
   iface->notify_validate_peer = evd_transport_notify_validate_peer;
+  iface->open = NULL;
 
   if (! is_initialized)
     {
@@ -584,4 +585,43 @@ evd_transport_set_peer_manager (EvdTransport   *self,
       iface->peer_manager = peer_manager;
       g_object_ref (iface->peer_manager);
     }
+}
+
+void
+evd_transport_open (EvdTransport        *self,
+                    const gchar         *address,
+                    GCancellable        *cancellable,
+                    GAsyncReadyCallback  callback,
+                    gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+
+  g_return_if_fail (EVD_IS_TRANSPORT (self));
+  g_return_if_fail (address != NULL && address[0] != '\0');
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_transport_open);
+
+  if (EVD_TRANSPORT_GET_INTERFACE (self)->open != NULL)
+    EVD_TRANSPORT_GET_INTERFACE (self)->open (self,
+                                              address,
+                                              res,
+                                              cancellable);
+}
+
+gboolean
+evd_transport_open_finish (EvdTransport  *self,
+                           GAsyncResult  *result,
+                           GError       **error)
+{
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                        G_OBJECT (self),
+                                                        evd_transport_open),
+                        FALSE);
+
+  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                                  error);
 }
