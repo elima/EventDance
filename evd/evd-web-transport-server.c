@@ -1,5 +1,5 @@
 /*
- * evd-web-transport.c
+ * evd-web-transport-server.c
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
@@ -20,7 +20,7 @@
  * for more details.
  */
 
-#include "evd-web-transport.h"
+#include "evd-web-transport-server.h"
 #include "evd-transport.h"
 
 #include "evd-utils.h"
@@ -32,9 +32,9 @@
 #include "evd-long-polling.h"
 #include "evd-websocket-server.h"
 
-#define EVD_WEB_TRANSPORT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                            EVD_TYPE_WEB_TRANSPORT, \
-                                            EvdWebTransportPrivate))
+#define EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+                                                   EVD_TYPE_WEB_TRANSPORT_SERVER, \
+                                                   EvdWebTransportServerPrivate))
 
 #define DEFAULT_BASE_PATH "/transport"
 
@@ -49,12 +49,12 @@
 #define LONG_POLLING_MECHANISM_NAME "long-polling"
 #define WEB_SOCKET_MECHANISM_NAME   "web-socket"
 
-#define VALIDATE_PEER_ARGS_DATA_KEY "org.eventdance.lib.WebTransport.VALIDATE_PEER_ARGS"
+#define VALIDATE_PEER_ARGS_DATA_KEY "org.eventdance.lib.WebTransportServer.VALIDATE_PEER_ARGS"
 
-#define PEER_DATA_KEY "org.eventdance.lib.WebTransport.PEER_DATA"
+#define PEER_DATA_KEY "org.eventdance.lib.WebTransportServer.PEER_DATA"
 
 /* private data */
-struct _EvdWebTransportPrivate
+struct _EvdWebTransportServerPrivate
 {
   gchar *base_path;
   gchar *hs_base_path;
@@ -91,80 +91,80 @@ enum
   PROP_LP_SERVICE
 };
 
-static void     evd_web_transport_class_init           (EvdWebTransportClass *class);
-static void     evd_web_transport_init                 (EvdWebTransport *self);
+static void     evd_web_transport_server_class_init           (EvdWebTransportServerClass *class);
+static void     evd_web_transport_server_init                 (EvdWebTransportServer *self);
 
-static void     evd_web_transport_transport_iface_init (EvdTransportInterface *iface);
+static void     evd_web_transport_server_transport_iface_init (EvdTransportInterface *iface);
 
-static void     evd_web_transport_finalize             (GObject *obj);
-static void     evd_web_transport_dispose              (GObject *obj);
+static void     evd_web_transport_server_finalize             (GObject *obj);
+static void     evd_web_transport_server_dispose              (GObject *obj);
 
-static void     evd_web_transport_set_property         (GObject      *obj,
-                                                        guint         prop_id,
-                                                        const GValue *value,
-                                                        GParamSpec   *pspec);
-static void     evd_web_transport_get_property         (GObject    *obj,
-                                                        guint       prop_id,
-                                                        GValue     *value,
-                                                        GParamSpec *pspec);
+static void     evd_web_transport_server_set_property         (GObject      *obj,
+                                                               guint         prop_id,
+                                                               const GValue *value,
+                                                               GParamSpec   *pspec);
+static void     evd_web_transport_server_get_property         (GObject    *obj,
+                                                               guint       prop_id,
+                                                               GValue     *value,
+                                                               GParamSpec *pspec);
 
-static void     evd_web_transport_on_receive           (EvdTransport *transport,
-                                                        EvdPeer      *peer,
-                                                        gpointer      user_data);
-static void     evd_web_transport_on_new_peer          (EvdTransport *transport,
-                                                        EvdPeer      *peer,
-                                                        gpointer      user_data);
-static void     evd_web_transport_on_peer_closed       (EvdTransport *transport,
-                                                        EvdPeer      *peer,
-                                                        gboolean      gracefully,
-                                                        gpointer      user_data);
+static void     evd_web_transport_server_on_receive           (EvdTransport *transport,
+                                                               EvdPeer      *peer,
+                                                               gpointer      user_data);
+static void     evd_web_transport_server_on_new_peer          (EvdTransport *transport,
+                                                               EvdPeer      *peer,
+                                                               gpointer      user_data);
+static void     evd_web_transport_server_on_peer_closed       (EvdTransport *transport,
+                                                               EvdPeer      *peer,
+                                                               gboolean      gracefully,
+                                                               gpointer      user_data);
 
-static gboolean evd_web_transport_send                 (EvdTransport  *transport,
-                                                        EvdPeer       *peer,
-                                                        const gchar   *buffer,
-                                                        gsize          size,
-                                                        GError       **error);
+static gboolean evd_web_transport_server_send                 (EvdTransport  *transport,
+                                                               EvdPeer       *peer,
+                                                               const gchar   *buffer,
+                                                               gsize          size,
+                                                               GError       **error);
 
-static gboolean evd_web_transport_peer_is_connected    (EvdTransport *transport,
-                                                        EvdPeer      *peer);
+static gboolean evd_web_transport_server_peer_is_connected    (EvdTransport *transport,
+                                                               EvdPeer      *peer);
 
-static void     evd_web_transport_on_request           (EvdWebService     *self,
-                                                        EvdHttpConnection *conn,
-                                                        EvdHttpRequest    *request);
+static void     evd_web_transport_server_on_request           (EvdWebService     *self,
+                                                               EvdHttpConnection *conn,
+                                                               EvdHttpRequest    *request);
 
-static void     evd_web_transport_set_base_path        (EvdWebTransport *self,
-                                                        const gchar     *base_path);
+static void     evd_web_transport_server_set_base_path        (EvdWebTransportServer *self,
+                                                               const gchar     *base_path);
 
-static guint    evd_web_transport_on_validate_peer     (EvdTransport      *transport,
-                                                        EvdPeer           *peer,
-                                                        gpointer           user_data);
+static guint    evd_web_transport_server_on_validate_peer     (EvdTransport      *transport,
+                                                               EvdPeer           *peer,
+                                                               gpointer           user_data);
 
-static gboolean evd_web_transport_accept_peer          (EvdTransport *transport,
-                                                        EvdPeer      *peer);
-static gboolean evd_web_transport_reject_peer          (EvdTransport *transport,
-                                                        EvdPeer      *peer);
+static gboolean evd_web_transport_server_accept_peer          (EvdTransport *transport,
+                                                               EvdPeer      *peer);
+static gboolean evd_web_transport_server_reject_peer          (EvdTransport *transport,
+                                                               EvdPeer      *peer);
 
-static void     evd_web_transport_connect_signals      (EvdWebTransport *self,
-                                                        EvdTransport    *transport);
-static void     evd_web_transport_disconnect_signals   (EvdWebTransport *self,
-                                                        EvdTransport    *transport);
+static void     evd_web_transport_server_connect_signals      (EvdWebTransportServer *self,
+                                                               EvdTransport    *transport);
+static void     evd_web_transport_server_disconnect_signals   (EvdWebTransportServer *self,
+                                                               EvdTransport    *transport);
 
-G_DEFINE_TYPE_WITH_CODE (EvdWebTransport, evd_web_transport, EVD_TYPE_WEB_DIR,
+G_DEFINE_TYPE_WITH_CODE (EvdWebTransportServer, evd_web_transport_server, EVD_TYPE_WEB_DIR,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
-                                                evd_web_transport_transport_iface_init));
+                                                evd_web_transport_server_transport_iface_init));
 
 static void
-evd_web_transport_class_init (EvdWebTransportClass *class)
+evd_web_transport_server_class_init (EvdWebTransportServerClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
 
-  obj_class->dispose = evd_web_transport_dispose;
-  obj_class->finalize = evd_web_transport_finalize;
-  obj_class->get_property = evd_web_transport_get_property;
-  obj_class->set_property = evd_web_transport_set_property;
+  obj_class->dispose = evd_web_transport_server_dispose;
+  obj_class->finalize = evd_web_transport_server_finalize;
+  obj_class->get_property = evd_web_transport_server_get_property;
+  obj_class->set_property = evd_web_transport_server_set_property;
 
-  web_service_class->request_handler = evd_web_transport_on_request;
+  web_service_class->request_handler = evd_web_transport_server_on_request;
 
   g_object_class_install_property (obj_class, PROP_BASE_PATH,
                                    g_param_spec_string ("base-path",
@@ -190,34 +190,34 @@ evd_web_transport_class_init (EvdWebTransportClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_type_class_add_private (obj_class, sizeof (EvdWebTransportPrivate));
+  g_type_class_add_private (obj_class, sizeof (EvdWebTransportServerPrivate));
 }
 
 static void
-evd_web_transport_transport_iface_init (EvdTransportInterface *iface)
+evd_web_transport_server_transport_iface_init (EvdTransportInterface *iface)
 {
-  iface->send = evd_web_transport_send;
-  iface->peer_is_connected = evd_web_transport_peer_is_connected;
-  iface->accept_peer = evd_web_transport_accept_peer;
-  iface->reject_peer = evd_web_transport_reject_peer;
+  iface->send = evd_web_transport_server_send;
+  iface->peer_is_connected = evd_web_transport_server_peer_is_connected;
+  iface->accept_peer = evd_web_transport_server_accept_peer;
+  iface->reject_peer = evd_web_transport_server_reject_peer;
 }
 
 static void
-evd_web_transport_init (EvdWebTransport *self)
+evd_web_transport_server_init (EvdWebTransportServer *self)
 {
-  EvdWebTransportPrivate *priv;
+  EvdWebTransportServerPrivate *priv;
   const gchar *js_path;
 
-  priv = EVD_WEB_TRANSPORT_GET_PRIVATE (self);
+  priv = EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE (self);
   self->priv = priv;
 
   priv->selector = NULL;
 
   priv->lp = evd_long_polling_new ();
-  evd_web_transport_connect_signals (self, EVD_TRANSPORT (priv->lp));
+  evd_web_transport_server_connect_signals (self, EVD_TRANSPORT (priv->lp));
 
   priv->ws = evd_websocket_server_new ();
-  evd_web_transport_connect_signals (self, EVD_TRANSPORT (priv->ws));
+  evd_web_transport_server_connect_signals (self, EVD_TRANSPORT (priv->ws));
 
   js_path = g_getenv ("JSLIBDIR");
   if (js_path == NULL)
@@ -232,48 +232,50 @@ evd_web_transport_init (EvdWebTransport *self)
 }
 
 static void
-evd_web_transport_dispose (GObject *obj)
+evd_web_transport_server_dispose (GObject *obj)
 {
-  G_OBJECT_CLASS (evd_web_transport_parent_class)->dispose (obj);
+  G_OBJECT_CLASS (evd_web_transport_server_parent_class)->dispose (obj);
 }
 
 static void
-evd_web_transport_finalize (GObject *obj)
+evd_web_transport_server_finalize (GObject *obj)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (obj);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (obj);
 
   g_free (self->priv->lp_base_path);
-  evd_web_transport_disconnect_signals (self, EVD_TRANSPORT (self->priv->lp));
+  evd_web_transport_server_disconnect_signals (self,
+                                               EVD_TRANSPORT (self->priv->lp));
   g_object_unref (self->priv->lp);
 
   g_free (self->priv->ws_base_path);
-  evd_web_transport_disconnect_signals (self, EVD_TRANSPORT (self->priv->ws));
+  evd_web_transport_server_disconnect_signals (self,
+                                               EVD_TRANSPORT (self->priv->ws));
   g_object_unref (self->priv->ws);
 
   g_free (self->priv->hs_base_path);
   g_free (self->priv->base_path);
 
-  G_OBJECT_CLASS (evd_web_transport_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (evd_web_transport_server_parent_class)->finalize (obj);
 }
 
 static void
-evd_web_transport_set_property (GObject      *obj,
-                                guint         prop_id,
-                                const GValue *value,
-                                GParamSpec   *pspec)
+evd_web_transport_server_set_property (GObject      *obj,
+                                       guint         prop_id,
+                                       const GValue *value,
+                                       GParamSpec   *pspec)
 {
-  EvdWebTransport *self;
+  EvdWebTransportServer *self;
 
-  self = EVD_WEB_TRANSPORT (obj);
+  self = EVD_WEB_TRANSPORT_SERVER (obj);
 
   switch (prop_id)
     {
     case PROP_BASE_PATH:
-      evd_web_transport_set_base_path (self, g_value_get_string (value));
+      evd_web_transport_server_set_base_path (self, g_value_get_string (value));
       break;
 
     case PROP_SELECTOR:
-      evd_web_transport_set_selector (self, g_value_get_object (value));
+      evd_web_transport_server_set_selector (self, g_value_get_object (value));
       break;
 
     default:
@@ -283,23 +285,23 @@ evd_web_transport_set_property (GObject      *obj,
 }
 
 static void
-evd_web_transport_get_property (GObject    *obj,
-                                guint       prop_id,
-                                GValue     *value,
-                                GParamSpec *pspec)
+evd_web_transport_server_get_property (GObject    *obj,
+                                       guint       prop_id,
+                                       GValue     *value,
+                                       GParamSpec *pspec)
 {
-  EvdWebTransport *self;
+  EvdWebTransportServer *self;
 
-  self = EVD_WEB_TRANSPORT (obj);
+  self = EVD_WEB_TRANSPORT_SERVER (obj);
 
   switch (prop_id)
     {
     case PROP_BASE_PATH:
-      g_value_set_string (value, evd_web_transport_get_base_path (self));
+      g_value_set_string (value, evd_web_transport_server_get_base_path (self));
       break;
 
     case PROP_SELECTOR:
-      g_value_set_object (value, evd_web_transport_get_selector (self));
+      g_value_set_object (value, evd_web_transport_server_get_selector (self));
       break;
 
     case PROP_LP_SERVICE:
@@ -313,51 +315,51 @@ evd_web_transport_get_property (GObject    *obj,
 }
 
 static void
-evd_web_transport_connect_signals (EvdWebTransport *self,
-                                   EvdTransport    *transport)
+evd_web_transport_server_connect_signals (EvdWebTransportServer *self,
+                                          EvdTransport          *transport)
 {
   g_signal_connect (transport,
                     "receive",
-                    G_CALLBACK (evd_web_transport_on_receive),
+                    G_CALLBACK (evd_web_transport_server_on_receive),
                     self);
   g_signal_connect (transport,
                     "new-peer",
-                    G_CALLBACK (evd_web_transport_on_new_peer),
+                    G_CALLBACK (evd_web_transport_server_on_new_peer),
                     self);
   g_signal_connect (transport,
                     "peer-closed",
-                    G_CALLBACK (evd_web_transport_on_peer_closed),
+                    G_CALLBACK (evd_web_transport_server_on_peer_closed),
                     self);
   g_signal_connect (transport,
                     "validate-peer",
-                    G_CALLBACK (evd_web_transport_on_validate_peer),
+                    G_CALLBACK (evd_web_transport_server_on_validate_peer),
                     self);
 }
 
 static void
-evd_web_transport_disconnect_signals (EvdWebTransport *self,
-                                      EvdTransport    *transport)
+evd_web_transport_server_disconnect_signals (EvdWebTransportServer *self,
+                                             EvdTransport          *transport)
 {
   g_signal_handlers_disconnect_by_func (transport,
-                                        evd_web_transport_on_receive,
+                                        evd_web_transport_server_on_receive,
                                         self);
   g_signal_handlers_disconnect_by_func (transport,
-                                        evd_web_transport_on_new_peer,
+                                        evd_web_transport_server_on_new_peer,
                                         self);
   g_signal_handlers_disconnect_by_func (transport,
-                                        evd_web_transport_on_peer_closed,
+                                        evd_web_transport_server_on_peer_closed,
                                         self);
   g_signal_handlers_disconnect_by_func (transport,
-                                        evd_web_transport_on_validate_peer,
+                                        evd_web_transport_server_on_validate_peer,
                                         self);
 }
 
 static guint
-evd_web_transport_on_validate_peer (EvdTransport      *transport,
-                                    EvdPeer           *peer,
-                                    gpointer           user_data)
+evd_web_transport_server_on_validate_peer (EvdTransport      *transport,
+                                           EvdPeer           *peer,
+                                           gpointer           user_data)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
 
   self->priv->validate_peer_result =
     EVD_TRANSPORT_GET_INTERFACE (self)->
@@ -367,45 +369,45 @@ evd_web_transport_on_validate_peer (EvdTransport      *transport,
 }
 
 static void
-evd_web_transport_on_receive (EvdTransport *transport,
-                              EvdPeer      *peer,
-                              gpointer      user_data)
+evd_web_transport_server_on_receive (EvdTransport *transport,
+                                     EvdPeer      *peer,
+                                     gpointer      user_data)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
 
   EVD_TRANSPORT_GET_INTERFACE (self)->
     notify_receive (EVD_TRANSPORT (self), peer);
 }
 
 static void
-evd_web_transport_on_new_peer (EvdTransport *transport,
-                               EvdPeer      *peer,
-                               gpointer      user_data)
+evd_web_transport_server_on_new_peer (EvdTransport *transport,
+                                      EvdPeer      *peer,
+                                      gpointer      user_data)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
 
   EVD_TRANSPORT_GET_INTERFACE (self)->
     notify_new_peer (EVD_TRANSPORT (self), peer);
 }
 
 static void
-evd_web_transport_on_peer_closed (EvdTransport *transport,
+evd_web_transport_server_on_peer_closed (EvdTransport *transport,
                                   EvdPeer      *peer,
                                   gboolean      gracefully,
                                   gpointer      user_data)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (user_data);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
 
   EVD_TRANSPORT_GET_INTERFACE (self)->
     notify_peer_closed (EVD_TRANSPORT (self), peer, gracefully);
 }
 
 static gboolean
-evd_web_transport_send (EvdTransport  *transport,
-                        EvdPeer       *peer,
-                        const gchar   *buffer,
-                        gsize          size,
-                        GError       **error)
+evd_web_transport_server_send (EvdTransport  *transport,
+                               EvdPeer       *peer,
+                               const gchar   *buffer,
+                               gsize          size,
+                               GError       **error)
 {
   EvdTransport *_transport;
 
@@ -420,8 +422,8 @@ evd_web_transport_send (EvdTransport  *transport,
 }
 
 static gboolean
-evd_web_transport_peer_is_connected (EvdTransport *transport,
-                                     EvdPeer      *peer)
+evd_web_transport_server_peer_is_connected (EvdTransport *transport,
+                                            EvdPeer      *peer)
 {
   EvdTransport *_transport;
 
@@ -432,7 +434,7 @@ evd_web_transport_peer_is_connected (EvdTransport *transport,
 }
 
 static void
-evd_web_transport_associate_services (EvdWebTransport *self)
+evd_web_transport_server_associate_services (EvdWebTransportServer *self)
 {
   if (self->priv->selector != NULL)
     evd_web_selector_add_service (self->priv->selector,
@@ -443,7 +445,7 @@ evd_web_transport_associate_services (EvdWebTransport *self)
 }
 
 static void
-evd_web_transport_unassociate_services (EvdWebTransport *self)
+evd_web_transport_server_unassociate_services (EvdWebTransportServer *self)
 {
   if (self->priv->selector != NULL)
     evd_web_selector_remove_service (self->priv->selector,
@@ -453,11 +455,11 @@ evd_web_transport_unassociate_services (EvdWebTransport *self)
 }
 
 static void
-evd_web_transport_respond_handshake (EvdWebTransport   *self,
-                                     EvdPeer           *peer,
-                                     EvdHttpConnection *conn,
-                                     EvdHttpRequest    *request,
-                                     const gchar       *mechanism)
+evd_web_transport_server_respond_handshake (EvdWebTransportServer *self,
+                                            EvdPeer               *peer,
+                                            EvdHttpConnection     *conn,
+                                            EvdHttpRequest        *request,
+                                            const gchar           *mechanism)
 {
   SoupMessageHeaders *res_headers;
   gchar *mechanism_url;
@@ -510,7 +512,7 @@ evd_web_transport_respond_handshake (EvdWebTransport   *self,
 }
 
 static void
-evd_web_transport_free_validate_peer_args (gpointer _data)
+evd_web_transport_server_free_validate_peer_args (gpointer _data)
 {
   ValidatePeerData *data = _data;
 
@@ -521,23 +523,23 @@ evd_web_transport_free_validate_peer_args (gpointer _data)
 }
 
 static void
-evd_web_transport_conn_on_close (EvdConnection *conn, gpointer user_data)
+evd_web_transport_server_conn_on_close (EvdConnection *conn, gpointer user_data)
 {
   EvdPeer *peer = user_data;
 
   g_object_set_data (G_OBJECT (peer), VALIDATE_PEER_ARGS_DATA_KEY, NULL);
 
   g_signal_handlers_disconnect_by_func (conn,
-                                        evd_web_transport_conn_on_close,
+                                        evd_web_transport_server_conn_on_close,
                                         user_data);
 
   g_object_unref (peer);
 }
 
 static void
-evd_web_transport_handshake (EvdWebTransport   *self,
-                             EvdHttpConnection *conn,
-                             EvdHttpRequest    *request)
+evd_web_transport_server_handshake (EvdWebTransportServer *self,
+                                    EvdHttpConnection     *conn,
+                                    EvdHttpRequest        *request)
 {
   SoupMessageHeaders *req_headers;
   const gchar *mechanisms;
@@ -613,7 +615,7 @@ evd_web_transport_handshake (EvdWebTransport   *self,
   if (self->priv->validate_peer_result == EVD_VALIDATE_ACCEPT)
     {
       /* accept peer */
-      evd_web_transport_respond_handshake (self,
+      evd_web_transport_server_respond_handshake (self,
                                            peer,
                                            conn,
                                            request,
@@ -650,12 +652,12 @@ evd_web_transport_handshake (EvdWebTransport   *self,
       g_object_set_data_full (G_OBJECT (peer),
                               VALIDATE_PEER_ARGS_DATA_KEY,
                               data,
-                              evd_web_transport_free_validate_peer_args);
+                              evd_web_transport_server_free_validate_peer_args);
 
       g_object_ref (peer);
       g_signal_connect (conn,
                         "close",
-                        G_CALLBACK (evd_web_transport_conn_on_close),
+                        G_CALLBACK (evd_web_transport_server_conn_on_close),
                         peer);
     }
 
@@ -663,8 +665,8 @@ evd_web_transport_handshake (EvdWebTransport   *self,
 }
 
 static EvdWebService *
-get_actual_transport_from_path (EvdWebTransport *self,
-                                const gchar     *path)
+get_actual_transport_from_path (EvdWebTransportServer *self,
+                                const gchar           *path)
 {
   if (g_strstr_len (path, -1, self->priv->lp_base_path) == path)
     return EVD_WEB_SERVICE (self->priv->lp);
@@ -676,11 +678,11 @@ get_actual_transport_from_path (EvdWebTransport *self,
 }
 
 static void
-evd_web_transport_on_request (EvdWebService     *web_service,
-                              EvdHttpConnection *conn,
-                              EvdHttpRequest    *request)
+evd_web_transport_server_on_request (EvdWebService     *web_service,
+                                     EvdHttpConnection *conn,
+                                     EvdHttpRequest    *request)
 {
-  EvdWebTransport *self = EVD_WEB_TRANSPORT (web_service);
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (web_service);
   SoupURI *uri;
   EvdWebService *actual_service;
 
@@ -689,7 +691,7 @@ evd_web_transport_on_request (EvdWebService     *web_service,
   /* handshake? */
   if (g_strcmp0 (uri->path, self->priv->hs_base_path) == 0)
     {
-      evd_web_transport_handshake (self, conn, request);
+      evd_web_transport_server_handshake (self, conn, request);
     }
   /* longpolling or websocket? */
   else if ((actual_service =
@@ -732,7 +734,7 @@ evd_web_transport_on_request (EvdWebService     *web_service,
     }
   else
     {
-      EVD_WEB_SERVICE_CLASS (evd_web_transport_parent_class)->
+      EVD_WEB_SERVICE_CLASS (evd_web_transport_server_parent_class)->
         request_handler (web_service,
                          conn,
                          request);
@@ -740,13 +742,13 @@ evd_web_transport_on_request (EvdWebService     *web_service,
 }
 
 static void
-evd_web_transport_set_base_path (EvdWebTransport *self,
-                                 const gchar     *base_path)
+evd_web_transport_server_set_base_path (EvdWebTransportServer *self,
+                                        const gchar           *base_path)
 {
   g_return_if_fail (base_path != NULL);
 
   self->priv->base_path = g_strdup (base_path);
-  evd_web_transport_associate_services (self);
+  evd_web_transport_server_associate_services (self);
 
   self->priv->hs_base_path = g_strdup_printf ("%s/%s",
                                               self->priv->base_path,
@@ -762,7 +764,7 @@ evd_web_transport_set_base_path (EvdWebTransport *self,
 }
 
 static gboolean
-evd_web_transport_accept_peer (EvdTransport *transport, EvdPeer *peer)
+evd_web_transport_server_accept_peer (EvdTransport *transport, EvdPeer *peer)
 {
   EvdPeerManager *peer_manager;
   ValidatePeerData *data;
@@ -779,14 +781,14 @@ evd_web_transport_accept_peer (EvdTransport *transport, EvdPeer *peer)
     return FALSE;
 
   g_signal_handlers_disconnect_by_func (data->conn,
-                                        evd_web_transport_conn_on_close,
+                                        evd_web_transport_server_conn_on_close,
                                         peer);
 
-  evd_web_transport_respond_handshake (EVD_WEB_TRANSPORT (transport),
-                                       peer,
-                                       data->conn,
-                                       data->request,
-                                       data->mechanism);
+  evd_web_transport_server_respond_handshake (EVD_WEB_TRANSPORT_SERVER (transport),
+                                              peer,
+                                              data->conn,
+                                              data->request,
+                                              data->mechanism);
 
   g_object_set_data (G_OBJECT (peer), VALIDATE_PEER_ARGS_DATA_KEY, NULL);
 
@@ -796,7 +798,7 @@ evd_web_transport_accept_peer (EvdTransport *transport, EvdPeer *peer)
 }
 
 static gboolean
-evd_web_transport_reject_peer (EvdTransport *transport, EvdPeer *peer)
+evd_web_transport_server_reject_peer (EvdTransport *transport, EvdPeer *peer)
 {
   ValidatePeerData *data;
 
@@ -805,7 +807,7 @@ evd_web_transport_reject_peer (EvdTransport *transport, EvdPeer *peer)
     return FALSE;
 
   g_signal_handlers_disconnect_by_func (data->conn,
-                                        evd_web_transport_conn_on_close,
+                                        evd_web_transport_server_conn_on_close,
                                         peer);
 
   EVD_WEB_SERVICE_GET_CLASS (transport)->respond (EVD_WEB_SERVICE (transport),
@@ -825,74 +827,74 @@ evd_web_transport_reject_peer (EvdTransport *transport, EvdPeer *peer)
 
 /* public methods */
 
-EvdWebTransport *
-evd_web_transport_new (const gchar *base_path)
+EvdWebTransportServer *
+evd_web_transport_server_new (const gchar *base_path)
 {
   if (base_path == NULL)
     base_path = DEFAULT_BASE_PATH;
 
-  return g_object_new (EVD_TYPE_WEB_TRANSPORT,
+  return g_object_new (EVD_TYPE_WEB_TRANSPORT_SERVER,
                        "base-path", base_path,
                        NULL);
 }
 
 void
-evd_web_transport_set_selector (EvdWebTransport *self,
-                                EvdWebSelector  *selector)
+evd_web_transport_server_set_selector (EvdWebTransportServer *self,
+                                       EvdWebSelector        *selector)
 {
-  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
   g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
 
   if (self->priv->selector != NULL)
     {
-      evd_web_transport_unassociate_services (self);
+      evd_web_transport_server_unassociate_services (self);
       g_object_unref (self->priv->selector);
     }
 
   self->priv->selector = selector;
 
-  evd_web_transport_associate_services (self);
+  evd_web_transport_server_associate_services (self);
   g_object_ref (selector);
 }
 
 EvdWebSelector *
-evd_web_transport_get_selector (EvdWebTransport *self)
+evd_web_transport_server_get_selector (EvdWebTransportServer *self)
 {
-  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
+  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self), NULL);
 
   return self->priv->selector;
 }
 
 const gchar *
-evd_web_transport_get_base_path (EvdWebTransport *self)
+evd_web_transport_server_get_base_path (EvdWebTransportServer *self)
 {
-  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT (self), NULL);
+  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self), NULL);
 
   return self->priv->base_path;
 }
 
 void
-evd_web_transport_set_enable_websocket (EvdWebTransport *self,
-                                        gboolean         enabled)
+evd_web_transport_server_set_enable_websocket (EvdWebTransportServer *self,
+                                               gboolean               enabled)
 {
-  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
 
   self->priv->enable_ws = enabled;
 }
 
 /**
- * evd_web_transport_get_validate_peer_arguments:
+ * evd_web_transport_server_get_validate_peer_arguments:
  * @conn: (out) (allow-none) (transfer none):
  * @request: (out) (allow-none) (transfer none):
  *
  **/
 void
-evd_web_transport_get_validate_peer_arguments (EvdWebTransport    *self,
-                                               EvdPeer            *peer,
-                                               EvdHttpConnection **conn,
-                                               EvdHttpRequest    **request)
+evd_web_transport_server_get_validate_peer_arguments (EvdWebTransportServer  *self,
+                                                      EvdPeer                *peer,
+                                                      EvdHttpConnection     **conn,
+                                                      EvdHttpRequest        **request)
 {
-  g_return_if_fail (EVD_IS_WEB_TRANSPORT (self));
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
 
   if (conn != NULL)
     *conn = self->priv->peer_arg_conn;

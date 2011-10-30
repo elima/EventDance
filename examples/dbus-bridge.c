@@ -53,7 +53,7 @@ main (gint argc, gchar *argv[])
 {
   EvdDBusBridge *dbus_bridge;
   const gchar *session_bus_addr;
-  EvdWebTransport *transport;
+  EvdWebTransportServer *transport;
   EvdWebDir *web_dir;
   EvdWebSelector *selector;
   gchar *addr;
@@ -66,7 +66,7 @@ main (gint argc, gchar *argv[])
                                                       NULL);
 
   /* web transport */
-  transport = evd_web_transport_new (NULL);
+  transport = evd_web_transport_server_new (NULL);
   g_signal_connect (transport,
                     "new-peer",
                     G_CALLBACK (transport_on_new_peer),
@@ -83,7 +83,7 @@ main (gint argc, gchar *argv[])
   /* web selector */
   selector = evd_web_selector_new ();
   evd_web_selector_set_default_service (selector, EVD_SERVICE (web_dir));
-  evd_web_transport_set_selector (transport, selector);
+  evd_web_transport_server_set_selector (transport, selector);
 
   /* start listening */
   addr = g_strdup_printf ("0.0.0.0:%d", LISTEN_PORT);

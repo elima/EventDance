@@ -72,7 +72,7 @@ source_c = \
 	evd-connection-pool.c \
 	evd-reproxy.c \
 	evd-web-selector.c \
-	evd-web-transport.c \
+	evd-web-transport-server.c \
 	evd-http-message.c \
 	evd-http-request.c \
 	evd-web-dir.c \
@@ -120,7 +120,7 @@ source_h = \
 	evd-connection-pool.h \
 	evd-reproxy.h \
 	evd-web-selector.h \
-	evd-web-transport.h \
+	evd-web-transport-server.h \
 	evd-http-message.h \
 	evd-http-request.h \
 	evd-web-dir.h \

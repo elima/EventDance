@@ -53,7 +53,7 @@
 #include <evd-connection-pool.h>
 #include <evd-reproxy.h>
 #include <evd-web-selector.h>
-#include <evd-web-transport.h>
+#include <evd-web-transport-server.h>
 #include <evd-web-dir.h>
 #include <evd-dbus-agent.h>
 #include <evd-dbus-bridge.h>
