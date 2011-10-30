@@ -857,6 +857,11 @@ evd_web_transport_server_set_selector (EvdWebTransportServer *self,
   g_object_ref (selector);
 }
 
+/**
+ * evd_web_transport_server_get_selector:
+ *
+ * Returns: (transfer none):
+ **/
 EvdWebSelector *
 evd_web_transport_server_get_selector (EvdWebTransportServer *self)
 {

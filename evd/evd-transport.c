@@ -492,6 +492,11 @@ evd_transport_close_peer (EvdTransport  *self,
   g_object_unref (peer);
 }
 
+/**
+ * evd_transport_create_new_peer:
+ *
+ * Returns: (transfer full):
+ **/
 EvdPeer *
 evd_transport_create_new_peer (EvdTransport *self)
 {
@@ -506,6 +511,11 @@ evd_transport_create_new_peer (EvdTransport *self)
   return iface->create_new_peer (self);
 }
 
+/**
+ * evd_transport_lookup_peer:
+ *
+ * Returns: (transfer none):
+ **/
 EvdPeer *
 evd_transport_lookup_peer (EvdTransport *self, const gchar *peer_id)
 {

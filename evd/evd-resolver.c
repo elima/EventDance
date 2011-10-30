@@ -42,6 +42,11 @@ static void     evd_resolver_finalize           (GObject *obj);
 
 static EvdResolver *evd_resolver_default = NULL;
 
+/**
+ * evd_resolver_get_default:
+ *
+ * Returns: (transfer full):
+ **/
 EvdResolver *
 evd_resolver_get_default (void)
 {
@@ -248,7 +253,7 @@ evd_resolver_resolve_async (EvdResolver         *self,
 /**
  * evd_resolver_resolve_finish:
  *
- * Returns: (element-type GSocketAddress):
+ * Returns: (element-type GSocketAddress) (transfer full):
  **/
 GList *
 evd_resolver_resolve_finish (EvdResolver   *self,

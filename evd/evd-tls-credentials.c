@@ -444,6 +444,11 @@ evd_tls_credentials_prepare (EvdTlsCredentials  *self,
     }
 }
 
+/**
+ * evd_tls_credentials_get_credentials:
+ *
+ * Returns: (transfer none):
+ **/
 gpointer
 evd_tls_credentials_get_credentials (EvdTlsCredentials *self)
 {

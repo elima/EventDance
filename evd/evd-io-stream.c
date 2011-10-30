@@ -132,6 +132,11 @@ evd_io_stream_get_property (GObject    *obj,
 
 /* public methods */
 
+/**
+ * evd_io_stream_get_input_throttle:
+ *
+ * Returns: (transfer none):
+ **/
 EvdStreamThrottle *
 evd_io_stream_get_input_throttle (EvdIoStream *self)
 {
@@ -140,6 +145,11 @@ evd_io_stream_get_input_throttle (EvdIoStream *self)
   return self->priv->input_throttle;
 }
 
+/**
+ * evd_io_stream_get_output_throttle:
+ *
+ * Returns: (transfer none):
+ **/
 EvdStreamThrottle *
 evd_io_stream_get_output_throttle (EvdIoStream *self)
 {

@@ -432,6 +432,11 @@ evd_poll_new (void)
   return self;
 }
 
+/**
+ * evd_poll_get_default:
+ *
+ * Returns: (transfer full):
+ **/
 EvdPoll *
 evd_poll_get_default (void)
 {
@@ -447,6 +452,11 @@ evd_poll_get_default (void)
   return evd_poll_default;
 }
 
+/**
+ * evd_poll_add:
+ *
+ * Returns: (type any) (transfer none):
+ **/
 EvdPollSession *
 evd_poll_add (EvdPoll          *self,
               gint              fd,

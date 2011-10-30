@@ -516,6 +516,11 @@ evd_web_service_add_connection_with_request (EvdWebService     *self,
                                   G_IO_STREAM (conn));
 }
 
+/**
+ * evd_web_service_respond:
+ * @headers: (allow-none):
+ *
+ **/
 gboolean
 evd_web_service_respond (EvdWebService       *self,
                          EvdHttpConnection   *conn,

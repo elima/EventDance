@@ -97,6 +97,11 @@ evd_tls_deinit (void)
   G_UNLOCK (evd_tls_init);
 }
 
+/**
+ * evd_tls_free_certificates:
+ * @certificates: (element-type Evd.TlsCertificate):
+ *
+ **/
 void
 evd_tls_free_certificates (GList *certificates)
 {

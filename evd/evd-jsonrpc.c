@@ -575,6 +575,10 @@ evd_jsonrpc_transport_set_write_callback (EvdJsonrpc                 *self,
   self->priv->write_cb_user_data = user_data;
 }
 
+/**
+ * evd_jsonrpc_call_method:
+ * @params: (type Json.Node):
+ **/
 void
 evd_jsonrpc_call_method (EvdJsonrpc          *self,
                          const gchar         *method_name,

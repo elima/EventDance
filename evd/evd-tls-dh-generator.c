@@ -307,6 +307,11 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
                                        cancellable);
 }
 
+/**
+ * evd_tls_dh_generator_generate_finish:
+ *
+ * Returns: (transfer none):
+ **/
 gpointer
 evd_tls_dh_generator_generate_finish (EvdTlsDhGenerator  *self,
                                       GAsyncResult       *result,

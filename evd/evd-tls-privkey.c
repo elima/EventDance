@@ -441,6 +441,11 @@ evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self,
                                                   error);
 }
 
+/**
+ * evd_tls_privkey_get_native:
+ *
+ * Returns: (transfer none):
+ **/
 gpointer
 evd_tls_privkey_get_native (EvdTlsPrivkey *self)
 {
@@ -454,6 +459,11 @@ evd_tls_privkey_get_native (EvdTlsPrivkey *self)
     return NULL;
 }
 
+/**
+ * evd_tls_privkey_steal_native:
+ *
+ * Returns: (transfer full):
+ **/
 gpointer
 evd_tls_privkey_steal_native (EvdTlsPrivkey *self)
 {
@@ -469,6 +479,11 @@ evd_tls_privkey_steal_native (EvdTlsPrivkey *self)
   return native;
 }
 
+/**
+ * evd_tls_privkey_get_pki_key:
+ *
+ * Returns: (transfer full):
+ **/
 EvdPkiPrivkey *
 evd_tls_privkey_get_pki_key (EvdTlsPrivkey *self, GError **error)
 {

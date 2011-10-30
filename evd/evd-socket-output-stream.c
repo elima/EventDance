@@ -253,6 +253,11 @@ evd_socket_output_stream_set_socket (EvdSocketOutputStream *self,
   g_object_ref (self->priv->socket);
 }
 
+/**
+ * evd_socket_output_stream_get_socket:
+ *
+ * Returns: (transfer none):
+ **/
 EvdSocket *
 evd_socket_output_stream_get_socket (EvdSocketOutputStream *self)
 {

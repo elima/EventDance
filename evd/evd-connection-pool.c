@@ -476,6 +476,11 @@ evd_connection_pool_get_connection (EvdConnectionPool   *self,
     }
 }
 
+/**
+ * evd_connection_pool_get_connection_finish:
+ *
+ * Returns: (transfer full):
+ **/
 EvdConnection *
 evd_connection_pool_get_connection_finish (EvdConnectionPool  *self,
                                            GAsyncResult       *result,

@@ -422,6 +422,11 @@ evd_tls_certificate_import_from_file_finish (EvdTlsCertificate  *self,
                                                   error);
 }
 
+/**
+ * evd_tls_certificate_get_native:
+ *
+ * Returns: (transfer none):
+ **/
 gpointer
 evd_tls_certificate_get_native (EvdTlsCertificate *self)
 {
@@ -435,6 +440,11 @@ evd_tls_certificate_get_native (EvdTlsCertificate *self)
     return NULL;
 }
 
+/**
+ * evd_tls_certificate_steal_native:
+ *
+ * Returns: (transfer full):
+ **/
 gpointer
 evd_tls_certificate_steal_native (EvdTlsCertificate *self)
 {
@@ -631,6 +641,11 @@ evd_tls_certificate_verify_validity (EvdTlsCertificate  *self,
   return result;
 }
 
+/**
+ * evd_tls_certificate_get_pki_key:
+ *
+ * Returns: (transfer full):
+ **/
 EvdPkiPubkey *
 evd_tls_certificate_get_pki_key (EvdTlsCertificate *self, GError **error)
 {
