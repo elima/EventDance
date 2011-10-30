@@ -60,6 +60,7 @@ source_c = \
 	evd-tls-certificate.c \
 	evd-tls-privkey.c \
 	evd-tls-credentials.c \
+	evd-io-stream.c \
 	evd-connection.c \
 	evd-io-stream-group.c \
 	evd-http-connection.c \
@@ -108,6 +109,7 @@ source_h = \
 	evd-tls-certificate.h \
 	evd-tls-privkey.h \
 	evd-tls-credentials.h \
+	evd-io-stream.h \
 	evd-connection.h \
 	evd-io-stream-group.h \
 	evd-http-connection.h \
