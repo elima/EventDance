@@ -26,10 +26,10 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
+#include <evd-io-stream.h>
 #include <evd-socket.h>
 #include <evd-tls-session.h>
 #include <evd-io-stream-group.h>
-#include <evd-stream-throttle.h>
 
 G_BEGIN_DECLS
 
@@ -39,14 +39,14 @@ typedef struct _EvdConnectionPrivate EvdConnectionPrivate;
 
 struct _EvdConnection
 {
-  GIOStream parent;
+  EvdIoStream parent;
 
   EvdConnectionPrivate *priv;
 };
 
 struct _EvdConnectionClass
 {
-  GIOStreamClass parent_class;
+  EvdIoStreamClass parent_class;
 
   /* signal prototypes */
   void (* close)         (EvdConnection *self);
@@ -115,9 +115,6 @@ void               evd_connection_flush_and_shutdown   (EvdConnection  *self,
 
 gchar *            evd_connection_get_remote_address_as_string (EvdConnection  *self,
                                                                 GError        **error);
-
-EvdStreamThrottle *evd_connection_get_input_throttle   (EvdConnection *self);
-EvdStreamThrottle *evd_connection_get_output_throttle  (EvdConnection *self);
 
 G_END_DECLS
 

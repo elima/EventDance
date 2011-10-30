@@ -39,7 +39,7 @@
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
-G_DEFINE_TYPE (EvdConnection, evd_connection, G_TYPE_IO_STREAM)
+G_DEFINE_TYPE (EvdConnection, evd_connection, EVD_TYPE_IO_STREAM)
 
 #define EVD_CONNECTION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                          EVD_TYPE_CONNECTION, \
@@ -81,9 +81,6 @@ struct _EvdConnectionPrivate
   gboolean closing;
 
   EvdIoStreamGroup *group;
-
-  EvdStreamThrottle *input_throttle;
-  EvdStreamThrottle *output_throttle;
 
   gchar *remote_addr_st;
 };
@@ -233,22 +230,6 @@ evd_connection_class_init (EvdConnectionClass *class)
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_INPUT_THROTTLE,
-                                   g_param_spec_object ("input-throttle",
-                                                        "Input throttle object",
-                                                        "The connection's input throttle object",
-                                                        EVD_TYPE_STREAM_THROTTLE,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_OUTPUT_THROTTLE,
-                                   g_param_spec_object ("output-throttle",
-                                                        "Output throttle object",
-                                                        "The connection's output throttle object",
-                                                        EVD_TYPE_STREAM_THROTTLE,
-                                                        G_PARAM_READABLE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_type_class_add_private (obj_class, sizeof (EvdConnectionPrivate));
 }
 
@@ -278,9 +259,6 @@ evd_connection_init (EvdConnection *self)
 
   priv->group = NULL;
 
-  priv->input_throttle = evd_stream_throttle_new ();
-  priv->output_throttle = evd_stream_throttle_new ();
-
   priv->cond = 0;
 
   priv->remote_addr_st = NULL;
@@ -306,9 +284,6 @@ evd_connection_finalize (GObject *obj)
   EvdConnection *self = EVD_CONNECTION (obj);
 
   evd_connection_teardown_streams (self);
-
-  g_object_unref (self->priv->input_throttle);
-  g_object_unref (self->priv->output_throttle);
 
   g_object_unref (self->priv->socket);
 
@@ -375,14 +350,6 @@ evd_connection_get_property (GObject    *obj,
 
     case PROP_GROUP:
       g_value_set_object (value, self->priv->group);
-      break;
-
-    case PROP_INPUT_THROTTLE:
-      g_value_set_object (value, self->priv->input_throttle);
-      break;
-
-    case PROP_OUTPUT_THROTTLE:
-      g_value_set_object (value, self->priv->output_throttle);
       break;
 
     default:
@@ -834,6 +801,9 @@ evd_connection_delay_write (EvdThrottledOutputStream *stream,
 static void
 evd_connection_setup_streams (EvdConnection *self)
 {
+  EvdStreamThrottle *input_throttle;
+  EvdStreamThrottle *output_throttle;
+
   /* socket input stream */
   self->priv->socket_input_stream =
     evd_socket_input_stream_new (self->priv->socket);
@@ -853,12 +823,13 @@ evd_connection_setup_streams (EvdConnection *self)
                     self);
 
   /* throttled input stream */
+  input_throttle = evd_io_stream_get_input_throttle (EVD_IO_STREAM (self));
   self->priv->throt_input_stream =
     evd_throttled_input_stream_new (
                               G_INPUT_STREAM (self->priv->socket_input_stream));
 
   evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-                                           self->priv->input_throttle);
+                                           input_throttle);
 
   g_signal_connect (self->priv->throt_input_stream,
                     "delay-read",
@@ -866,12 +837,13 @@ evd_connection_setup_streams (EvdConnection *self)
                     self);
 
   /* throttled output stream */
+  output_throttle = evd_io_stream_get_output_throttle (EVD_IO_STREAM (self));
   self->priv->throt_output_stream =
     evd_throttled_output_stream_new (
                             G_OUTPUT_STREAM (self->priv->socket_output_stream));
 
   evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
-                                            self->priv->output_throttle);
+                                            output_throttle);
 
   g_signal_connect (self->priv->throt_output_stream,
                     "delay-write",
@@ -1384,22 +1356,6 @@ evd_connection_flush_and_shutdown (EvdConnection  *self,
                             cancellable,
                             evd_connection_shutdown_on_flush,
                             self);
-}
-
-EvdStreamThrottle *
-evd_connection_get_input_throttle (EvdConnection *self)
-{
-  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
-
-  return self->priv->input_throttle;
-}
-
-EvdStreamThrottle *
-evd_connection_get_output_throttle (EvdConnection *self)
-{
-  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
-
-  return self->priv->output_throttle;
 }
 
 gchar *
