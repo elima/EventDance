@@ -92,8 +92,8 @@
         All transport classes implement <ulink type="http" url="EvdTransport.html">EvdTransport</ulink>
         interface.
       </para>
-      <xi:include href="xml/evd-web-transport.xml"/>
-      <xi:include href="xml/evd-long-polling.xml"/>
+      <xi:include href="xml/evd-web-transport-server.xml"/>
+      <xi:include href="xml/evd-longpolling-server.xml"/>
     </chapter>
 
     <chapter>

@@ -29,7 +29,7 @@
 #include "evd-peer-manager.h"
 #include "evd-web-dir.h"
 
-#include "evd-long-polling.h"
+#include "evd-longpolling-server.h"
 #include "evd-websocket-server.h"
 
 #define EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -61,7 +61,7 @@ struct _EvdWebTransportServerPrivate
 
   EvdWebSelector *selector;
 
-  EvdLongPolling *lp;
+  EvdLongpollingServer *lp;
   gchar *lp_base_path;
 
   EvdWebsocketServer *ws;
@@ -186,7 +186,7 @@ evd_web_transport_server_class_init (EvdWebTransportServerClass *class)
                                    g_param_spec_object ("lp-service",
                                                         "Long-Polling service",
                                                         "Internal Long-Polling service used by this transport",
-                                                        EVD_TYPE_LONG_POLLING,
+                                                        EVD_TYPE_LONGPOLLING_SERVER,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -213,7 +213,7 @@ evd_web_transport_server_init (EvdWebTransportServer *self)
 
   priv->selector = NULL;
 
-  priv->lp = evd_long_polling_new ();
+  priv->lp = evd_longpolling_server_new ();
   evd_web_transport_server_connect_signals (self, EVD_TRANSPORT (priv->lp));
 
   priv->ws = evd_websocket_server_new ();
