@@ -208,6 +208,9 @@ introspection_sources = $(evd_HEADERS) $(source_c)
 
 INTROSPECTION_GIRS += @EVD_GIR_API_NAME@.gir
 
+girdir = $(datadir)/gir-1.0
+gir_DATA = $(INTROSPECTION_GIRS)
+
 typelibdir = $(libdir)/girepository-1.0
 typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
 
