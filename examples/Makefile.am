@@ -49,3 +49,15 @@ ping_server_SOURCES = ping-server.c
 dbus_bridge_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
 dbus_bridge_LDADD = $(AM_LIBS)
 dbus_bridge_SOURCES = dbus-bridge.c
+
+EXTRA_DIST = \
+	common/dbus-bridge-own-name.html \
+	common/dbus-bridge-proxy.html \
+	common/ping.html \
+	common/shared_image.html \
+	common/sharedImage.js \
+	js/dbusBridge.js \
+	js/pingServer.js \
+	js/sharedImage.js \
+	js/sharedImageServer.js \
+	python/dbus-bridge.py

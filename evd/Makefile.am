@@ -39,7 +39,6 @@ lib_LTLIBRARIES = lib@EVD_API_NAME@.la
 source_c = \
 	evd-error.c \
 	evd-utils.c \
-	evd-marshal.c \
 	evd-resolver.c \
 	evd-poll.c \
 	evd-socket.c \
@@ -139,7 +138,6 @@ source_h = \
 	evd-http-chunked-decoder.h
 
 source_h_priv = \
-	evd-marshal.h \
 	evd-poll.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h
@@ -178,6 +176,10 @@ lib@EVD_API_NAME@_la_SOURCES = \
 	$(source_h) \
 	$(source_h_priv)
 
+nodist_lib@EVD_API_NAME@_la_SOURCES = \
+	evd-marshal.c \
+	evd-marshal.h
+
 evddir = $(includedir)/@EVD_API_NAME@
 evd_HEADERS = \
 	$(source_h) \
@@ -206,9 +208,6 @@ introspection_sources = $(evd_HEADERS) $(source_c)
 
 INTROSPECTION_GIRS += @EVD_GIR_API_NAME@.gir
 
-girdir = $(datadir)/gir-1.0
-dist_gir_DATA = $(INTROSPECTION_GIRS)
-
 typelibdir = $(libdir)/girepository-1.0
 typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
 
@@ -217,3 +216,9 @@ endif
 
 maintainer-clean-local:
 	rm -rf tmp-introspect*
+
+EXTRA_DIST = \
+	evd-marshal.list \
+	js/evdWebTransport.js \
+	js/evdDBusBridge.js \
+	js/evdJsonrpc.js

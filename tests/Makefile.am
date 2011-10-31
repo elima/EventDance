@@ -91,3 +91,21 @@ test_all_js_SOURCES = test-all-js.c
 endif
 
 endif # ENABLE_TESTS
+
+EXTRA_DIST = \
+	certs/openpgp-server.asc \
+	certs/openpgp-server-key.asc \
+	certs/x509-ca-key.pem \
+	certs/x509-ca.pem \
+	certs/x509-jane-key.pem \
+	certs/x509-jane.p12 \
+	certs/x509-jane.pem \
+	certs/x509-mary-key.pem \
+	certs/x509-mary.p12 \
+	certs/x509-mary.pem \
+	certs/x509-server-key.pem \
+	certs/x509-server.pem \
+	js/common/assert.js \
+	js/common/test.js \
+	js/testResolver.js \
+	js/testTlsCertificate.js
