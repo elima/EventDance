@@ -20,7 +20,7 @@ DBUS_ADDR = 'alias:abstract=/org/eventdance/lib/examples/dbus-bridge'
 session_bus_addr = Gio.dbus_address_get_for_bus_sync(Gio.BusType.SESSION, None)
 
 # Web transport
-transport = Evd.WebTransport()
+transport = Evd.WebTransportServer()
 
 def on_new_peer(transport, peer, main_loop):
     # This is to send a virtual DBus address to the peer instead of the real DBus daemon
