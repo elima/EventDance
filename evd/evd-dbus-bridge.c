@@ -1318,6 +1318,10 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
                                   NULL);
       goto out;
     }
+  else
+    {
+      g_variant_ref_sink (signal_args_variant);
+    }
 
   if (! evd_dbus_agent_emit_signal (obj,
                                     subject,
