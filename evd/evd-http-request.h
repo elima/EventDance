@@ -74,6 +74,9 @@ gboolean         evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *s
                                                               gchar          **user,
                                                               gchar          **password);
 
+gchar           *evd_http_request_get_cookie_value           (EvdHttpRequest *self,
+                                                              const gchar    *cookie_name);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_REQUEST_H__ */

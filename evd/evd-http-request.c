@@ -370,3 +370,51 @@ evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
 
   return TRUE;
 }
+
+gchar *
+evd_http_request_get_cookie_value (EvdHttpRequest *self,
+                                   const gchar    *cookie_name)
+{
+  gchar *value = NULL;
+  SoupMessageHeaders *headers;
+  const gchar *cookie_str;
+  gchar **cookies;
+  gint i;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
+  g_return_val_if_fail (cookie_name != NULL, NULL);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  cookie_str = soup_message_headers_get_one (headers, "Cookie");
+  if (cookie_str == NULL)
+    return NULL;
+
+  cookies = g_strsplit (cookie_str, ";", -1);
+
+  i = 0;
+  while (cookies[i] != NULL)
+    {
+      gchar *cookie;
+
+      cookie = g_strstr_len (cookies[i], strlen (cookie_name) + 1, cookie_name);
+      if (cookie == cookies[i] ||
+          (cookie == cookies[i] + 1 && cookies[i][0] == ' '))
+        {
+          gchar **key_value;
+
+          key_value = g_strsplit (cookie, "=", 2);
+          value = g_strdup (key_value[1]);
+
+          g_strfreev (key_value);
+
+          break;
+        }
+
+      i++;
+    }
+
+  g_strfreev (cookies);
+
+  return value;
+}
