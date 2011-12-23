@@ -166,6 +166,8 @@ evd_web_dir_finalize (GObject *obj)
   EvdWebDir *self = EVD_WEB_DIR (obj);
 
   g_free (self->priv->root);
+  g_free (self->priv->alias);
+  g_free (self->priv->dir_index);
 
   G_OBJECT_CLASS (evd_web_dir_parent_class)->finalize (obj);
 }
