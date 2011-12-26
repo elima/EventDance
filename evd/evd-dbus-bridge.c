@@ -165,6 +165,13 @@ static void     evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
                                                         guint64      serial,
                                                         gpointer     user_data);
 
+#ifndef ENABLE_TESTS
+void            evd_dbus_bridge_process_msg            (EvdDBusBridge *self,
+                                                        GObject       *object,
+                                                        const gchar   *msg,
+                                                        gsize          length);
+#endif /* ENABLE_TESTS */
+
 static void
 evd_dbus_bridge_class_init (EvdDBusBridgeClass *class)
 {
@@ -1418,16 +1425,6 @@ evd_dbus_bridge_add_transport (EvdDBusBridge *self, EvdTransport *transport)
                     self);
 }
 
-#ifdef ENABLE_TESTS
-
-void
-evd_dbus_bridge_track_object (EvdDBusBridge *self, GObject *object)
-{
-  evd_dbus_agent_set_object_vtable (object,
-                                    &self->priv->agent_vtable,
-                                    self);
-}
-
 void
 evd_dbus_bridge_process_msg (EvdDBusBridge *self,
                              GObject       *object,
@@ -1521,6 +1518,16 @@ evd_dbus_bridge_process_msg (EvdDBusBridge *self,
 
   g_free (args);
   g_variant_unref (variant_msg);
+}
+
+#ifdef ENABLE_TESTS
+
+void
+evd_dbus_bridge_track_object (EvdDBusBridge *self, GObject *object)
+{
+  evd_dbus_agent_set_object_vtable (object,
+                                    &self->priv->agent_vtable,
+                                    self);
 }
 
 void

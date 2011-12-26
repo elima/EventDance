@@ -64,6 +64,7 @@ EvdDBusBridge *         evd_dbus_bridge_new                     (void);
 void                    evd_dbus_bridge_add_transport           (EvdDBusBridge *self,
                                                                  EvdTransport  *transport);
 
+#ifdef ENABLE_TESTS
 /* only for testing purposes, DO NOT use in your programs */
 
 typedef void (* EvdDBusBridgeSendMsgCb) (EvdDBusBridge *self,
@@ -82,6 +83,8 @@ void                    evd_dbus_bridge_set_send_msg_callback   (EvdDBusBridge  
 
 void                    evd_dbus_bridge_track_object            (EvdDBusBridge *self,
                                                                  GObject       *object);
+
+#endif /* ENABLE_TESTS */
 
 G_END_DECLS
 

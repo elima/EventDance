@@ -13,8 +13,11 @@ CLEANFILES = *~ @EVD_API_NAME@.pc
 
 AM_CFLAGS = $(GLIB_CFLAGS) -Wall \
 	-DPKGDATADIR="\"$(pkgdatadir)\"" \
-	-DJSLIBDIR="\"$(jslibdir)\"" \
-	-DENABLE_TESTS="\"$(enable_tests)\""
+	-DJSLIBDIR="\"$(jslibdir)\""
+
+if ENABLE_TESTS
+AM_CFLAGS += -DENABLE_TESTS
+endif
 
 if ENABLE_DEBUG
 AM_CFLAGS += -Werror -g3 -O0 -ggdb
