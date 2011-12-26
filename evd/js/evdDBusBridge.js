@@ -505,6 +505,7 @@ Evd.Object.extend (Evd.DBus.Connection.prototype, {
     }
 });
 
+// Evd.DBus.RegisteredObject
 Evd.DBus.RegisteredObject = new Evd.Constructor ();
 
 Evd.Object.extend (Evd.DBus.RegisteredObject.prototype, {
@@ -588,3 +589,14 @@ Evd.Object.extend (Evd.DBus.Proxy.prototype, {
                                          timeout);
     }
 });
+
+if (this["define"] !== undefined) {
+    if (this["exports"] === undefined)
+        var exports = {};
+
+    exports.Connection = Evd.DBus.Connection;
+    exports.Proxy = Evd.DBus.Proxy;
+    exports.RegisteredObject = Evd.DBus.RegisteredObject;
+
+    define (exports);
+}
