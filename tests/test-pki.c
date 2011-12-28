@@ -44,7 +44,7 @@ typedef struct
 const TestCase test_cases[] =
 {
   {
-    "x509/rsa",
+    "X.509/RSA",
     TESTS_DIR "certs/x509-server.pem",
     TESTS_DIR "certs/x509-server-key.pem",
     EVD_PKI_KEY_TYPE_RSA,
@@ -56,7 +56,7 @@ const TestCase test_cases[] =
   part unusable */
   /*
   {
-    "openpgp/rsa",
+    "OpenPGP/RSA",
     TESTS_DIR "certs/openpgp-server.asc",
     TESTS_DIR "certs/openpgp-server-key.asc",
     EVD_PKI_KEY_TYPE_RSA,
@@ -476,7 +476,7 @@ main (gint argc, gchar *argv[])
     }
 
   key_type = EVD_PKI_KEY_TYPE_RSA;
-  g_test_add ("/evd/pki/gen-key-pair/rsa",
+  g_test_add ("/evd/pki/gen-key-pair/RSA",
               Fixture,
               &key_type,
               fixture_setup,
