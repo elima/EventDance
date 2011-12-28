@@ -29,7 +29,7 @@
   "  </signal>" \
   "</interface>"
 
-static const gchar *session_bus_addr;
+static gchar *bus_addr;
 static const gchar *addr_alias = DBUS_ADDR;
 
 static gint test_index = -1;
@@ -379,7 +379,7 @@ test_fixture_setup (struct Fixture *f,
   f->bridge = evd_dbus_bridge_new ();
   f->obj = g_object_new (G_TYPE_OBJECT, NULL);
 
-  evd_dbus_agent_create_address_alias (f->obj, session_bus_addr, addr_alias);
+  evd_dbus_agent_create_address_alias (f->obj, bus_addr, addr_alias);
 
   evd_dbus_bridge_track_object (f->bridge, f->obj);
 
@@ -485,6 +485,7 @@ spawn_test (gconstpointer test_data)
                              &error);
 
   g_assert_cmpint (exit_status, ==, 0);
+  g_assert_no_error (error);
 
   g_free (cmdline);
   g_free (test_index);
@@ -502,7 +503,7 @@ main (gint argc, gchar *argv[])
   g_type_init ();
   g_test_init (&argc, &argv, NULL);
 
-  context = g_option_context_new ("- test tree model performance");
+  context = g_option_context_new (NULL);
   g_option_context_add_main_entries (context, entries, NULL);
   if (! g_option_context_parse (context, &argc, &argv, &error))
     {
@@ -511,54 +512,45 @@ main (gint argc, gchar *argv[])
     }
   g_option_context_free (context);
 
-  session_bus_addr = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION,
-                                                      NULL,
-                                                      NULL);
-
   if (test_index >= 0 && test_index < sizeof (test_cases) / sizeof (TestCase))
     {
       struct Fixture *f;
+      EvdDBusDaemon *dbus_daemon;
+
+      dbus_daemon = evd_dbus_daemon_new (TESTS_DIR "dbus-daemon.conf", NULL);
+      g_assert (EVD_IS_DBUS_DAEMON (dbus_daemon));
+
+      g_object_get (dbus_daemon, "address", &bus_addr, NULL);
 
       f = g_slice_new (struct Fixture);
       test_fixture_setup (f, &test_cases[test_index]);
       test_func (f, &test_cases[test_index]);
       test_fixture_teardown (f, &test_cases[test_index]);
 
+      g_free (bus_addr);
+      g_object_unref (dbus_daemon);
       g_slice_free (struct Fixture, f);
     }
   else
     {
-      /* check D-Bus session bus is active */
-      if ( (dbus_conn =
-            g_dbus_connection_new_for_address_sync (session_bus_addr,
-                                G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION |
-                                G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT,
-                                NULL,
-                                NULL,
-                                NULL)) != NULL)
+      gint i;
+
+      for (i=0; i<sizeof (test_cases) / sizeof (TestCase); i++)
         {
-          gint i;
+          gchar *test_name;
+          gint *index;
 
-          g_dbus_connection_close_sync (dbus_conn, NULL, NULL);
-          g_object_unref (dbus_conn);
+          index = g_new0 (gint, 1);
+          *index = i;
 
-          for (i=0; i<sizeof (test_cases) / sizeof (TestCase); i++)
-            {
-              gchar *test_name;
-              gint *index;
+          test_name =
+            g_strdup_printf ("/evd/dbus/bridge/%s", test_cases[i].test_name);
 
-              index = g_new0 (gint, 1);
-              *index = i;
+          g_test_add_data_func (test_name,
+                                index,
+                                spawn_test);
 
-              test_name =
-                g_strdup_printf ("/evd/dbus/bridge/%s", test_cases[i].test_name);
-
-              g_test_add_data_func (test_name,
-                                    index,
-                                    spawn_test);
-
-              g_free (test_name);
-            }
+          g_free (test_name);
         }
     }
 
