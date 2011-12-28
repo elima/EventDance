@@ -297,8 +297,9 @@ evd_tls_session_push (gnutls_transport_ptr_t  ptr,
         {
           /* @TODO: Handle transport error */
           g_debug ("TLS session transport error during push: %s", error->message);
-          g_error_free (error);
         }
+
+      g_error_free (error);
     }
 
   return res;
