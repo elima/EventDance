@@ -77,6 +77,10 @@ gboolean         evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *s
 gchar           *evd_http_request_get_cookie_value           (EvdHttpRequest *self,
                                                               const gchar    *cookie_name);
 
+const gchar     *evd_http_request_get_origin                 (EvdHttpRequest *self);
+
+gboolean         evd_http_request_is_cross_origin            (EvdHttpRequest *self);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_REQUEST_H__ */

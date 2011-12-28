@@ -418,3 +418,41 @@ evd_http_request_get_cookie_value (EvdHttpRequest *self,
 
   return value;
 }
+
+const gchar *
+evd_http_request_get_origin (EvdHttpRequest *self)
+{
+  SoupMessageHeaders *headers;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  return soup_message_headers_get_one (headers, "Origin");
+}
+
+gboolean
+evd_http_request_is_cross_origin (EvdHttpRequest *self)
+{
+  gchar *host;
+  const gchar *origin;
+  gboolean result = FALSE;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), FALSE);
+
+  origin = evd_http_request_get_origin (self);
+
+  if (origin == NULL)
+    return FALSE;
+
+  host = g_strdup_printf ("%s://%s:%d",
+                          self->priv->uri->scheme,
+                          self->priv->uri->host,
+                          self->priv->uri->port);
+
+  result = (g_strcmp0 (origin, host) != 0);
+
+  g_free (host);
+
+  return result;
+}
