@@ -751,3 +751,37 @@ evd_web_service_get_origin_policy (EvdWebService *self)
 
   return priv->origin_policy;
 }
+
+void
+evd_web_service_allow_origin (EvdWebService *self, const gchar *origin)
+{
+  EvdWebServicePrivate *priv;
+  gboolean *allowed;
+
+  g_return_if_fail (EVD_IS_WEB_SERVICE (self));
+  g_return_if_fail (origin != NULL);
+
+  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+
+  allowed = g_new (gboolean, 1);
+  *allowed = TRUE;
+
+  g_hash_table_insert (priv->origins, g_strdup (origin), allowed);
+}
+
+void
+evd_web_service_deny_origin (EvdWebService *self, const gchar *origin)
+{
+  EvdWebServicePrivate *priv;
+  gboolean *allowed;
+
+  g_return_if_fail (EVD_IS_WEB_SERVICE (self));
+  g_return_if_fail (origin != NULL);
+
+  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+
+  allowed = g_new (gboolean, 1);
+  *allowed = FALSE;
+
+  g_hash_table_insert (priv->origins, g_strdup (origin), allowed);
+}

@@ -121,6 +121,11 @@ void              evd_web_service_set_origin_policy           (EvdWebService *se
                                                                EvdPolicy      policy);
 EvdPolicy         evd_web_service_get_origin_policy           (EvdWebService *self);
 
+void              evd_web_service_allow_origin                (EvdWebService *self,
+                                                               const gchar   *origin);
+void              evd_web_service_deny_origin                 (EvdWebService *self,
+                                                               const gchar   *origin);
+
 #define EVD_WEB_SERVICE_LOG(web_service, conn, request, status_code, content_size, error) \
   (EVD_WEB_SERVICE_GET_CLASS (web_service)->log (web_service, conn, request, status_code, content_size, error))
 
