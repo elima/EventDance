@@ -727,3 +727,27 @@ evd_web_service_respond (EvdWebService       *self,
                          size,
                          error);
 }
+
+void
+evd_web_service_set_origin_policy (EvdWebService *self, EvdPolicy policy)
+{
+  EvdWebServicePrivate *priv;
+
+  g_return_if_fail (EVD_IS_WEB_SERVICE (self));
+
+  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+
+  priv->origin_policy = policy;
+}
+
+EvdPolicy
+evd_web_service_get_origin_policy (EvdWebService *self)
+{
+  EvdWebServicePrivate *priv;
+
+  g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), 0);
+
+  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+
+  return priv->origin_policy;
+}
