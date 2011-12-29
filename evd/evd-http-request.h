@@ -80,6 +80,7 @@ gchar           *evd_http_request_get_cookie_value           (EvdHttpRequest *se
 const gchar     *evd_http_request_get_origin                 (EvdHttpRequest *self);
 
 gboolean         evd_http_request_is_cross_origin            (EvdHttpRequest *self);
+gboolean         evd_http_request_is_cors_preflight          (EvdHttpRequest *self);
 
 G_END_DECLS
 

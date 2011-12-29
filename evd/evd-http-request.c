@@ -456,3 +456,19 @@ evd_http_request_is_cross_origin (EvdHttpRequest *self)
 
   return result;
 }
+
+gboolean
+evd_http_request_is_cors_preflight (EvdHttpRequest *self)
+{
+  SoupMessageHeaders *headers;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), FALSE);
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+
+  return
+    g_strcmp0 (self->priv->method, SOUP_METHOD_OPTIONS) == 0 &&
+    soup_message_headers_get_one (headers, "Origin") != NULL &&
+    (soup_message_headers_get_one (headers, "Access-Control-Request-Headers") != NULL ||
+     soup_message_headers_get_one (headers, "Access-Control-Request-Method") != NULL);
+}
