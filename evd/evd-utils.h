@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -31,6 +31,12 @@ typedef enum
   EVD_VALIDATE_REJECT  = 1,
   EVD_VALIDATE_PENDING = 2
 } EvdValidateEnum;
+
+typedef enum
+{
+  EVD_POLICY_DENY  = 0,
+  EVD_POLICY_ALLOW = 1
+} EvdPolicy;
 
 guint   evd_timeout_add (GMainContext *context,
                          guint         timeout,
