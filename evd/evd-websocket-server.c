@@ -396,8 +396,7 @@ handshake76_stage2 (EvdHttpConnection *conn, HandshakeData *data)
     }
 
   ws_uri_str = soup_uri_to_string (ws_uri, FALSE);
-  soup_message_headers_replace (headers, "Sec-WebSocket-Location",
-                                ws_uri_str);
+  soup_message_headers_replace (headers, "Sec-WebSocket-Location", ws_uri_str);
   g_free (ws_uri_str);
   soup_uri_free (ws_uri);
 
@@ -431,6 +430,9 @@ handshake76_stage2 (EvdHttpConnection *conn, HandshakeData *data)
 
       conn_data->transport = EVD_TRANSPORT (data->self);
       g_object_ref (conn_data->transport);
+
+      if (data->peer == NULL && data->self->priv->standalone)
+        data->peer = evd_transport_create_new_peer (EVD_TRANSPORT (data->self));
 
       conn_data->peer = data->peer;
       g_object_set_data (G_OBJECT (data->peer), PEER_DATA_KEY, conn);
@@ -584,11 +586,22 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
   peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), uri->query);
   if (peer == NULL)
     {
-      evd_http_connection_respond_simple (conn, SOUP_STATUS_NOT_FOUND, NULL, 0);
-      return;
+      if (! self->priv->standalone)
+        {
+          evd_web_service_respond (web_service,
+                                   conn,
+                                   SOUP_STATUS_NOT_FOUND,
+                                   NULL,
+                                   NULL,
+                                   0,
+                                   NULL);
+          return;
+        }
     }
-
-  evd_peer_touch (peer);
+  else
+    {
+      evd_peer_touch (peer);
+    }
 
   if (! handshake76_stage1 (EVD_WEBSOCKET_SERVER (web_service),
                             conn,
