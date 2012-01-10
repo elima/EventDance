@@ -731,3 +731,20 @@ evd_websocket_server_new (void)
 {
   return g_object_new (EVD_TYPE_WEBSOCKET_SERVER, NULL);
 }
+
+void
+evd_websocket_server_set_standalone (EvdWebsocketServer *self,
+                                     gboolean            standalone)
+{
+  g_return_if_fail (EVD_IS_WEBSOCKET_SERVER (self));
+
+  self->priv->standalone = standalone;
+}
+
+gboolean
+evd_websocket_server_get_standalone (EvdWebsocketServer *self)
+{
+  g_return_val_if_fail (EVD_IS_WEBSOCKET_SERVER (self), FALSE);
+
+  return self->priv->standalone;
+}

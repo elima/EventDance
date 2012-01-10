@@ -65,6 +65,10 @@ GType                   evd_websocket_server_get_type          (void) G_GNUC_CON
 
 EvdWebsocketServer     *evd_websocket_server_new               (void);
 
+void                    evd_websocket_server_set_standalone    (EvdWebsocketServer *self,
+                                                                gboolean            standalone);
+gboolean                evd_websocket_server_get_standalone    (EvdWebsocketServer *self);
+
 G_END_DECLS
 
 #endif /* __EVD_WEBSOCKET_SERVER_H__ */
