@@ -27,6 +27,7 @@
 
 /**
  * evd_timeout_add:
+ * @context: (allow-none):
  * @callback: (scope notified):
  * @user_data: (allow-none):
  *
