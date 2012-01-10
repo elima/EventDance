@@ -34,6 +34,17 @@
 
 #define BLOCK_SIZE 0x08FF
 
+#define EVD_WEBSOCKET_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+                                               EVD_TYPE_WEBSOCKET_SERVER, \
+                                               EvdWebsocketServerPrivate))
+
+#define DEFAULT_STANDALONE FALSE
+
+struct _EvdWebsocketServerPrivate
+{
+  gboolean standalone;
+};
+
 typedef struct
 {
   EvdWebsocketServer *self;
@@ -104,6 +115,7 @@ G_DEFINE_TYPE_WITH_CODE (EvdWebsocketServer, evd_websocket_server, EVD_TYPE_WEB_
 static void
 evd_websocket_server_class_init (EvdWebsocketServerClass *class)
 {
+  GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdIoStreamGroupClass *io_stream_group_class =
     EVD_IO_STREAM_GROUP_CLASS (class);
   EvdWebServiceClass *web_service_class = EVD_WEB_SERVICE_CLASS (class);
@@ -111,6 +123,8 @@ evd_websocket_server_class_init (EvdWebsocketServerClass *class)
   io_stream_group_class->remove = evd_websocket_server_remove;
 
   web_service_class->request_handler = evd_websocket_server_request_handler;
+
+  g_type_class_add_private (obj_class, sizeof (EvdWebsocketServerPrivate));
 }
 
 static void
@@ -124,6 +138,13 @@ evd_websocket_server_transport_iface_init (EvdTransportInterface *iface)
 static void
 evd_websocket_server_init (EvdWebsocketServer *self)
 {
+  EvdWebsocketServerPrivate *priv;
+
+  priv = EVD_WEBSOCKET_SERVER_GET_PRIVATE (self);
+  self->priv = priv;
+
+  priv->standalone = DEFAULT_STANDALONE;
+
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 }
 

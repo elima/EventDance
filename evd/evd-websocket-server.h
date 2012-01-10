@@ -29,13 +29,13 @@ G_BEGIN_DECLS
 
 typedef struct _EvdWebsocketServer EvdWebsocketServer;
 typedef struct _EvdWebsocketServerClass EvdWebsocketServerClass;
+typedef struct _EvdWebsocketServerPrivate EvdWebsocketServerPrivate;
 
 struct _EvdWebsocketServer
 {
   EvdWebService parent;
 
-  /* padding for future private struct */
-  gpointer _padding_;
+  EvdWebsocketServerPrivate *priv;
 };
 
 struct _EvdWebsocketServerClass
