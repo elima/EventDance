@@ -31,7 +31,7 @@ sis.setPeerOnUpdate (
 
 
 /* web transport */
-let transport = new Evd.WebTransport ();
+let transport = new Evd.WebTransportServer ();
 
 function peerOnReceive (t, peer) {
     let data = peer.transport.receive_text (peer);
