@@ -521,6 +521,11 @@ evd_transport_lookup_peer (EvdTransport *self, const gchar *peer_id)
 {
   EvdPeerManager *peer_manager;
 
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), NULL);
+
+  if (peer_id == NULL)
+    return NULL;
+
   peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
 
   return evd_peer_manager_lookup_peer (peer_manager, peer_id);

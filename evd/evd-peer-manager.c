@@ -306,7 +306,9 @@ evd_peer_manager_lookup_peer (EvdPeerManager *self, const gchar *id)
   EvdPeer *peer;
 
   g_return_val_if_fail (EVD_IS_PEER_MANAGER (self), NULL);
-  g_return_val_if_fail (id != NULL, NULL);
+
+  if (id == NULL)
+    return NULL;
 
   peer = EVD_PEER (g_hash_table_lookup (self->priv->peers,
                                         (gconstpointer) id));
