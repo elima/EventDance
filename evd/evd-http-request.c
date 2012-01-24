@@ -423,12 +423,17 @@ const gchar *
 evd_http_request_get_origin (EvdHttpRequest *self)
 {
   SoupMessageHeaders *headers;
+  const gchar *origin;
 
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
 
-  return soup_message_headers_get_one (headers, "Origin");
+  origin = soup_message_headers_get_one (headers, "Origin");
+  if (origin == NULL)
+    origin = soup_message_headers_get_one (headers, "Sec-WebSocket-Origin");
+
+  return origin;
 }
 
 gboolean
