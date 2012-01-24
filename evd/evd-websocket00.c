@@ -154,7 +154,7 @@ handle_close_handshake (EvdWebsocketData *data)
   if (data->payload_len != 0)
     {
       /* @TODO: handle error condition */
-      g_print ("ERROR: invalid websocket close frame received\n");
+      g_warning ("ERROR: invalid websocket close frame received\n");
 
       data->state = STATE_CLOSED;
       g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
@@ -167,9 +167,12 @@ handle_close_handshake (EvdWebsocketData *data)
         {
           if (! send_close_frame (data, &error))
             {
-              /* @TODO: handle error */
-              g_print ("ERROR sending websocket close frame: %s\n", error->message);
+              /* @TODO: handle error condition */
+              g_warning ("ERROR sending websocket close frame: %s\n", error->message);
               g_error_free (error);
+
+              data->state = STATE_CLOSED;
+              g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
             }
 
           data->close_frame_sent = TRUE;
