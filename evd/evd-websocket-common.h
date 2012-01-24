@@ -116,7 +116,6 @@ struct _EvdWebsocketData
   gchar *frame_data;
   gsize frame_len;
 
-  gboolean closing;
   gboolean close_frame_sent;
 
   gboolean fin;

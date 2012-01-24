@@ -151,8 +151,6 @@ handle_close_handshake (EvdWebsocketData *data)
   if (! read_frame_len (data))
     return FALSE;
 
-  data->closing = TRUE;
-
   if (data->payload_len != 0)
     {
       /* @TODO: handle error condition */
@@ -594,7 +592,7 @@ evd_websocket00_send (EvdHttpConnection  *conn,
       return FALSE;
     }
 
-  if (data->closing || data->state == STATE_CLOSED)
+  if (data->state == STATE_CLOSING || data->state == STATE_CLOSED)
     {
       g_set_error (error,
                    G_IO_ERROR,
@@ -647,7 +645,7 @@ evd_websocket00_close (EvdHttpConnection  *conn,
       data->close_frame_sent = TRUE;
     }
 
-  data->closing = TRUE;
+  data->state = STATE_CLOSING;
 
   if (data->server)
     {
