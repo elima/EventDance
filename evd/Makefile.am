@@ -71,6 +71,7 @@ source_c = \
 	evd-peer.c \
 	evd-peer-manager.c \
 	evd-longpolling-server.c \
+	evd-websocket-common.c \
 	evd-websocket-server.c \
 	evd-connection-pool.c \
 	evd-reproxy.c \
@@ -143,7 +144,8 @@ source_h = \
 source_h_priv = \
 	evd-poll.h \
 	evd-tls-common.h \
-	evd-tls-dh-generator.h
+	evd-tls-dh-generator.h \
+	evd-websocket-common.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
