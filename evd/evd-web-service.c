@@ -169,19 +169,6 @@ evd_web_service_invoke_request_handler (EvdWebService     *self,
                  NULL);
 }
 
-static gboolean
-evd_web_service_origin_allowed (EvdWebService *self, const gchar *origin)
-{
-  EvdWebServicePrivate *priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
-  gboolean *allowed;
-
-  allowed = g_hash_table_lookup (priv->origins, origin);
-  if (allowed == NULL)
-    return priv->origin_policy == EVD_POLICY_ALLOW;
-  else
-    return (gboolean) (*allowed);
-}
-
 static void
 evd_web_service_respond_cors_preflight (EvdWebService     *self,
                                         EvdHttpConnection *conn,
@@ -784,4 +771,21 @@ evd_web_service_deny_origin (EvdWebService *self, const gchar *origin)
   *allowed = FALSE;
 
   g_hash_table_insert (priv->origins, g_strdup (origin), allowed);
+}
+
+gboolean
+evd_web_service_origin_allowed (EvdWebService *self, const gchar *origin)
+{
+  EvdWebServicePrivate *priv;
+  gboolean *allowed;
+
+  g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
+
+  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+
+  allowed = g_hash_table_lookup (priv->origins, origin);
+  if (allowed == NULL)
+    return priv->origin_policy == EVD_POLICY_ALLOW;
+  else
+    return (gboolean) (*allowed);
 }
