@@ -73,6 +73,7 @@ source_c = \
 	evd-longpolling-server.c \
 	evd-websocket-common.c \
 	evd-websocket00.c \
+	evd-websocket08.c \
 	evd-websocket-server.c \
 	evd-connection-pool.c \
 	evd-reproxy.c \
@@ -147,7 +148,8 @@ source_h_priv = \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h \
 	evd-websocket-common.h \
-	evd-websocket00.h
+	evd-websocket00.h \
+	evd-websocket08.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \

@@ -28,6 +28,7 @@
 #include "evd-http-connection.h"
 #include "evd-websocket-common.h"
 #include "evd-websocket00.h"
+#include "evd-websocket08.h"
 
 #define EVD_WEBSOCKET_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                                EVD_TYPE_WEBSOCKET_SERVER, \
@@ -239,6 +240,14 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
                                                 on_handshake_completed,
                                                 self);
     }
+  else if (version == 8)
+    {
+      evd_websocket08_handle_handshake_request (EVD_WEB_SERVICE (self),
+                                                conn,
+                                                request,
+                                                on_handshake_completed,
+                                                self);
+    }
 }
 
 static gboolean
@@ -278,6 +287,10 @@ evd_websocket_server_send (EvdTransport *transport,
       if (version == 0)
         {
           return evd_websocket00_send (conn, buffer, size, FALSE, error);
+        }
+      else if (version == 8)
+        {
+          return evd_websocket08_send (conn, buffer, size, FALSE, error);
         }
       else
         {
@@ -335,6 +348,8 @@ evd_websocket_server_peer_closed (EvdTransport *transport,
 
       if (version == 0)
         evd_websocket00_close (conn, 0, NULL, NULL);
+      else if (version == 8)
+        evd_websocket08_close (conn, 0, NULL, NULL);
       else
         g_assert_not_reached ();
     }
