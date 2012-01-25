@@ -27,8 +27,6 @@
 #include "evd-transport.h"
 #include "evd-http-connection.h"
 #include "evd-websocket-common.h"
-#include "evd-websocket00.h"
-#include "evd-websocket08.h"
 
 #define EVD_WEBSOCKET_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                                EVD_TYPE_WEBSOCKET_SERVER, \
@@ -152,15 +150,17 @@ on_handshake_completed (GObject      *obj,
                         GAsyncResult *res,
                         gpointer      user_data)
 {
-  EvdHttpConnection *conn;
+  EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
   GError *error = NULL;
 
-  conn = evd_websocket_common_handshake_finish (res, &error);
-  if (conn == NULL)
+  if (! evd_websocket_common_handle_handshake_request_finish (res, &error))
     {
       /* @TODO: do proper error logging */
       g_print ("Error: Websocket handshake failed: %s\n", error->message);
       g_error_free (error);
+
+      g_object_set_data (G_OBJECT (conn), CONN_DATA_KEY, NULL);
+      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
   else
     {
@@ -188,7 +188,6 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
   EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (web_service);
   EvdPeer *peer = NULL;
   SoupURI *uri;
-  guint8 version;
 
   uri = evd_http_request_get_uri (request);
 
@@ -228,26 +227,12 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
                           conn,
                           g_object_unref);
 
-  version = evd_websocket_common_get_version_from_request (request);
-
   g_object_ref (conn);
-
-  if (version == 0)
-    {
-      evd_websocket00_handle_handshake_request (EVD_WEB_SERVICE (self),
-                                                conn,
-                                                request,
-                                                on_handshake_completed,
-                                                self);
-    }
-  else if (version == 8)
-    {
-      evd_websocket08_handle_handshake_request (EVD_WEB_SERVICE (self),
-                                                conn,
-                                                request,
-                                                on_handshake_completed,
-                                                self);
-    }
+  evd_websocket_common_handle_handshake_request (EVD_WEB_SERVICE (self),
+                                                 conn,
+                                                 request,
+                                                 on_handshake_completed,
+                                                 self);
 }
 
 static gboolean
@@ -280,27 +265,7 @@ evd_websocket_server_send (EvdTransport *transport,
     }
   else
     {
-      guint8 version;
-
-      version = evd_websocket_common_get_version (conn);
-
-      if (version == 0)
-        {
-          return evd_websocket00_send (conn, buffer, size, FALSE, error);
-        }
-      else if (version == 8)
-        {
-          return evd_websocket08_send (conn, buffer, size, FALSE, error);
-        }
-      else
-        {
-          g_assert_not_reached ();
-          g_set_error_literal (error,
-                               G_IO_ERROR,
-                               G_IO_ERROR_NOT_SUPPORTED,
-                               "Unsupported websocket protocol version");
-          return FALSE;
-        }
+      return evd_websocket_common_send (conn, buffer, size, FALSE, error);
     }
 }
 
@@ -323,7 +288,8 @@ evd_websocket_server_remove (EvdIoStreamGroup *io_stream_group,
       g_object_set_data (G_OBJECT (io_stream), CONN_DATA_KEY, NULL);
     }
 
-  g_object_unref (io_stream);
+  if (evd_websocket_common_is_bound (EVD_HTTP_CONNECTION (io_stream)))
+    g_object_unref (io_stream);
 
   return TRUE;
 }
@@ -342,16 +308,14 @@ evd_websocket_server_peer_closed (EvdTransport *transport,
 
   if (! g_io_stream_is_closed (G_IO_STREAM (conn)))
     {
-      guint8 version;
+      GError *error = NULL;
 
-      version = evd_websocket_common_get_version (conn);
-
-      if (version == 0)
-        evd_websocket00_close (conn, 0, NULL, NULL);
-      else if (version == 8)
-        evd_websocket08_close (conn, 0, NULL, NULL);
-      else
-        g_assert_not_reached ();
+      if (! evd_websocket_common_close (conn, 0, NULL, &error))
+        {
+          /* @TODO: do proper error logging */
+          g_debug ("Error closing websocket connection: %s\n", error->message);
+          g_error_free (error);
+        }
     }
 
   g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);

@@ -28,16 +28,6 @@
 #include "evd-websocket-common.h"
 #include "evd-utils.h"
 
-typedef enum
-{
-  STATE_IDLE,
-  STATE_READING_PAYLOAD_LEN,
-  STATE_READING_BINARY_FRAME,
-  STATE_READING_TEXT_FRAME,
-  STATE_CLOSING,
-  STATE_CLOSED
-} EvdWebsocket00States;
-
 typedef struct
 {
   EvdWebService *web_service;
@@ -49,7 +39,10 @@ typedef struct
 } HandshakeData;
 
 static gboolean
-send_close_frame (EvdWebsocketData *data, GError **error)
+send_close_frame (EvdWebsocketData  *data,
+                  guint16            code,
+                  const gchar       *reason,
+                  GError           **error)
 {
   guint16 close_code = 0xFF00;
   GOutputStream *stream;
@@ -73,13 +66,13 @@ read_frame_type (EvdWebsocketData *data)
   data->offset++;
 
   if (data->opcode == 0xFF)
-    data->state = STATE_CLOSING;
+    data->state = EVD_WEBSOCKET_STATE_CLOSING;
   else if ((data->opcode & 0x80) == 0x80)
-    data->state = STATE_READING_PAYLOAD_LEN;
+    data->state = EVD_WEBSOCKET_STATE_READING_PAYLOAD_LEN;
   else
     {
       data->frame_data = data->buf->str + data->offset;
-      data->state = STATE_READING_TEXT_FRAME;
+      data->state = EVD_WEBSOCKET_STATE_READING_TEXT_FRAME;
     }
 
   return TRUE;
@@ -105,7 +98,7 @@ read_text_frame (EvdWebsocketData *data)
                           data->user_data);
 
           /* reset state */
-          data->state = STATE_IDLE;
+          data->state = EVD_WEBSOCKET_STATE_IDLE;
           g_string_erase (data->buf, 0, data->offset);
           data->buf_len -= data->offset;
           data->offset = 0;
@@ -156,22 +149,22 @@ handle_close_handshake (EvdWebsocketData *data)
       /* @TODO: handle error condition */
       g_warning ("ERROR: invalid websocket close frame received\n");
 
-      data->state = STATE_CLOSED;
+      data->state = EVD_WEBSOCKET_STATE_CLOSED;
       g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
     }
   else
     {
-      GError *error = NULL;
-
       if (! data->close_frame_sent)
         {
-          if (! send_close_frame (data, &error))
+          GError *error = NULL;
+
+          if (! send_close_frame (data, 0, NULL, &error))
             {
               /* @TODO: handle error condition */
               g_warning ("ERROR sending websocket close frame: %s\n", error->message);
               g_error_free (error);
 
-              data->state = STATE_CLOSED;
+              data->state = EVD_WEBSOCKET_STATE_CLOSED;
               g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
             }
 
@@ -179,9 +172,9 @@ handle_close_handshake (EvdWebsocketData *data)
         }
     }
 
-  evd_connection_flush_and_shutdown (data->conn, NULL);
+  evd_connection_flush_and_shutdown (EVD_CONNECTION (data->conn), NULL);
 
-  data->state = STATE_CLOSED;
+  data->state = EVD_WEBSOCKET_STATE_CLOSED;
   data->close_cb (EVD_HTTP_CONNECTION (data->conn),
                   TRUE,
                   data->user_data);
@@ -192,42 +185,43 @@ handle_close_handshake (EvdWebsocketData *data)
 static gboolean
 process_data (EvdWebsocketData *data)
 {
-  while (data->offset < data->buf_len && data->state != STATE_CLOSED)
+  while (data->offset < data->buf_len &&
+         data->state != EVD_WEBSOCKET_STATE_CLOSED)
     {
       switch (data->state)
         {
-        case STATE_IDLE:
+        case EVD_WEBSOCKET_STATE_IDLE:
           if (! read_frame_type (data))
             return TRUE;
           break;
 
-        case STATE_READING_TEXT_FRAME:
+        case EVD_WEBSOCKET_STATE_READING_TEXT_FRAME:
           if (! read_text_frame (data))
             return TRUE;
           break;
 
-        case STATE_CLOSING:
+        case EVD_WEBSOCKET_STATE_CLOSING:
           if (! handle_close_handshake (data))
             return TRUE;
           break;
 
-        case STATE_READING_PAYLOAD_LEN:
+        case EVD_WEBSOCKET_STATE_READING_PAYLOAD_LEN:
           {
             if (! read_frame_len (data))
               return TRUE;
             else
-              data->state = STATE_READING_BINARY_FRAME;
+              data->state = EVD_WEBSOCKET_STATE_READING_BINARY_FRAME;
 
             break;
           }
 
-        case STATE_READING_BINARY_FRAME:
+        case EVD_WEBSOCKET_STATE_READING_BINARY_FRAME:
           {
             /* @TODO: binary frames are not supported in this version,
                what shall we do? */
             g_warning ("Attempted to read a websocket binary frame, which is not supported.\n");
 
-            data->state = STATE_CLOSED;
+            data->state = EVD_WEBSOCKET_STATE_CLOSED;
             g_io_stream_close (G_IO_STREAM (data->conn), NULL, NULL);
 
             break;
@@ -235,7 +229,7 @@ process_data (EvdWebsocketData *data)
         }
     }
 
-  return data->state != STATE_CLOSED;
+  return data->state != EVD_WEBSOCKET_STATE_CLOSED;
 }
 
 static guint32
@@ -267,6 +261,63 @@ get_value_from_key (const gchar *key)
     }
 
   return result;
+}
+
+static gboolean
+write_text_frame (EvdHttpConnection  *conn,
+                  const gchar        *buf,
+                  gsize               size,
+                  GError            **error)
+{
+  gchar frame_type = 0x00;
+  gchar end_of_frame = 0xFF;
+  GOutputStream *stream;
+
+  stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
+
+  if (g_output_stream_write (stream,
+                             &frame_type,
+                             1,
+                             NULL,
+                             error) > 0 &&
+      g_output_stream_write (stream,
+                             buf,
+                             size,
+                             NULL,
+                             error) > 0 &&
+      g_output_stream_write (stream,
+                             &end_of_frame,
+                             1,
+                             NULL,
+                             error) > 0)
+    {
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
+}
+
+static gboolean
+send_data_frame (EvdWebsocketData  *data,
+                 const gchar       *frame,
+                 gsize              frame_len,
+                 gboolean           binary,
+                 GError           **error)
+{
+  if (! binary)
+    {
+      return write_text_frame (data->conn, frame, frame_len, error);
+    }
+  else
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_SUPPORTED,
+                   "Sending binary frames is not supported in version 00 of the Websocket protocol");
+      return FALSE;
+    }
 }
 
 static void
@@ -351,30 +402,16 @@ complete_handshake (EvdWebService      *web_service,
                                            &error))
     {
       g_simple_async_result_take_error (async_result, error);
-
-      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
   else
     {
-      /* handshake completed */
-      EvdWebsocketData *data;
-
-      data = g_slice_new0 (EvdWebsocketData);
-      data->version = 0;
-      data->server = TRUE;
-      data->state = STATE_IDLE;
-
-      data->process_data_func = process_data;
-
-      g_object_set_data_full (G_OBJECT (conn),
-                              EVD_WEBSOCKET_DATA_KEY,
-                              data,
-                              (GDestroyNotify) evd_websocket_common_free_data);
-
-      g_object_ref (conn);
-      g_simple_async_result_set_op_res_gpointer (async_result,
-                                                 conn,
-                                                 g_object_unref);
+      /* setup websocket data on connection */
+      evd_websocket_common_setup_connection (conn,
+                                             0,
+                                             TRUE,
+                                             process_data,
+                                             send_close_frame,
+                                             send_data_frame);
     }
 
   g_simple_async_result_complete_in_idle (async_result);
@@ -418,65 +455,6 @@ on_handshake_payload_read (GObject      *obj,
    g_slice_free (HandshakeData, data);
 }
 
-static gboolean
-write_text_frame (EvdHttpConnection  *conn,
-                  const gchar        *buf,
-                  gsize               size,
-                  GError            **error)
-{
-  gchar frame_type = 0x00;
-  gchar end_of_frame = 0xFF;
-  GOutputStream *stream;
-
-  stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
-
-  if (g_output_stream_write (stream,
-                             &frame_type,
-                             1,
-                             NULL,
-                             error) > 0 &&
-      g_output_stream_write (stream,
-                             buf,
-                             size,
-                             NULL,
-                             error) > 0 &&
-      g_output_stream_write (stream,
-                             &end_of_frame,
-                             1,
-                             NULL,
-                             error) > 0)
-    {
-      return TRUE;
-    }
-  else
-    {
-      return FALSE;
-    }
-}
-
-static gboolean
-close_connection_id_idle (gpointer _data)
-{
-  EvdWebsocketData *data = _data;
-
-  if (data->state != STATE_CLOSED)
-    {
-
-      data->state = STATE_CLOSED;
-
-      if (! g_io_stream_is_closed (G_IO_STREAM (data->conn)))
-        evd_connection_flush_and_shutdown(data->conn, NULL);
-
-      data->close_cb (EVD_HTTP_CONNECTION (data->conn),
-                      TRUE,
-                      data->user_data);
-    }
-
-  g_object_unref (data->conn);
-
-  return FALSE;
-}
-
 /* public methods */
 
 void
@@ -498,7 +476,7 @@ evd_websocket00_handle_handshake_request (EvdWebService       *web_service,
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (conn));
   g_return_if_fail (EVD_IS_HTTP_REQUEST (request));
 
-  res = g_simple_async_result_new (NULL,
+  res = g_simple_async_result_new (G_OBJECT (conn),
                                    callback,
                                    user_data,
                                    evd_websocket00_handle_handshake_request);
@@ -571,94 +549,4 @@ evd_websocket00_handle_handshake_request (EvdWebService       *web_service,
                                         on_handshake_payload_read,
                                         data);
     }
-}
-
-gboolean
-evd_websocket00_send (EvdHttpConnection  *conn,
-                      const gchar        *frame,
-                      gsize               frame_len,
-                      gboolean            is_binary,
-                      GError            **error)
-{
-  EvdWebsocketData *data;
-
-  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
-  g_return_val_if_fail (frame != NULL, FALSE);
-
-  data = g_object_get_data (G_OBJECT (conn), EVD_WEBSOCKET_DATA_KEY);
-  if (data == NULL)
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_NOT_INITIALIZED,
-                   "Given HTTP connection doesn't appear to be initialized for Websocket");
-      return FALSE;
-    }
-
-  if (data->state == STATE_CLOSING || data->state == STATE_CLOSED)
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_CLOSED,
-                   "Websocket connection is closed");
-      return FALSE;
-    }
-
-  if (! is_binary)
-    {
-      return write_text_frame (conn, frame, frame_len, error);
-    }
-  else
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_NOT_SUPPORTED,
-                   "Sending binary frames is not supported in version 00 of the Websocket protocol");
-      return FALSE;
-    }
-}
-
-gboolean
-evd_websocket00_close (EvdHttpConnection  *conn,
-                       guint16             code,
-                       const gchar        *reason,
-                       GError            **error)
-{
-  EvdWebsocketData *data;
-  gboolean result = TRUE;
-
-  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
-
-  data = g_object_get_data (G_OBJECT (conn), EVD_WEBSOCKET_DATA_KEY);
-  if (data == NULL)
-    {
-      g_set_error (error,
-                   G_IO_ERROR,
-                   G_IO_ERROR_NOT_INITIALIZED,
-                   "Given HTTP connection doesn't appear to be initialized for Websocket");
-      return FALSE;
-    }
-
-  if (data->state == STATE_CLOSED)
-    return TRUE;
-
-  if (! data->close_frame_sent)
-    {
-      result = send_close_frame (data, error);
-      data->close_frame_sent = TRUE;
-    }
-
-  data->state = STATE_CLOSING;
-
-  if (data->server)
-    {
-      g_object_ref (data->conn);
-      evd_timeout_add (NULL,
-                       0,
-                       G_PRIORITY_DEFAULT,
-                       close_connection_id_idle,
-                       data);
-    }
-
-  return result;
 }

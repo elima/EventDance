@@ -36,17 +36,6 @@ void                evd_websocket00_handle_handshake_request    (EvdWebService  
                                                                  GAsyncReadyCallback  callback,
                                                                  gpointer             user_data);
 
-gboolean            evd_websocket00_send                        (EvdHttpConnection  *conn,
-                                                                 const gchar        *frame,
-                                                                 gsize               frame_len,
-                                                                 gboolean            is_binary,
-                                                                 GError            **error);
-
-gboolean            evd_websocket00_close                       (EvdHttpConnection  *conn,
-                                                                 guint16             code,
-                                                                 const gchar        *reason,
-                                                                 GError            **error);
-
 G_END_DECLS
 
 #endif /* __EVD_WEBSOCKET00_H__ */
