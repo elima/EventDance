@@ -186,11 +186,11 @@ send_close_frame (EvdWebsocketData  *data,
                data->frame_len);
 
   stream = g_io_stream_get_output_stream (G_IO_STREAM (data->conn));
-  if (! g_output_stream_write (stream,
-                               frame->str,
-                               frame->len,
-                               NULL,
-                               error) < 0)
+  if (g_output_stream_write (stream,
+                             frame->str,
+                             frame->len,
+                             NULL,
+                             error) < 0)
     {
       result = FALSE;
     }
