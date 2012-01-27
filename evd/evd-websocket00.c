@@ -53,7 +53,7 @@ send_close_frame (EvdWebsocketData  *data,
                                 &close_code,
                                 2,
                                 NULL,
-                                error);
+                                error) > 0;
 }
 
 static gboolean
