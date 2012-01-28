@@ -551,10 +551,10 @@ evd_transport_accept_peer (EvdTransport *self, EvdPeer *peer)
   g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
 
   iface = EVD_TRANSPORT_GET_INTERFACE (self);
-  if (iface->accept_peer == NULL || iface->accept_peer (self, peer))
-    return evd_transport_accept_peer_internal (self, peer);
+  if (iface->accept_peer != NULL)
+    return iface->accept_peer (self, peer);
   else
-    return FALSE;
+    return evd_transport_accept_peer_internal (self, peer);
 }
 
 gboolean
@@ -566,14 +566,14 @@ evd_transport_reject_peer (EvdTransport *self, EvdPeer *peer)
   g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
 
   iface = EVD_TRANSPORT_GET_INTERFACE (self);
-  if (iface->reject_peer == NULL || iface->reject_peer (self, peer))
+  if (iface->reject_peer != NULL)
     {
-      g_object_unref (peer);
-      return TRUE;
+      return iface->reject_peer (self, peer);
     }
   else
     {
-      return FALSE;
+      g_object_unref (peer);
+      return TRUE;
     }
 }
 
