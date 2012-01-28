@@ -218,6 +218,8 @@ evd_transport_receive_internal (EvdTransport *self,
 {
   EvdTransportPeerMessage *msg;
 
+  g_object_ref (peer);
+
   msg = g_object_get_data (G_OBJECT (peer), PEER_MSG_KEY);
   if (msg == NULL)
     {
@@ -240,6 +242,8 @@ evd_transport_receive_internal (EvdTransport *self,
     }
   msg->buffer = NULL;
   msg->size = 0;
+
+  g_object_unref (peer);
 }
 
 static gboolean
