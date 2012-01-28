@@ -336,9 +336,16 @@ evd_transport_accept_peer_internal (EvdTransport *self, EvdPeer *peer)
 
   peer_manager = EVD_TRANSPORT_GET_INTERFACE (self)->peer_manager;
 
-  evd_peer_manager_add_peer (peer_manager, peer);
+  if (evd_peer_manager_lookup_peer (peer_manager,
+                                    evd_peer_get_id (peer)) == NULL)
+    {
+      evd_peer_manager_add_peer (peer_manager, peer);
+      /* By design, only EvdPeerManager should hold a reference to
+         a peer, so after adding a peer we should drop our reference */
+      g_object_unref (peer);
 
-  evd_transport_notify_new_peer (self, peer);
+      evd_transport_notify_new_peer (self, peer);
+    }
 
   return TRUE;
 }
