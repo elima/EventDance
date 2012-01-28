@@ -25,7 +25,6 @@
 #include "evd-websocket-server.h"
 
 #include "evd-transport.h"
-#include "evd-http-connection.h"
 #include "evd-websocket-common.h"
 
 #define EVD_WEBSOCKET_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -502,4 +501,25 @@ evd_websocket_server_get_standalone (EvdWebsocketServer *self)
   g_return_val_if_fail (EVD_IS_WEBSOCKET_SERVER (self), FALSE);
 
   return self->priv->standalone;
+}
+
+/**
+ * evd_websocket_server_get_validate_peer_arguments:
+ * @conn: (out) (allow-none) (transfer none):
+ * @request: (out) (allow-none) (transfer none):
+ *
+ **/
+void
+evd_websocket_server_get_validate_peer_arguments (EvdWebsocketServer  *self,
+                                                  EvdPeer             *peer,
+                                                  EvdHttpConnection  **conn,
+                                                  EvdHttpRequest     **request)
+{
+  g_return_if_fail (EVD_IS_WEBSOCKET_SERVER (self));
+
+  if (conn != NULL)
+    *conn = self->priv->peer_arg_conn;
+
+  if (request != NULL)
+    *request = self->priv->peer_arg_request;
 }

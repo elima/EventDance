@@ -24,6 +24,9 @@
 #define __EVD_WEBSOCKET_SERVER_H__
 
 #include <evd-web-service.h>
+#include <evd-http-connection.h>
+#include <evd-http-request.h>
+#include <evd-peer.h>
 
 G_BEGIN_DECLS
 
@@ -68,6 +71,11 @@ EvdWebsocketServer     *evd_websocket_server_new               (void);
 void                    evd_websocket_server_set_standalone    (EvdWebsocketServer *self,
                                                                 gboolean            standalone);
 gboolean                evd_websocket_server_get_standalone    (EvdWebsocketServer *self);
+
+void                    evd_websocket_server_get_validate_peer_arguments (EvdWebsocketServer  *self,
+                                                                          EvdPeer             *peer,
+                                                                          EvdHttpConnection  **conn,
+                                                                          EvdHttpRequest     **request);
 
 G_END_DECLS
 
