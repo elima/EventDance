@@ -32,15 +32,25 @@
                                                EVD_TYPE_WEBSOCKET_SERVER, \
                                                EvdWebsocketServerPrivate))
 
-#define CONN_DATA_KEY "org.eventdance.lib.WebsocketServer.CONN_DATA"
-#define PEER_DATA_KEY "org.eventdance.lib.WebsocketServer.PEER_DATA"
+#define CONN_DATA_KEY      "org.eventdance.lib.WebsocketServer.CONN_DATA"
+#define PEER_DATA_KEY      "org.eventdance.lib.WebsocketServer.PEER_DATA"
+#define HANDSHAKE_DATA_KEY "org.eventdance.lib.WebsocketServer.HANDSHAKE_DATA"
 
 #define DEFAULT_STANDALONE FALSE
 
 struct _EvdWebsocketServerPrivate
 {
   gboolean standalone;
+
+  EvdHttpConnection *peer_arg_conn;
+  EvdHttpRequest *peer_arg_request;
 };
+
+typedef struct
+{
+  EvdHttpConnection *conn;
+  EvdHttpRequest *request;
+} HandshakeData;
 
 static void     evd_websocket_server_class_init           (EvdWebsocketServerClass *class);
 static void     evd_websocket_server_init                 (EvdWebsocketServer *self);
@@ -67,6 +77,11 @@ static void     evd_websocket_server_peer_closed          (EvdTransport *transpo
                                                            EvdPeer      *peer,
                                                            gboolean      gracefully);
 
+static gboolean accept_peer                               (EvdTransport *transport,
+                                                           EvdPeer      *peer);
+static gboolean reject_peer                               (EvdTransport *transport,
+                                                           EvdPeer      *peer);
+
 G_DEFINE_TYPE_WITH_CODE (EvdWebsocketServer, evd_websocket_server, EVD_TYPE_WEB_SERVICE,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_websocket_server_transport_iface_init));
@@ -92,6 +107,8 @@ evd_websocket_server_transport_iface_init (EvdTransportInterface *iface)
   iface->send = evd_websocket_server_send;
   iface->peer_is_connected = evd_websocket_server_peer_is_connected;
   iface->peer_closed = evd_websocket_server_peer_closed;
+  iface->accept_peer = accept_peer;
+  iface->reject_peer = reject_peer;
 }
 
 static void
@@ -132,17 +149,14 @@ on_close_requested (EvdHttpConnection *conn,
                     gboolean           gracefully,
                     gpointer           user_data)
 {
-  EvdTransportInterface *iface;
   EvdPeer *peer;
   EvdTransport *transport = EVD_TRANSPORT (user_data);
-
-  iface = EVD_TRANSPORT_GET_INTERFACE (transport);
 
   peer = EVD_PEER (g_object_get_data (G_OBJECT (conn), CONN_DATA_KEY));
   if (peer == NULL || evd_peer_is_closed (peer))
     return;
 
-  iface->notify_peer_closed (transport, peer, gracefully);
+  evd_transport_close_peer (transport, peer, gracefully, NULL);
 }
 
 static void
@@ -151,7 +165,12 @@ on_handshake_completed (GObject      *obj,
                         gpointer      user_data)
 {
   EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
+  EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (user_data);
   GError *error = NULL;
+  EvdPeer *peer;
+
+  peer = g_object_get_data (G_OBJECT (conn), CONN_DATA_KEY);
+  g_assert (peer != NULL);
 
   if (! evd_websocket_common_handle_handshake_request_finish (res, &error))
     {
@@ -160,24 +179,130 @@ on_handshake_completed (GObject      *obj,
       g_error_free (error);
 
       g_object_set_data (G_OBJECT (conn), CONN_DATA_KEY, NULL);
+      g_object_unref (conn);
+
       g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
   else
     {
-      EvdWebsocketServer *self;
+      EvdPeerManager *peer_manager;
 
-      self = EVD_WEBSOCKET_SERVER (user_data);
-
-      g_object_ref (conn);
+      /* bind websocket connection */
       g_object_ref (self);
+      g_object_ref (conn);
       evd_websocket_common_bind (conn,
                                  on_frame_received,
                                  on_close_requested,
                                  self,
                                  g_object_unref);
+
+      peer_manager = evd_transport_get_peer_manager (EVD_TRANSPORT (self));
+      /* add peer to peer-manager and trigger notify 'new-peer' */
+      if (evd_peer_manager_lookup_peer (peer_manager,
+                                        evd_peer_get_id (peer)) == NULL)
+        {
+          EvdTransportInterface *iface;
+
+          evd_peer_manager_add_peer (peer_manager, peer);
+
+          iface = EVD_TRANSPORT_GET_INTERFACE (self);
+          iface->notify_new_peer (EVD_TRANSPORT (self), peer);
+        }
+
+      g_object_unref (conn);
     }
 
+  g_object_unref (peer);
+  g_object_unref (self);
+}
+
+static void
+bind_peer_and_handshake (EvdWebsocketServer *self,
+                         EvdPeer            *peer,
+                         EvdHttpConnection  *conn,
+                         EvdHttpRequest     *request)
+{
+  g_object_ref (peer);
+  g_object_set_data_full (G_OBJECT (conn),
+                          CONN_DATA_KEY,
+                          peer,
+                          g_object_unref);
+
+  g_object_ref (conn);
+  g_object_set_data_full (G_OBJECT (peer),
+                          PEER_DATA_KEY,
+                          conn,
+                          g_object_unref);
+
+  g_object_ref (peer);
+  g_object_ref (self);
+  evd_websocket_common_handle_handshake_request (EVD_WEB_SERVICE (self),
+                                                 conn,
+                                                 request,
+                                                 on_handshake_completed,
+                                                 self);
+}
+
+static gboolean
+accept_peer (EvdTransport *transport, EvdPeer *peer)
+{
+  EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (transport);
+  HandshakeData *data;
+  EvdHttpConnection *conn;
+  EvdHttpRequest *request;
+
+  data = g_object_get_data (G_OBJECT (peer), HANDSHAKE_DATA_KEY);
+  if (data == NULL)
+    return FALSE;
+
+  conn = data->conn;
+  request = data->request;
+
+  g_object_ref (conn);
+  g_object_ref (request);
+
+  g_object_set_data (G_OBJECT (peer), HANDSHAKE_DATA_KEY, NULL);
+
+  bind_peer_and_handshake (self, peer, conn, request);
+
   g_object_unref (conn);
+  g_object_unref (request);
+
+  return FALSE;
+}
+
+static gboolean
+reject_peer (EvdTransport *transport, EvdPeer *peer)
+{
+  EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (transport);
+  HandshakeData *data;
+
+  data = g_object_get_data (G_OBJECT (peer), HANDSHAKE_DATA_KEY);
+  if (data == NULL)
+    return FALSE;
+
+  evd_web_service_respond (EVD_WEB_SERVICE (self),
+                           data->conn,
+                           SOUP_STATUS_FORBIDDEN,
+                           NULL,
+                           NULL,
+                           0,
+                           NULL);
+
+  g_object_set_data (G_OBJECT (peer), HANDSHAKE_DATA_KEY, NULL);
+
+  return FALSE;
+}
+
+static void
+free_handshake_data (gpointer _data)
+{
+  HandshakeData *data = _data;
+
+  g_object_unref (data->conn);
+  g_object_unref (data->request);
+
+  g_slice_free (HandshakeData, data);
 }
 
 static void
@@ -188,9 +313,12 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
   EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (web_service);
   EvdPeer *peer = NULL;
   SoupURI *uri;
+  guint validate_result;
+  EvdTransportInterface *iface;
 
   uri = evd_http_request_get_uri (request);
 
+  /* resolve peer */
   peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), uri->query);
   if (peer == NULL)
     {
@@ -207,32 +335,64 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
         }
       else
         {
-          peer = evd_transport_create_new_peer (EVD_TRANSPORT (self));
+          peer = g_object_new (EVD_TYPE_PEER, "transport", self, NULL);
         }
     }
   else
     {
       evd_peer_touch (peer);
+      g_object_ref (peer);
     }
 
-  g_object_ref (peer);
-  g_object_set_data_full (G_OBJECT (conn),
-                          CONN_DATA_KEY,
-                          peer,
-                          g_object_unref);
+  /* validate peer */
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
 
-  g_object_ref (conn);
-  g_object_set_data_full (G_OBJECT (peer),
-                          PEER_DATA_KEY,
-                          conn,
-                          g_object_unref);
+  self->priv->peer_arg_conn = conn;
+  self->priv->peer_arg_request = request;
 
-  g_object_ref (conn);
-  evd_websocket_common_handle_handshake_request (EVD_WEB_SERVICE (self),
-                                                 conn,
-                                                 request,
-                                                 on_handshake_completed,
-                                                 self);
+  validate_result = iface->notify_validate_peer (EVD_TRANSPORT (self), peer);
+
+  self->priv->peer_arg_conn = NULL;
+  self->priv->peer_arg_request = NULL;
+
+  if (validate_result == EVD_VALIDATE_ACCEPT)
+    {
+      /* peer accepted */
+      if (! g_io_stream_is_closed (G_IO_STREAM (conn)))
+        bind_peer_and_handshake (self, peer, conn, request);
+    }
+  else if (validate_result == EVD_VALIDATE_REJECT)
+    {
+      /* peer rejected */
+      evd_web_service_respond (web_service,
+                               conn,
+                               SOUP_STATUS_FORBIDDEN,
+                               NULL,
+                               NULL,
+                               0,
+                               NULL);
+    }
+  else
+    {
+      /* validation pending */
+
+      HandshakeData *data;
+
+      data = g_slice_new (HandshakeData);
+
+      data->conn = conn;
+      g_object_ref (conn);
+
+      data->request = request;
+      g_object_ref (request);
+
+      g_object_set_data_full (G_OBJECT (peer),
+                              HANDSHAKE_DATA_KEY,
+                              data,
+                              free_handshake_data);
+    }
+
+  g_object_unref (peer);
 }
 
 static gboolean
@@ -283,10 +443,7 @@ evd_websocket_server_remove (EvdIoStreamGroup *io_stream_group,
 
   peer = g_object_get_data (G_OBJECT (io_stream), CONN_DATA_KEY);
   if (peer != NULL)
-    {
-      g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
-      g_object_set_data (G_OBJECT (io_stream), CONN_DATA_KEY, NULL);
-    }
+    g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
 
   if (evd_websocket_common_is_bound (EVD_HTTP_CONNECTION (io_stream)))
     g_object_unref (io_stream);
