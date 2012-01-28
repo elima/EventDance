@@ -64,13 +64,13 @@ struct _EvdWebsocketServerClass
 #define EVD_WEBSOCKET_SERVER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_WEBSOCKET_SERVER, EvdWebsocketServerClass))
 
 
-GType                   evd_websocket_server_get_type          (void) G_GNUC_CONST;
+GType                   evd_websocket_server_get_type                    (void) G_GNUC_CONST;
 
-EvdWebsocketServer     *evd_websocket_server_new               (void);
+EvdWebsocketServer *    evd_websocket_server_new                         (void);
 
-void                    evd_websocket_server_set_standalone    (EvdWebsocketServer *self,
-                                                                gboolean            standalone);
-gboolean                evd_websocket_server_get_standalone    (EvdWebsocketServer *self);
+void                    evd_websocket_server_set_standalone              (EvdWebsocketServer *self,
+                                                                          gboolean            standalone);
+gboolean                evd_websocket_server_get_standalone              (EvdWebsocketServer *self);
 
 void                    evd_websocket_server_get_validate_peer_arguments (EvdWebsocketServer  *self,
                                                                           EvdPeer             *peer,
