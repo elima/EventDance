@@ -688,9 +688,7 @@ evd_http_connection_on_read_content_block (GObject      *obj,
       if (done)
         g_string_set_size (self->priv->buf, self->priv->content_read);
       else
-        {
-          evd_http_connection_read_next_content_block (self);
-        }
+        evd_http_connection_read_next_content_block (self);
     }
   else if (source_tag == evd_http_connection_read_content)
     {
