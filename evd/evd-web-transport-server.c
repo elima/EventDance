@@ -88,7 +88,8 @@ enum
   PROP_0,
   PROP_BASE_PATH,
   PROP_SELECTOR,
-  PROP_LP_SERVICE
+  PROP_LP_SERVICE,
+  PROP_WEBSOCKET_SERVICE
 };
 
 static void     evd_web_transport_server_class_init           (EvdWebTransportServerClass *class);
@@ -185,8 +186,16 @@ evd_web_transport_server_class_init (EvdWebTransportServerClass *class)
   g_object_class_install_property (obj_class, PROP_LP_SERVICE,
                                    g_param_spec_object ("lp-service",
                                                         "Long-Polling service",
-                                                        "Internal Long-Polling service used by this transport",
+                                                        "Internal Long-Polling service used by the transport",
                                                         EVD_TYPE_LONGPOLLING_SERVER,
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class, PROP_WEBSOCKET_SERVICE,
+                                   g_param_spec_object ("websocket-service",
+                                                        "Websocket service",
+                                                        "Internal Websocket service used by the transport",
+                                                        EVD_TYPE_WEBSOCKET_SERVER,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
@@ -306,6 +315,10 @@ evd_web_transport_server_get_property (GObject    *obj,
 
     case PROP_LP_SERVICE:
       g_value_set_object (value, self->priv->lp);
+      break;
+
+    case PROP_WEBSOCKET_SERVICE:
+      g_value_set_object (value, self->priv->ws);
       break;
 
     default:
