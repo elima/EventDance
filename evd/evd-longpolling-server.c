@@ -452,6 +452,7 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
 {
   SoupMessageHeaders *headers;
   gboolean result = TRUE;
+  EvdHttpRequest *request;
 
   /* build and send HTTP headers */
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
@@ -464,6 +465,22 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
     soup_message_headers_replace (headers, "Connection", "keep-alive");
   else
     soup_message_headers_replace (headers, "Connection", "close");
+
+  request = evd_http_connection_get_current_request (conn);
+  if (request != NULL)
+    {
+      const gchar *origin;
+
+      origin = evd_http_request_get_origin (request);
+
+      if (origin != NULL &&
+          evd_web_service_origin_allowed (EVD_WEB_SERVICE (self), origin))
+        {
+          soup_message_headers_replace (headers,
+                                        "Access-Control-Allow-Origin",
+                                        origin);
+        }
+    }
 
   if (evd_http_connection_write_response_headers (conn,
                                                   SOUP_HTTP_1_1,
