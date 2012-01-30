@@ -780,6 +780,7 @@ evd_web_service_origin_allowed (EvdWebService *self, const gchar *origin)
   gboolean *allowed;
 
   g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
+  g_return_val_if_fail (origin != NULL, FALSE);
 
   priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
 
