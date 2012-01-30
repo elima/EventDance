@@ -195,8 +195,8 @@ on_handshake_completed (GObject      *obj,
                                  self,
                                  g_object_unref);
 
-      peer_manager = evd_transport_get_peer_manager (EVD_TRANSPORT (self));
       /* add peer to peer-manager and trigger notify 'new-peer' */
+      peer_manager = evd_transport_get_peer_manager (EVD_TRANSPORT (self));
       if (evd_peer_manager_lookup_peer (peer_manager,
                                         evd_peer_get_id (peer)) == NULL)
         {
@@ -206,6 +206,31 @@ on_handshake_completed (GObject      *obj,
 
           iface = EVD_TRANSPORT_GET_INTERFACE (self);
           iface->notify_new_peer (EVD_TRANSPORT (self), peer);
+        }
+
+      /* send all frames from backlog */
+      while (evd_peer_backlog_get_length (peer) > 0)
+        {
+          gsize size;
+          gchar *frame;
+          GError *error = NULL;
+
+          frame = evd_peer_backlog_pop_frame (peer, &size);
+
+          if (! evd_websocket_server_send (EVD_TRANSPORT (self),
+                                           peer,
+                                           frame,
+                                           size,
+                                           &error))
+            {
+              /* @TODO: do proper logging */
+              g_print ("Error, failed to send frame from peer's backlog: %s\n",
+                       error->message);
+              g_error_free (error);
+              error = NULL;
+            }
+
+          g_free (frame);
         }
 
       g_object_unref (conn);
