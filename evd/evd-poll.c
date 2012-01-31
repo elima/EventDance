@@ -134,7 +134,11 @@ evd_poll_finalize (GObject *obj)
 static void
 evd_poll_session_ref (EvdPollSession *session)
 {
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_atomic_int_exchange_and_add (&session->ref_count, 1);
+#else
+  g_atomic_int_add (&session->ref_count, 1);
+#endif
 }
 
 static gboolean
@@ -342,6 +346,7 @@ evd_poll_start (EvdPoll *self, GError **error)
       return FALSE;
     }
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   if (! g_thread_get_initialized ())
     g_thread_init (NULL);
 
@@ -349,6 +354,11 @@ evd_poll_start (EvdPoll *self, GError **error)
                                         (gpointer) self,
                                         TRUE,
                                         error);
+#else
+  self->priv->thread = g_thread_new ("EvdPollThread",
+                                     evd_poll_thread_loop,
+                                     self);
+#endif
 
   return self->priv->thread != NULL;
 }

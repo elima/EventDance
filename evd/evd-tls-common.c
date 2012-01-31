@@ -51,7 +51,9 @@ evd_tls_init (GError **error)
 
       g_type_init ();
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
       g_thread_init (NULL);
+#endif
 
       gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
       gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);

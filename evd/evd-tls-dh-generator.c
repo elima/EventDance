@@ -33,7 +33,11 @@ G_DEFINE_TYPE (EvdTlsDhGenerator, evd_tls_dh_generator, G_TYPE_OBJECT)
 struct _EvdTlsDhGeneratorPrivate
 {
   GHashTable *cache;
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   GMutex     *cache_mutex;
+#else
+  GMutex      cache_mutex;
+#endif
 };
 
 typedef struct _EvdTlsDhParamsSource EvdTlsDhParamsSource;
@@ -43,7 +47,11 @@ struct _EvdTlsDhParamsSource
   guint               dh_bits;
   gnutls_dh_params_t  dh_params;
   GQueue             *queue;
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   GMutex             *mutex;
+#else
+  GMutex              mutex;
+#endif
   EvdTlsDhGenerator  *parent;
 };
 
@@ -76,7 +84,12 @@ evd_tls_dh_generator_init (EvdTlsDhGenerator *self)
   self->priv = priv;
 
   priv->cache = g_hash_table_new (g_int_hash, g_int_equal);
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   priv->cache_mutex = g_mutex_new ();
+#else
+  g_mutex_init (&priv->cache_mutex);
+#endif
 }
 
 static gboolean
@@ -99,7 +112,11 @@ evd_tls_dh_generator_finalize (GObject *obj)
                                self);
   g_hash_table_destroy (self->priv->cache);
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_free (self->priv->cache_mutex);
+#else
+  g_mutex_clear (&self->priv->cache_mutex);
+#endif
 
   G_OBJECT_CLASS (evd_tls_dh_generator_parent_class)->finalize (obj);
 }
@@ -109,7 +126,11 @@ evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
 {
   GSimpleAsyncResult *item;
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (source->mutex);
+#else
+  g_mutex_lock (&source->mutex);
+#endif
 
   if (source->queue != NULL)
     {
@@ -125,9 +146,15 @@ evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
   if (source->dh_params != NULL)
     gnutls_dh_params_deinit (source->dh_params);
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (source->mutex);
 
   g_mutex_free (source->mutex);
+#else
+  g_mutex_unlock (&source->mutex);
+
+  g_mutex_clear (&source->mutex);
+#endif
 
   g_slice_free (EvdTlsDhParamsSource, source);
 }
@@ -151,7 +178,11 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
   if (err_code == GNUTLS_E_SUCCESS)
     err_code = gnutls_dh_params_generate2 (dh_params, source->dh_bits);
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (source->mutex);
+#else
+  g_mutex_lock (&source->mutex);
+#endif
 
   if (err_code != GNUTLS_E_SUCCESS)
     evd_error_build_gnutls (err_code, &error);
@@ -190,7 +221,11 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
       evd_tls_dh_generator_free_source (source);
     }
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (source->mutex);
+#else
+  g_mutex_unlock (&source->mutex);
+#endif
 }
 
 /* public methods */
@@ -219,17 +254,32 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
   g_return_if_fail (bit_length > 0);
   g_return_if_fail (callback != NULL);
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (self->priv->cache_mutex);
+#else
+  g_mutex_lock (&self->priv->cache_mutex);
+#endif
+
   source = g_hash_table_lookup (self->priv->cache,
                                 &bit_length);
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (self->priv->cache_mutex);
+#else
+  g_mutex_unlock (&self->priv->cache_mutex);
+#endif
 
   if (source != NULL)
     {
       gboolean params_ready;
       gboolean done = FALSE;
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
       g_mutex_lock (source->mutex);
+#else
+      g_mutex_lock (&source->mutex);
+#endif
+
       params_ready = (source->dh_params != NULL);
 
       result = g_simple_async_result_new (NULL,
@@ -253,11 +303,26 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
             {
               g_object_unref (result);
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
               g_mutex_lock (self->priv->cache_mutex);
-              g_hash_table_remove (self->priv->cache, &source->dh_bits);
-              g_mutex_unlock (self->priv->cache_mutex);
+#else
+              g_mutex_lock (&self->priv->cache_mutex);
+#endif
 
+              g_hash_table_remove (self->priv->cache, &source->dh_bits);
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
+              g_mutex_unlock (self->priv->cache_mutex);
+#else
+              g_mutex_unlock (&self->priv->cache_mutex);
+#endif
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
               g_mutex_unlock (source->mutex);
+#else
+              g_mutex_unlock (&source->mutex);
+#endif
+
               evd_tls_dh_generator_free_source (source);
               source = NULL;
             }
@@ -271,7 +336,13 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
         }
 
       if (source != NULL)
-        g_mutex_unlock (source->mutex);
+        {
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
+          g_mutex_unlock (source->mutex);
+#else
+          g_mutex_unlock (&source->mutex);
+#endif
+        }
 
       if (done)
         return;
@@ -281,14 +352,30 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
   source->dh_bits = bit_length;
   source->dh_params = NULL;
   source->queue = g_queue_new ();
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   source->mutex = g_mutex_new ();
+#else
+  g_mutex_init (&source->mutex);
+#endif
+
   source->parent = self;
 
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (self->priv->cache_mutex);
+#else
+  g_mutex_lock (&self->priv->cache_mutex);
+#endif
+
   g_hash_table_insert (self->priv->cache,
                        &source->dh_bits,
                        source);
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (self->priv->cache_mutex);
+#else
+  g_mutex_unlock (&self->priv->cache_mutex);
+#endif
 
   result = g_simple_async_result_new (NULL,
                                       callback,
@@ -297,9 +384,19 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
 
   /* append the result to the source queue, only to allow
      destroying it in case of premature freeing of the generator */
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (source->mutex);
+#else
+  g_mutex_lock (&source->mutex);
+#endif
+
   g_queue_push_tail (source->queue, result);
+
+#if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (source->mutex);
+#else
+  g_mutex_unlock (&source->mutex);
+#endif
 
   g_simple_async_result_run_in_thread (result,
                                        evd_tls_dh_generator_generate_func,
