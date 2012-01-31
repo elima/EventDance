@@ -173,7 +173,7 @@ evd_websocket_common_handle_handshake_request (EvdWebService       *web_service,
                                                 callback,
                                                 user_data);
     }
-  else if (version == 8)
+  else if (version == 8 || version == 13)
     {
       evd_websocket08_handle_handshake_request (web_service,
                                                 conn,
