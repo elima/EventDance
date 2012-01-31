@@ -148,9 +148,9 @@ evd_longpolling_server_finalize (GObject *obj)
 
 static void
 evd_longpolling_server_read_msg_header (const gchar *buf,
-                                  gsize       *hdr_len,
-                                  gsize       *msg_len,
-                                  gboolean    *more_fragments)
+                                        gsize       *hdr_len,
+                                        gsize       *msg_len,
+                                        gboolean    *more_fragments)
 {
   const gchar MORE_BIT = 0x80;
 
@@ -221,9 +221,9 @@ evd_longpolling_server_conn_on_content_read (GObject      *obj,
           while (i < size)
             {
               evd_longpolling_server_read_msg_header (content + i,
-                                                &hdr_len,
-                                                &msg_len,
-                                                NULL);
+                                                      &hdr_len,
+                                                      &msg_len,
+                                                      NULL);
 
               iface->receive (EVD_TRANSPORT (self),
                               peer,
@@ -499,10 +499,10 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
               (frame = evd_peer_pop_message (peer, &frame_size, &frame_type)) != NULL)
         {
           if (! evd_longpolling_server_write_frame_delivery (self,
-                                                       conn,
-                                                       frame,
-                                                       frame_size,
-                                                       NULL))
+                                                             conn,
+                                                             frame,
+                                                             frame_size,
+                                                             NULL))
             {
               evd_peer_unshift_message (peer, frame, frame_size, frame_type, NULL);
 
