@@ -455,7 +455,7 @@ evd_http_request_is_cross_origin (EvdHttpRequest *self)
                           self->priv->uri->host,
                           self->priv->uri->port);
 
-  result = (g_strcmp0 (origin, host) != 0);
+  result = (g_strstr_len (host, -1, origin) != host);
 
   g_free (host);
 
