@@ -135,8 +135,6 @@ get_version_from_request (EvdHttpRequest *request)
   const gchar *version_str;
   guint8 version;
 
-  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (conn), 0);
-
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
   version_str = soup_message_headers_get_one (headers, "Sec-Websocket-Version");
@@ -213,7 +211,7 @@ evd_websocket_common_handle_handshake_request_finish (GAsyncResult  *result,
 {
   GSimpleAsyncResult *res;
 
-  g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
+  g_return_val_if_fail (G_IS_ASYNC_RESULT (result), FALSE);
 
   res = G_SIMPLE_ASYNC_RESULT (result);
 
@@ -284,7 +282,7 @@ evd_websocket_common_is_bound (EvdHttpConnection *conn)
 {
   EvdWebsocketData *data;
 
-  g_return_if_fail (EVD_IS_HTTP_CONNECTION (conn));
+  g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (conn), FALSE);
 
   data = g_object_get_data (G_OBJECT (conn), EVD_WEBSOCKET_DATA_KEY);
 
