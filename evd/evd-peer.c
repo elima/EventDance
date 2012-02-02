@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011/2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -19,6 +19,8 @@
  * Lesser General Public License at http://www.gnu.org/licenses/lgpl-3.0.txt
  * for more details.
  */
+
+#include <string.h>
 
 #include "evd-peer.h"
 
@@ -47,6 +49,13 @@ struct _EvdPeerPrivate
 
   EvdTransport *transport;
 };
+
+typedef struct
+{
+  EvdMessageType type;
+  gsize len;
+  gchar *buf;
+} BacklogFrame;
 
 /* signals */
 enum
@@ -79,7 +88,8 @@ static void     evd_peer_get_property       (GObject    *obj,
                                              GValue     *value,
                                              GParamSpec *pspec);
 
-static void     evd_peer_backlog_free_frame (gpointer data, gpointer user_data);
+static void     free_backlog_frame          (gpointer data,
+                                             gpointer user_data);
 
 static void
 evd_peer_class_init (EvdPeerClass *class)
@@ -152,7 +162,7 @@ evd_peer_finalize (GObject *obj)
   g_timer_destroy (self->priv->idle_timer);
 
   g_queue_foreach (self->priv->backlog,
-                   evd_peer_backlog_free_frame,
+                   free_backlog_frame,
                    NULL);
   g_queue_free (self->priv->backlog);
 
@@ -210,9 +220,29 @@ evd_peer_get_property (GObject    *obj,
 }
 
 static void
-evd_peer_backlog_free_frame (gpointer data, gpointer user_data)
+free_backlog_frame (gpointer data, gpointer user_data)
 {
-  g_string_free ((GString *) data, TRUE);
+  BacklogFrame *frame = data;
+
+  if (frame->buf != NULL)
+    g_free (frame->buf);
+
+  g_slice_free (BacklogFrame, frame);
+}
+
+static BacklogFrame *
+create_new_backlog_frame (const gchar *message, gsize size, EvdMessageType type)
+{
+  BacklogFrame *frame;
+
+  frame = g_slice_new0 (BacklogFrame);
+  frame->type = type;
+  frame->len = size;
+
+  frame->buf = g_new (gchar, size);
+  memcpy (frame->buf, message, size);
+
+  return frame;
 }
 
 /* public methods */
@@ -231,14 +261,11 @@ evd_peer_backlog_push_frame (EvdPeer      *self,
                              gsize         size,
                              GError      **error)
 {
-  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
-  g_return_val_if_fail (frame != NULL, FALSE);
-
-  /* TODO: check backlog limits here */
-
-  g_queue_push_tail (self->priv->backlog, g_string_new_len (frame, size));
-
-  return TRUE;
+  return evd_peer_push_message (self,
+                                frame,
+                                size,
+                                EVD_MESSAGE_TYPE_TEXT,
+                                error);
 }
 
 gboolean
@@ -247,43 +274,18 @@ evd_peer_backlog_unshift_frame (EvdPeer      *self,
                                 gsize         size,
                                 GError      **error)
 {
-  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
-  g_return_val_if_fail (frame != NULL, FALSE);
-
-  /* TODO: check backlog limits here */
-
-  g_queue_push_head (self->priv->backlog, g_string_new_len (frame, size));
-
-  return TRUE;
+  return evd_peer_unshift_message (self,
+                                   frame,
+                                   size,
+                                   EVD_MESSAGE_TYPE_TEXT,
+                                   error);
 }
 
 gchar *
 evd_peer_backlog_pop_frame (EvdPeer *self,
                             gsize   *size)
 {
-  GString *frame;
-
-  g_return_val_if_fail (EVD_IS_PEER (self), NULL);
-
-  frame = (GString *) g_queue_pop_head (self->priv->backlog);
-
-  if (frame != NULL)
-    {
-      gchar *str;
-
-      if (size != NULL)
-        *size = frame->len;
-
-      str = frame->str;
-
-      g_string_free (frame, FALSE);
-
-      return str;
-    }
-  else
-    {
-      return NULL;
-    }
+  return evd_peer_pop_message (self, size, NULL);
 }
 
 guint
@@ -364,5 +366,104 @@ evd_peer_close (EvdPeer *self, gboolean gracefully)
                                 self,
                                 gracefully,
                                 NULL);
+    }
+}
+
+/**
+ * evd_peer_push_message:
+ *
+ * Returns:
+ *
+ * Since: 0.1.20
+ **/
+gboolean
+evd_peer_push_message (EvdPeer         *self,
+                       const gchar     *message,
+                       gsize            size,
+                       EvdMessageType   type,
+                       GError         **error)
+{
+  BacklogFrame *frame;
+
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+  g_return_val_if_fail (message != NULL, FALSE);
+
+  /* TODO: check backlog limits here */
+
+  frame = create_new_backlog_frame (message, size, type);
+
+  g_queue_push_tail (self->priv->backlog, frame);
+
+  return TRUE;
+}
+
+/**
+ * evd_peer_unshift_message:
+ *
+ * Returns:
+ *
+ * Since: 0.1.20
+ **/
+gboolean
+evd_peer_unshift_message (EvdPeer         *self,
+                          const gchar     *message,
+                          gsize            size,
+                          EvdMessageType   type,
+                          GError         **error)
+{
+  BacklogFrame *frame;
+
+  g_return_val_if_fail (EVD_IS_PEER (self), FALSE);
+  g_return_val_if_fail (message != NULL, FALSE);
+
+  if (size == 0)
+    return TRUE;
+
+  /* TODO: check backlog limits here */
+
+  frame = create_new_backlog_frame (message, size, type);
+
+  g_queue_push_head (self->priv->backlog, frame);
+
+  return TRUE;
+}
+
+/**
+ * evd_peer_pop_message:
+ * @size: (allow-none):
+ * @type: (allow-none):
+ *
+ * Returns: (transfer full) (element-type guint8):
+ *
+ * Since: 0.1.20
+ **/
+gchar *
+evd_peer_pop_message (EvdPeer *self, gsize *size, EvdMessageType *type)
+{
+  BacklogFrame *frame;
+
+  g_return_val_if_fail (EVD_IS_PEER (self), NULL);
+
+  frame = g_queue_pop_head (self->priv->backlog);
+
+  if (frame != NULL)
+    {
+      gchar *str;
+
+      str = frame->buf;
+
+      if (size != NULL)
+        *size = frame->len;
+
+      if (type != NULL)
+        *type = frame->type;
+
+      g_slice_free (BacklogFrame, frame);
+
+      return str;
+    }
+  else
+    {
+      return NULL;
     }
 }

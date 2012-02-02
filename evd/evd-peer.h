@@ -74,13 +74,13 @@ const gchar *     evd_peer_get_id                  (EvdPeer *self);
 gboolean          evd_peer_backlog_push_frame      (EvdPeer      *self,
                                                     const gchar  *frame,
                                                     gsize         size,
-                                                    GError      **error);
+                                                    GError      **error) G_GNUC_DEPRECATED_FOR('evd_peer_push_message');
 gboolean          evd_peer_backlog_unshift_frame   (EvdPeer      *self,
                                                     const gchar  *frame,
                                                     gsize         size,
-                                                    GError      **error);
+                                                    GError      **error) G_GNUC_DEPRECATED_FOR('evd_peer_unshift_message');
 gchar *           evd_peer_backlog_pop_frame       (EvdPeer *self,
-                                                    gsize   *size);
+                                                    gsize   *size) G_GNUC_DEPRECATED_FOR('evd_peer_pop_message');
 guint             evd_peer_backlog_get_length      (EvdPeer *self);
 
 void              evd_peer_touch                   (EvdPeer *self);
@@ -97,6 +97,20 @@ gboolean          evd_peer_send_text               (EvdPeer      *self,
 
 void              evd_peer_close                   (EvdPeer   *self,
                                                     gboolean   gracefully);
+
+gboolean          evd_peer_push_message            (EvdPeer         *self,
+                                                    const gchar     *message,
+                                                    gsize            size,
+                                                    EvdMessageType   type,
+                                                    GError         **error);
+gchar *           evd_peer_pop_message             (EvdPeer        *self,
+                                                    gsize          *size,
+                                                    EvdMessageType *type);
+gboolean          evd_peer_unshift_message         (EvdPeer         *self,
+                                                    const gchar     *message,
+                                                    gsize            size,
+                                                    EvdMessageType   type,
+                                                    GError         **error);
 
 G_END_DECLS
 
