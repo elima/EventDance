@@ -40,11 +40,12 @@ struct _EvdTransportInterface
   GTypeInterface parent_iface;
 
   /* virtual methods */
-  gboolean  (* send)                 (EvdTransport  *self,
-                                      EvdPeer       *peer,
-                                      const gchar   *buffer,
-                                      gsize          size,
-                                      GError       **error);
+  gboolean  (* send)                 (EvdTransport    *self,
+                                      EvdPeer         *peer,
+                                      const gchar     *buffer,
+                                      gsize            size,
+                                      EvdMessageType   type,
+                                      GError         **error);
   void      (* notify_receive)       (EvdTransport *self,
                                       EvdPeer      *peer);
   void      (* receive)              (EvdTransport *self,

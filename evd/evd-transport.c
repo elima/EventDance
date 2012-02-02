@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011/2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -350,6 +350,37 @@ evd_transport_accept_peer_internal (EvdTransport *self, EvdPeer *peer)
   return TRUE;
 }
 
+static gboolean
+send_frame (EvdTransport    *self,
+            EvdPeer         *peer,
+            const gchar     *buffer,
+            gsize            size,
+            EvdMessageType   type,
+            GError         **error)
+{
+  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
+  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
+
+  if (! EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
+                                                  peer,
+                                                  buffer,
+                                                  size,
+                                                  type,
+                                                  NULL)
+      && ! evd_peer_push_message (peer,
+                                  buffer,
+                                  size,
+                                  type,
+                                  error))
+    {
+      return FALSE;
+    }
+  else
+    {
+      return TRUE;
+    }
+}
+
 /* public methods */
 
 gboolean
@@ -359,22 +390,7 @@ evd_transport_send (EvdTransport  *self,
                     gsize          size,
                     GError       **error)
 {
-  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
-  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
-
-  if (! EVD_TRANSPORT_GET_INTERFACE (self)->send (self,
-                                                  peer,
-                                                  buffer,
-                                                  size,
-                                                  NULL)
-      && ! evd_peer_backlog_push_frame (peer, buffer, size, error))
-    {
-      return FALSE;
-    }
-  else
-    {
-      return TRUE;
-    }
+  return send_frame (self, peer, buffer, size, EVD_MESSAGE_TYPE_BINARY, error);
 }
 
 gboolean
@@ -385,12 +401,9 @@ evd_transport_send_text (EvdTransport  *self,
 {
   gsize size;
 
-  g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
-  g_return_val_if_fail (EVD_IS_PEER (peer), FALSE);
-
   size = strlen (text);
 
-  return evd_transport_send (self, peer, text, size, error);
+  return send_frame (self, peer, text, size, EVD_MESSAGE_TYPE_TEXT, error);
 }
 
 /**
