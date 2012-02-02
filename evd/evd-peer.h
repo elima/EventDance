@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009/2010/2011/2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -26,6 +26,12 @@
 #include <glib-object.h>
 
 G_BEGIN_DECLS
+
+typedef enum
+{
+  EVD_MESSAGE_TYPE_BINARY = 0,
+  EVD_MESSAGE_TYPE_TEXT   = 1
+} EvdMessageType;
 
 typedef struct _EvdPeer EvdPeer;
 typedef struct _EvdPeerClass EvdPeerClass;
