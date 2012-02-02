@@ -341,7 +341,7 @@ gboolean
 evd_websocket_common_send (EvdHttpConnection  *conn,
                            const gchar        *frame,
                            gsize               frame_len,
-                           gboolean            binary,
+                           EvdMessageType      frame_type,
                            GError            **error)
 {
   EvdWebsocketData *data;
@@ -369,5 +369,5 @@ evd_websocket_common_send (EvdHttpConnection  *conn,
       return FALSE;
     }
 
-  return data->send_data_frame_func (data, frame, frame_len, binary, error);
+  return data->send_data_frame_func (data, frame, frame_len, frame_type, error);
 }

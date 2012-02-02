@@ -29,6 +29,7 @@
 #include <evd-web-service.h>
 #include <evd-http-connection.h>
 #include <evd-http-request.h>
+#include <evd-peer.h>
 
 G_BEGIN_DECLS
 
@@ -55,7 +56,7 @@ typedef gboolean (* EvdWebsocketSendCloseFrameFunc) (EvdWebsocketData  *data,
 typedef gboolean (* EvdWebsocketSendDataFrameFunc)  (EvdWebsocketData  *data,
                                                      const gchar       *frame,
                                                      gsize              frame_len,
-                                                     gboolean           binary,
+                                                     EvdMessageType     frame_type,
                                                      GError           **error);
 
 typedef enum
@@ -155,7 +156,7 @@ gboolean            evd_websocket_common_close                           (EvdHtt
 gboolean            evd_websocket_common_send                            (EvdHttpConnection  *conn,
                                                                           const gchar        *frame,
                                                                           gsize               frame_len,
-                                                                          gboolean            binary,
+                                                                          EvdMessageType      frame_type,
                                                                           GError            **error);
 
 G_END_DECLS

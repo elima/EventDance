@@ -204,7 +204,7 @@ static gboolean
 send_data_frame (EvdWebsocketData  *data,
                  const gchar       *frame,
                  gsize              frame_len,
-                 gboolean           binary,
+                 EvdMessageType     frame_type,
                  GError           **error)
 {
   gsize bytes_sent;
@@ -231,7 +231,7 @@ send_data_frame (EvdWebsocketData  *data,
       fin = frag_len >= bytes_left;
 
       opcode = bytes_sent == 0 ?
-        (binary ? OPCODE_BINARY_FRAME : OPCODE_TEXT_FRAME) :
+        (frame_type == EVD_MESSAGE_TYPE_TEXT ? OPCODE_TEXT_FRAME : OPCODE_BINARY_FRAME) :
         OPCODE_CONTINUATION;
 
       masked = ! data->server;

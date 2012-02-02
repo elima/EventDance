@@ -303,10 +303,10 @@ static gboolean
 send_data_frame (EvdWebsocketData  *data,
                  const gchar       *frame,
                  gsize              frame_len,
-                 gboolean           binary,
+                 EvdMessageType     frame_type,
                  GError           **error)
 {
-  if (! binary)
+  if (frame_type == EVD_MESSAGE_TYPE_TEXT)
     {
       return write_text_frame (data->conn, frame, frame_len, error);
     }

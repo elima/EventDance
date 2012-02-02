@@ -63,11 +63,12 @@ static void     evd_websocket_server_request_handler      (EvdWebService     *we
 static gboolean evd_websocket_server_remove               (EvdIoStreamGroup *io_stream_group,
                                                            GIOStream        *io_stream);
 
-static gboolean evd_websocket_server_send                 (EvdTransport *transport,
-                                                           EvdPeer       *peer,
-                                                           const gchar   *buffer,
-                                                           gsize          size,
-                                                           GError       **error);
+static gboolean evd_websocket_server_send                 (EvdTransport    *transport,
+                                                           EvdPeer         *peer,
+                                                           const gchar     *buffer,
+                                                           gsize            size,
+                                                           EvdMessageType   type,
+                                                           GError         **error);
 
 static gboolean evd_websocket_server_peer_is_connected    (EvdTransport *transport,
                                                            EvdPeer      *peer);
@@ -213,21 +214,27 @@ on_handshake_completed (GObject      *obj,
         {
           gsize size;
           gchar *frame;
+          EvdMessageType type;
           GError *error = NULL;
 
-          frame = evd_peer_backlog_pop_frame (peer, &size);
+          frame = evd_peer_pop_message (peer, &size, &type);
 
           if (! evd_websocket_server_send (EVD_TRANSPORT (self),
                                            peer,
                                            frame,
                                            size,
+                                           type,
                                            &error))
             {
               /* @TODO: do proper logging */
               g_print ("Error, failed to send frame from peer's backlog: %s\n",
                        error->message);
               g_error_free (error);
-              error = NULL;
+
+              /* return back the message to the peer's backlog */
+              evd_peer_unshift_message (peer, frame, size, type, NULL);
+
+              break;
             }
 
           g_free (frame);
@@ -430,11 +437,12 @@ evd_websocket_server_peer_is_connected (EvdTransport *transport, EvdPeer *peer)
 }
 
 static gboolean
-evd_websocket_server_send (EvdTransport *transport,
-                           EvdPeer       *peer,
-                           const gchar   *buffer,
-                           gsize          size,
-                           GError       **error)
+evd_websocket_server_send (EvdTransport    *transport,
+                           EvdPeer         *peer,
+                           const gchar     *buffer,
+                           gsize            size,
+                           EvdMessageType   type,
+                           GError         **error)
 {
   EvdHttpConnection *conn;
 
@@ -449,7 +457,7 @@ evd_websocket_server_send (EvdTransport *transport,
     }
   else
     {
-      return evd_websocket_common_send (conn, buffer, size, FALSE, error);
+      return evd_websocket_common_send (conn, buffer, size, type, error);
     }
 }
 
