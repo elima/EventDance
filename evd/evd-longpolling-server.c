@@ -70,11 +70,12 @@ static void     evd_longpolling_server_request_handler      (EvdWebService     *
 static gboolean evd_longpolling_server_remove               (EvdIoStreamGroup *io_stream_group,
                                                              GIOStream        *io_stream);
 
-static gboolean evd_longpolling_server_send                 (EvdTransport *transport,
-                                                             EvdPeer       *peer,
-                                                             const gchar   *buffer,
-                                                             gsize          size,
-                                                             GError       **error);
+static gboolean evd_longpolling_server_send                 (EvdTransport    *transport,
+                                                             EvdPeer         *peer,
+                                                             const gchar     *buffer,
+                                                             gsize            size,
+                                                             EvdMessageType   type,
+                                                             GError         **error);
 
 static gboolean evd_longpolling_server_actual_send          (EvdLongpollingServer *self,
                                                              EvdPeer              *peer,
@@ -491,10 +492,11 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
     {
       gchar *frame;
       gsize frame_size;
+      EvdMessageType frame_type;
 
       /* send frames in peer's backlog first */
       while ( result &&
-              (frame = evd_peer_backlog_pop_frame (peer, &frame_size)) != NULL)
+              (frame = evd_peer_pop_message (peer, &frame_size, &frame_type)) != NULL)
         {
           if (! evd_longpolling_server_write_frame_delivery (self,
                                                        conn,
@@ -502,7 +504,7 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
                                                        frame_size,
                                                        NULL))
             {
-              evd_peer_backlog_unshift_frame (peer, frame, frame_size, NULL);
+              evd_peer_unshift_message (peer, frame, frame_size, frame_type, NULL);
 
               result = FALSE;
             }
@@ -541,6 +543,7 @@ evd_longpolling_server_select_conn_and_send (EvdLongpollingServer  *self,
                                              EvdPeer               *peer,
                                              const gchar           *buffer,
                                              gsize                  size,
+                                             EvdMessageType         type,
                                              GError               **error)
 {
   EvdLongpollingServerPeerData *data;
@@ -576,11 +579,12 @@ evd_longpolling_server_select_conn_and_send (EvdLongpollingServer  *self,
 }
 
 static gboolean
-evd_longpolling_server_send (EvdTransport  *transport,
-                             EvdPeer       *peer,
-                             const gchar   *buffer,
-                             gsize          size,
-                             GError       **error)
+evd_longpolling_server_send (EvdTransport    *transport,
+                             EvdPeer         *peer,
+                             const gchar     *buffer,
+                             gsize            size,
+                             EvdMessageType   type,
+                             GError         **error)
 {
   EvdLongpollingServer *self = EVD_LONGPOLLING_SERVER (transport);
 
@@ -588,6 +592,7 @@ evd_longpolling_server_send (EvdTransport  *transport,
                                                       peer,
                                                       buffer,
                                                       size,
+                                                      type,
                                                       error);
 }
 
