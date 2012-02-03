@@ -120,11 +120,12 @@ static void     evd_web_transport_server_on_peer_closed       (EvdTransport *tra
                                                                gboolean      gracefully,
                                                                gpointer      user_data);
 
-static gboolean evd_web_transport_server_send                 (EvdTransport  *transport,
-                                                               EvdPeer       *peer,
-                                                               const gchar   *buffer,
-                                                               gsize          size,
-                                                               GError       **error);
+static gboolean evd_web_transport_server_send                 (EvdTransport    *transport,
+                                                               EvdPeer         *peer,
+                                                               const gchar     *buffer,
+                                                               gsize            size,
+                                                               EvdMessageType   type,
+                                                               GError         **error);
 
 static gboolean evd_web_transport_server_peer_is_connected    (EvdTransport *transport,
                                                                EvdPeer      *peer);
@@ -416,22 +417,34 @@ evd_web_transport_server_on_peer_closed (EvdTransport *transport,
 }
 
 static gboolean
-evd_web_transport_server_send (EvdTransport  *transport,
-                               EvdPeer       *peer,
-                               const gchar   *buffer,
-                               gsize          size,
-                               GError       **error)
+evd_web_transport_server_send (EvdTransport    *transport,
+                               EvdPeer         *peer,
+                               const gchar     *buffer,
+                               gsize            size,
+                               EvdMessageType   type,
+                               GError         **error)
 {
   EvdTransport *_transport;
 
   _transport = g_object_get_data (G_OBJECT (peer), PEER_DATA_KEY);
-  g_assert (EVD_IS_TRANSPORT (_transport));
-
-  return evd_transport_send (_transport,
-                             peer,
-                             buffer,
-                             size,
-                             error);
+  if (_transport == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_INITIALIZED,
+                   "Failed to send data, peer is not associated with a "
+                   "sub-transport");
+      return FALSE;
+    }
+  else
+    {
+      return EVD_TRANSPORT_GET_INTERFACE (_transport)->send (_transport,
+                                                             peer,
+                                                             buffer,
+                                                             size,
+                                                             type,
+                                                             error);
+    }
 }
 
 static gboolean
