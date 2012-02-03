@@ -368,7 +368,16 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
         };
 
         this._ws.onmessage = function (e) {
-            self._fireEvent ("receive", [e.data, null]);
+            if (typeof (e.data) == "object") {
+                var reader = new FileReader ();
+                reader.readAsArrayBuffer (e.data);
+                reader.onload = function () {
+                    self._fireEvent ("receive", [this.result, null]);
+                };
+            }
+            else {
+                self._fireEvent ("receive", [e.data.toString (), null]);
+            }
         };
 
         this._ws.onerror = function (e) {
