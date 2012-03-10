@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -954,8 +954,7 @@ evd_connection_new (EvdSocket *socket)
 }
 
 void
-evd_connection_set_socket (EvdConnection *self,
-                           EvdSocket     *socket)
+evd_connection_set_socket (EvdConnection *self, EvdSocket *socket)
 {
   g_return_if_fail (EVD_IS_CONNECTION (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
@@ -1070,6 +1069,13 @@ evd_connection_get_tls_session (EvdConnection *self)
   return self->priv->tls_session;
 }
 
+/**
+ * evd_connection_starttls:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_connection_starttls (EvdConnection       *self,
                          EvdTlsMode           mode,
@@ -1240,9 +1246,13 @@ evd_connection_get_priority (EvdConnection *self)
   return evd_socket_get_priority (self->priv->socket);
 }
 
+/**
+ * evd_connection_set_group:
+ * @group: (allow-none):
+ *
+ **/
 gboolean
-evd_connection_set_group (EvdConnection    *self,
-                          EvdIoStreamGroup *group)
+evd_connection_set_group (EvdConnection *self, EvdIoStreamGroup *group)
 {
   EvdIoStreamGroup *old_group = NULL;
   EvdStreamThrottle *input_throttle;
@@ -1340,6 +1350,11 @@ evd_connection_unlock_close (EvdConnection *self)
     evd_connection_close_in_idle (self);
 }
 
+/**
+ * evd_connection_flush_and_shutdown:
+ * @cancellable: (allow-none):
+ *
+ **/
 void
 evd_connection_flush_and_shutdown (EvdConnection  *self,
                                    GCancellable   *cancellable)

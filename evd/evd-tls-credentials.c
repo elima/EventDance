@@ -605,6 +605,13 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
   return TRUE;
 }
 
+/**
+ * evd_tls_credentials_add_certificate_from_file:
+ * @cancellable: (allow-none):
+ * @callback: (scope async) (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
                                                const gchar         *cert_file,

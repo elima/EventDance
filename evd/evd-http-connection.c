@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -832,11 +832,18 @@ evd_http_connection_new (EvdSocket *socket)
   return self;
 }
 
+/**
+ * evd_http_connection_read_response_headers:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_http_connection_read_response_headers (EvdHttpConnection   *self,
                                            GCancellable        *cancellable,
-                                           GAsyncReadyCallback callback,
-                                           gpointer            user_data)
+                                           GAsyncReadyCallback  callback,
+                                           gpointer             user_data)
 {
   evd_http_connection_read_headers_async (self,
                                cancellable,
@@ -848,10 +855,10 @@ evd_http_connection_read_response_headers (EvdHttpConnection   *self,
 /**
  * evd_http_connection_read_response_headers_finish:
  * @result: The #GAsyncResult object passed to the callback.
- * @version: (out):
- * @status_code: (out):
- * @reason_phrase: (out):
- * @error:
+ * @version: (out) (allow-none):
+ * @status_code: (out) (allow-none):
+ * @reason_phrase: (out) (allow-none):
+ * @error: (out) (allow-none):
  *
  * Returns: (transfer full) (type Soup.MessageHeaders):
  **/
@@ -901,11 +908,18 @@ evd_http_connection_read_response_headers_finish (EvdHttpConnection   *self,
     }
 }
 
+/**
+ * evd_http_connection_read_request_headers:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_http_connection_read_request_headers (EvdHttpConnection   *self,
                                           GCancellable        *cancellable,
-                                          GAsyncReadyCallback callback,
-                                          gpointer            user_data)
+                                          GAsyncReadyCallback  callback,
+                                          gpointer             user_data)
 {
   evd_http_connection_read_headers_async (self,
                                cancellable,
@@ -917,7 +931,7 @@ evd_http_connection_read_request_headers (EvdHttpConnection   *self,
 /**
  * evd_http_connection_read_request_headers_finish:
  * @result: The #GAsyncResult object passed to the callback.
- * @error:
+ * @error: (out) (allow-none):
  *
  * Returns: (transfer full):
  **/
@@ -946,6 +960,7 @@ evd_http_connection_read_request_headers_finish (EvdHttpConnection  *self,
 /**
  * evd_http_connection_write_response_headers:
  * @headers: (type Soup.MessageHeaders) (allow-none):
+ * @error: (out) (allow-none):
  *
  **/
 gboolean
@@ -1066,6 +1081,13 @@ evd_http_connection_write_content (EvdHttpConnection  *self,
     }
 }
 
+/**
+ * evd_http_connection_read_content:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_http_connection_read_content (EvdHttpConnection   *self,
                                   gchar               *buffer,
@@ -1155,6 +1177,13 @@ evd_http_connection_read_content_finish (EvdHttpConnection  *self,
     }
 }
 
+/**
+ * evd_http_connection_read_all_content:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_http_connection_read_all_content (EvdHttpConnection   *self,
                                       GCancellable        *cancellable,
@@ -1201,7 +1230,7 @@ evd_http_connection_read_all_content (EvdHttpConnection   *self,
 
 /**
  * evd_http_connection_read_all_content_finish:
- * @size: (out):
+ * @size: (out) (allow-none):
  *
  * Returns: (transfer full):
  **/
@@ -1248,6 +1277,7 @@ evd_http_connection_unread_request_headers (EvdHttpConnection   *self,
   gsize size;
 
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (request), FALSE);
 
   buf = evd_http_request_to_string (request, &size);
 
@@ -1264,6 +1294,13 @@ evd_http_connection_unread_request_headers (EvdHttpConnection   *self,
   return result;
 }
 
+/**
+ * evd_http_connection_respond:
+ * @reason_phrase: (allow-none):
+ * @headers: (allow-none):
+ * @content: (allow-none):
+ *
+ **/
 gboolean
 evd_http_connection_respond (EvdHttpConnection   *self,
                              SoupHTTPVersion      ver,
@@ -1312,6 +1349,11 @@ evd_http_connection_respond (EvdHttpConnection   *self,
   return result;
 }
 
+/**
+ * evd_http_connection_respond_simple:
+ * @content: (allow-none):
+ *
+ **/
 gboolean
 evd_http_connection_respond_simple (EvdHttpConnection   *self,
                                     guint                status_code,
@@ -1329,6 +1371,11 @@ evd_http_connection_respond_simple (EvdHttpConnection   *self,
                                       NULL);
 }
 
+/**
+ * evd_http_connection_set_current_request:
+ * @request: (allow-none):
+ *
+ **/
 void
 evd_http_connection_set_current_request (EvdHttpConnection *self,
                                          EvdHttpRequest    *request)
@@ -1400,6 +1447,13 @@ evd_http_connection_get_keepalive (EvdHttpConnection *self)
   return self->priv->keepalive;
 }
 
+/**
+ * evd_http_connection_write_request_headers:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_http_connection_write_request_headers (EvdHttpConnection   *self,
                                            EvdHttpRequest      *request,

@@ -433,7 +433,7 @@ evd_peer_unshift_message (EvdPeer         *self,
  * @size: (allow-none):
  * @type: (allow-none):
  *
- * Returns: (transfer full) (element-type guint8):
+ * Returns: (transfer full):
  *
  * Since: 0.1.20
  **/

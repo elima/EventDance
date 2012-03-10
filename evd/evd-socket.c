@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -1311,6 +1311,13 @@ evd_socket_set_notify_condition_callback (EvdSocket                        *self
   self->priv->notify_cond_user_data = user_data;
 }
 
+/**
+ * evd_socket_connect_to:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_socket_connect_to (EvdSocket           *self,
                        const gchar         *address,
@@ -1351,6 +1358,13 @@ evd_socket_connect_to (EvdSocket           *self,
                               cancellable);
 }
 
+/**
+ * evd_socket_connect_addr:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_socket_connect_addr (EvdSocket           *self,
                          GSocketAddress      *address,
@@ -1427,6 +1441,13 @@ evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error
   return result;
 }
 
+/**
+ * evd_socket_listen:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_socket_listen (EvdSocket           *self,
                    const gchar         *address,
@@ -1505,6 +1526,13 @@ evd_socket_bind_addr (EvdSocket       *self,
   return result;
 }
 
+/**
+ * evd_socket_bind:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_socket_bind (EvdSocket           *self,
                  const gchar         *address,
