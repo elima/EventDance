@@ -618,7 +618,9 @@ evd_service_remove_listener (EvdService *self,
 }
 
 /**
- * evd_service_listen_async:
+ * evd_service_listen:
+ * @cancellable: (allow-none):
+ * @callback: (allow-none):
  * @user_data: (allow-none):
  **/
 void

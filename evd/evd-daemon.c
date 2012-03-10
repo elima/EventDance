@@ -121,6 +121,7 @@ evd_daemon_on_user_interrupt (gint sig)
 
 /**
  * evd_daemon_get_default: (constructor):
+ * @argc: (allow-none):
  * @argv: (allow-none):
  *
  * Returns: (transfer full):
