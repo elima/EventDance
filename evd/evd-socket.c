@@ -1219,8 +1219,7 @@ evd_socket_close (EvdSocket *self, GError **error)
  * Returns: (transfer full):
  **/
 GSocketAddress *
-evd_socket_get_remote_address (EvdSocket  *self,
-                               GError    **error)
+evd_socket_get_remote_address (EvdSocket  *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
@@ -1236,8 +1235,7 @@ evd_socket_get_remote_address (EvdSocket  *self,
  * Returns: (transfer full):
  **/
 GSocketAddress *
-evd_socket_get_local_address (EvdSocket  *self,
-                              GError    **error)
+evd_socket_get_local_address (EvdSocket  *self, GError **error)
 {
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
@@ -1424,7 +1422,9 @@ evd_socket_connect_finish (EvdSocket     *self,
 }
 
 gboolean
-evd_socket_listen_addr (EvdSocket *self, GSocketAddress *address, GError **error)
+evd_socket_listen_addr (EvdSocket       *self,
+                        GSocketAddress  *address,
+                        GError         **error)
 {
   gboolean result;
 

@@ -562,8 +562,7 @@ evd_service_get_tls_credentials (EvdService *self)
 }
 
 void
-evd_service_set_io_stream_type (EvdService *self,
-                                GType       io_stream_type)
+evd_service_set_io_stream_type (EvdService *self, GType io_stream_type)
 {
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (g_type_is_a (io_stream_type, EVD_TYPE_CONNECTION));
@@ -572,8 +571,7 @@ evd_service_set_io_stream_type (EvdService *self,
 }
 
 void
-evd_service_add_listener (EvdService  *self,
-                          EvdSocket   *socket)
+evd_service_add_listener (EvdService  *self, EvdSocket *socket)
 {
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
@@ -600,8 +598,7 @@ evd_service_add_listener (EvdService  *self,
 }
 
 gboolean
-evd_service_remove_listener (EvdService *self,
-                             EvdSocket  *socket)
+evd_service_remove_listener (EvdService *self, EvdSocket  *socket)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
