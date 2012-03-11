@@ -3,7 +3,7 @@
  *
  * EventDance examples
  *
- * Copyright (C) 2010, Igalia S.L.
+ * Copyright (C) 2010-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -11,36 +11,45 @@
 
 imports.searchPath.unshift ("../common");
 
-const MainLoop = imports.mainloop;
 const Evd = imports.gi.Evd;
 
 const LISTEN_PORT = 8080;
 
 Evd.tls_init ();
 
+/* daemon */
+var daemon = new Evd.Daemon.get_default (null, null);
+daemon.set_pid_file ("/tmp/ping.pid");
+
 /* web transport */
-let transport = new Evd.WebTransportServer ();
+var transport = new Evd.WebTransportServer ();
 
 function peerOnReceive (t, peer) {
-    let data = peer.transport.receive_text (peer);
+    var data = peer.transport.receive_text (peer);
 
     transport.send_text (peer, data);
 }
 
-transport.connect ("receive", peerOnReceive);
+if (transport["signal"])
+    transport.signal.receive.connect (peerOnReceive);
+else
+    transport.connect ("receive", peerOnReceive);
 
 /* web dir */
-let webDir = new Evd.WebDir ({ root: "../common" });
+var webDir = new Evd.WebDir ({ root: "../common" });
 
 /* web selector */
-let selector = new Evd.WebSelector ();
+var selector = new Evd.WebSelector ();
 
 selector.set_default_service (webDir);
 transport.selector = selector;
 
 //selector.tls_autostart = true;
-selector.tls_credentials.cert_file = "../../tests/certs/x509-server.pem";
-selector.tls_credentials.key_file = "../../tests/certs/x509-server-key.pem";
+selector.tls_credentials.add_certificate_from_file ("../../tests/certs/x509-server.pem",
+                                                    "../../tests/certs/x509-server-key.pem",
+                                                    null,
+                                                    null,
+                                                    null);
 
 /* start listening */
 selector.listen ("0.0.0.0:" + LISTEN_PORT, null,
@@ -50,12 +59,16 @@ selector.listen ("0.0.0.0:" + LISTEN_PORT, null,
             print ("Listening, now point your browser to http://localhost:" + LISTEN_PORT + "/ping.html");
         }
         catch (e) {
-            print (e);
-            MainLoop.quit ("main");
+            if (e["message"])
+                print (e.message);
+            else
+                print (e);
+
+            daemon.quit (-1);
         }
     }, null);
 
-  /* start the show */
-MainLoop.run ("main");
+/* start the show */
+daemon.run ();
 
 Evd.tls_deinit ();
