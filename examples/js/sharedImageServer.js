@@ -8,7 +8,7 @@
  */
 
 const Lang = imports.lang;
-const MainLoop = imports.mainloop;
+const Evd = imports.gi.Evd;
 
 function SharedImageServer (args) {
     this._init (args);
@@ -47,8 +47,11 @@ SharedImageServer.prototype = {
         this._mapping = {};
 
         if (args["rotate"])
-            this._rotateSrcId =
-            MainLoop.timeout_add (35, Lang.bind (this, this._rotateImage));
+            this._rotateSrcId = Evd.timeout_add (null,
+                                                 35,
+                                                 0,
+                                                 Lang.bind (this,
+                                                            this._rotateImage));
 
         this._updateFlags = 0;
     },
@@ -63,17 +66,17 @@ SharedImageServer.prototype = {
     },
 
     _calculateViewportCoordsFromIndex: function (index) {
-        let jumps = [{dx:-1, dy: 0},
+        var jumps = [{dx:-1, dy: 0},
                      {dx: 0, dy:-1},
                      {dx: 1, dy: 0},
                      {dx: 0, dy: 1}];
 
-        let i = 0;
-        let c = 0;
-        let times = 1;
-        let ct = 0;
-        let x = 0, y = 0;
-        let j = 0;
+        var i = 0;
+        var c = 0;
+        var times = 1;
+        var ct = 0;
+        var x = 0, y = 0;
+        var j = 0;
 
         for (i=0; i<index; i++) {
             x += this.DEFAULT_VP_WIDTH * jumps[j].dx;
@@ -96,13 +99,15 @@ SharedImageServer.prototype = {
     },
 
     _createNewViewport: function (index) {
-        let vp = {
+        var vp = {
             w: this.DEFAULT_VP_WIDTH,
             h: this.DEFAULT_VP_HEIGHT,
             needUpdate: false
         };
 
-        let [x, y] = this._calculateViewportCoordsFromIndex (index);
+        var coord = this._calculateViewportCoordsFromIndex (index);
+        var x = coord[0];
+        var y = coord[1];
 
         vp.x = x - this.DEFAULT_VP_WIDTH / 2;
         vp.y = y - this.DEFAULT_VP_HEIGHT / 2;
@@ -118,7 +123,7 @@ SharedImageServer.prototype = {
     },
 
     acquireViewport: function (peer) {
-        let index;
+        var index;
 
         if (this._freeViewports.length == 0) {
             index = this._viewports.length;
@@ -134,10 +139,10 @@ SharedImageServer.prototype = {
     },
 
     releaseViewport: function (peer) {
-        let vpIndex = this._mapping[peer.id];
+        var vpIndex = this._mapping[peer.id];
         if (vpIndex == undefined)
             return false;
-        let vp = this._viewports[vpIndex];
+        var vp = this._viewports[vpIndex];
 
         this.ungrabImage (peer);
         delete (vp.owner);
@@ -163,15 +168,19 @@ SharedImageServer.prototype = {
     },
 
     updatePeer: function (peer, flags) {
-        let vpIndex = this._mapping[peer.id];
+        var vpIndex = this._mapping[peer.id];
         if (vpIndex == undefined)
             return false;
-        let vp = this._viewports[vpIndex];
+        var vp = this._viewports[vpIndex];
 
-        let [x, y] = this._translateToViewportCoords (vp, this.image.x, this.image.y);
+        var coord = this._translateToViewportCoords (vp,
+                                                     this.image.x,
+                                                     this.image.y);
+        var x = coord[0];
+        var y = coord[1];
 
 
-        let obj = {};
+        var obj = {};
 
         if ( (flags & this.UPDATE_POSITION) > 0) {
             obj.x = x;
@@ -192,25 +201,32 @@ SharedImageServer.prototype = {
     },
 
     _viewportNeedsUpdate: function (vp) {
-        let needsUpdate = vp.needsUpdate;
+        var needsUpdate = vp.needsUpdate;
 
         vp.needsUpdate =
             ( ( (this.image.x >= vp.x && this.image.x <= vp.x + vp.w) ||
-                (this.image.x+this.image.w >= vp.x && this.image.x+this.image.w <= vp.x + vp.w) ) &&
+                (this.image.x+this.image.w >= vp.x &&
+                 this.image.x+this.image.w <= vp.x + vp.w) ) &&
               ( (this.image.y >= vp.y && this.image.y <= vp.y + vp.h) ||
-                (this.image.y+this.image.h >= vp.y && this.image.y+this.image.h <= vp.y + vp.h) ) ) ||
+                (this.image.y+this.image.h >= vp.y &&
+                 this.image.y+this.image.h <= vp.y + vp.h) ) ) ||
 
             ( ( (vp.x >= this.image.x && vp.x <= this.image.x + this.image.w) ||
-                (vp.x + vp.w >= this.image.x && vp.x + vp.w <= this.image.x + this.image.w) ) &&
+                (vp.x + vp.w >= this.image.x &&
+                 vp.x + vp.w <= this.image.x + this.image.w) ) &&
               ( (vp.y >= this.image.y && vp.y <= this.image.y + this.image.h) ||
-                (vp.y + vp.h >= this.image.y && vp.y + vp.h <= this.image.y + this.image.h) ) );
+                (vp.y + vp.h >= this.image.y &&
+                 vp.y + vp.h <= this.image.y + this.image.h) ) );
 
         return needsUpdate;
     },
 
     updateAllPeers: function (force) {
-        let vp, peer;
-        for each (let index in this._mapping) {
+        var vp, peer;
+
+        for (var i in this._mapping) {
+            var index = this._mapping[i];
+
             vp = this._viewports[index];
             if (force || this._viewportNeedsUpdate (vp)) {
                 peer = vp.owner;
@@ -224,15 +240,18 @@ SharedImageServer.prototype = {
     },
 
     grabImage: function (peer, args) {
-        let vpIndex = this._mapping[peer.id];
+        var vpIndex = this._mapping[peer.id];
         if (vpIndex == undefined)
             return false;
-        let vp = this._viewports[vpIndex];
+        var vp = this._viewports[vpIndex];
 
         if (args.x == undefined || args.y == undefined)
             return false;
 
-        let [x, y] = this._translateFromViewportCoords (vp, args.x, args.y);
+        var coord = this._translateFromViewportCoords (vp, args.x, args.y);
+        var x = coord[0];
+        var y = coord[1];
+
 
         this.image.grabs[peer.id] = {x: x, y: y};
 
@@ -240,10 +259,10 @@ SharedImageServer.prototype = {
     },
 
     ungrabImage: function (peer) {
-        let vpIndex = this._mapping[peer.id];
+        var vpIndex = this._mapping[peer.id];
         if (vpIndex == undefined)
             return false;
-        let vp = this._viewports[vpIndex];
+        var vp = this._viewports[vpIndex];
 
         delete (this.image.grabs[peer.id]);
 
@@ -251,48 +270,54 @@ SharedImageServer.prototype = {
     },
 
     _calculateS: function (x1, y1, x2, y2) {
-        let dx = Math.abs (x2 - x1);
-        let dy = Math.abs (y2 - y1);
+        var dx = Math.abs (x2 - x1);
+        var dy = Math.abs (y2 - y1);
         return Math.floor (Math.sqrt (dx * dx + dy * dy));
     },
 
     moveImage: function (peer, args) {
-        let force = false;
+        var force = false;
 
-        let vpIndex = this._mapping[peer.id];
+        var vpIndex = this._mapping[peer.id];
         if (vpIndex == undefined)
             return false;
-        let vp = this._viewports[vpIndex];
+        var vp = this._viewports[vpIndex];
 
-        let grab = this.image.grabs[peer.id];
+        var grab = this.image.grabs[peer.id];
         if (grab == undefined)
             return false;
 
-        let [x, y] = this._translateFromViewportCoords (vp, args.x, args.y);
-        let dx = x - grab.x;
-        let dy = y - grab.y;
+        var coord = this._translateFromViewportCoords (vp, args.x, args.y);
+        var x = coord[0];
+        var y = coord[1];
 
-        let grabCount = [x for (x in this.image.grabs)].length;
+        var dx = x - grab.x;
+        var dy = y - grab.y;
+
+        var grabCount = 0;
+        for (var i in this.image.grabs)
+            grabCount++;
+
         if (grabCount == 1) {
             this.image.x += dx;
             this.image.y += dy;
         }
         else if (grabCount == 2) {
-            let otherGrab;
-            for (let id in this.image.grabs)
+            var otherGrab;
+            for (var id in this.image.grabs)
                 if (id != peer.id) {
                     otherGrab = this.image.grabs[id];
                     break;
                 }
 
-            let ds1 = this._calculateS (otherGrab.x, otherGrab.y,
+            var ds1 = this._calculateS (otherGrab.x, otherGrab.y,
                                         grab.x, grab.y);
-            let ds2 = this._calculateS (otherGrab.x, otherGrab.y, x, y);
+            var ds2 = this._calculateS (otherGrab.x, otherGrab.y, x, y);
 
-            let per = (ds2 / ds1) * 100;
+            var per = (ds2 / ds1) * 100;
 
-            let newW = Math.abs ( (this.image.w * per) / 100);
-            let newH = Math.abs ( (this.image.h * per) / 100);
+            var newW = Math.abs ( (this.image.w * per) / 100);
+            var newH = Math.abs ( (this.image.h * per) / 100);
 
             this.image.x += (this.image.w - newW) / 2;
             this.image.y += (this.image.h - newH) / 2;
