@@ -21,6 +21,7 @@
  */
 
 #include <string.h>
+#include <libsoup/soup.h>
 
 #include "evd-web-dir.h"
 
@@ -388,6 +389,57 @@ evd_web_dir_file_on_open (GObject      *object,
     }
 }
 
+static gboolean
+evd_web_dir_check_not_modified (EvdHttpConnection  *conn,
+                                EvdHttpRequest     *request,
+                                SoupMessageHeaders *response_headers,
+                                SoupHTTPVersion     http_version,
+                                guint64             file_last_modified_time)
+{
+  gboolean result = FALSE;
+  SoupMessageHeaders *req_headers;
+  const gchar *modified_date_st;
+  SoupDate *modified_date;
+
+  req_headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
+
+  modified_date_st = soup_message_headers_get_one (req_headers,
+                                                   "If-Modified-Since");
+  if (modified_date_st == NULL)
+    return FALSE;
+
+  modified_date = soup_date_new_from_string (modified_date_st);
+  if (modified_date != NULL)
+    {
+      guint64 modified_date_int;
+
+      modified_date_int = soup_date_to_time_t (modified_date);
+
+      if (modified_date_int >= file_last_modified_time)
+        {
+          GError *error = NULL;
+
+          if (! evd_http_connection_write_response_headers (conn,
+                                                       http_version,
+                                                       SOUP_STATUS_NOT_MODIFIED,
+                                                       NULL,
+                                                       response_headers,
+                                                       &error))
+            {
+              g_debug ("Error sending NOT-MODIFIED response headers: %s",
+                       error->message);
+              g_error_free (error);
+            }
+
+          result = TRUE;
+        }
+    }
+
+  soup_date_free (modified_date);
+
+  return result;
+}
+
 static void
 evd_web_dir_file_on_info (GObject      *object,
                           GAsyncResult *res,
@@ -404,11 +456,12 @@ evd_web_dir_file_on_info (GObject      *object,
   GFileType file_type;
   SoupMessageHeaders *headers;
 
-  request = evd_http_connection_get_current_request (conn);
-  if (request != NULL)
-    ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
-  else
-    ver = SOUP_HTTP_1_1;
+  guint64 file_modified_date_int;
+  SoupDate *sdate;
+  gchar *date;
+
+  request = binding->request;
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
   info = g_file_query_info_finish (G_FILE (object), res, &error);
   if (info == NULL)
@@ -458,16 +511,40 @@ evd_web_dir_file_on_info (GObject      *object,
   /* file is a regular file */
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
+  if (evd_http_connection_get_keepalive (conn))
+    soup_message_headers_replace (headers, "Connection", "keep-alive");
+  else
+    soup_message_headers_replace (headers, "Connection", "close");
+
+  /* obtain last-modified value from file info */
+  file_modified_date_int =
+    g_file_info_get_attribute_uint64 (info, "time::modified");
+
+  /* check last-modified time */
+  if (evd_web_dir_check_not_modified (conn,
+                                      request,
+                                      headers,
+                                      ver,
+                                      file_modified_date_int))
+    {
+      evd_web_dir_finish_request (binding);
+
+      soup_message_headers_free (headers);
+      goto out;
+    }
+
+  /* set 'last-modified' header in response */
+  sdate = soup_date_new_from_time_t (file_modified_date_int);
+  date = soup_date_to_string (sdate, SOUP_DATE_HTTP);
+  soup_message_headers_replace (headers, "Last-Modified", date);
+  g_free (date);
+  soup_date_free (sdate);
+
   soup_message_headers_set_content_type (headers,
                                          g_file_info_get_content_type (info),
                                          NULL);
   soup_message_headers_set_content_length (headers,
                                            g_file_info_get_size (info));
-
-  if (evd_http_connection_get_keepalive (conn))
-    soup_message_headers_replace (headers, "Connection", "keep-alive");
-  else
-    soup_message_headers_replace (headers, "Connection", "close");
 
   if (evd_http_connection_write_response_headers (conn,
                                                   ver,
@@ -521,7 +598,7 @@ evd_web_dir_request_file (EvdWebDir        *self,
 {
   GFile *file;
   const gchar *FILE_ATTRS =
-    "standard::content-type,standard::size,standard::type";
+    "standard::content-type,standard::size,standard::type,time::modified";
 
   g_free (binding->filename);
   binding->filename = g_strdup (filename);
