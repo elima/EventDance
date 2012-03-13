@@ -131,10 +131,6 @@ test_privkey_basic (Fixture       *f,
 
   g_object_get (f->privkey, "type", &type, NULL);
   g_assert_cmpint (type, ==, EVD_PKI_KEY_TYPE_UNKNOWN);
-
-  g_assert (evd_pki_privkey_import_native != NULL);
-  g_assert (evd_pki_privkey_encrypt != NULL);
-  g_assert (evd_pki_privkey_decrypt != NULL);
 }
 
 static void
@@ -151,10 +147,6 @@ test_pubkey_basic (Fixture       *f,
 
   g_object_get (f->pubkey, "type", &type, NULL);
   g_assert_cmpint (type, ==, EVD_PKI_KEY_TYPE_UNKNOWN);
-
-  g_assert (evd_pki_pubkey_import_native != NULL);
-  g_assert (evd_pki_pubkey_encrypt != NULL);
-  g_assert (evd_pki_pubkey_decrypt != NULL);
 }
 
 static gboolean
