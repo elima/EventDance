@@ -108,4 +108,5 @@ EXTRA_DIST = \
 	js/common/assert.js \
 	js/common/test.js \
 	js/testResolver.js \
-	js/testTlsCertificate.js
+	js/testTlsCertificate.js \
+	dbus-daemon.conf
