@@ -38,14 +38,6 @@ struct _EvdDBusDaemonPrivate
   gchar *config_file;
 };
 
-/* signals */
-enum
-{
-  SIGNAL_LAST
-};
-
-//static guint evd_dbus_daemon_signals[SIGNAL_LAST] = { 0 };
-
 /* properties */
 enum
 {

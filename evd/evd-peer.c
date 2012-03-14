@@ -57,14 +57,6 @@ typedef struct
   gchar *buf;
 } BacklogFrame;
 
-/* signals */
-enum
-{
-  SIGNAL_LAST
-};
-
-//static guint evd_peer_signals[SIGNAL_LAST] = { 0 };
-
 /* properties */
 enum
 {

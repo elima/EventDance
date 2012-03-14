@@ -106,20 +106,6 @@ typedef struct
   gint err_code;
 } MsgClosure;
 
-/* signals */
-enum
-{
-  SIGNAL_LAST
-};
-
-//static guint evd_dbus_bridge_signals[SIGNAL_LAST] = { 0 };
-
-/* properties */
-enum
-{
-  PROP_0
-};
-
 static void     evd_dbus_bridge_class_init             (EvdDBusBridgeClass *class);
 static void     evd_dbus_bridge_init                   (EvdDBusBridge *self);
 
@@ -201,16 +187,12 @@ evd_dbus_bridge_init (EvdDBusBridge *self)
 static void
 evd_dbus_bridge_dispose (GObject *obj)
 {
-  //  EvdDBusBridge *self = EVD_DBUS_BRIDGE (obj);
-
   G_OBJECT_CLASS (evd_dbus_bridge_parent_class)->dispose (obj);
 }
 
 static void
 evd_dbus_bridge_finalize (GObject *obj)
 {
-  //  EvdDBusBridge *self = EVD_DBUS_BRIDGE (obj);
-
   G_OBJECT_CLASS (evd_dbus_bridge_parent_class)->finalize (obj);
 }
 

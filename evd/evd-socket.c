@@ -328,8 +328,6 @@ evd_socket_finalize (GObject *obj)
   g_object_unref (self->priv->poll);
 
   G_OBJECT_CLASS (evd_socket_parent_class)->finalize (obj);
-
-  //  g_debug ("[EvdSocket 0x%X] Socket finalized", (guintptr) obj);
 }
 
 static void

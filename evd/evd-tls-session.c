@@ -664,7 +664,6 @@ evd_tls_session_read (EvdTlsSession  *self,
 
   result = gnutls_record_recv (self->priv->session, buffer, size);
 
-  //  g_debug ("record_recv result: %d", result);
   if (result == 0)
     {
       /* @TODO: EOF condition, emit 'close' signal */
@@ -698,8 +697,6 @@ evd_tls_session_write (EvdTlsSession  *self,
   g_return_val_if_fail (buffer != NULL, -1);
 
   result = gnutls_record_send (self->priv->session, buffer, size);
-
-  //  g_debug ("record_send result: %d", result);
 
   if (result < 0)
     {

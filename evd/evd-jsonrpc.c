@@ -60,14 +60,6 @@ typedef struct
   JsonNode *error;
 } MethodResponse;
 
-/* signals */
-enum
-{
-  SIGNAL_LAST
-};
-
-//static guint evd_jsonrpc_signals[SIGNAL_LAST] = { 0 };
-
 static void     evd_jsonrpc_class_init           (EvdJsonrpcClass *class);
 static void     evd_jsonrpc_init                 (EvdJsonrpc *self);
 
