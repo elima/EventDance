@@ -589,14 +589,3 @@ Evd.Object.extend (Evd.DBus.Proxy.prototype, {
                                          timeout);
     }
 });
-
-if (this["define"] !== undefined) {
-    if (this["exports"] === undefined)
-        var exports = {};
-
-    exports.Connection = Evd.DBus.Connection;
-    exports.Proxy = Evd.DBus.Proxy;
-    exports.RegisteredObject = Evd.DBus.RegisteredObject;
-
-    define (exports);
-}

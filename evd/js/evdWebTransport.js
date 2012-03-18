@@ -706,14 +706,3 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._fireEvent ("close", [gracefully]);
     }
 });
-
-if (this["define"] !== undefined) {
-    if (this["exports"] === undefined)
-        var exports = {};
-
-    exports.Object = Evd.Object;
-    exports.WebTransport = Evd.WebTransport;
-    exports.Peer = Evd.Peer;
-
-    define (exports);
-}
