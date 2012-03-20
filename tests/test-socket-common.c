@@ -144,7 +144,7 @@ evd_socket_test_on_error (EvdSocket *self,
                           gchar     *message,
                           gpointer   user_data)
 {
-  g_error (message);
+  g_error ("%s", message);
   g_assert_not_reached ();
 }
 

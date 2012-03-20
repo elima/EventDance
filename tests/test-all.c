@@ -118,7 +118,7 @@ main (gint argc, gchar *argv[])
             {
               /* TODO: decide whether to abort running tests when one fails */
 
-              g_error (error->message);
+              g_error ("%s", error->message);
               abort = TRUE;
 
               g_error_free (error);
@@ -134,7 +134,7 @@ main (gint argc, gchar *argv[])
   filename = g_build_filename (test_dir, "test-all-js", NULL);
   if (run_test (filename, argv, &error) != 0)
     {
-      g_error (error->message);
+      g_error ("%s", error->message);
       g_error_free (error);
     }
   g_free (filename);
