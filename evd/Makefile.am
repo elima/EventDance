@@ -7,7 +7,7 @@ pkgconfig_DATA = @EVD_API_NAME@.pc
 library_includedir=$(includedir)/@EVD_API_NAME@
 library_include_HEADERS = evd.h
 
-jslibdir = $(libdir)/@EVD_API_NAME@/js
+jslibdir = $(datadir)/@EVD_API_NAME@/js
 
 CLEANFILES = *~ @EVD_API_NAME@.pc
 
