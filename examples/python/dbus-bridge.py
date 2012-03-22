@@ -9,7 +9,7 @@
 #   Eduardo Lima Mitev <elima@igalia.com>
 #
 
-import gobject
+from gi.repository import GObject
 from gi.repository import Gio
 from gi.repository import Evd
 
@@ -38,7 +38,7 @@ web_dir = Evd.WebDir()
 web_dir.set_root ('../common')
 
 # Main loop
-main_loop = gobject.MainLoop();
+main_loop = GObject.MainLoop();
 
 # Web selector
 selector = Evd.WebSelector()
