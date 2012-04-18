@@ -1,7 +1,7 @@
 /*
  * evd-jsonrpc.c
  *
- * EventDance, Jsonrpc-to-jsonrpc IPC library <http://eventdance.org>
+ * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
  * Copyright (C) 2009/2010, Igalia S.L.
  *
