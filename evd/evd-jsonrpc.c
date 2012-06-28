@@ -450,7 +450,7 @@ evd_jsonrpc_transport_write (EvdJsonrpc   *self,
 {
   if (context != NULL && EVD_IS_PEER (context))
     {
-      return evd_peer_send (EVD_PEER (context), msg, size, error);
+      return evd_peer_send_text (EVD_PEER (context), msg, error);
     }
   else if (self->priv->write_cb != NULL)
     {
