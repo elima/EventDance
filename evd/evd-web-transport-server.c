@@ -109,6 +109,11 @@ static void     evd_web_transport_server_get_property         (GObject    *obj,
                                                                GValue     *value,
                                                                GParamSpec *pspec);
 
+static void     evd_web_transport_server_open                 (EvdTransport       *transport,
+                                                               const gchar        *address,
+                                                               GSimpleAsyncResult *async_result,
+                                                               GCancellable       *cancellable);
+
 static void     evd_web_transport_server_on_receive           (EvdTransport *transport,
                                                                EvdPeer      *peer,
                                                                gpointer      user_data);
@@ -210,6 +215,7 @@ evd_web_transport_server_transport_iface_init (EvdTransportInterface *iface)
   iface->peer_is_connected = evd_web_transport_server_peer_is_connected;
   iface->accept_peer = evd_web_transport_server_accept_peer;
   iface->reject_peer = evd_web_transport_server_reject_peer;
+  iface->open = evd_web_transport_server_open;
 }
 
 static void
@@ -849,6 +855,37 @@ evd_web_transport_server_reject_peer (EvdTransport *transport, EvdPeer *peer)
   g_object_unref (peer);
 
   return TRUE;
+}
+
+static void
+evd_web_transport_server_on_open (GObject      *obj,
+                                  GAsyncResult *res,
+                                  gpointer      user_data)
+{
+  GError *error = NULL;
+  GSimpleAsyncResult *orig_res = G_SIMPLE_ASYNC_RESULT (user_data);
+
+  if (! evd_service_listen_finish (EVD_SERVICE (obj), res, &error))
+    {
+      g_simple_async_result_set_from_error (orig_res, error);
+      g_error_free (error);
+    }
+
+  g_simple_async_result_complete (orig_res);
+  g_object_unref (orig_res);
+}
+
+static void
+evd_web_transport_server_open (EvdTransport       *transport,
+                               const gchar        *address,
+                               GSimpleAsyncResult *async_result,
+                               GCancellable       *cancellable)
+{
+  evd_service_listen (EVD_SERVICE (transport),
+                      address,
+                      cancellable,
+                      evd_web_transport_server_on_open,
+                      async_result);
 }
 
 /* public methods */
