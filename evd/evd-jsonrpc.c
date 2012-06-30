@@ -643,6 +643,13 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
   g_free (msg);
 }
 
+/**
+ * evd_jsonrpc_call_method_finish:
+ * @result_json: (out) (allow-none):
+ * @error_json: (out) (allow-none):
+ * @error: (out) (allow-none):
+ *
+ **/
 gboolean
 evd_jsonrpc_call_method_finish (EvdJsonrpc    *self,
                                 GAsyncResult  *result,
@@ -702,6 +709,12 @@ evd_jsonrpc_transport_read (EvdJsonrpc   *self,
   return result;
 }
 
+/**
+ * evd_jsonrpc_set_method_call_callback:
+ * @callback: (scope notify):
+ * @user_data:
+ *
+ **/
 void
 evd_jsonrpc_set_method_call_callback (EvdJsonrpc             *self,
                                       EvdJsonrpcMethodCallCb  callback,
@@ -713,6 +726,13 @@ evd_jsonrpc_set_method_call_callback (EvdJsonrpc             *self,
   self->priv->method_call_cb_user_data = user_data;
 }
 
+/**
+ * evd_jsonrpc_respond:
+ * @result: (allow-none):
+ * @context: (allow-none) (type GObject):
+ * @error: (allow-none):
+ *
+ **/
 gboolean
 evd_jsonrpc_respond (EvdJsonrpc  *self,
                      guint        invocation_id,

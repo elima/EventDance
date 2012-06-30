@@ -41,6 +41,10 @@ typedef gboolean (* EvdJsonrpcTransportWriteCb) (EvdJsonrpc  *self,
                                                  gpointer     context,
                                                  gpointer     user_data);
 
+/**
+ * EvdJsonrpcMethodCallCb:
+ * @context: (type GObject):
+ **/
 typedef void (* EvdJsonrpcMethodCallCb) (EvdJsonrpc  *self,
                                          const gchar *method_name,
                                          JsonNode    *params,

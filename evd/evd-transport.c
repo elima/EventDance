@@ -626,6 +626,13 @@ evd_transport_set_peer_manager (EvdTransport   *self,
     }
 }
 
+/**
+ * evd_transport_open:
+ * @cancellable: (allow-none):
+ * @callback: (scope async) (allow-none):
+ * @user_data: (allow-none):
+ *
+ **/
 void
 evd_transport_open (EvdTransport        *self,
                     const gchar         *address,
