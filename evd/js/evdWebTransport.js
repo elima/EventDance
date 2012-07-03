@@ -45,16 +45,17 @@ if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
         };
 
         this.removeAllEventListeners = function () {
-            eventListeners = [];
+            eventListeners = {};
         };
 
         this._fireEvent = function (eventName, args) {
             if (! eventListeners[eventName])
                 return;
 
-            for (var i=0; i<eventListeners[eventName].length; i++)
-                if (eventListeners[eventName][i])
-                    eventListeners[eventName][i].apply (this, args);
+            var tmp = eventListeners[eventName];
+            for (var i=0; i<tmp.length; i++)
+                if (tmp[i])
+                    tmp[i].apply (this, args);
         };
     };
 
@@ -164,6 +165,7 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
     _xhrOnLoad: function (data) {
         var hdr_len, msg_len, msg, t;
+        var frames = [];
         while (data != "") {
             t = this._readMsgHeader (data);
             hdr_len = t[0];
@@ -172,8 +174,10 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
             msg = data.substr (hdr_len, msg_len);
             data = data.substr (hdr_len + msg_len);
 
-            this._fireEvent ("receive", [msg, null]);
+            frames.push (msg);
         }
+
+        this._fireEvent ("receive", [frames, null]);
     },
 
     _setupNewXhr: function (sender) {
@@ -184,6 +188,15 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
 
         xhr.onabort = function () {
             self._recycleXhr (this);
+        };
+
+        xhr.onerror = function () {
+            var error = new Error ("Long polling connection error");
+
+            if (this._sender)
+                self._fireEvent ("send", [false, error]);
+            else
+                self._fireEvent ("receive", [null, error]);
         };
 
         xhr.onreadystatechange = function () {
@@ -211,6 +224,8 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
                     self._fireEvent ("receive", [null, error]);
             }
             else {
+                var data = xhr.responseText.toString ();
+
                 if (this._sender)
                     self._fireEvent ("send", [true, null]);
                 else
@@ -218,9 +233,10 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
                                     self._connect ();
                                 }, 1);
 
-                var data = xhr.responseText.toString ();
                 if (data)
-                    self._xhrOnLoad (data);
+                    setTimeout (function () {
+                                    self._xhrOnLoad (data);
+                                }, 1);
             }
         };
 
@@ -281,8 +297,8 @@ Evd.Object.extend (Evd.LongPolling.prototype, {
     send: function (msgs) {
         var buf = "";
         var msg;
-        while (msgs.length > 0) {
-            msg = msgs.shift ();
+        for (var i in msgs) {
+            msg = msgs[i];
             buf += this._buildMsg (msg);
         }
 
@@ -345,6 +361,7 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
     open: function (address, callback) {
         this._addr = address;
         this._opened = true;
+        this._error = false;
 
         this._connect ();
     },
@@ -372,16 +389,16 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
                 var reader = new FileReader ();
                 reader.readAsArrayBuffer (e.data);
                 reader.onload = function () {
-                    self._fireEvent ("receive", [this.result, null]);
+                    self._fireEvent ("receive", [[this.result], null]);
                 };
             }
             else {
-                self._fireEvent ("receive", [e.data.toString (), null]);
+                self._fireEvent ("receive", [[e.data.toString ()], null]);
             }
         };
 
         this._ws.onerror = function (e) {
-            alert (e);
+            self._error = true;
         };
 
         this._ws.onclose = function (e) {
@@ -389,11 +406,9 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
                 return;
 
             self._ws = null;
-
-            var fatal = ! self._connected;
             self._connected = false;
 
-            self._fireEvent ("disconnect", [fatal]);
+            self._fireEvent ("disconnect", [false]);
         };
     },
 
@@ -401,9 +416,12 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
         return this._opened && this._ws != null && this._ws.readyState == 1;
     },
 
-    send: function (data) {
-        this._ws.send (data);
-        this._fireEvent ("send", [true, null]);
+    send: function (msgs) {
+        for (var i in msgs)
+            this._ws.send (msgs[i]);
+
+        if (! this._error)
+            this._fireEvent ("send", [true, null]);
     },
 
     reconnect: function () {
@@ -425,18 +443,18 @@ Evd.WebTransport = new Evd.Constructor ();
 Evd.WebTransport.prototype = new Evd.Object (Evd.WebTransport);
 
 Evd.Object.extend (Evd.WebTransport, {
-    DEFAULT_ADDR: "/transport",
-    PEER_DATA_KEY: "org.eventdance.lib.WebTransport.data",
-    PEER_ID_HEADER_NAME: "X-Org-EventDance-WebTransport-Peer-Id",
-    MECHANISM_HEADER_NAME: "X-Org-EventDance-WebTransport-Mechanism",
-    URL_HEADER_NAME: "X-Org-EventDance-WebTransport-Url"
+    DEFAULT_ADDR: "/transport/",
+    PEER_DATA_KEY: "org.eventdance.lib.WebTransport.data"
 });
 
 Evd.Object.extend (Evd.WebTransport.prototype, {
 
     _init: function (args) {
-        if (args.address)
+        if (args.address) {
             this._addr = args.address.toString ();
+            if (this._addr.charAt (this._addr.length - 1) != "/")
+                this._addr += "/";
+        }
         else
             this._addr = Evd.WebTransport.DEFAULT_ADDR;
 
@@ -446,32 +464,47 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._retryInterval = 500;
         this._retryCount = 0;
 
-        this._availableMechanisms = "long-polling";
+        this._dispatching = false;
+
+        this._availableMechs = ["long-polling"];
         if (window["WebSocket"])
-            this._availableMechanisms += ";web-socket";
+            this._availableMechs.unshift ("websocket");
+        this._negotiatedMechs = null;
+        this._currentMechIndex = 0;
     },
 
     _onDisconnect: function (fatal) {
-        if (this._mechanismName == "web-socket" && this._retryCount > 3) {
-            this._availableMechanisms = this._availableMechanisms.replace (";web-socket", "");
+        if (this._retryCount >= 3) {
+            if (this._currentMechIndex == this._negotiatedMechs.length) {
+                // @TODO: no more transports to try, give up?
+            }
+            else {
+                this._retryCount = 0;
+                this._currentMechIndex++;
+                this._setupMechanism (this._peer.id, this._currentMechIndex);
 
-            fatal = true;
+                return;
+            }
         }
 
         this._retry (fatal);
     },
 
-    _setupMechanism: function (peerId) {
+    _setupMechanism: function (peerId, mechIndex) {
         if (this._transport != null) {
             this._transport.removeAllEventListeners ();
             this._transport = null;
         }
 
+        this._connected = false;
+
+        var mechName = this._negotiatedMechs[mechIndex].name;
+        var mechUrl = this._negotiatedMechs[mechIndex].url;
         var transportProto = null;
 
-        if (this._mechanismName == "long-polling")
+        if (mechName == "long-polling")
             transportProto = Evd.LongPolling;
-        else if (this._mechanismName == "web-socket")
+        else if (mechName == "websocket")
             transportProto = Evd.WebSocket;
         else {
             // @TODO: raise error, failed to negotiate mechanism
@@ -499,14 +532,17 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             function (fatal) {
                 self._onDisconnect (fatal);
             });
+
+        this._transport.open (mechUrl);
     },
 
     _handshake: function () {
+        if (this._handshaking == true)
+            return;
+
         var self = this;
 
-        this._peerId = null;
-
-        this._outBuf = [];
+        this._currentMechIndex = 0;
 
         var xhr = new XMLHttpRequest ();
 
@@ -514,14 +550,20 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
             if (this.readyState != 4)
                 return;
 
-            if (this.status == 200) {
-                var peerId =
-                    this.getResponseHeader (Evd.WebTransport.PEER_ID_HEADER_NAME);
-                self._mechanismName =
-                    this.getResponseHeader (Evd.WebTransport.MECHANISM_HEADER_NAME);
-                self._mechanismUrl = this.getResponseHeader (Evd.WebTransport.URL_HEADER_NAME);
+            self._handshaking = false;
 
-                self._setupMechanism (peerId);
+            if (this.status == 200) {
+                self._handshakeData = JSON.parse (this.responseText);
+
+                if (! self._handshakeData["peer-id"])
+                    throw ("Invalid handshake response, no 'peer-id' specified");
+                if (! self._handshakeData["mechanisms"])
+                    throw ("Invalid handshake response, no 'mechanisms' specified");
+                if (self._handshakeData["mechanisms"].length == 0)
+                    throw ("No mechanism could be negotiated");
+
+                var peerId = self._handshakeData["peer-id"];
+                self._negotiatedMechs = self._handshakeData["mechanisms"];
 
                 // create new peer
                 var peer = new Evd.Peer ({
@@ -531,17 +573,21 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
                 peer[Evd.WebTransport.PEER_DATA_KEY] = {};
 
                 self._peer = peer;
-                self._transport.open (self._mechanismUrl);
+
+                self._setupMechanism (peerId, self._currentMechIndex);
             }
             else {
-                self._retry (false);
+                // @TODO: Check why handshake failed and decide if retry
             }
         };
 
-        xhr.open ("POST", this._addr + "/handshake", true);
-        xhr.setRequestHeader (Evd.WebTransport.MECHANISM_HEADER_NAME,
-                              this._availableMechanisms);
-        xhr.send ("");
+        var hsData = {
+            mechanisms: this._availableMechs
+        };
+
+        this._handshaking = true;
+        xhr.open ("POST", this._addr + "handshake", true);
+        xhr.send (JSON.stringify (hsData));
     },
 
     _connect: function (peer) {
@@ -550,6 +596,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
     _onConnect: function (result, error) {
         this._retryCount = 0;
 
+        this._connected = true;
         this._fireEvent ("new-peer", [this._peer]);
     },
 
@@ -590,18 +637,31 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
 
         this._outBuf.push (data);
 
-        if (! this._flushing ())
+        if (! this._dispatching && ! this._flushing ())
             this._flush ();
     },
 
-    _onReceive: function (msg, error) {
+    _onReceive: function (msgs, error) {
         if (! error) {
             if (! this._peer)
                 return;
 
-            this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = msg;
-            this._fireEvent ("receive", [this._peer]);
-            this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = null;
+            this._dispatching = true;
+
+            var msg;
+            for (var i in msgs) {
+                msg = msgs[i];
+
+                this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = msg;
+                this._fireEvent ("receive", [this._peer]);
+                this._peer[Evd.WebTransport.PEER_DATA_KEY].msg = null;
+            }
+
+            this._dispatching = false;
+
+            if (! this._flushing ())
+                this._retryCount = 0;
+
         }
         else {
             this._retry (error.code == 404);
@@ -620,8 +680,14 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
                 var self = this;
                 setTimeout (function () { self._flush (); }, 1);
             }
+
+            this._retryCount = 0;
         }
         else {
+            for (var i in this._flushBuf) {
+                this._outBuf.push (this._flushBuf[i]);
+            }
+            this._flushBuf = [];
             this._retry (error.code == 404);
         }
     },
@@ -633,16 +699,24 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         // @TODO: implement a retry count and abort after a maximum.
         // Having fibonacci-based retry intervals would be nice.
 
+        this._retryCount++;
+
+        var self = this;
+
         if (rehandshake) {
             if (this._peer)
                 this._closePeer (this._peer, false);
 
-            this._retryCount++;
             this._handshake ();
         }
+        else if (! this._connected) {
+            // try reconnect
+            setTimeout (function () {
+                            if (self._transport)
+                                self._transport.reconnect ();
+                        }, 1);
+        }
         else {
-            var self = this;
-
             // try reconnect
             setTimeout (function () {
                             if (self._transport)
@@ -661,8 +735,6 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
 
     _closePeer: function (peer, gracefully) {
         this._peer = null;
-        this._outBuf = [];
-        this._flushBuf = [];
 
         peer.close (gracefully);
 
