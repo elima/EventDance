@@ -214,6 +214,10 @@ introspection_sources = $(evd_HEADERS) $(source_c)
 @EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES) $(JSON_CFLAGS)
 @EVD_GIR_TARGET_NAME@_LIBS = @EVD_API_NAME@ uuid gcrypt
 @EVD_GIR_TARGET_NAME@_FILES = $(addprefix $(srcdir)/,$(introspection_sources))
+@EVD_GIR_TARGET_NAME@_SCANNERFLAGS = \
+	--warn-all \
+	--c-include='evd.h' \
+	--pkg-export=@EVD_API_NAME@
 
 INTROSPECTION_GIRS += @EVD_GIR_API_NAME@.gir
 
