@@ -334,6 +334,13 @@ evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
   g_free (st);
 }
 
+/**
+ * evd_http_request_get_basic_auth_credentials:
+ * @user: (out) (allow-none):
+ * @password: (out) (allow-none):
+ *
+ * Returns:
+ **/
 gboolean
 evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
                                              gchar          **user,
