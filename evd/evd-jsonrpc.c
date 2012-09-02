@@ -711,7 +711,7 @@ evd_jsonrpc_transport_read (EvdJsonrpc   *self,
 
 /**
  * evd_jsonrpc_set_method_call_callback:
- * @callback: (scope notify):
+ * @callback: (scope notified):
  * @user_data:
  *
  **/
