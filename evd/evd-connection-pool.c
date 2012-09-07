@@ -406,6 +406,7 @@ static void
 evd_connection_pool_create_new_socket (EvdConnectionPool *self)
 {
   EvdSocket *socket;
+  EvdConnectionPoolClass *class;
 
   socket = evd_socket_new ();
 
@@ -413,6 +414,18 @@ evd_connection_pool_create_new_socket (EvdConnectionPool *self)
                     "close",
                     G_CALLBACK (evd_connection_pool_socket_on_close),
                     self);
+
+  class = EVD_CONNECTION_POOL_GET_CLASS (self);
+  if (class->get_connection_type != NULL)
+    {
+      GType conn_type;
+
+      conn_type = class->get_connection_type (self);
+      if (g_type_is_a (conn_type, EVD_TYPE_CONNECTION))
+        self->priv->connection_type = conn_type;
+      else
+        g_warning ("Invalid connection type for EvdConnectionPool");
+    }
 
   g_object_set (socket,
                 "io-stream-type", self->priv->connection_type,

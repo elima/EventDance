@@ -44,8 +44,9 @@ struct _EvdConnectionPoolClass
 {
   EvdIoStreamGroupClass parent_class;
 
+  GType (* get_connection_type) (EvdConnectionPool *self);
+
   /* padding for future expansion */
-  void (* _padding_0_) (void);
   void (* _padding_1_) (void);
   void (* _padding_2_) (void);
   void (* _padding_3_) (void);
