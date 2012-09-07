@@ -128,7 +128,6 @@ evd_connection_pool_init (EvdConnectionPool *self)
   self->priv = priv;
 
   self->priv->target = NULL;
-  self->priv->connection_type = EVD_TYPE_CONNECTION;
 
   priv->min_conns = DEFAULT_MIN_CONNS;
   priv->max_conns = DEFAULT_MAX_CONNS;
@@ -182,8 +181,17 @@ evd_connection_pool_set_property (GObject      *obj,
       break;
 
     case PROP_CONNECTION_TYPE:
-      self->priv->connection_type = g_value_get_gtype (value);
-      break;
+      {
+        GType conn_type;
+
+        conn_type = g_value_get_gtype (value);
+        if (g_type_is_a (conn_type, EVD_TYPE_CONNECTION))
+          self->priv->connection_type = conn_type;
+        else
+          g_warning ("Invalid connection type for EvdConnectionPool");
+
+        break;
+      }
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
