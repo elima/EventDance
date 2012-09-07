@@ -31,6 +31,10 @@
 
 #include "evd-socket.h"
 
+#ifdef HAVE_GIO_UNIX
+#include <gio/gunixsocketaddress.h>
+#endif
+
 #include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-error.h"
@@ -1597,4 +1601,42 @@ evd_socket_bind_finish (EvdSocket     *self,
     return TRUE;
   else
     return FALSE;
+}
+
+gchar *
+evd_socket_get_remote_address_str (EvdSocket *self, gsize *len, GError **error)
+{
+  gchar *result = NULL;
+  GSocketAddress *sock_addr;
+  GInetAddress *inet_addr;
+
+  g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
+
+  sock_addr = evd_socket_get_remote_address (self, error);
+  if (sock_addr == NULL)
+    return NULL;
+
+#ifdef HAVE_GIO_UNIX
+  if (self->priv->family == G_SOCKET_FAMILY_UNIX)
+    {
+      result =
+       g_strdup (g_unix_socket_address_get_path (G_UNIX_SOCKET_ADDRESS (sock_addr)));
+
+      if (len != NULL)
+        *len = g_unix_socket_address_get_path_len (G_UNIX_SOCKET_ADDRESS (sock_addr));
+
+      return result;
+    }
+#endif
+
+  inet_addr = g_inet_socket_address_get_address (G_INET_SOCKET_ADDRESS (sock_addr));
+
+  result = g_inet_address_to_string (inet_addr);
+
+  if (len != NULL)
+    *len = strlen (result);
+
+  g_object_unref (sock_addr);
+
+  return result;
 }

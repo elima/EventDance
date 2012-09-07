@@ -116,6 +116,9 @@ gboolean        evd_socket_close                         (EvdSocket  *self,
 
 GSocketAddress *evd_socket_get_remote_address            (EvdSocket  *self,
                                                           GError    **error);
+gchar          *evd_socket_get_remote_address_str        (EvdSocket  *self,
+                                                          gsize      *len,
+                                                          GError    **error);
 GSocketAddress *evd_socket_get_local_address             (EvdSocket  *self,
                                                           GError    **error);
 
