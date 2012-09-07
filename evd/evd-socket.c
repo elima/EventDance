@@ -1222,7 +1222,13 @@ evd_socket_get_remote_address (EvdSocket  *self, GError **error)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   if (self->priv->socket == NULL)
-    return NULL;
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_INITIALIZED,
+                   "Failed to get remote address, socket not initializaed");
+      return NULL;
+    }
   else
     return g_socket_get_remote_address (self->priv->socket, error);
 }
@@ -1238,7 +1244,13 @@ evd_socket_get_local_address (EvdSocket  *self, GError **error)
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
 
   if (self->priv->socket == NULL)
-    return NULL;
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_INITIALIZED,
+                   "Failed to get local address, socket not initializaed");
+      return NULL;
+    }
   else
     return g_socket_get_local_address (self->priv->socket, error);
 }
