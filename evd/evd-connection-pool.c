@@ -339,6 +339,8 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
   GIOStream *io_stream;
   GError *error = NULL;
 
+  g_queue_remove (self->priv->sockets, obj);
+
   if ( (io_stream = evd_socket_connect_finish (EVD_SOCKET (obj),
                                                res,
                                                &error)) != NULL)
@@ -350,7 +352,6 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
       evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 
       socket = evd_connection_get_socket (conn);
-      g_queue_remove (self->priv->sockets, socket);
 
       g_assert (socket == EVD_SOCKET (obj));
 
@@ -359,7 +360,7 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
   else
     {
       /* @TODO: handle error */
-      g_debug ("error connection: %s", error->message);
+      g_print ("error connection: %s\n", error->message);
       g_error_free (error);
 
       evd_socket_close (EVD_SOCKET (obj), NULL);
@@ -531,8 +532,7 @@ evd_connection_pool_get_connection_finish (EvdConnectionPool  *self,
 }
 
 gboolean
-evd_connection_pool_recycle (EvdConnectionPool *self,
-                             EvdConnection     *conn)
+evd_connection_pool_recycle (EvdConnectionPool *self, EvdConnection *conn)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), FALSE);
   g_return_val_if_fail (EVD_IS_CONNECTION (conn), FALSE);
@@ -546,6 +546,10 @@ evd_connection_pool_recycle (EvdConnectionPool *self,
   if (evd_connection_get_group (conn) != EVD_IO_STREAM_GROUP (self))
     evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                              G_IO_STREAM (conn));
+
+  g_signal_handlers_disconnect_by_func (conn,
+                                        evd_connection_pool_connection_on_close,
+                                        self);
 
   g_object_ref (conn);
   evd_connection_pool_new_connection (self, conn);
