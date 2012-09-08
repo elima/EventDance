@@ -66,5 +66,6 @@
 #include <evd-daemon.h>
 #include <evd-http-chunked-decoder.h>
 #include <evd-jsonrpc-http-client.h>
+#include <evd-jsonrpc-http-server.h>
 
 #endif /* __EVD_H__ */
