@@ -65,5 +65,6 @@
 #include <evd-pki-pubkey.h>
 #include <evd-daemon.h>
 #include <evd-http-chunked-decoder.h>
+#include <evd-jsonrpc-http-client.h>
 
 #endif /* __EVD_H__ */

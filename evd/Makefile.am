@@ -91,7 +91,8 @@ source_c = \
 	evd-pki-privkey.c \
 	evd-pki-pubkey.c \
 	evd-daemon.c \
-	evd-http-chunked-decoder.c
+	evd-http-chunked-decoder.c \
+	evd-jsonrpc-http-client.c
 
 source_h = \
 	evd.h \
@@ -141,7 +142,8 @@ source_h = \
 	evd-pki-privkey.h \
 	evd-pki-pubkey.h \
 	evd-daemon.h \
-	evd-http-chunked-decoder.h
+	evd-http-chunked-decoder.h \
+	evd-jsonrpc-http-client.h
 
 source_h_priv = \
 	evd-poll.h \
