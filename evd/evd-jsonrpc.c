@@ -308,8 +308,6 @@ evd_jsonrpc_on_method_called (EvdJsonrpc  *self,
 
   if (self->priv->method_call_cb != NULL)
     {
-      g_print ("method called: %s\n", method_name);
-
       self->priv->method_call_cb (self,
                                   method_name,
                                   args,
