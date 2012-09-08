@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -41,6 +41,12 @@ typedef gboolean (* EvdJsonrpcTransportWriteCb) (EvdJsonrpc  *self,
                                                  gpointer     context,
                                                  gpointer     user_data);
 
+typedef void (* EvdJsonrpcTransportSendCb) (EvdJsonrpc  *self,
+                                            const gchar *message,
+                                            gpointer     context,
+                                            guint        invocation_id,
+                                            gpointer     user_data);
+
 /**
  * EvdJsonrpcMethodCallCb:
  * @context: (type GObject):
@@ -76,14 +82,29 @@ GType                evd_jsonrpc_get_type                     (void) G_GNUC_CONS
 
 EvdJsonrpc *         evd_jsonrpc_new                          (void);
 
+void                 evd_jsonrpc_transport_set_send_callback  (EvdJsonrpc                *self,
+                                                               EvdJsonrpcTransportSendCb  callback,
+                                                               gpointer                   user_data,
+                                                               GDestroyNotify             user_data_free_func);
+
 void                 evd_jsonrpc_transport_set_write_callback (EvdJsonrpc                 *self,
                                                                EvdJsonrpcTransportWriteCb  callback,
-                                                               gpointer                    user_data);
+                                                               gpointer                    user_data) G_GNUC_DEPRECATED_FOR (evd_jsonrpc_transport_set_send_callback);
 gboolean             evd_jsonrpc_transport_read               (EvdJsonrpc   *self,
                                                                const gchar  *buffer,
                                                                gsize         size,
                                                                gpointer      context,
-                                                               GError      **error);
+                                                               GError      **error) G_GNUC_DEPRECATED_FOR (evd_jsonrpc_transport_receive);
+
+gboolean             evd_jsonrpc_transport_receive            (EvdJsonrpc    *self,
+                                                               const gchar   *message,
+                                                               gpointer       context,
+                                                               guint          invocation_id,
+                                                               GError       **error);
+
+void                 evd_jsonrpc_transport_error              (EvdJsonrpc *self,
+                                                               guint       invocation_id,
+                                                               GError     *error);
 
 void                 evd_jsonrpc_call_method                  (EvdJsonrpc          *self,
                                                                const gchar         *method_name,

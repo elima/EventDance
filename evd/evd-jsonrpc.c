@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -41,8 +41,11 @@ struct _EvdJsonrpcPrivate
   EvdJsonrpcTransportWriteCb write_cb;
   gpointer write_cb_user_data;
 
-  GHashTable *invocations_in;
-  GHashTable *invocations_out;
+  EvdJsonrpcTransportSendCb send_cb;
+  gpointer send_cb_user_data;
+  GDestroyNotify send_cb_user_data_free_func;
+
+  GHashTable *invocations;
 
   EvdJsonFilter *json_filter;
 
@@ -60,6 +63,13 @@ typedef struct
   JsonNode *error;
 } MethodResponse;
 
+typedef struct
+{
+  GSimpleAsyncResult *result;
+  JsonNode *remote_id;
+  gpointer context;
+} InvocationData;
+
 static void     evd_jsonrpc_class_init           (EvdJsonrpcClass *class);
 static void     evd_jsonrpc_init                 (EvdJsonrpc *self);
 
@@ -75,6 +85,8 @@ static void     evd_jsonrpc_transport_destroyed  (gpointer  data,
 static void     evd_jsonrpc_transport_on_receive (EvdTransport *transport,
                                                   EvdPeer      *peer,
                                                   gpointer      user_data);
+
+static void     free_invocation_data             (InvocationData *data);
 
 static void
 evd_jsonrpc_class_init (EvdJsonrpcClass *class)
@@ -99,15 +111,10 @@ evd_jsonrpc_init (EvdJsonrpc *self)
   priv->write_cb = NULL;
   priv->write_cb_user_data = NULL;
 
-  priv->invocations_in = g_hash_table_new_full (g_int_hash,
-                                                g_int_equal,
-                                                g_free,
-                                                (GDestroyNotify) json_node_free);
-
-  priv->invocations_out = g_hash_table_new_full (g_str_hash,
-                                                 g_str_equal,
-                                                 g_free,
-                                                 NULL);
+  priv->invocations = g_hash_table_new_full (g_str_hash,
+                                             g_str_equal,
+                                             g_free,
+                                             (GDestroyNotify) free_invocation_data);
 
   priv->json_filter = evd_json_filter_new ();
   evd_json_filter_set_packet_handler (priv->json_filter,
@@ -146,8 +153,13 @@ evd_jsonrpc_finalize (GObject *obj)
 
   g_object_unref (self->priv->json_filter);
 
-  g_hash_table_unref (self->priv->invocations_in);
-  g_hash_table_unref (self->priv->invocations_out);
+  g_hash_table_unref (self->priv->invocations);
+
+  if (self->priv->send_cb_user_data != NULL &&
+      self->priv->send_cb_user_data_free_func != NULL)
+    {
+      self->priv->send_cb_user_data_free_func (self->priv->send_cb_user_data);
+    }
 
   G_OBJECT_CLASS (evd_jsonrpc_parent_class)->finalize (obj);
 }
@@ -240,13 +252,17 @@ evd_jsonrpc_build_message (EvdJsonrpc  *self,
 static gboolean
 evd_jsonrpc_on_method_called (EvdJsonrpc  *self,
                               JsonObject  *msg,
+                              gpointer     context,
                               GError     **error)
 {
   JsonNode *node;
-  guint *id;
-  JsonNode *id_node;
   JsonNode *args;
   const gchar *method_name;
+
+  InvocationData *inv_data;
+  guint id;
+  gchar *id_st;
+  JsonNode *id_node;
 
   node = json_object_get_member (msg, "method");
   method_name = json_node_get_string (node);
@@ -280,20 +296,25 @@ evd_jsonrpc_on_method_called (EvdJsonrpc  *self,
       return TRUE;
     }
 
+  inv_data = g_slice_new0 (InvocationData);
+  inv_data->remote_id = id_node;
+  inv_data->context = context;
+
   self->priv->invocation_counter++;
-  id = g_new (guint, 1);
-  *id = self->priv->invocation_counter;
-  g_hash_table_insert (self->priv->invocations_in,
-                       id,
-                       id_node);
+  id = self->priv->invocation_counter;
+  id_st = g_strdup_printf ("%u", id);
+
+  g_hash_table_insert (self->priv->invocations, id_st, inv_data);
 
   if (self->priv->method_call_cb != NULL)
     {
+      g_print ("method called: %s\n", method_name);
+
       self->priv->method_call_cb (self,
                                   method_name,
                                   args,
-                                  *id,
-                                  self->priv->context,
+                                  id,
+                                  context,
                                   self->priv->method_call_cb_user_data);
     }
 
@@ -314,32 +335,34 @@ free_method_response_data (gpointer _data)
   g_slice_free (MethodResponse, _data);
 }
 
-static gboolean
+static void
 evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
                               JsonObject  *msg,
-                              GError     **error)
+                              gpointer     context)
 {
   const gchar *id;
   JsonNode *id_node;
   JsonNode *result_node;
   JsonNode *error_node;
-  GSimpleAsyncResult *res;
   MethodResponse *data;
+  InvocationData *inv_data;
+  GSimpleAsyncResult *res;
 
   id_node = json_object_get_member (msg, "id");
   id = json_node_get_string (id_node);
 
-  res = g_hash_table_lookup (self->priv->invocations_out, id);
-  if (res == NULL)
+  inv_data = g_hash_table_lookup (self->priv->invocations, id);
+  if (inv_data == NULL)
     {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_INVALID_DATA,
-                           "Received unexpected JSON-RPC response message");
-      return FALSE;
+      /* @TODO: do proper logging */
+      g_print ("Received unexpected JSON-RPC response message with id '%s'\n", id);
+
+      return;
     }
 
-  g_hash_table_remove (self->priv->invocations_out, id);
+  res = inv_data->result;
+  g_object_ref (res);
+  g_hash_table_remove (self->priv->invocations, id);
 
   result_node = json_object_get_member (msg, "result");
   error_node = json_object_get_member (msg, "error");
@@ -350,24 +373,23 @@ evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
       g_simple_async_result_set_error (res,
                                        G_IO_ERROR,
                                        G_IO_ERROR_INVALID_DATA,
-                                       "Protocol error, invalid JSON-RPC response message");
-      return FALSE;
+                                       "Protocol error, invalid JSON-RPC response message: one or 'result' or 'error' must be null");
     }
-
-  data = g_slice_new0 (MethodResponse);
-  g_simple_async_result_set_op_res_gpointer (res,
-                                             data,
-                                             free_method_response_data);
-
-  if (! json_node_is_null (result_node))
-    data->result = json_node_copy (result_node);
   else
-    data->error = json_node_copy (error_node);
+    {
+      data = g_slice_new0 (MethodResponse);
+      g_simple_async_result_set_op_res_gpointer (res,
+                                                 data,
+                                                 free_method_response_data);
+
+      if (! json_node_is_null (result_node))
+        data->result = json_node_copy (result_node);
+      else
+        data->error = json_node_copy (error_node);
+    }
 
   g_simple_async_result_complete (res);
   g_object_unref (res);
-
-  return TRUE;
 }
 
 static void
@@ -414,13 +436,18 @@ evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
       json_object_has_member (obj, "error"))
     {
       /* a method result */
-      evd_jsonrpc_on_method_result (self, obj, &error);
+      evd_jsonrpc_on_method_result (self,
+                                    obj,
+                                    self->priv->context);
     }
   else if (json_object_has_member (obj, "method") &&
            json_object_has_member (obj, "params"))
     {
       /* a method call */
-      evd_jsonrpc_on_method_called (self, obj, &error);
+      evd_jsonrpc_on_method_called (self,
+                                    obj,
+                                    self->priv->context,
+                                    &error);
     }
   else
     {
@@ -434,47 +461,47 @@ evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
   if (error != NULL)
     {
       /* @TODO: do proper debugging */
-      g_debug ("JSON-RPC ERROR: %s", error->message);
+      g_print ("JSON-RPC ERROR: %s", error->message);
       g_error_free (error);
     }
 
   g_object_unref (parser);
 }
 
-static gboolean
+static void
 evd_jsonrpc_transport_write (EvdJsonrpc   *self,
                              const gchar  *msg,
-                             gsize         size,
-                             gpointer      context,
-                             GError      **error)
+                             gpointer      user_context,
+                             guint         invocation_id)
 {
-  if (context != NULL && EVD_IS_PEER (context))
+  GError *error = NULL;
+
+  if (user_context != NULL && EVD_IS_PEER (user_context))
     {
-      return evd_peer_send_text (EVD_PEER (context), msg, error);
-    }
-  else if (self->priv->write_cb != NULL)
-    {
-      if (! self->priv->write_cb (self,
-                                  msg,
-                                  strlen (msg),
-                                  context,
-                                  self->priv->write_cb_user_data))
+      if (! evd_peer_send_text (EVD_PEER (user_context), msg, &error))
         {
-          g_set_error_literal (error,
-                               G_IO_ERROR,
-                               G_IO_ERROR_CLOSED,
-                               "Failed to writing to transport");
-          return FALSE;
-        }
-      else
-        {
-          return TRUE;
+          evd_jsonrpc_transport_error (self, invocation_id, error);
+          g_error_free (error);
         }
     }
+  else if (self->priv->send_cb != NULL)
+    {
+      self->priv->send_cb (self,
+                           msg,
+                           user_context,
+                           invocation_id,
+                           self->priv->send_cb_user_data);
+    }
+  else
+    {
+      g_set_error (&error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_CLOSED,
+                   "No JSON-RPC transport to deliver message");
 
-  g_assert_not_reached ();
-
-  return FALSE;
+      evd_jsonrpc_transport_error (self, invocation_id, error);
+      g_error_free (error);
+    }
 }
 
 static void
@@ -484,16 +511,10 @@ evd_jsonrpc_transport_on_receive (EvdTransport *transport,
 {
   EvdJsonrpc *self = EVD_JSONRPC (user_data);
   const gchar *data;
-  GError *error = NULL;
-  gsize size;
 
-  data = evd_transport_receive (transport, peer, &size);
-  if (! evd_jsonrpc_transport_read (self, data, size, peer, &error))
-    {
-      /* @TODO: do proper debugging */
-      g_debug ("Error in JSON-RPC protocol: %s", error->message);
-      g_error_free (error);
-    }
+  data = evd_transport_receive (transport, peer, NULL);
+
+  evd_jsonrpc_transport_receive (self, data, peer, 0, NULL);
 }
 
 static gboolean
@@ -501,51 +522,74 @@ evd_jsonrpc_respond_full (EvdJsonrpc  *self,
                           guint        invocation_id,
                           JsonNode    *result_node,
                           JsonNode    *error_node,
-                          gpointer     context,
                           GError     **error)
 {
+  gchar *id_st;
   JsonNode *id_node;
   gchar *msg;
   gboolean res = TRUE;
+  InvocationData *inv_data;
+  gpointer context;
 
   g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
   g_return_val_if_fail (invocation_id > 0, FALSE);
 
-  if ((context == NULL || ! EVD_IS_PEER (context)) &&
-      self->priv->write_cb == NULL)
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_CLOSED,
-                           "Failed to respond method, no transport associated");
-      return FALSE;
-    }
+  id_st = g_strdup_printf ("%u", invocation_id);
+  inv_data = g_hash_table_lookup (self->priv->invocations, id_st);
 
-  id_node = g_hash_table_lookup (self->priv->invocations_in, &invocation_id);
-
-  if (id_node == NULL)
+  if (inv_data == NULL)
     {
       g_set_error_literal (error,
                            G_IO_ERROR,
                            G_IO_ERROR_INVALID_ARGUMENT,
                            "No method invocation found with such id");
-      return FALSE;
+      res = FALSE;
+    }
+  else if (inv_data->context == NULL)
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_CLOSED,
+                           "Failed to respond method, no transport associated");
+      res = FALSE;
+    }
+  else
+    {
+      id_node = inv_data->remote_id;
+      inv_data->remote_id = NULL;
+      context = inv_data->context;
+
+      g_hash_table_remove (self->priv->invocations, id_st);
+
+      msg = evd_jsonrpc_build_message (self,
+                                       FALSE,
+                                       NULL,
+                                       id_node,
+                                       result_node,
+                                       error_node);
+
+      json_node_free (id_node);
+
+      evd_jsonrpc_transport_write (self, msg, context, invocation_id);
+
+      g_free (msg);
     }
 
-  msg = evd_jsonrpc_build_message (self,
-                                   FALSE,
-                                   NULL,
-                                   id_node,
-                                   result_node,
-                                   error_node);
-
-  g_hash_table_remove (self->priv->invocations_in, &invocation_id);
-
-  res = evd_jsonrpc_transport_write (self, msg, strlen (msg), context, error);
-
-  g_free (msg);
+  g_free (id_st);
 
   return res;
+}
+
+static void
+free_invocation_data (InvocationData *data)
+{
+  if (data->result != NULL)
+    g_object_unref (data->result);
+
+  if (data->remote_id != NULL)
+    json_node_free (data->remote_id);
+
+  g_slice_free (InvocationData, data);
 }
 
 /* public methods */
@@ -568,6 +612,68 @@ evd_jsonrpc_transport_set_write_callback (EvdJsonrpc                 *self,
 }
 
 /**
+ * evd_jsonrpc_transport_set_send_callback:
+ * @callback: (scope notified) (allow-none):
+ * @user_data: (allow-none):
+ * @user_data_free_func: (allow-none):
+ *
+ **/
+void
+evd_jsonrpc_transport_set_send_callback (EvdJsonrpc                *self,
+                                         EvdJsonrpcTransportSendCb  callback,
+                                         gpointer                   user_data,
+                                         GDestroyNotify             user_data_free_func)
+{
+  g_return_if_fail (EVD_IS_JSONRPC (self));
+
+  self->priv->send_cb = callback;
+  self->priv->send_cb_user_data = user_data;
+  self->priv->send_cb_user_data_free_func = user_data_free_func;
+}
+
+void
+evd_jsonrpc_transport_error (EvdJsonrpc *self,
+                             guint       invocation_id,
+                             GError     *error)
+{
+  InvocationData *inv_data;
+  gchar *id_st;
+
+  g_return_if_fail (EVD_IS_JSONRPC (self));
+  g_return_if_fail (error != NULL);
+
+  id_st = g_strdup_printf ("%u", invocation_id);
+
+  inv_data = g_hash_table_lookup (self->priv->invocations, id_st);
+  if (inv_data == NULL)
+    {
+      /* @TODO: do proper logging */
+      g_debug ("Transport error for unknown invocation id");
+      g_free (id_st);
+
+      return;
+    }
+
+  if (inv_data->result != NULL)
+    {
+      GSimpleAsyncResult *res = inv_data->result;
+
+      g_simple_async_result_set_from_error (res, error);
+
+      g_simple_async_result_complete_in_idle (res);
+    }
+  else
+    {
+      /* In case of a remote call, there is nothing we can do about a transport
+         error. We can only hope for the remote endpoint to timeout. */
+    }
+
+  g_hash_table_remove (self->priv->invocations, id_st);
+
+  g_free (id_st);
+}
+
+/**
  * evd_jsonrpc_call_method:
  * @params: (type Json.Node):
  **/
@@ -585,7 +691,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
   guint id;
   gchar *id_st;
   JsonNode *id_node;
-  GError *error = NULL;
+  InvocationData *inv_data;
 
   g_return_if_fail (EVD_IS_JSONRPC (self));
   g_return_if_fail (method_name != NULL);
@@ -596,7 +702,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
                                    evd_jsonrpc_call_method);
 
   if ((context == NULL || ! EVD_IS_PEER (context)) &&
-      self->priv->write_cb == NULL)
+      self->priv->send_cb == NULL)
     {
       g_simple_async_result_set_error (res,
                                        G_IO_ERROR,
@@ -609,7 +715,14 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
 
   self->priv->invocation_counter++;
   id = self->priv->invocation_counter;
-  id_st = g_strdup_printf ("%" G_GUINTPTR_FORMAT ".%u", (guintptr) self, id);
+  id_st = g_strdup_printf ("%u", id);
+
+  inv_data = g_slice_new0 (InvocationData);
+  inv_data->result = res;
+  inv_data->context = context;
+
+  g_hash_table_insert (self->priv->invocations, id_st, inv_data);
+
   id_node = json_node_new (JSON_NODE_VALUE);
   json_node_set_string (id_node, id_st);
 
@@ -622,23 +735,10 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
 
   json_node_free (id_node);
 
-  if (! evd_jsonrpc_transport_write (self,
-                                     msg,
-                                     strlen (msg),
-                                     context,
-                                     &error))
-    {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
-      g_free (id_st);
-    }
-  else
-    {
-      g_hash_table_insert (self->priv->invocations_out, id_st, res);
-    }
+  evd_jsonrpc_transport_write (self,
+                               msg,
+                               context,
+                               id);
 
   g_free (msg);
 }
@@ -709,6 +809,42 @@ evd_jsonrpc_transport_read (EvdJsonrpc   *self,
   return result;
 }
 
+gboolean
+evd_jsonrpc_transport_receive (EvdJsonrpc    *self,
+                               const gchar   *message,
+                               gpointer       context,
+                               guint          invocation_id,
+                               GError       **error)
+{
+  gsize size;
+  GError *_error = NULL;
+  gboolean result = TRUE;
+
+  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
+
+  size = strlen (message);
+
+  if (message == NULL || size == 0)
+    return TRUE;
+
+  self->priv->context = context;
+
+  if (! evd_json_filter_feed_len (self->priv->json_filter,
+                                  message,
+                                  size,
+                                  &_error))
+    {
+      evd_jsonrpc_transport_error (self, invocation_id, _error);
+      g_propagate_error (error, _error);
+
+      result = FALSE;
+    }
+
+  self->priv->context = NULL;
+
+  return result;
+}
+
 /**
  * evd_jsonrpc_set_method_call_callback:
  * @callback: (scope notified):
@@ -744,7 +880,6 @@ evd_jsonrpc_respond (EvdJsonrpc  *self,
                                    invocation_id,
                                    result,
                                    NULL,
-                                   context,
                                    error);
 }
 
@@ -759,7 +894,6 @@ evd_jsonrpc_respond_error (EvdJsonrpc  *self,
                                    invocation_id,
                                    NULL,
                                    json_error,
-                                   context,
                                    error);
 }
 
@@ -814,14 +948,13 @@ evd_jsonrpc_send_notification (EvdJsonrpc   *self,
                                gpointer      context,
                                GError      **error)
 {
-  gboolean result = FALSE;
   gchar *msg;
 
   g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
   g_return_val_if_fail (notification_name != NULL, FALSE);
 
   if ((context == NULL || ! EVD_IS_PEER (context)) &&
-      self->priv->write_cb == NULL)
+      self->priv->send_cb == NULL)
     {
       g_set_error (error,
                    G_IO_ERROR,
@@ -837,20 +970,9 @@ evd_jsonrpc_send_notification (EvdJsonrpc   *self,
                                    params,
                                    NULL);
 
-  if (! evd_jsonrpc_transport_write (self,
-                                     msg,
-                                     strlen (msg),
-                                     context,
-                                     error))
-    {
-      result = FALSE;
-    }
-  else
-    {
-      result = TRUE;
-    }
+  evd_jsonrpc_transport_write (self, msg, context, 0);
 
   g_free (msg);
 
-  return result;
+  return TRUE;
 }
