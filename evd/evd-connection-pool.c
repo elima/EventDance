@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -35,7 +35,7 @@ G_DEFINE_TYPE (EvdConnectionPool, evd_connection_pool, EVD_TYPE_IO_STREAM_GROUP)
 #define DEFAULT_MIN_CONNS 1
 #define DEFAULT_MAX_CONNS 5
 
-#define TOTAL_SOCKETS(pool) (g_queue_get_length (pool->priv->sockets) + \
+#define TOTAL_SOCKETS(pool) (self->priv->connecting_sockets + \
                              g_queue_get_length (pool->priv->conns))
 
 #define HAS_REQUESTS(pool)  (g_queue_get_length (pool->priv->requests) > 0)
@@ -49,10 +49,11 @@ struct _EvdConnectionPoolPrivate
   guint max_conns;
 
   GQueue *conns;
-  GQueue *sockets;
   GQueue *requests;
 
   GType connection_type;
+
+  guint connecting_sockets;
 };
 
 /* properties */
@@ -65,6 +66,7 @@ enum
 
 static void     evd_connection_pool_class_init            (EvdConnectionPoolClass *class);
 static void     evd_connection_pool_init                  (EvdConnectionPool *self);
+static void     evd_connection_pool_constructed           (GObject *obj);
 static void     evd_connection_pool_finalize              (GObject *obj);
 
 static void     evd_connection_pool_set_property          (GObject      *obj,
@@ -78,24 +80,19 @@ static void     evd_connection_pool_get_property          (GObject    *obj,
 
 static void     evd_connection_pool_foreach_unref_conn    (gpointer data,
                                                            gpointer user_data);
-static void     evd_connection_pool_foreach_unref_socket  (gpointer data,
-                                                           gpointer user_data);
 static void     evd_connection_pool_foreach_unref_request (gpointer data,
                                                            gpointer user_data);
 
-static void     evd_connection_pool_socket_on_close       (EvdSocket *socket,
-                                                           gpointer   user_data);
-
 static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *self);
 
-static void     evd_connection_pool_reuse_socket          (EvdConnectionPool *self,
-                                                           EvdSocket         *socket);
+static void     evd_connection_pool_create_min_conns      (EvdConnectionPool *self);
 
 static void
 evd_connection_pool_class_init (EvdConnectionPoolClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
+  obj_class->constructed = evd_connection_pool_constructed;
   obj_class->finalize = evd_connection_pool_finalize;
   obj_class->set_property = evd_connection_pool_set_property;
   obj_class->get_property = evd_connection_pool_get_property;
@@ -133,8 +130,17 @@ evd_connection_pool_init (EvdConnectionPool *self)
   priv->max_conns = DEFAULT_MAX_CONNS;
 
   priv->conns = g_queue_new ();
-  priv->sockets = g_queue_new ();
   priv->requests = g_queue_new ();
+
+  priv->connecting_sockets = 0;
+}
+
+static void
+evd_connection_pool_constructed (GObject *obj)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
+
+  evd_connection_pool_create_min_conns (self);
 }
 
 static void
@@ -148,11 +154,6 @@ evd_connection_pool_finalize (GObject *obj)
                    evd_connection_pool_foreach_unref_conn,
                    self);
   g_queue_free (self->priv->conns);
-
-  g_queue_foreach (self->priv->sockets,
-                   evd_connection_pool_foreach_unref_socket,
-                   self);
-  g_queue_free (self->priv->sockets);
 
   g_queue_foreach (self->priv->requests,
                    evd_connection_pool_foreach_unref_request,
@@ -232,20 +233,10 @@ evd_connection_pool_connection_on_close (EvdConnection *conn,
   EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
 
   g_queue_remove (self->priv->conns, conn);
-
-  if (TOTAL_SOCKETS (self) < self->priv->min_conns)
-    {
-      EvdSocket *socket;
-
-      socket = evd_connection_get_socket (conn);
-
-      g_object_ref (socket);
-      evd_connection_pool_reuse_socket (self, socket);
-    }
-
   evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-
   g_object_unref (conn);
+
+  evd_connection_pool_create_min_conns (self);
 }
 
 static void
@@ -258,18 +249,6 @@ evd_connection_pool_foreach_unref_conn (gpointer data,
                                         evd_connection_pool_connection_on_close,
                                         user_data);
   g_object_unref (conn);
-}
-
-static void
-evd_connection_pool_foreach_unref_socket (gpointer data,
-                                          gpointer user_data)
-{
-  EvdSocket *socket = EVD_SOCKET (data);
-
-  g_signal_handlers_disconnect_by_func (socket,
-                                        evd_connection_pool_socket_on_close,
-                                        user_data);
-  g_object_unref (socket);
 }
 
 static void
@@ -301,6 +280,15 @@ evd_connection_pool_finish_request (EvdConnectionPool  *self,
 }
 
 static void
+evd_connection_pool_create_min_conns (EvdConnectionPool *self)
+{
+  while (TOTAL_SOCKETS (self) < self->priv->min_conns)
+    {
+      evd_connection_pool_create_new_socket (self);
+    }
+}
+
+static void
 evd_connection_pool_new_connection (EvdConnectionPool *self,
                                     EvdConnection     *conn)
 {
@@ -316,8 +304,7 @@ evd_connection_pool_new_connection (EvdConnectionPool *self,
 
       evd_connection_pool_finish_request (self, conn, res);
 
-      if (TOTAL_SOCKETS (self) < self->priv->min_conns)
-        evd_connection_pool_create_new_socket (self);
+      evd_connection_pool_create_min_conns (self);
     }
   else
     {
@@ -339,68 +326,31 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
   GIOStream *io_stream;
   GError *error = NULL;
 
-  g_queue_remove (self->priv->sockets, obj);
+  self->priv->connecting_sockets--;
 
   if ( (io_stream = evd_socket_connect_finish (EVD_SOCKET (obj),
                                                res,
                                                &error)) != NULL)
     {
       EvdConnection *conn;
-      EvdSocket *socket;
 
       conn = EVD_CONNECTION (io_stream);
       evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-
-      socket = evd_connection_get_socket (conn);
-
-      g_assert (socket == EVD_SOCKET (obj));
 
       evd_connection_pool_new_connection (self, conn);
     }
   else
     {
       /* @TODO: handle error */
-      g_print ("error connection: %s\n", error->message);
+      g_print ("Connection pool error: %s\n", error->message);
       g_error_free (error);
 
-      evd_socket_close (EVD_SOCKET (obj), NULL);
+      evd_connection_pool_create_min_conns (self);
 
-      g_object_ref (EVD_SOCKET (obj));
-      evd_connection_pool_reuse_socket (self, EVD_SOCKET (obj));
+      g_object_unref (obj);
     }
-}
 
-static void
-evd_connection_pool_reuse_socket (EvdConnectionPool *self, EvdSocket *socket)
-{
-  g_queue_push_tail (self->priv->sockets, (gpointer) socket);
-
-  evd_socket_connect_to (socket,
-                         self->priv->target,
-                         NULL,
-                         evd_connection_pool_socket_on_connect,
-                         self);
-}
-
-static void
-evd_connection_pool_socket_on_close (EvdSocket *socket, gpointer user_data)
-{
-  guint total;
-
-  EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
-
-  total = TOTAL_SOCKETS (self);
-
-  if (total >= self->priv->max_conns ||
-      (total >= self->priv->min_conns && ! HAS_REQUESTS (self)) )
-    {
-      g_queue_remove (self->priv->sockets, socket);
-      g_object_unref (socket);
-    }
-  else
-    {
-      evd_connection_pool_reuse_socket (self, socket);
-    }
+  g_object_unref (self);
 }
 
 static void
@@ -410,11 +360,6 @@ evd_connection_pool_create_new_socket (EvdConnectionPool *self)
   EvdConnectionPoolClass *class;
 
   socket = evd_socket_new ();
-
-  g_signal_connect (socket,
-                    "close",
-                    G_CALLBACK (evd_connection_pool_socket_on_close),
-                    self);
 
   class = EVD_CONNECTION_POOL_GET_CLASS (self);
   if (class->get_connection_type != NULL)
@@ -432,7 +377,14 @@ evd_connection_pool_create_new_socket (EvdConnectionPool *self)
                 "io-stream-type", self->priv->connection_type,
                 NULL);
 
-  evd_connection_pool_reuse_socket (self, socket);
+  self->priv->connecting_sockets++;
+
+  g_object_ref (self);
+  evd_socket_connect_to (socket,
+                         self->priv->target,
+                         NULL,
+                         evd_connection_pool_socket_on_connect,
+                         self);
 }
 
 /* public methods */
@@ -450,9 +402,6 @@ evd_connection_pool_new (const gchar *address, GType connection_type)
                        "address", address,
                        "connection-type", connection_type,
                        NULL);
-
-  while (g_queue_get_length (self->priv->sockets) < self->priv->min_conns)
-    evd_connection_pool_create_new_socket (self);
 
   return self;
 }
