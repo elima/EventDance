@@ -310,11 +310,10 @@ evd_web_selector_remove_service (EvdWebSelector  *self,
  *
  **/
 void
-evd_web_selector_set_default_service (EvdWebSelector *self,
-                                      EvdService     *service)
+evd_web_selector_set_default_service (EvdWebSelector *self, EvdService *service)
 {
   g_return_if_fail (EVD_IS_WEB_SELECTOR (self));
-  g_return_if_fail (EVD_IS_SERVICE (service));
+  g_return_if_fail (service == NULL || EVD_IS_SERVICE (self));
 
   if (self->priv->default_service != NULL)
     {
