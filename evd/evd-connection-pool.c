@@ -273,6 +273,7 @@ evd_connection_pool_finish_request (EvdConnectionPool  *self,
   g_signal_handlers_disconnect_by_func (conn,
                                         evd_connection_pool_connection_on_close,
                                         self);
+  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 
   g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
   g_simple_async_result_complete_in_idle (res);
@@ -323,12 +324,13 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
                                        gpointer      user_data)
 {
   EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
+  EvdSocket *socket = EVD_SOCKET (obj);
   GIOStream *io_stream;
   GError *error = NULL;
 
   self->priv->connecting_sockets--;
 
-  if ( (io_stream = evd_socket_connect_finish (EVD_SOCKET (obj),
+  if ( (io_stream = evd_socket_connect_finish (socket,
                                                res,
                                                &error)) != NULL)
     {
@@ -346,10 +348,9 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
       g_error_free (error);
 
       evd_connection_pool_create_min_conns (self);
-
-      g_object_unref (obj);
     }
 
+  g_object_unref (socket);
   g_object_unref (self);
 }
 
