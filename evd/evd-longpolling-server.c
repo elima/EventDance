@@ -336,20 +336,24 @@ evd_longpolling_server_request_handler (EvdWebService     *web_service,
                                   evd_longpolling_server_free_peer_data);
         }
 
-      g_object_ref (conn);
-      g_object_ref (peer);
-      g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
-
       /* send Peer's backlogged frames */
       if (evd_peer_backlog_get_length (peer) > 0)
-        evd_longpolling_server_actual_send (self,
-                                      peer,
-                                      conn,
-                                      NULL,
-                                      0,
-                                      NULL);
+        {
+          evd_longpolling_server_actual_send (self,
+                                              peer,
+                                              conn,
+                                              NULL,
+                                              0,
+                                              NULL);
+        }
       else
-        g_queue_push_tail (data->conns, conn);
+        {
+          g_object_ref (conn);
+          g_object_ref (peer);
+          g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_GET, peer);
+
+          g_queue_push_tail (data->conns, conn);
+        }
     }
 
   /* send? */
@@ -358,7 +362,6 @@ evd_longpolling_server_request_handler (EvdWebService     *web_service,
       g_object_ref (peer);
       g_object_set_data (G_OBJECT (conn), CONN_PEER_KEY_POST, peer);
 
-      g_object_ref (conn);
       evd_http_connection_read_all_content (conn,
                                     NULL,
                                     evd_longpolling_server_conn_on_content_read,
@@ -533,8 +536,6 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
 
   soup_message_headers_free (headers);
 
-  g_object_unref (conn);
-
   return result;
 }
 
@@ -624,6 +625,7 @@ evd_longpolling_server_remove (EvdIoStreamGroup *io_stream_group,
         g_queue_remove (data->conns, conn);
 
       g_object_unref (peer);
+      g_object_unref (conn);
     }
 
   return TRUE;
