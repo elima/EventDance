@@ -264,6 +264,12 @@ on_content_read (GObject      *obj,
                                                          result,
                                                          &size,
                                                          &error);
+
+  /* recycle connection if keep-alive */
+  if (evd_http_connection_get_keepalive (conn))
+    evd_connection_pool_recycle (EVD_CONNECTION_POOL (data->self),
+                                 EVD_CONNECTION (conn));
+
   if (content == NULL)
     {
       /* notify JSON-RPC of transport error */
