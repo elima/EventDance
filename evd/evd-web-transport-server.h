@@ -68,6 +68,9 @@ GType                   evd_web_transport_server_get_type                    (vo
 EvdWebTransportServer * evd_web_transport_server_new                         (const gchar *base_path);
 
 void                    evd_web_transport_server_set_selector                (EvdWebTransportServer *self,
+void                    evd_web_transport_server_use_selector                (EvdWebTransportServer *self,
+                                                                              EvdWebSelector        *selector);
+void                    evd_web_transport_server_unuse_selector              (EvdWebTransportServer *self,
                                                                               EvdWebSelector        *selector);
 EvdWebSelector *        evd_web_transport_server_get_selector                (EvdWebTransportServer *self);
 

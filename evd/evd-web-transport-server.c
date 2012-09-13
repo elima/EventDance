@@ -1019,6 +1019,33 @@ evd_web_transport_server_get_selector (EvdWebTransportServer *self)
   return self->priv->selector;
 }
 
+void
+evd_web_transport_server_use_selector (EvdWebTransportServer *self,
+                                       EvdWebSelector        *selector)
+{
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
+  g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
+
+  evd_web_selector_add_service (selector,
+                                NULL,
+                                self->priv->base_path,
+                                EVD_SERVICE (self),
+                                NULL);
+}
+
+void
+evd_web_transport_server_unuse_selector (EvdWebTransportServer *self,
+                                         EvdWebSelector        *selector)
+{
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
+  g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
+
+  evd_web_selector_remove_service (selector,
+                                   NULL,
+                                   self->priv->base_path,
+                                   EVD_SERVICE (self));
+}
+
 const gchar *
 evd_web_transport_server_get_base_path (EvdWebTransportServer *self)
 {
