@@ -54,8 +54,7 @@ static void     evd_web_selector_request_handler     (EvdWebService     *web_ser
                                                       EvdHttpConnection *conn,
                                                       EvdHttpRequest    *request);
 
-static void     evd_web_selector_free_candidate      (gpointer data,
-                                                      gpointer user_data);
+static void     evd_web_selector_free_candidate      (gpointer user_data);
 
 static void
 evd_web_selector_class_init (EvdWebSelectorClass *class)
@@ -95,20 +94,16 @@ evd_web_selector_dispose (GObject *obj)
       self->priv->default_service = NULL;
     }
 
-  g_list_foreach (self->priv->candidates,
-                  evd_web_selector_free_candidate,
-                  self);
-  g_list_free (self->priv->candidates);
+  g_list_free_full (self->priv->candidates, evd_web_selector_free_candidate);
   self->priv->candidates = NULL;
 
   G_OBJECT_CLASS (evd_web_selector_parent_class)->dispose (obj);
 }
 
 static void
-evd_web_selector_free_candidate (gpointer data,
-                                 gpointer user_data)
+evd_web_selector_free_candidate (gpointer user_data)
 {
-  EvdWebSelectorCandidate *candidate = (EvdWebSelectorCandidate *) candidate;
+  EvdWebSelectorCandidate *candidate = user_data;
 
   if (candidate->domain_pattern != NULL)
     {
@@ -123,6 +118,8 @@ evd_web_selector_free_candidate (gpointer data,
     }
 
   g_object_unref (candidate->service);
+
+  g_free (candidate);
 }
 
 static EvdService *
@@ -298,7 +295,7 @@ evd_web_selector_remove_service (EvdWebSelector  *self,
           self->priv->candidates = g_list_delete_link (self->priv->candidates,
                                                        node);
 
-          evd_web_selector_free_candidate (candidate, NULL);
+          evd_web_selector_free_candidate (candidate);
         }
       else
         {
