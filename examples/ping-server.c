@@ -81,7 +81,7 @@ main (gint argc, gchar *argv[])
   selector = evd_web_selector_new ();
 
   evd_web_selector_set_default_service (selector, EVD_SERVICE (web_dir));
-  evd_web_transport_server_set_selector (transport, selector);
+  evd_web_transport_server_use_selector (transport, selector);
 
   /*  evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE); */
   cred = evd_service_get_tls_credentials (EVD_SERVICE (selector));

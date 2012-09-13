@@ -281,7 +281,7 @@ evd_web_transport_server_set_property (GObject      *obj,
       break;
 
     case PROP_SELECTOR:
-      evd_web_transport_server_set_selector (self, g_value_get_object (value));
+      self->priv->selector = g_value_get_object (value);
       break;
 
     default:
@@ -307,7 +307,7 @@ evd_web_transport_server_get_property (GObject    *obj,
       break;
 
     case PROP_SELECTOR:
-      g_value_set_object (value, evd_web_transport_server_get_selector (self));
+      g_value_set_object (value, self->priv->selector);
       break;
 
     case PROP_LP_SERVICE:
@@ -395,27 +395,6 @@ evd_web_transport_server_peer_is_connected (EvdTransport *transport,
 
   return _transport != NULL &&
     evd_transport_peer_is_connected (_transport, peer);
-}
-
-static void
-evd_web_transport_server_associate_services (EvdWebTransportServer *self)
-{
-  if (self->priv->selector != NULL)
-    evd_web_selector_add_service (self->priv->selector,
-                                  NULL,
-                                  self->priv->base_path,
-                                  EVD_SERVICE (self),
-                                  NULL);
-}
-
-static void
-evd_web_transport_server_unassociate_services (EvdWebTransportServer *self)
-{
-  if (self->priv->selector != NULL)
-    evd_web_selector_remove_service (self->priv->selector,
-                                     NULL,
-                                     self->priv->base_path,
-                                     EVD_SERVICE (self));
 }
 
 static void
@@ -868,8 +847,6 @@ evd_web_transport_server_set_base_path (EvdWebTransportServer *self,
   else
     self->priv->base_path = g_strdup_printf ("%s/", base_path);
 
-  evd_web_transport_server_associate_services (self);
-
   self->priv->hs_base_path = g_strdup_printf ("%s%s",
                                               self->priv->base_path,
                                               HANDSHAKE_TOKEN_NAME);
@@ -994,16 +971,9 @@ evd_web_transport_server_set_selector (EvdWebTransportServer *self,
   g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
   g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
 
-  if (self->priv->selector != NULL)
-    {
-      evd_web_transport_server_unassociate_services (self);
-      g_object_unref (self->priv->selector);
-    }
-
   self->priv->selector = selector;
 
-  evd_web_transport_server_associate_services (self);
-  g_object_ref (selector);
+  evd_web_transport_server_use_selector (self, selector);
 }
 
 /**
