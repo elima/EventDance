@@ -493,7 +493,7 @@ evd_web_service_respond_internal (EvdWebService       *self,
                                    headers,
                                    content,
                                    size,
-                                   FALSE,
+                                   ! evd_http_connection_get_keepalive (conn),
                                    error))
     {
       EVD_WEB_SERVICE_GET_CLASS (self)->flush_and_return_connection (self, conn);
