@@ -214,6 +214,8 @@ evd_web_service_respond_cors_preflight (EvdWebService     *self,
                   NULL,
                   0,
                   NULL);
+
+  soup_message_headers_free (res_headers);
 }
 
 static gboolean
