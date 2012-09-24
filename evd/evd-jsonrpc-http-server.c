@@ -242,7 +242,7 @@ jsonrpc_on_send (EvdJsonrpc  *rpc,
                                  self->priv->headers,
                                  message,
                                  strlen (message),
-                                 NULL))
+                                 &error))
     {
       evd_jsonrpc_transport_error (self->priv->rpc, invocation_id, error);
       g_error_free (error);
