@@ -390,7 +390,8 @@ evd_web_dir_file_on_open (GObject      *object,
 }
 
 static gboolean
-evd_web_dir_check_not_modified (EvdHttpConnection  *conn,
+evd_web_dir_check_not_modified (EvdWebDir          *self,
+                                EvdHttpConnection  *conn,
                                 EvdHttpRequest     *request,
                                 SoupMessageHeaders *response_headers,
                                 SoupHTTPVersion     http_version,
@@ -419,12 +420,13 @@ evd_web_dir_check_not_modified (EvdHttpConnection  *conn,
         {
           GError *error = NULL;
 
-          if (! evd_http_connection_write_response_headers (conn,
-                                                       http_version,
-                                                       SOUP_STATUS_NOT_MODIFIED,
-                                                       NULL,
-                                                       response_headers,
-                                                       &error))
+          if (! evd_web_service_respond (EVD_WEB_SERVICE (self),
+                                         conn,
+                                         SOUP_STATUS_NOT_MODIFIED,
+                                         response_headers,
+                                         NULL,
+                                         0,
+                                         &error))
             {
               g_debug ("Error sending NOT-MODIFIED response headers: %s",
                        error->message);
@@ -521,7 +523,8 @@ evd_web_dir_file_on_info (GObject      *object,
     g_file_info_get_attribute_uint64 (info, "time::modified");
 
   /* check last-modified time */
-  if (evd_web_dir_check_not_modified (conn,
+  if (evd_web_dir_check_not_modified (self,
+                                      conn,
                                       request,
                                       headers,
                                       ver,
