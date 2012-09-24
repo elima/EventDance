@@ -280,6 +280,7 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
         {
           EvdHttpRequest *request;
           SoupURI *uri;
+          const gchar *conn_header;
 
           uri = evd_http_connection_build_uri (self, path, headers);
 
@@ -301,9 +302,14 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
           self->priv->content_len =
             soup_message_headers_get_content_length (headers);
 
+          /* detect if is keep-alive */
+          conn_header = soup_message_headers_get_one (headers, "Connection");
+
           self->priv->keepalive =
-            g_strcmp0 (soup_message_headers_get_one (headers, "Connection"),
-                       "keep-alive") == 0;
+            (version == SOUP_HTTP_1_0 &&
+             g_strcmp0 (conn_header, "keep-alive") == 0) ||
+            (version == SOUP_HTTP_1_1 &&
+             g_strcmp0 (conn_header, "close") != 0);
         }
       else
         {
@@ -1320,8 +1326,10 @@ evd_http_connection_respond (EvdHttpConnection   *self,
   else
     _headers = headers;
 
-  if (close_after)
+  if (close_after || ! self->priv->keepalive)
     soup_message_headers_replace (_headers, "Connection", "close");
+  else
+    soup_message_headers_replace (_headers, "Connection", "keep-alive");
 
   soup_message_headers_set_content_length (_headers, size);
 

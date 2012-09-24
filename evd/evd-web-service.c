@@ -453,17 +453,6 @@ evd_web_service_respond_internal (EvdWebService       *self,
   else
     ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
 
-  if (evd_http_connection_get_keepalive (conn))
-    {
-      if (headers == NULL)
-        {
-          headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
-          free_headers = TRUE;
-        }
-
-      soup_message_headers_replace (headers, "Connection", "keep-alive");
-    }
-
   /* check cross origin */
   if (status_code != SOUP_STATUS_FORBIDDEN &&
       request != NULL &&
@@ -495,7 +484,7 @@ evd_web_service_respond_internal (EvdWebService       *self,
                                    headers,
                                    content,
                                    size,
-                                   ! evd_http_connection_get_keepalive (conn),
+                                   FALSE,
                                    error))
     {
       EVD_WEB_SERVICE_GET_CLASS (self)->flush_and_return_connection (self, conn);
