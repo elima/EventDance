@@ -21,6 +21,7 @@
  */
 
 #include <string.h>
+#include <libsoup/soup-date.h>
 
 #include "evd-jsonrpc-http-server.h"
 
@@ -140,6 +141,10 @@ evd_jsonrpc_http_server_init (EvdJsonrpcHttpServer *self)
   soup_message_headers_replace (priv->headers,
                                 "Content-type",
                                 "application/json; charset=utf-8");
+  soup_message_headers_replace (self->priv->headers, "Pragma", "no-cache");
+  soup_message_headers_replace (self->priv->headers,
+                                "Cache-Control",
+                                "no-cache, private, no-store");
 }
 
 static void
@@ -214,6 +219,22 @@ jsonrpc_on_send (EvdJsonrpc  *rpc,
   EvdJsonrpcHttpServer *self = EVD_JSONRPC_HTTP_SERVER (user_data);
   EvdHttpConnection *conn = EVD_HTTP_CONNECTION (context);
   GError *error = NULL;
+  SoupDate *date;
+  gchar *date_str;
+
+  /* update 'Expire' header in response headers */
+  date = soup_date_new_from_now (- 60 * 60 * 24); /* 24h in the past */
+  date_str = soup_date_to_string (date, SOUP_DATE_HTTP);
+  soup_date_free (date);
+  soup_message_headers_replace (self->priv->headers, "Expires", date_str);
+  g_free (date_str);
+
+  /* update 'Date' header in response headers */
+  date = soup_date_new_from_now (0);
+  date_str = soup_date_to_string (date, SOUP_DATE_HTTP);
+  soup_date_free (date);
+  soup_message_headers_replace (self->priv->headers, "Date", date_str);
+  g_free (date_str);
 
   if (! evd_web_service_respond (EVD_WEB_SERVICE (self),
                                  conn,
