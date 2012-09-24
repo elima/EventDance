@@ -137,6 +137,9 @@ evd_jsonrpc_http_server_init (EvdJsonrpcHttpServer *self)
                                            (GDestroyNotify) g_object_unref);
 
   priv->headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  soup_message_headers_replace (priv->headers,
+                                "Content-type",
+                                "application/json; charset=utf-8");
 }
 
 static void
