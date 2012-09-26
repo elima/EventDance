@@ -452,7 +452,7 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
   EvdWebTransportServer *self;
   gchar *mechanism_url;
   GError *error = NULL;
-  SoupURI *uri;
+  SoupURI *uri = NULL;
 
   JsonObject *request_obj;
   JsonObject *response_obj;
@@ -485,7 +485,19 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
   request_obj = json_node_get_object (data->request_data);
   request_mechs = json_object_get_array_member (request_obj, "mechanisms");
 
-  uri = evd_http_request_get_uri (data->request);
+  /* resolve the transport url from peer's perspective */
+  if (json_object_has_member (request_obj, "url"))
+    {
+      const gchar *uri_str;
+
+      uri_str = json_object_get_string_member (request_obj, "url");
+      uri = soup_uri_new (uri_str);
+
+      /* @TODO: validate that uri is not null and fail the handshake if so */
+    }
+
+  if (uri == NULL)
+    uri = soup_uri_copy (evd_http_request_get_uri (data->request));
 
   /* websocket? */
   if (self->priv->enable_ws &&
@@ -506,7 +518,6 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
       add_mechanism_to_response_list (response_mechs,
                                       WEB_SOCKET_MECHANISM_NAME,
                                       mechanism_url);
-
       g_free (mechanism_url);
     }
 
@@ -524,7 +535,6 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
       add_mechanism_to_response_list (response_mechs,
                                       LONG_POLLING_MECHANISM_NAME,
                                       mechanism_url);
-
       g_free (mechanism_url);
     }
 
@@ -552,6 +562,7 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
 
   soup_message_headers_free (headers);
 
+  soup_uri_free (uri);
   g_free (content);
 }
 

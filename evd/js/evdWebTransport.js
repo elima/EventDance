@@ -582,7 +582,8 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         };
 
         var hsData = {
-            mechanisms: this._availableMechs
+            mechanisms: this._availableMechs,
+            url: this._addr
         };
 
         this._handshaking = true;
