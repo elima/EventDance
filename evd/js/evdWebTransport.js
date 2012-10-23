@@ -618,7 +618,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
     },
 
     _flush: function () {
-        if (this._transport.canSend ()) {
+        if (this._transport && this._transport.canSend ()) {
             this._flushBuf = this._outBuf;
             this._outBuf = [];
             this._transport.send (this._flushBuf);
