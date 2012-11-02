@@ -543,6 +543,22 @@ evd_web_dir_file_on_info (GObject      *object,
   g_free (date);
   soup_date_free (sdate);
 
+  /* check cross origin */
+  if (evd_http_request_is_cross_origin (request))
+    {
+      const gchar *origin;
+
+      origin = evd_http_request_get_origin (request);
+
+      /* check if this origin is allowed */
+      if (evd_web_service_origin_allowed (EVD_WEB_SERVICE (self), origin))
+        {
+          soup_message_headers_replace (headers,
+                                        "Access-Control-Allow-Origin",
+                                        origin);
+        }
+    }
+
   soup_message_headers_set_content_type (headers,
                                          g_file_info_get_content_type (info),
                                          NULL);
