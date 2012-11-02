@@ -459,7 +459,7 @@ evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
   if (error != NULL)
     {
       /* @TODO: do proper debugging */
-      g_print ("JSON-RPC ERROR: %s", error->message);
+      g_print ("JSON-RPC ERROR: %s\n", error->message);
       g_error_free (error);
     }
 
