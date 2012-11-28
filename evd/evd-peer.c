@@ -231,8 +231,9 @@ create_new_backlog_frame (const gchar *message, gsize size, EvdMessageType type)
   frame->type = type;
   frame->len = size;
 
-  frame->buf = g_new (gchar, size);
+  frame->buf = g_new (gchar, size + 1);
   memcpy (frame->buf, message, size);
+  frame->buf[size] = '\0';
 
   return frame;
 }
