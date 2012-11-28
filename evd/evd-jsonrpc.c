@@ -895,6 +895,39 @@ evd_jsonrpc_respond_error (EvdJsonrpc  *self,
                                    error);
 }
 
+gboolean
+evd_jsonrpc_respond_from_error (EvdJsonrpc  *self,
+                                guint        invocation_id,
+                                GError      *result_error,
+                                gpointer     context,
+                                GError     **error)
+{
+  gboolean result;
+  JsonNode *result_node;
+  JsonObject *obj;
+
+  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
+  g_return_val_if_fail (result_error != NULL, FALSE);
+
+  result_node = json_node_new (JSON_NODE_OBJECT);
+  obj = json_object_new ();
+  json_node_set_object (result_node, obj);
+
+  json_object_set_int_member (obj, "code", result_error->code);
+  json_object_set_string_member (obj, "message", result_error->message);
+
+  result = evd_jsonrpc_respond_error (self,
+                                      invocation_id,
+                                      result_node,
+                                      context,
+                                      error);
+
+  json_object_unref (obj);
+  json_node_free (result_node);
+
+  return result;
+}
+
 void
 evd_jsonrpc_use_transport (EvdJsonrpc *self, EvdTransport *transport)
 {

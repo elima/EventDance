@@ -133,6 +133,11 @@ gboolean             evd_jsonrpc_respond_error                (EvdJsonrpc  *self
                                                                JsonNode    *json_error,
                                                                gpointer     context,
                                                                GError     **error);
+gboolean             evd_jsonrpc_respond_from_error           (EvdJsonrpc  *self,
+                                                               guint        invocation_id,
+                                                               GError      *result_error,
+                                                               gpointer     context,
+                                                               GError     **error);
 
 void                 evd_jsonrpc_use_transport                (EvdJsonrpc   *self,
                                                                EvdTransport *transport);
