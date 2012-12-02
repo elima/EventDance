@@ -83,6 +83,11 @@ static gboolean accept_peer                               (EvdTransport *transpo
 static gboolean reject_peer                               (EvdTransport *transport,
                                                            EvdPeer      *peer);
 
+static void     transport_open                            (EvdTransport       *transport,
+                                                           const gchar        *address,
+                                                           GSimpleAsyncResult *async_result,
+                                                           GCancellable       *cancellable);
+
 G_DEFINE_TYPE_WITH_CODE (EvdWebsocketServer, evd_websocket_server, EVD_TYPE_WEB_SERVICE,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_websocket_server_transport_iface_init));
@@ -110,6 +115,7 @@ evd_websocket_server_transport_iface_init (EvdTransportInterface *iface)
   iface->peer_closed = evd_websocket_server_peer_closed;
   iface->accept_peer = accept_peer;
   iface->reject_peer = reject_peer;
+  iface->open = transport_open;
 }
 
 static void
@@ -493,6 +499,37 @@ evd_websocket_server_peer_closed (EvdTransport *transport,
 
   g_object_set_data (G_OBJECT (conn), CONN_DATA_KEY, NULL);
   g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
+}
+
+static void
+transport_on_open (GObject      *obj,
+                   GAsyncResult *res,
+                   gpointer      user_data)
+{
+  GError *error = NULL;
+  GSimpleAsyncResult *orig_res = G_SIMPLE_ASYNC_RESULT (user_data);
+
+  if (! evd_service_listen_finish (EVD_SERVICE (obj), res, &error))
+    {
+      g_simple_async_result_set_from_error (orig_res, error);
+      g_error_free (error);
+    }
+
+  g_simple_async_result_complete (orig_res);
+  g_object_unref (orig_res);
+}
+
+static void
+transport_open (EvdTransport       *transport,
+                const gchar        *address,
+                GSimpleAsyncResult *async_result,
+                GCancellable       *cancellable)
+{
+  evd_service_listen (EVD_SERVICE (transport),
+                      address,
+                      cancellable,
+                      transport_on_open,
+                      async_result);
 }
 
 /* public methods */
