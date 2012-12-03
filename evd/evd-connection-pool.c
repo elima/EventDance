@@ -102,7 +102,7 @@ evd_connection_pool_class_init (EvdConnectionPoolClass *class)
                                                         "Address",
                                                         "The target socket address to connect to",
                                                         NULL,
-                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_CONNECTION_TYPE,
