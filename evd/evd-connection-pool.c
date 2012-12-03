@@ -147,6 +147,8 @@ evd_connection_pool_constructed (GObject *obj)
   EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
 
   evd_connection_pool_create_min_conns (self);
+
+  G_OBJECT_CLASS (evd_connection_pool_parent_class)->constructed (obj);
 }
 
 static void
