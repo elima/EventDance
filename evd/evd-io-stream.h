@@ -27,6 +27,7 @@
 #include <gio/gio.h>
 
 #include "evd-stream-throttle.h"
+#include "evd-io-stream-group.h"
 
 G_BEGIN_DECLS
 
@@ -45,6 +46,17 @@ struct _EvdIoStreamClass
 {
   GIOStreamClass parent_class;
 
+  /* virtual methods */
+  void (* group_changed) (EvdIoStream      *self,
+                          EvdIoStreamGroup *new_group,
+                          EvdIoStreamGroup *old_group);
+
+  /* signals */
+  void (* signal_group_changed) (EvdIoStream      *self,
+                                 EvdIoStreamGroup *new_group,
+                                 EvdIoStreamGroup *old_group,
+                                 gpointer          user_data);
+
   /* padding for future expansion */
   void (* _padding_0_) (void);
   void (* _padding_1_) (void);
@@ -52,8 +64,6 @@ struct _EvdIoStreamClass
   void (* _padding_3_) (void);
   void (* _padding_4_) (void);
   void (* _padding_5_) (void);
-  void (* _padding_6_) (void);
-  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_IO_STREAM           (evd_io_stream_get_type ())
@@ -68,6 +78,10 @@ GType                      evd_io_stream_get_type                 (void) G_GNUC_
 
 EvdStreamThrottle *        evd_io_stream_get_input_throttle       (EvdIoStream *self);
 EvdStreamThrottle *        evd_io_stream_get_output_throttle      (EvdIoStream *self);
+
+gboolean                   evd_io_stream_set_group                (EvdIoStream      *self,
+                                                                   EvdIoStreamGroup *group);
+EvdIoStreamGroup *         evd_io_stream_get_group                (EvdIoStream *self);
 
 G_END_DECLS
 
