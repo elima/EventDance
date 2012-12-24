@@ -57,13 +57,15 @@ struct _EvdIoStreamClass
                                  EvdIoStreamGroup *old_group,
                                  gpointer          user_data);
 
+  void (* signal_close)         (EvdIoStream      *self,
+                                 gpointer          user_data);
+
   /* padding for future expansion */
   void (* _padding_0_) (void);
   void (* _padding_1_) (void);
   void (* _padding_2_) (void);
   void (* _padding_3_) (void);
   void (* _padding_4_) (void);
-  void (* _padding_5_) (void);
 };
 
 #define EVD_TYPE_IO_STREAM           (evd_io_stream_get_type ())

@@ -43,6 +43,7 @@ struct _EvdIoStreamPrivate
 enum
 {
   SIGNAL_GROUP_CHANGED,
+  SIGNAL_CLOSE,
   SIGNAL_LAST
 };
 
@@ -71,6 +72,10 @@ static void     evd_io_stream_get_property       (GObject    *obj,
                                                   GValue     *value,
                                                   GParamSpec *pspec);
 
+static gboolean io_stream_on_close               (GIOStream     *stream,
+                                                  GCancellable  *cancellable,
+                                                  GError       **error);
+
 static void     on_group_destroyed               (gpointer  data,
                                                   GObject  *where_the_object_was);
 
@@ -78,10 +83,13 @@ static void
 evd_io_stream_class_init (EvdIoStreamClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  GIOStreamClass *io_stream_class = G_IO_STREAM_CLASS (class);
 
   obj_class->finalize = evd_io_stream_finalize;
   obj_class->get_property = evd_io_stream_get_property;
   obj_class->set_property = evd_io_stream_set_property;
+
+  io_stream_class->close_fn = io_stream_on_close;
 
   /* signals */
   evd_io_stream_signals[SIGNAL_GROUP_CHANGED] =
@@ -93,6 +101,15 @@ evd_io_stream_class_init (EvdIoStreamClass *class)
                   evd_marshal_VOID__OBJECT_OBJECT,
                   G_TYPE_NONE,
                   2, G_TYPE_OBJECT, G_TYPE_OBJECT);
+
+  evd_io_stream_signals[SIGNAL_CLOSE] =
+    g_signal_new ("close",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdIoStreamClass, signal_close),
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
 
   /* properties */
   g_object_class_install_property (obj_class, PROP_INPUT_THROTTLE,
@@ -211,6 +228,20 @@ evd_io_stream_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
+}
+
+static gboolean
+io_stream_on_close (GIOStream     *stream,
+                    GCancellable  *cancellable,
+                    GError       **error)
+{
+  EvdIoStream *self = EVD_IO_STREAM (stream);
+
+  g_object_ref (self);
+  g_signal_emit (self, evd_io_stream_signals[SIGNAL_CLOSE], 0, NULL);
+  g_object_unref (self);
+
+  return TRUE;
 }
 
 static void
