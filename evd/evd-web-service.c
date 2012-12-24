@@ -296,6 +296,8 @@ evd_web_service_conn_on_headers_read (GObject      *obj,
 
       g_error_free (error);
     }
+
+  g_object_unref (self);
 }
 
 static void
@@ -319,6 +321,7 @@ evd_web_service_connection_accepted (EvdService *service, EvdConnection *conn)
     }
   else
     {
+      g_object_ref (self);
       evd_http_connection_read_request_headers (EVD_HTTP_CONNECTION (conn),
                                            NULL,
                                            evd_web_service_conn_on_headers_read,
