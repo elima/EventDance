@@ -407,7 +407,7 @@ evd_web_service_connection_on_flush (GObject      *obj,
 
   g_output_stream_flush_finish (G_OUTPUT_STREAM (obj), res, NULL);
 
-  group = evd_connection_get_group (EVD_CONNECTION (conn));
+  group = evd_io_stream_get_group (EVD_IO_STREAM (conn));
 
   if (group != NULL && EVD_IS_WEB_SERVICE (group))
     {
