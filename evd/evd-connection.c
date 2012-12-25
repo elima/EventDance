@@ -86,7 +86,6 @@ struct _EvdConnectionPrivate
 /* signals */
 enum
 {
-  SIGNAL_CLOSE,
   SIGNAL_WRITE,
   SIGNAL_LAST
 };
@@ -166,15 +165,6 @@ evd_connection_class_init (EvdConnectionClass *class)
   io_stream_class->get_input_stream = evd_connection_get_input_stream;
   io_stream_class->get_output_stream = evd_connection_get_output_stream;
   io_stream_class->close_fn = evd_connection_close_internal;
-
-  evd_connection_signals[SIGNAL_CLOSE] =
-    g_signal_new ("close",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdConnectionClass, close),
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 
   evd_io_stream_class = EVD_IO_STREAM_CLASS (class);
   evd_io_stream_class->group_changed = on_group_changed;
@@ -478,7 +468,9 @@ evd_connection_close_internal (GIOStream     *stream,
   if (_error != NULL)
     g_propagate_error (error, _error);
 
-  g_signal_emit (self, evd_connection_signals[SIGNAL_CLOSE], 0, NULL);
+  G_IO_STREAM_CLASS (evd_connection_parent_class)->close_fn (stream,
+                                                             cancellable,
+                                                             error);
 
   self->priv->closing = FALSE;
 
