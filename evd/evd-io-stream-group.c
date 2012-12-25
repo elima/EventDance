@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,7 +23,7 @@
 #include "evd-io-stream-group.h"
 
 #include "evd-stream-throttle.h"
-#include "evd-connection.h"
+#include "evd-io-stream.h"
 
 G_DEFINE_TYPE (EvdIoStreamGroup, evd_io_stream_group, G_TYPE_OBJECT)
 
@@ -37,7 +37,9 @@ struct _EvdIoStreamGroupPrivate
   EvdStreamThrottle *input_throttle;
   EvdStreamThrottle *output_throttle;
 
-  gboolean group_changed;
+  gboolean recursed;
+
+  GList *streams;
 };
 
 /* properties */
@@ -62,6 +64,9 @@ static gboolean evd_io_stream_group_add_internal       (EvdIoStreamGroup *self,
                                                         GIOStream          *io_stream);
 static gboolean evd_io_stream_group_remove_internal    (EvdIoStreamGroup *self,
                                                         GIOStream          *io_stream);
+
+static void     io_stream_on_close                     (EvdIoStream *io_stream,
+                                                        gpointer     user_data);
 
 static void
 evd_io_stream_group_class_init (EvdIoStreamGroupClass *class)
@@ -104,16 +109,28 @@ evd_io_stream_group_init (EvdIoStreamGroup *self)
   priv->input_throttle = evd_stream_throttle_new ();
   priv->output_throttle = evd_stream_throttle_new ();
 
-  priv->group_changed = FALSE;
+  priv->recursed = FALSE;
+
+  priv->streams = NULL;
 }
 
 static void
 evd_io_stream_group_finalize (GObject *obj)
 {
   EvdIoStreamGroup *self = EVD_IO_STREAM_GROUP (obj);
+  GList *node;
 
   g_object_unref (self->priv->input_throttle);
   g_object_unref (self->priv->output_throttle);
+
+  node = self->priv->streams;
+  while (node != NULL)
+    {
+      evd_io_stream_group_remove (self, G_IO_STREAM (node->data));
+
+      node = node->next;
+    }
+  g_list_free (self->priv->streams);
 
   G_OBJECT_CLASS (evd_io_stream_group_parent_class)->finalize (obj);
 }
@@ -145,66 +162,48 @@ evd_io_stream_group_get_property (GObject    *obj,
 }
 
 static void
-evd_io_stream_connection_on_group_changed (EvdConnection    *conn,
-                                           EvdIoStreamGroup *new_group,
-                                           EvdIoStreamGroup *old_group,
-                                           gpointer          user_data)
+io_stream_on_close (EvdIoStream *io_stream, gpointer user_data)
 {
   EvdIoStreamGroup *self = EVD_IO_STREAM_GROUP (user_data);
 
-  if (old_group == self)
-    {
-      self->priv->group_changed = TRUE;
-
-      g_signal_handlers_disconnect_by_func (conn,
-                                            evd_io_stream_connection_on_group_changed,
-                                            self);
-
-      evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self),
-                                  G_IO_STREAM (conn));
-    }
+  evd_io_stream_group_remove (self, G_IO_STREAM (io_stream));
 }
 
 static gboolean
-evd_io_stream_group_add_internal (EvdIoStreamGroup *self,
-                                  GIOStream        *io_stream)
+evd_io_stream_group_add_internal (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
-  if (EVD_IS_CONNECTION (io_stream) &&
-      evd_connection_set_group (EVD_CONNECTION (io_stream), self))
+  gboolean result = TRUE;
+
+  result = evd_io_stream_set_group (EVD_IO_STREAM (io_stream), self);
+
+  if (result)
     {
       g_signal_connect (io_stream,
-                        "group-changed",
-                        G_CALLBACK (evd_io_stream_connection_on_group_changed),
+                        "close",
+                        G_CALLBACK (io_stream_on_close),
                         self);
 
-      return TRUE;
+      self->priv->streams = g_list_prepend (self->priv->streams, io_stream);
     }
-  else
-    {
-      return FALSE;
-    }
+
+  return result;
 }
 
 static gboolean
 evd_io_stream_group_remove_internal (EvdIoStreamGroup *self,
                                      GIOStream        *io_stream)
 {
-  if (EVD_IS_CONNECTION (io_stream))
-    {
-      g_signal_handlers_disconnect_by_func (io_stream,
-                                            evd_io_stream_connection_on_group_changed,
-                                            self);
+  gboolean result = TRUE;
 
-      if (self->priv->group_changed ||
-          evd_connection_set_group (EVD_CONNECTION (io_stream), NULL))
-        {
-          self->priv->group_changed = FALSE;
+  result = evd_io_stream_set_group (EVD_IO_STREAM (io_stream), NULL);
 
-          return TRUE;
-        }
-    }
+  g_signal_handlers_disconnect_by_func (io_stream,
+                                        G_CALLBACK (io_stream_on_close),
+                                        self);
 
-  return FALSE;
+  self->priv->streams = g_list_remove (self->priv->streams, io_stream);
+
+  return result;
 }
 
 /* public methods */
@@ -220,33 +219,59 @@ evd_io_stream_group_new (void)
 }
 
 gboolean
-evd_io_stream_group_add (EvdIoStreamGroup  *self,
-                         GIOStream         *io_stream)
+evd_io_stream_group_add (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
   EvdIoStreamGroupClass *class;
 
   g_return_val_if_fail (EVD_IS_IO_STREAM_GROUP (self), FALSE);
-  g_return_val_if_fail (G_IS_IO_STREAM (io_stream), FALSE);
+  g_return_val_if_fail (EVD_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_IO_STREAM_GROUP_GET_CLASS (self);
+
   if (class->add != NULL)
-    return class->add (self, io_stream);
-  else
-    return TRUE;
+    {
+      gboolean result = TRUE;
+
+      if (! self->priv->recursed)
+        {
+          self->priv->recursed = TRUE;
+          result = class->add (self, io_stream);
+          self->priv->recursed = FALSE;
+        }
+
+      return result;
+    }
+
+  return FALSE;
 }
 
+/**
+ * evd_io_stream_group_remove:
+ *
+ **/
 gboolean
-evd_io_stream_group_remove (EvdIoStreamGroup *self,
-                            GIOStream        *io_stream)
+evd_io_stream_group_remove (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
   EvdIoStreamGroupClass *class;
 
   g_return_val_if_fail (EVD_IS_IO_STREAM_GROUP (self), FALSE);
-  g_return_val_if_fail (G_IS_IO_STREAM (io_stream), FALSE);
+  g_return_val_if_fail (EVD_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_IO_STREAM_GROUP_GET_CLASS (self);
+
   if (class->remove != NULL)
-    return class->remove (self, io_stream);
-  else
-    return TRUE;
+    {
+      gboolean result = TRUE;
+
+      if (! self->priv->recursed)
+        {
+          self->priv->recursed = TRUE;
+          result = class->remove (self, io_stream);
+          self->priv->recursed = FALSE;
+        }
+
+      return result;
+    }
+
+  return FALSE;
 }
