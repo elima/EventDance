@@ -495,7 +495,7 @@ evd_connection_pool_recycle (EvdConnectionPool *self, EvdConnection *conn)
   if (TOTAL_SOCKETS (self) >= self->priv->max_conns)
     return FALSE;
 
-  if (evd_connection_get_group (conn) != EVD_IO_STREAM_GROUP (self))
+  if (evd_io_stream_get_group (EVD_IO_STREAM (conn)) != EVD_IO_STREAM_GROUP (self))
     evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                              G_IO_STREAM (conn));
 
