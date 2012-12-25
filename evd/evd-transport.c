@@ -651,10 +651,21 @@ evd_transport_open (EvdTransport        *self,
                                    evd_transport_open);
 
   if (EVD_TRANSPORT_GET_INTERFACE (self)->open != NULL)
-    EVD_TRANSPORT_GET_INTERFACE (self)->open (self,
-                                              address,
-                                              res,
-                                              cancellable);
+    {
+      EVD_TRANSPORT_GET_INTERFACE (self)->open (self,
+                                                address,
+                                                res,
+                                                cancellable);
+    }
+  else
+    {
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_SUPPORTED,
+                                       "Method open() not implemented in transport");
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+    }
 }
 
 gboolean
