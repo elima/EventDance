@@ -93,11 +93,6 @@ static gboolean evd_service_validate_conn_signal_acc   (GSignalInvocationHint *i
 
 static gboolean evd_service_add                        (EvdIoStreamGroup *self,
                                                         GIOStream        *io_stream);
-static gboolean evd_service_remove                     (EvdIoStreamGroup *self,
-                                                        GIOStream        *io_stream);
-
-static void     evd_service_connection_closed          (EvdService    *self,
-                                                        EvdConnection *conn);
 
 static void
 evd_service_class_init (EvdServiceClass *class)
@@ -106,7 +101,6 @@ evd_service_class_init (EvdServiceClass *class)
   EvdIoStreamGroupClass *conn_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
   class->connection_accepted = NULL;
-  class->connection_closed = evd_service_connection_closed;
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
@@ -114,7 +108,6 @@ evd_service_class_init (EvdServiceClass *class)
   obj_class->set_property = evd_service_set_property;
 
   conn_group_class->add = evd_service_add;
-  conn_group_class->remove = evd_service_remove;
 
   evd_service_signals[SIGNAL_VALIDATE_CONNECTION] =
     g_signal_new ("validate-connection",
@@ -413,23 +406,15 @@ evd_service_connection_starttls (EvdService    *self,
                            self);
 }
 
-static void
-evd_service_connection_on_close (EvdConnection *conn,
-                                 gpointer       user_data)
-{
-  EvdService *self = EVD_SERVICE (user_data);
-  EvdServiceClass *class = EVD_SERVICE_GET_CLASS (self);
-
-  if (class->connection_closed != NULL)
-    class->connection_closed (self, conn);
-}
-
 static gboolean
-evd_service_add (EvdIoStreamGroup *group,
-                 GIOStream        *io_stream)
+evd_service_add (EvdIoStreamGroup *group, GIOStream *io_stream)
 {
   EvdService *self = EVD_SERVICE (group);
   EvdConnection *conn;
+
+  /* @TODO: implement connection limit */
+
+  /* @TODO: check if connection type matches service's io_stream_type */
 
   if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
                                                                    io_stream) ||
@@ -438,32 +423,9 @@ evd_service_add (EvdIoStreamGroup *group,
       return FALSE;
     }
 
-  /* @TODO: implement connection limit */
-
-  /* @TODO: check if connection type matches service's io_stream_type */
-
   conn = EVD_CONNECTION (io_stream);
 
-  g_signal_connect (conn,
-                    "close",
-                    G_CALLBACK (evd_service_connection_on_close),
-                    self);
-
   evd_service_validate_connection (self, conn);
-
-  return TRUE;
-}
-
-static gboolean
-evd_service_remove (EvdIoStreamGroup *group, GIOStream *io_stream)
-{
-  if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->remove (group,
-                                                                      io_stream))
-    return FALSE;
-
-  g_signal_handlers_disconnect_by_func (io_stream,
-                                        evd_service_connection_on_close,
-                                        group);
 
   return TRUE;
 }
@@ -495,12 +457,8 @@ evd_service_socket_on_listen (GObject      *obj,
 
   g_simple_async_result_complete (res);
   g_object_unref (res);
-}
 
-static void
-evd_service_connection_closed (EvdService *self, EvdConnection *conn)
-{
-  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+  g_object_unref (self);
 }
 
 /* public methods */
