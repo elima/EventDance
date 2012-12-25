@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -49,8 +49,6 @@ struct _EvdServiceClass
 
   /* virtual methods */
   void (* connection_accepted) (EvdService     *self,
-                                EvdConnection  *conn);
-  void (* connection_closed)   (EvdService     *self,
                                 EvdConnection  *conn);
 
   /* signal prototypes */
