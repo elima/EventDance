@@ -431,19 +431,17 @@ evd_service_socket_on_listen (GObject      *obj,
                               GAsyncResult *result,
                               gpointer      user_data)
 {
-  EvdService *self = EVD_SERVICE (user_data);
+  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
+  EvdService *self;
   GError *error = NULL;
-  GSimpleAsyncResult *res;
 
-  res = g_object_get_data (obj, "listen-result");
-  g_assert (G_IS_SIMPLE_ASYNC_RESULT (res));
+  self = EVD_SERVICE (g_async_result_get_source_object (G_ASYNC_RESULT (res)));
 
   if (! evd_socket_listen_finish (EVD_SOCKET (obj),
                                   result,
                                   &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_simple_async_result_take_error (res, error);
     }
   else
     {
@@ -530,7 +528,7 @@ evd_service_add_listener (EvdService  *self, EvdSocket *socket)
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (EVD_IS_SOCKET (socket));
 
-  g_object_ref_sink (socket);
+  g_object_ref (socket);
 
   g_object_set (socket, "io-stream-type", self->priv->io_stream_type, NULL);
 
@@ -552,20 +550,12 @@ evd_service_add_listener (EvdService  *self, EvdSocket *socket)
 }
 
 gboolean
-evd_service_remove_listener (EvdService *self, EvdSocket  *socket)
+evd_service_remove_listener (EvdService *self, EvdSocket *socket)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
   g_return_val_if_fail (EVD_IS_SOCKET (socket), FALSE);
 
-  if (g_hash_table_remove (self->priv->listeners,
-                           (gconstpointer) socket))
-    {
-      evd_service_listener_destroy (socket);
-
-      return TRUE;
-    }
-
-  return FALSE;
+  return g_hash_table_remove (self->priv->listeners, (gconstpointer) socket);
 }
 
 /**
@@ -594,13 +584,11 @@ evd_service_listen (EvdService          *self,
                                    user_data,
                                    evd_service_listen);
 
-  g_object_set_data (G_OBJECT (socket), "listen-result", res);
-
   evd_socket_listen (socket,
                      address,
                      cancellable,
                      evd_service_socket_on_listen,
-                     self);
+                     res);
 }
 
 gboolean
