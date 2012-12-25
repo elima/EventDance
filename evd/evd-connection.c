@@ -80,8 +80,6 @@ struct _EvdConnectionPrivate
   gboolean connected;
   gboolean closing;
 
-  EvdIoStreamGroup *group;
-
   gchar *remote_addr_st;
 };
 
@@ -89,7 +87,6 @@ struct _EvdConnectionPrivate
 enum
 {
   SIGNAL_CLOSE,
-  SIGNAL_GROUP_CHANGED,
   SIGNAL_WRITE,
   SIGNAL_LAST
 };
@@ -102,17 +99,13 @@ enum
   PROP_0,
   PROP_SOCKET,
   PROP_TLS_SESSION,
-  PROP_TLS_ACTIVE,
-  PROP_GROUP,
-  PROP_INPUT_THROTTLE,
-  PROP_OUTPUT_THROTTLE
+  PROP_TLS_ACTIVE
 };
 
 static void           evd_connection_class_init        (EvdConnectionClass *class);
 static void           evd_connection_init              (EvdConnection *self);
 
 static void           evd_connection_finalize          (GObject *obj);
-static void           evd_connection_dispose           (GObject *obj);
 
 static void           evd_connection_set_property      (GObject      *obj,
                                                         guint         prop_id,
@@ -125,6 +118,10 @@ static void           evd_connection_get_property      (GObject    *obj,
 
 static GInputStream  *evd_connection_get_input_stream  (GIOStream *stream);
 static GOutputStream *evd_connection_get_output_stream (GIOStream *stream);
+
+static void           on_group_changed                 (EvdIoStream      *io_stream,
+                                                        EvdIoStreamGroup *new_group,
+                                                        EvdIoStreamGroup *old_group);
 
 static gboolean       evd_connection_close_internal    (GIOStream     *stream,
                                                         GCancellable  *cancellable,
@@ -157,10 +154,10 @@ evd_connection_class_init (EvdConnectionClass *class)
 {
   GObjectClass *obj_class;
   GIOStreamClass *io_stream_class;
+  EvdIoStreamClass *evd_io_stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_connection_dispose;
   obj_class->finalize = evd_connection_finalize;
   obj_class->get_property = evd_connection_get_property;
   obj_class->set_property = evd_connection_set_property;
@@ -179,15 +176,8 @@ evd_connection_class_init (EvdConnectionClass *class)
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
 
-  evd_connection_signals[SIGNAL_GROUP_CHANGED] =
-    g_signal_new ("group-changed",
-                  G_TYPE_FROM_CLASS (obj_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdConnectionClass, group_changed),
-                  NULL, NULL,
-                  evd_marshal_VOID__OBJECT_OBJECT,
-                  G_TYPE_NONE,
-                  2, G_TYPE_OBJECT, G_TYPE_OBJECT);
+  evd_io_stream_class = EVD_IO_STREAM_CLASS (class);
+  evd_io_stream_class->group_changed = on_group_changed;
 
   evd_connection_signals[SIGNAL_WRITE] =
     g_signal_new ("write",
@@ -222,14 +212,6 @@ evd_connection_class_init (EvdConnectionClass *class)
                                                          G_PARAM_READABLE |
                                                          G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_GROUP,
-                                   g_param_spec_object ("group",
-                                                        "Connection group",
-                                                        "The group this connection belongs to",
-                                                        EVD_TYPE_IO_STREAM_GROUP,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_type_class_add_private (obj_class, sizeof (EvdConnectionPrivate));
 }
 
@@ -257,25 +239,9 @@ evd_connection_init (EvdConnection *self)
   priv->connected = FALSE;
   priv->closing = FALSE;
 
-  priv->group = NULL;
-
   priv->cond = 0;
 
   priv->remote_addr_st = NULL;
-}
-
-static void
-evd_connection_dispose (GObject *obj)
-{
-  EvdConnection *self = EVD_CONNECTION (obj);
-
-  if (self->priv->group != NULL)
-    {
-      g_object_unref (self->priv->group);
-      self->priv->group = NULL;
-    }
-
-  G_OBJECT_CLASS (evd_connection_parent_class)->dispose (obj);
 }
 
 static void
@@ -314,10 +280,6 @@ evd_connection_set_property (GObject      *obj,
       evd_connection_set_socket (self, g_value_get_object (value));
       break;
 
-    case PROP_GROUP:
-      evd_connection_set_group (self, g_value_get_object (value));
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -348,10 +310,6 @@ evd_connection_get_property (GObject    *obj,
       g_value_set_boolean (value, evd_connection_get_tls_active (self));
       break;
 
-    case PROP_GROUP:
-      g_value_set_object (value, self->priv->group);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -372,6 +330,48 @@ evd_connection_get_output_stream (GIOStream *stream)
   EvdConnection *self = EVD_CONNECTION (stream);
 
   return G_OUTPUT_STREAM (self->priv->buf_output_stream);
+}
+
+static void
+on_group_changed (EvdIoStream      *io_stream,
+                  EvdIoStreamGroup *new_group,
+                  EvdIoStreamGroup *old_group)
+{
+  EvdConnection *self = EVD_CONNECTION (io_stream);
+  EvdStreamThrottle *input_throttle;
+  EvdStreamThrottle *output_throttle;
+
+  if (old_group != NULL)
+    {
+      g_object_get (old_group,
+                    "input-throttle", &input_throttle,
+                    "output-throttle", &output_throttle,
+                    NULL);
+
+      evd_throttled_input_stream_remove_throttle (self->priv->throt_input_stream,
+                                                  input_throttle);
+      evd_throttled_output_stream_remove_throttle (self->priv->throt_output_stream,
+                                                   output_throttle);
+
+      g_object_unref (input_throttle);
+      g_object_unref (output_throttle);
+    }
+
+  if (new_group != NULL)
+    {
+      g_object_get (new_group,
+                    "input-throttle", &input_throttle,
+                    "output-throttle", &output_throttle,
+                    NULL);
+
+      evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
+                                               input_throttle);
+      evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
+                                                output_throttle);
+
+      g_object_unref (input_throttle);
+      g_object_unref (output_throttle);
+    }
 }
 
 static gboolean
@@ -802,6 +802,7 @@ evd_connection_setup_streams (EvdConnection *self)
 {
   EvdStreamThrottle *input_throttle;
   EvdStreamThrottle *output_throttle;
+  EvdIoStreamGroup *group;
 
   /* socket input stream */
   self->priv->socket_input_stream =
@@ -849,19 +850,19 @@ evd_connection_setup_streams (EvdConnection *self)
                     G_CALLBACK (evd_connection_delay_write),
                     self);
 
-  if (self->priv->group != NULL)
+  group = evd_io_stream_get_group (EVD_IO_STREAM (self));
+  if (group != NULL)
     {
       EvdStreamThrottle *input_throttle;
       EvdStreamThrottle *output_throttle;
 
-      g_object_get (self->priv->group,
+      g_object_get (group,
                     "input-throttle", &input_throttle,
                     "output-throttle", &output_throttle,
                     NULL);
 
       evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
                                                input_throttle);
-
       evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
                                                 output_throttle);
 
@@ -1243,91 +1244,6 @@ evd_connection_get_priority (EvdConnection *self)
   g_return_val_if_fail (EVD_IS_CONNECTION (self), 0);
 
   return evd_socket_get_priority (self->priv->socket);
-}
-
-/**
- * evd_connection_set_group:
- * @group: (allow-none):
- *
- **/
-gboolean
-evd_connection_set_group (EvdConnection *self, EvdIoStreamGroup *group)
-{
-  EvdIoStreamGroup *old_group = NULL;
-  EvdStreamThrottle *input_throttle;
-  EvdStreamThrottle *output_throttle;
-
-
-  g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
-  g_return_val_if_fail (group == NULL || EVD_IS_IO_STREAM_GROUP (group),
-                        FALSE);
-
-  if (group == self->priv->group)
-    return FALSE;
-
-  if (self->priv->group != NULL)
-    {
-      old_group = self->priv->group;
-      self->priv->group = NULL;
-
-      g_object_get (old_group,
-                    "input-throttle", &input_throttle,
-                    "output-throttle", &output_throttle,
-                    NULL);
-
-      evd_throttled_input_stream_remove_throttle (self->priv->throt_input_stream,
-                                                  input_throttle);
-      evd_throttled_output_stream_remove_throttle (self->priv->throt_output_stream,
-                                                   output_throttle);
-
-      g_object_unref (input_throttle);
-      g_object_unref (output_throttle);
-    }
-
-  self->priv->group = group;
-
-  if (group != NULL)
-    {
-      g_object_ref (group);
-
-      g_object_get (group,
-                    "input-throttle", &input_throttle,
-                    "output-throttle", &output_throttle,
-                    NULL);
-
-      evd_throttled_input_stream_add_throttle (self->priv->throt_input_stream,
-                                               input_throttle);
-      evd_throttled_output_stream_add_throttle (self->priv->throt_output_stream,
-                                                output_throttle);
-
-      g_object_unref (input_throttle);
-      g_object_unref (output_throttle);
-    }
-
-  g_signal_emit (self,
-                 evd_connection_signals[SIGNAL_GROUP_CHANGED],
-                 0,
-                 group,
-                 old_group,
-                 NULL);
-
-  if (old_group != NULL)
-    g_object_unref (old_group);
-
-  return TRUE;
-}
-
-/**
- * evd_connection_get_group:
- *
- * Returns: (transfer none):
- **/
-EvdIoStreamGroup *
-evd_connection_get_group (EvdConnection *self)
-{
-  g_return_val_if_fail (EVD_IS_CONNECTION (self), NULL);
-
-  return self->priv->group;
 }
 
 void

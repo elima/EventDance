@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2012, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -50,10 +50,6 @@ struct _EvdConnectionClass
 
   /* signal prototypes */
   void (* close)         (EvdConnection *self);
-  void (* group_changed) (EvdConnection    *self,
-                          EvdIoStreamGroup *new_group,
-                          EvdIoStreamGroup *old_group,
-                          gpointer          user_data);
   void (* write)         (EvdConnection *self);
 
   /* padding for future expansion */
@@ -102,10 +98,6 @@ gsize              evd_connection_get_max_writable     (EvdConnection *self);
 gboolean           evd_connection_is_connected         (EvdConnection *self);
 
 gint               evd_connection_get_priority         (EvdConnection *self);
-
-gboolean           evd_connection_set_group            (EvdConnection    *self,
-                                                        EvdIoStreamGroup *group);
-EvdIoStreamGroup  *evd_connection_get_group            (EvdConnection *self);
 
 void               evd_connection_lock_close           (EvdConnection *self);
 void               evd_connection_unlock_close         (EvdConnection *self);
