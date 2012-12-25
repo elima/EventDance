@@ -153,6 +153,17 @@ evd_http_connection_dispose (GObject *obj)
       self->priv->current_request = NULL;
     }
 
+  if (self->priv->async_result != NULL)
+    {
+      g_simple_async_result_set_error (self->priv->async_result,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_FAILED,
+                                       "HTTP connection destroyed while an operation was pending");
+      g_simple_async_result_complete (self->priv->async_result);
+      g_object_unref (self->priv->async_result);
+      self->priv->async_result = NULL;
+    }
+
   G_OBJECT_CLASS (evd_http_connection_parent_class)->dispose (obj);
 }
 
