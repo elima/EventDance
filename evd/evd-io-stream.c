@@ -60,7 +60,6 @@ enum
 
 static void     evd_io_stream_class_init         (EvdIoStreamClass *class);
 static void     evd_io_stream_init               (EvdIoStream *self);
-
 static void     evd_io_stream_finalize           (GObject *obj);
 
 static void     evd_io_stream_set_property       (GObject      *obj,
@@ -315,6 +314,8 @@ evd_io_stream_set_group (EvdIoStream *self, EvdIoStreamGroup *group)
   if (group == self->priv->group)
     return FALSE;
 
+  g_object_ref (self);
+
   if (self->priv->group != NULL)
     {
       old_group = self->priv->group;
@@ -348,6 +349,8 @@ evd_io_stream_set_group (EvdIoStream *self, EvdIoStreamGroup *group)
                  group,
                  old_group,
                  NULL);
+
+  g_object_unref (self);
 
   return TRUE;
 }
