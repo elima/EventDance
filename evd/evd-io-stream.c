@@ -60,7 +60,7 @@ enum
 
 static void     evd_io_stream_class_init         (EvdIoStreamClass *class);
 static void     evd_io_stream_init               (EvdIoStream *self);
-static void     evd_io_stream_finalize           (GObject *obj);
+static void     evd_io_stream_dispose            (GObject *obj);
 
 static void     evd_io_stream_set_property       (GObject      *obj,
                                                   guint         prop_id,
@@ -84,7 +84,7 @@ evd_io_stream_class_init (EvdIoStreamClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   GIOStreamClass *io_stream_class = G_IO_STREAM_CLASS (class);
 
-  obj_class->finalize = evd_io_stream_finalize;
+  obj_class->dispose = evd_io_stream_dispose;
   obj_class->get_property = evd_io_stream_get_property;
   obj_class->set_property = evd_io_stream_set_property;
 
@@ -160,21 +160,31 @@ evd_io_stream_init (EvdIoStream *self)
 }
 
 static void
-evd_io_stream_finalize (GObject *obj)
+evd_io_stream_dispose (GObject *obj)
 {
   EvdIoStream *self = EVD_IO_STREAM (obj);
-
-  g_object_unref (self->priv->input_throttle);
-  g_object_unref (self->priv->output_throttle);
 
   if (self->priv->group != NULL)
     {
       g_object_weak_unref (G_OBJECT (self->priv->group),
                            on_group_destroyed,
                            self);
+      self->priv->group = NULL;
     }
 
-  G_OBJECT_CLASS (evd_io_stream_parent_class)->finalize (obj);
+  if (self->priv->input_throttle != NULL)
+    {
+      g_object_unref (self->priv->input_throttle);
+      self->priv->input_throttle = NULL;
+    }
+
+  if (self->priv->output_throttle != NULL)
+    {
+      g_object_unref (self->priv->output_throttle);
+      self->priv->output_throttle = NULL;
+    }
+
+  G_OBJECT_CLASS (evd_io_stream_parent_class)->dispose (obj);
 }
 
 static void
