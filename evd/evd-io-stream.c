@@ -166,10 +166,18 @@ evd_io_stream_dispose (GObject *obj)
 
   if (self->priv->group != NULL)
     {
-      g_object_weak_unref (G_OBJECT (self->priv->group),
+      EvdIoStreamGroup *group;
+
+      group = self->priv->group;
+      self->priv->group = NULL;
+
+      g_object_ref (group);
+      evd_io_stream_group_remove (group, G_IO_STREAM (self));
+
+      g_object_weak_unref (G_OBJECT (group),
                            on_group_destroyed,
                            self);
-      self->priv->group = NULL;
+      g_object_unref (group);
     }
 
   if (self->priv->input_throttle != NULL)
@@ -250,6 +258,8 @@ io_stream_on_close (GIOStream     *stream,
   g_signal_emit (self, evd_io_stream_signals[SIGNAL_CLOSE], 0, NULL);
   g_object_unref (self);
 
+  evd_io_stream_set_group (self, NULL);
+
   return TRUE;
 }
 
@@ -258,24 +268,22 @@ on_group_destroyed (gpointer  data,
                     GObject  *where_the_object_was)
 {
   EvdIoStream *self = EVD_IO_STREAM (data);
+  EvdIoStreamClass *class;
 
-  if (where_the_object_was == G_OBJECT (self->priv->group))
-    {
-      EvdIoStreamClass *class;
+  g_return_if_fail (where_the_object_was == G_OBJECT (self->priv->group));
 
-      self->priv->group = NULL;
+  self->priv->group = NULL;
 
-      class = EVD_IO_STREAM_GET_CLASS (self);
-      if (class->group_changed != NULL)
-        class->group_changed (self, NULL, NULL);
+  class = EVD_IO_STREAM_GET_CLASS (self);
+  if (class->group_changed != NULL)
+    class->group_changed (self, NULL, NULL);
 
-      g_signal_emit (self,
-                     evd_io_stream_signals[SIGNAL_GROUP_CHANGED],
-                     0,
-                     NULL,
-                     NULL,
-                     NULL);
-    }
+  g_signal_emit (self,
+                 evd_io_stream_signals[SIGNAL_GROUP_CHANGED],
+                 0,
+                 NULL,
+                 NULL,
+                 NULL);
 }
 
 /* public methods */
