@@ -107,6 +107,7 @@ evd_poll_init (EvdPoll *self)
   self->priv = priv;
 
   priv->started = FALSE;
+  priv->thread = NULL;
 
   priv->max_fds = DEFAULT_MAX_FDS;
 
@@ -419,9 +420,11 @@ evd_poll_stop (EvdPoll *self)
 
   G_UNLOCK (epoll_mutex);
 
-  g_thread_join (self->priv->thread);
-
-  self->priv->thread = NULL;
+  if (self->priv->thread != NULL)
+    {
+      g_thread_join (self->priv->thread);
+      self->priv->thread = NULL;
+    }
 
   close (self->priv->epoll_fd);
   self->priv->epoll_fd = 0;
