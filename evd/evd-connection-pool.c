@@ -70,6 +70,7 @@ enum
 static void     evd_connection_pool_class_init            (EvdConnectionPoolClass *class);
 static void     evd_connection_pool_init                  (EvdConnectionPool *self);
 static void     evd_connection_pool_constructed           (GObject *obj);
+static void     evd_connection_pool_dispose               (GObject *obj);
 static void     evd_connection_pool_finalize              (GObject *obj);
 
 static void     evd_connection_pool_set_property          (GObject      *obj,
@@ -81,10 +82,12 @@ static void     evd_connection_pool_get_property          (GObject    *obj,
                                                            GValue     *value,
                                                            GParamSpec *pspec);
 
-static void     evd_connection_pool_foreach_unref_conn    (gpointer data,
-                                                           gpointer user_data);
-static void     evd_connection_pool_foreach_unref_request (gpointer data,
-                                                           gpointer user_data);
+static gboolean group_add_stream                          (EvdIoStreamGroup *group,
+                                                           GIOStream        *io_stream);
+static gboolean group_remove_stream                       (EvdIoStreamGroup *group,
+                                                           GIOStream        *io_stream);
+
+static void     evd_connection_pool_unref_request         (GSimpleAsyncResult *result);
 
 static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *self);
 
@@ -94,11 +97,16 @@ static void
 evd_connection_pool_class_init (EvdConnectionPoolClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  EvdIoStreamGroupClass *io_stream_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
   obj_class->constructed = evd_connection_pool_constructed;
+  obj_class->dispose = evd_connection_pool_dispose;
   obj_class->finalize = evd_connection_pool_finalize;
   obj_class->set_property = evd_connection_pool_set_property;
   obj_class->get_property = evd_connection_pool_get_property;
+
+  io_stream_group_class->add = group_add_stream;
+  io_stream_group_class->remove = group_remove_stream;
 
   g_object_class_install_property (obj_class, PROP_ADDRESS,
                                    g_param_spec_string ("address",
@@ -150,21 +158,32 @@ evd_connection_pool_constructed (GObject *obj)
 }
 
 static void
+evd_connection_pool_dispose (GObject *obj)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
+
+  if (self->priv->conns != NULL)
+    {
+      g_queue_free_full (self->priv->conns, g_object_unref);
+      self->priv->conns = NULL;
+    }
+
+  if (self->priv->requests != NULL)
+    {
+      g_queue_free_full (self->priv->requests,
+                         (GDestroyNotify) evd_connection_pool_unref_request);
+      self->priv->requests = NULL;
+    }
+
+  G_OBJECT_CLASS (evd_connection_pool_parent_class)->dispose (obj);
+}
+
+static void
 evd_connection_pool_finalize (GObject *obj)
 {
   EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
 
   g_free (self->priv->target);
-
-  g_queue_foreach (self->priv->conns,
-                   evd_connection_pool_foreach_unref_conn,
-                   self);
-  g_queue_free (self->priv->conns);
-
-  g_queue_foreach (self->priv->requests,
-                   evd_connection_pool_foreach_unref_request,
-                   self);
-  g_queue_free (self->priv->requests);
 
   G_OBJECT_CLASS (evd_connection_pool_parent_class)->finalize (obj);
 }
@@ -233,36 +252,68 @@ evd_connection_pool_get_property (GObject    *obj,
 }
 
 static void
-evd_connection_pool_connection_on_close (EvdConnection *conn,
-                                         gpointer       user_data)
+evd_connection_pool_finish_request (EvdConnectionPool  *self,
+                                    EvdConnection      *conn,
+                                    GSimpleAsyncResult *res)
 {
-  EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
-
-  g_queue_remove (self->priv->conns, conn);
   evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-  g_object_unref (conn);
 
-  evd_connection_pool_create_min_conns (self);
+  g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
+  g_simple_async_result_complete_in_idle (res);
+  g_object_unref (res);
+}
+
+static gboolean
+group_add_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (group);
+  EvdConnection *conn = EVD_CONNECTION (io_stream);
+
+  if (HAS_REQUESTS (self))
+    {
+      GSimpleAsyncResult *res;
+
+      res = G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (self->priv->requests));
+
+      evd_connection_pool_finish_request (self, conn, res);
+
+      evd_connection_pool_create_min_conns (self);
+
+      return FALSE;
+    }
+
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
+      (group, io_stream))
+    {
+      return FALSE;
+    }
+
+  g_queue_push_tail (self->priv->conns, conn);
+  g_object_ref (conn);
+
+  return TRUE;
+}
+
+static gboolean
+group_remove_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (group);
+
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->remove
+      (group, io_stream))
+    {
+      return FALSE;
+    }
+
+  if (g_queue_remove (self->priv->conns, io_stream))
+    g_object_ref (io_stream);
+
+  return TRUE;
 }
 
 static void
-evd_connection_pool_foreach_unref_conn (gpointer data,
-                                        gpointer user_data)
+evd_connection_pool_unref_request (GSimpleAsyncResult *result)
 {
-  EvdConnection *conn = EVD_CONNECTION (data);
-
-  g_signal_handlers_disconnect_by_func (conn,
-                                        evd_connection_pool_connection_on_close,
-                                        user_data);
-  g_object_unref (conn);
-}
-
-static void
-evd_connection_pool_foreach_unref_request (gpointer data,
-                                           gpointer user_data)
-{
-  GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT (data);
-
   g_simple_async_result_set_error (result,
                                    G_IO_ERROR,
                                    G_IO_ERROR_CLOSED,
@@ -272,55 +323,11 @@ evd_connection_pool_foreach_unref_request (gpointer data,
 }
 
 static void
-evd_connection_pool_finish_request (EvdConnectionPool  *self,
-                                    EvdConnection      *conn,
-                                    GSimpleAsyncResult *res)
-{
-  g_signal_handlers_disconnect_by_func (conn,
-                                        evd_connection_pool_connection_on_close,
-                                        self);
-  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-
-  g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
-  g_simple_async_result_complete_in_idle (res);
-  g_object_unref (res);
-}
-
-static void
 evd_connection_pool_create_min_conns (EvdConnectionPool *self)
 {
   while (TOTAL_SOCKETS (self) < self->priv->min_conns)
     {
       evd_connection_pool_create_new_socket (self);
-    }
-}
-
-static void
-evd_connection_pool_new_connection (EvdConnectionPool *self,
-                                    EvdConnection     *conn)
-{
-  if (HAS_REQUESTS (self))
-    {
-      GSimpleAsyncResult *res;
-
-      res = G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (self->priv->requests));
-
-      g_signal_handlers_disconnect_by_func (conn,
-                                        evd_connection_pool_connection_on_close,
-                                        self);
-
-      evd_connection_pool_finish_request (self, conn, res);
-
-      evd_connection_pool_create_min_conns (self);
-    }
-  else
-    {
-      g_signal_connect (conn,
-                        "close",
-                        G_CALLBACK (evd_connection_pool_connection_on_close),
-                        self);
-
-      g_queue_push_tail (self->priv->conns, conn);
     }
 }
 
@@ -340,12 +347,7 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
                                                res,
                                                &error)) != NULL)
     {
-      EvdConnection *conn;
-
-      conn = EVD_CONNECTION (io_stream);
-      evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
-
-      evd_connection_pool_new_connection (self, conn);
+      evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), io_stream);
     }
   else
     {
@@ -418,7 +420,7 @@ evd_connection_pool_has_free_connections (EvdConnectionPool *self)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), FALSE);
 
-  return (g_queue_get_length (self->priv->conns) > 0);
+  return g_queue_get_length (self->priv->conns) > 0;
 }
 
 void
@@ -499,18 +501,11 @@ evd_connection_pool_recycle (EvdConnectionPool *self, EvdConnection *conn)
   if (TOTAL_SOCKETS (self) >= self->priv->max_conns)
     return FALSE;
 
-  if (evd_io_stream_get_group (EVD_IO_STREAM (conn)) != EVD_IO_STREAM_GROUP (self))
-    evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
-                             G_IO_STREAM (conn));
-
-  g_signal_handlers_disconnect_by_func (conn,
-                                        evd_connection_pool_connection_on_close,
-                                        self);
-
-  g_object_ref (conn);
-  evd_connection_pool_new_connection (self, conn);
-
-  return TRUE;
+  if (evd_io_stream_get_group (EVD_IO_STREAM (conn)) == EVD_IO_STREAM_GROUP (self))
+    return TRUE;
+  else
+    return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
+                                    G_IO_STREAM (conn));
 }
 
 void
