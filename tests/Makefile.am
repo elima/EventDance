@@ -42,14 +42,16 @@ noinst_PROGRAMS = \
 	test-resolver \
 	test-dbus-bridge \
 	test-tls-cipher \
-	test-pki
+	test-pki \
+	test-websocket-transport
 
 TESTS = \
 	test-json-filter \
 	test-resolver \
 	test-dbus-bridge \
 	test-tls-cipher \
-	test-pki
+	test-pki \
+	test-websocket-transport
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -80,6 +82,11 @@ test_tls_cipher_SOURCES = test-tls-cipher.c
 test_pki_CFLAGS = $(AM_CFLAGS)
 test_pki_LDADD = $(AM_LIBS)
 test_pki_SOURCES = test-pki.c
+
+# test-websocket-transport
+test_websocket_transport_CFLAGS = $(AM_CFLAGS)
+test_websocket_transport_LDADD = $(AM_LIBS)
+test_websocket_transport_SOURCES = test-websocket-transport.c
 
 if HAVE_JS
 noinst_PROGRAMS += test-all-js

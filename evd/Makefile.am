@@ -73,6 +73,7 @@ source_c = \
 	evd-longpolling-server.c \
 	evd-websocket-protocol.c \
 	evd-websocket-server.c \
+	evd-websocket-client.c \
 	evd-connection-pool.c \
 	evd-reproxy.c \
 	evd-web-selector.c \
@@ -124,6 +125,7 @@ source_h = \
 	evd-peer-manager.h \
 	evd-longpolling-server.h \
 	evd-websocket-server.h \
+	evd-websocket-client.h \
 	evd-connection-pool.h \
 	evd-reproxy.h \
 	evd-web-selector.h \
