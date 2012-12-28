@@ -71,6 +71,7 @@ source_c = \
 	evd-peer.c \
 	evd-peer-manager.c \
 	evd-longpolling-server.c \
+	evd-websocket-protocol.c \
 	evd-websocket-common.c \
 	evd-websocket00.c \
 	evd-websocket08.c \
