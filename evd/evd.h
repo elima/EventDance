@@ -50,6 +50,7 @@
 #include <evd-http-request.h>
 #include <evd-longpolling-server.h>
 #include <evd-websocket-server.h>
+#include <evd-websocket-client.h>
 #include <evd-connection-pool.h>
 #include <evd-reproxy.h>
 #include <evd-web-selector.h>
