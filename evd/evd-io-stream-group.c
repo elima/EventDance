@@ -38,8 +38,6 @@ struct _EvdIoStreamGroupPrivate
   EvdStreamThrottle *output_throttle;
 
   gboolean recursed;
-
-  GList *streams;
 };
 
 /* properties */
@@ -53,7 +51,7 @@ enum
 static void     evd_io_stream_group_class_init         (EvdIoStreamGroupClass *class);
 static void     evd_io_stream_group_init               (EvdIoStreamGroup *self);
 
-static void     evd_io_stream_group_finalize           (GObject *obj);
+static void     evd_io_stream_group_dispose            (GObject *obj);
 
 static void     evd_io_stream_group_get_property       (GObject    *obj,
                                                         guint       prop_id,
@@ -65,15 +63,12 @@ static gboolean evd_io_stream_group_add_internal       (EvdIoStreamGroup *self,
 static gboolean evd_io_stream_group_remove_internal    (EvdIoStreamGroup *self,
                                                         GIOStream          *io_stream);
 
-static void     io_stream_on_close                     (EvdIoStream *io_stream,
-                                                        gpointer     user_data);
-
 static void
 evd_io_stream_group_class_init (EvdIoStreamGroupClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->finalize = evd_io_stream_group_finalize;
+  obj_class->dispose = evd_io_stream_group_dispose;
   obj_class->get_property = evd_io_stream_group_get_property;
 
   class->add = evd_io_stream_group_add_internal;
@@ -110,29 +105,26 @@ evd_io_stream_group_init (EvdIoStreamGroup *self)
   priv->output_throttle = evd_stream_throttle_new ();
 
   priv->recursed = FALSE;
-
-  priv->streams = NULL;
 }
 
 static void
-evd_io_stream_group_finalize (GObject *obj)
+evd_io_stream_group_dispose (GObject *obj)
 {
   EvdIoStreamGroup *self = EVD_IO_STREAM_GROUP (obj);
-  GList *node;
 
-  g_object_unref (self->priv->input_throttle);
-  g_object_unref (self->priv->output_throttle);
-
-  node = self->priv->streams;
-  while (node != NULL)
+  if (self->priv->input_throttle != NULL)
     {
-      evd_io_stream_group_remove (self, G_IO_STREAM (node->data));
-
-      node = node->next;
+      g_object_unref (self->priv->input_throttle);
+      self->priv->input_throttle = NULL;
     }
-  g_list_free (self->priv->streams);
 
-  G_OBJECT_CLASS (evd_io_stream_group_parent_class)->finalize (obj);
+  if (self->priv->output_throttle != NULL)
+    {
+      g_object_unref (self->priv->output_throttle);
+      self->priv->output_throttle = NULL;
+    }
+
+  G_OBJECT_CLASS (evd_io_stream_group_parent_class)->dispose (obj);
 }
 
 static void
@@ -161,53 +153,30 @@ evd_io_stream_group_get_property (GObject    *obj,
     }
 }
 
-static void
-io_stream_on_close (EvdIoStream *io_stream, gpointer user_data)
-{
-  EvdIoStreamGroup *self = EVD_IO_STREAM_GROUP (user_data);
-
-  evd_io_stream_group_remove (self, G_IO_STREAM (io_stream));
-}
-
 static gboolean
 evd_io_stream_group_add_internal (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
-  gboolean result = TRUE;
+  evd_io_stream_set_group (EVD_IO_STREAM (io_stream), self);
 
-  result = evd_io_stream_set_group (EVD_IO_STREAM (io_stream), self);
-
-  if (result)
-    {
-      g_signal_connect (io_stream,
-                        "close",
-                        G_CALLBACK (io_stream_on_close),
-                        self);
-
-      self->priv->streams = g_list_prepend (self->priv->streams, io_stream);
-    }
-
-  return result;
+  return TRUE;
 }
 
 static gboolean
 evd_io_stream_group_remove_internal (EvdIoStreamGroup *self,
                                      GIOStream        *io_stream)
 {
-  gboolean result = TRUE;
+  evd_io_stream_set_group (EVD_IO_STREAM (io_stream), NULL);
 
-  result = evd_io_stream_set_group (EVD_IO_STREAM (io_stream), NULL);
-
-  g_signal_handlers_disconnect_by_func (io_stream,
-                                        G_CALLBACK (io_stream_on_close),
-                                        self);
-
-  self->priv->streams = g_list_remove (self->priv->streams, io_stream);
-
-  return result;
+  return TRUE;
 }
 
 /* public methods */
 
+/**
+ * evd_io_stream_group_new:
+ *
+ * Returns: (transfer full):
+ **/
 EvdIoStreamGroup *
 evd_io_stream_group_new (void)
 {
