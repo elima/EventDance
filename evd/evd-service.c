@@ -263,7 +263,7 @@ evd_service_listener_on_new_connection (EvdSocket     *listener,
 {
   EvdService *self = EVD_SERVICE (user_data);
 
-  evd_service_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+  evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 }
 
 static void
