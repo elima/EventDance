@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -66,13 +66,6 @@ struct _EvdServiceClass
   void (* _padding_6_) (void);
   void (* _padding_7_) (void);
 };
-
-typedef enum
-{
-  EVD_SERVICE_VALIDATE_ACCEPT,
-  EVD_SERVICE_VALIDATE_REJECT,
-  EVD_SERVICE_VALIDATE_PENDING
-} EvdServiceValidate;
 
 #define EVD_TYPE_SERVICE           (evd_service_get_type ())
 #define EVD_SERVICE(obj)           (G_TYPE_CHECK_INSTANCE_CAST ((obj), EVD_TYPE_SERVICE, EvdService))
