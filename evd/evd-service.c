@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,6 +23,7 @@
 #include "evd-service.h"
 
 #include "evd-error.h"
+#include "evd-utils.h"
 #include "evd-marshal.h"
 #include "evd-socket.h"
 #include "evd-tls-session.h"
@@ -138,7 +139,6 @@ evd_service_class_init (EvdServiceClass *class)
 
   /* add private structure */
   g_type_class_add_private (obj_class, sizeof (EvdServicePrivate));
-
 }
 
 static void
@@ -301,21 +301,21 @@ evd_service_validate_conn_signal_acc (GSignalInvocationHint *hint,
   if (ret > acc_ret)
     g_value_set_uint (return_accu, ret);
 
-  return ret != EVD_SERVICE_VALIDATE_REJECT;
+  return ret != EVD_VALIDATE_REJECT;
 }
 
 static void
 evd_service_validate_tls_connection (EvdService *self, EvdConnection *conn)
 {
-  EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
+  EvdValidateEnum ret = EVD_VALIDATE_ACCEPT;
 
   /* @TODO: call 'validate-tls-connection' signal */
 
-  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+  if (ret == EVD_VALIDATE_ACCEPT)
     {
       evd_service_accept_connection_priv (self, conn);
     }
-  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
+  else if (ret == EVD_VALIDATE_REJECT)
     {
       /* @TODO: refuse connection */
     }
@@ -329,7 +329,7 @@ evd_service_validate_tls_connection (EvdService *self, EvdConnection *conn)
 static void
 evd_service_validate_connection (EvdService *self, EvdConnection *conn)
 {
-  EvdServiceValidate ret = EVD_SERVICE_VALIDATE_ACCEPT;
+  EvdValidateEnum ret = EVD_VALIDATE_ACCEPT;
 
   g_signal_emit (self,
                  evd_service_signals[SIGNAL_VALIDATE_CONNECTION],
@@ -337,7 +337,7 @@ evd_service_validate_connection (EvdService *self, EvdConnection *conn)
                  conn,
                  &ret);
 
-  if (ret == EVD_SERVICE_VALIDATE_ACCEPT)
+  if (ret == EVD_VALIDATE_ACCEPT)
     {
       if (self->priv->tls_autostart)
         {
@@ -351,7 +351,7 @@ evd_service_validate_connection (EvdService *self, EvdConnection *conn)
           evd_service_accept_connection_priv (self, conn);
         }
     }
-  else if (ret == EVD_SERVICE_VALIDATE_REJECT)
+  else if (ret == EVD_VALIDATE_REJECT)
     {
       /* @TODO: refuse connection */
     }
