@@ -110,6 +110,11 @@ gboolean           evd_service_listen_finish       (EvdService    *self,
                                                     GAsyncResult  *result,
                                                     GError       **error);
 
+void               evd_service_accept_connection   (EvdService    *self,
+                                                    EvdConnection *conn);
+void               evd_service_reject_connection   (EvdService    *self,
+                                                    EvdConnection *conn);
+
 G_END_DECLS
 
 #endif /* __EVD_SERVICE_H__ */

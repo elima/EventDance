@@ -667,3 +667,45 @@ evd_service_listen_finish (EvdService    *self,
     ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
                                              error);
 }
+
+void
+evd_service_accept_connection (EvdService *self, EvdConnection *conn)
+{
+  gboolean *hint;
+
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (EVD_IS_CONNECTION (self));
+
+  /* check that connection is being validated */
+  hint = g_object_get_data (G_OBJECT (conn), VALIDATION_HINT_KEY);
+  if (hint == NULL || ! *hint)
+    return;
+
+  /* remove validation hint */
+  g_object_set_data (G_OBJECT (conn), VALIDATION_HINT_KEY, NULL);
+
+  accept_connection_priv (self, conn);
+
+  g_object_unref (conn);
+}
+
+void
+evd_service_reject_connection (EvdService *self, EvdConnection *conn)
+{
+  gboolean *hint;
+
+  g_return_if_fail (EVD_IS_SERVICE (self));
+  g_return_if_fail (EVD_IS_CONNECTION (self));
+
+  /* check that connection is being validated */
+  hint = g_object_get_data (G_OBJECT (conn), VALIDATION_HINT_KEY);
+  if (hint == NULL || ! *hint)
+    return;
+
+  /* remove validation hint */
+  g_object_set_data (G_OBJECT (conn), VALIDATION_HINT_KEY, NULL);
+
+  reject_connection_priv (self, conn);
+
+  g_object_unref (conn);
+}
