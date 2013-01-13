@@ -34,6 +34,8 @@ G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_IO_STREAM_GROUP)
                                       EVD_TYPE_SERVICE, \
                                       EvdServicePrivate))
 
+#define VALIDATION_HINT_KEY "org.eventdance.lib.Service.VALIDATION_HINT"
+
 /* private data */
 struct _EvdServicePrivate
 {
@@ -85,6 +87,11 @@ static void     evd_service_listener_on_new_connection (EvdSocket     *listener,
 static void     evd_service_listener_on_close          (EvdSocket *listener,
                                                         gpointer   user_data);
 
+static void     connection_accepted                    (EvdService    *self,
+                                                        EvdConnection *conn);
+static void     connection_rejected                    (EvdService    *self,
+                                                        EvdConnection *conn);
+
 static void     evd_service_connection_starttls        (EvdService    *self,
                                                         EvdConnection *conn);
 
@@ -102,7 +109,8 @@ evd_service_class_init (EvdServiceClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdIoStreamGroupClass *conn_group_class = EVD_IO_STREAM_GROUP_CLASS (class);
 
-  class->connection_accepted = NULL;
+  class->connection_accepted = connection_accepted;
+  class->connection_rejected = connection_rejected;
 
   obj_class->dispose = evd_service_dispose;
   obj_class->finalize = evd_service_finalize;
@@ -287,15 +295,44 @@ evd_service_listener_on_close (EvdSocket *listener,
   evd_service_remove_listener (self, listener);
 }
 
+void
+connection_accepted (EvdService *self, EvdConnection *conn)
+{
+  /* nothing to do here other than logging */
+}
+
 static void
-evd_service_accept_connection_priv (EvdService    *self,
-                                    EvdConnection *conn)
+connection_rejected (EvdService *self, EvdConnection *conn)
+{
+  /* refuse connection */
+  g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
+}
+
+void
+accept_connection_priv (EvdService *self, EvdConnection *conn)
+{
+  if (self->priv->tls_autostart && ! evd_connection_get_tls_active (conn))
+    {
+      evd_service_connection_starttls (self, conn);
+    }
+  else
+    {
+      EvdServiceClass *class;
+
+      class = EVD_SERVICE_GET_CLASS (self);
+      if (class->connection_accepted != NULL)
+        class->connection_accepted (self, conn);
+    }
+}
+
+void
+reject_connection_priv (EvdService *self, EvdConnection *conn)
 {
   EvdServiceClass *class;
 
   class = EVD_SERVICE_GET_CLASS (self);
-  if (class->connection_accepted != NULL)
-    class->connection_accepted (self, conn);
+  if (class->connection_rejected != NULL)
+    class->connection_rejected (self, conn);
 }
 
 static gboolean
@@ -321,20 +358,33 @@ evd_service_validate_tls_connection (EvdService *self, EvdConnection *conn)
 {
   EvdValidateEnum ret = EVD_VALIDATE_ACCEPT;
 
-  /* @TODO: call 'validate-tls-connection' signal */
+  g_signal_emit (self,
+                 evd_service_signals[SIGNAL_VALIDATE_TLS_CONNECTION],
+                 0,
+                 conn,
+                 &ret);
 
   if (ret == EVD_VALIDATE_ACCEPT)
     {
-      evd_service_accept_connection_priv (self, conn);
+      accept_connection_priv (self, conn);
     }
   else if (ret == EVD_VALIDATE_REJECT)
     {
-      /* @TODO: refuse connection */
+      reject_connection_priv (self, conn);
     }
   else
     {
-      /* @TODO: assume validation is pending.
-         Add validation hint to connection */
+      gboolean *hint;
+
+      /* validation is pending, add validation hint to connection */
+      hint = g_new (gboolean, 1);
+      *hint = TRUE;
+
+      g_object_set_data_full (G_OBJECT (conn),
+                              VALIDATION_HINT_KEY,
+                              hint,
+                              g_free);
+      g_object_ref (conn);
     }
 }
 
@@ -351,26 +401,25 @@ evd_service_validate_connection (EvdService *self, EvdConnection *conn)
 
   if (ret == EVD_VALIDATE_ACCEPT)
     {
-      if (self->priv->tls_autostart)
-        {
-          if (! evd_connection_get_tls_active (conn))
-            evd_service_connection_starttls (self, conn);
-          else
-            evd_service_validate_tls_connection (self, conn);
-        }
-      else
-        {
-          evd_service_accept_connection_priv (self, conn);
-        }
+      accept_connection_priv (self, conn);
     }
   else if (ret == EVD_VALIDATE_REJECT)
     {
-      /* @TODO: refuse connection */
+      reject_connection_priv (self, conn);
     }
   else
     {
-      /* @TODO: assume validation is pending.
-         Add validation hint to connection */
+      gboolean *hint;
+
+      /* validation is pending, add validation hint to connection */
+      hint = g_new (gboolean, 1);
+      *hint = TRUE;
+
+      g_object_set_data_full (G_OBJECT (conn),
+                              VALIDATION_HINT_KEY,
+                              hint,
+                              g_free);
+      g_object_ref (conn);
     }
 }
 
