@@ -49,6 +49,7 @@ struct _EvdServicePrivate
 enum
 {
   SIGNAL_VALIDATE_CONNECTION,
+  SIGNAL_VALIDATE_TLS_CONNECTION,
   SIGNAL_LAST
 };
 
@@ -114,7 +115,18 @@ evd_service_class_init (EvdServiceClass *class)
     g_signal_new ("validate-connection",
                   G_TYPE_FROM_CLASS (obj_class),
                   G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (EvdServiceClass, validate_connection),
+                  G_STRUCT_OFFSET (EvdServiceClass, signal_validate_connection),
+                  evd_service_validate_conn_signal_acc,
+                  NULL,
+                  evd_marshal_UINT__OBJECT,
+                  G_TYPE_UINT, 1,
+                  EVD_TYPE_CONNECTION);
+
+  evd_service_signals[SIGNAL_VALIDATE_TLS_CONNECTION] =
+    g_signal_new ("validate-tls-connection",
+                  G_TYPE_FROM_CLASS (obj_class),
+                  G_SIGNAL_ACTION,
+                  G_STRUCT_OFFSET (EvdServiceClass, signal_validate_tls_connection),
                   evd_service_validate_conn_signal_acc,
                   NULL,
                   evd_marshal_UINT__OBJECT,
