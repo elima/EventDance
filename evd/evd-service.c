@@ -443,8 +443,6 @@ evd_service_connection_on_tls_started (GObject      *obj,
 
       g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
-
-  g_object_unref (conn);
 }
 
 static void
@@ -453,8 +451,6 @@ evd_service_connection_starttls (EvdService    *self,
 {
   EvdTlsSession *tls_session;
   EvdTlsCredentials *tls_cred;
-
-  g_object_ref (conn);
 
   tls_session = evd_connection_get_tls_session (conn);
   tls_cred = evd_service_get_tls_credentials (self);
