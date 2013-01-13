@@ -52,9 +52,12 @@ struct _EvdServiceClass
                                 EvdConnection  *conn);
 
   /* signal prototypes */
-  guint (* validate_connection) (EvdService    *self,
-                                 EvdConnection *socket,
-                                 gpointer       user_data);
+  guint (* signal_validate_connection)     (EvdService    *self,
+                                            EvdConnection *socket,
+                                            gpointer       user_data);
+  guint (* signal_validate_tls_connection) (EvdService    *self,
+                                            EvdConnection *socket,
+                                            gpointer       user_data);
 
   /* padding for future expansion */
   void (* _padding_0_) (void);
