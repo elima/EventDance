@@ -50,6 +50,8 @@ struct _EvdServiceClass
   /* virtual methods */
   void (* connection_accepted) (EvdService     *self,
                                 EvdConnection  *conn);
+  void (* connection_rejected) (EvdService     *self,
+                                EvdConnection  *conn);
 
   /* signal prototypes */
   guint (* signal_validate_connection)     (EvdService    *self,
