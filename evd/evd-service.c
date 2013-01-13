@@ -583,6 +583,19 @@ evd_service_set_io_stream_type (EvdService *self, GType io_stream_type)
   self->priv->io_stream_type = io_stream_type;
 }
 
+/**
+ * evd_service_get_io_stream_type:
+ *
+ * Returns: (type guint):
+ **/
+GType
+evd_service_get_io_stream_type (EvdService *self)
+{
+  g_return_val_if_fail (EVD_IS_SERVICE (self), 0);
+
+  return self->priv->io_stream_type;
+}
+
 void
 evd_service_add_listener (EvdService  *self, EvdSocket *socket)
 {

@@ -94,6 +94,7 @@ EvdTlsCredentials *evd_service_get_tls_credentials (EvdService *self);
 
 void               evd_service_set_io_stream_type  (EvdService *self,
                                                     GType       io_stream_type);
+GType              evd_service_get_io_stream_type  (EvdService *self);
 
 void               evd_service_add_listener        (EvdService  *self,
                                                     EvdSocket   *socket);
