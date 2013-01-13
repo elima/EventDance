@@ -473,9 +473,9 @@ evd_service_add (EvdIoStreamGroup *group, GIOStream *io_stream)
 
   /* @TODO: check if connection type matches service's io_stream_type */
 
-  if (! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
-                                                                   io_stream) ||
-      ! evd_connection_is_connected (EVD_CONNECTION (io_stream)))
+  if (! evd_connection_is_connected (EVD_CONNECTION (io_stream)) ||
+      ! EVD_IO_STREAM_GROUP_CLASS (evd_service_parent_class)->add (group,
+                                                                   io_stream))
     {
       return FALSE;
     }
