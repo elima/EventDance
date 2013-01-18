@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -114,7 +114,7 @@ evd_peer_manager_init (EvdPeerManager *self)
   priv->peers = g_hash_table_new_full (g_str_hash,
                                        g_str_equal,
                                        g_free,
-                                       NULL);
+                                       g_object_unref);
 
   priv->peer_cleanup_timer = g_timer_new ();
   priv->peer_cleanup_interval = DEFAULT_PEER_CLEANUP_INTERVAL;
@@ -125,6 +125,24 @@ evd_peer_manager_init (EvdPeerManager *self)
 static void
 evd_peer_manager_dispose (GObject *obj)
 {
+  EvdPeerManager *self = EVD_PEER_MANAGER (obj);
+
+  if (self->priv->peers != NULL)
+    {
+      while (g_queue_get_length (self->priv->removal_list) > 0)
+        {
+          EvdPeer *peer;
+
+          peer = EVD_PEER (g_queue_pop_head (self->priv->removal_list));
+          evd_peer_manager_close_peer_internal (self, peer, FALSE);
+          g_object_unref (peer);
+        }
+      g_queue_free (self->priv->removal_list);
+
+      g_hash_table_unref (self->priv->peers);
+      self->priv->peers = NULL;
+    }
+
   G_OBJECT_CLASS (evd_peer_manager_parent_class)->dispose (obj);
 }
 
@@ -132,17 +150,6 @@ static void
 evd_peer_manager_finalize (GObject *obj)
 {
   EvdPeerManager *self = EVD_PEER_MANAGER (obj);
-
-  while (g_queue_get_length (self->priv->removal_list) > 0)
-    {
-      EvdPeer *peer;
-
-      peer = EVD_PEER (g_queue_pop_head (self->priv->removal_list));
-      evd_peer_manager_close_peer_internal (self, peer, FALSE);
-    }
-  g_queue_free (self->priv->removal_list);
-
-  g_hash_table_unref (self->priv->peers);
 
   g_timer_destroy (self->priv->peer_cleanup_timer);
 
@@ -168,8 +175,6 @@ evd_peer_manager_close_peer_internal (EvdPeerManager *self,
                  peer,
                  gracefully,
                  NULL);
-
-  g_object_unref (peer);
 }
 
 static gboolean
@@ -186,7 +191,7 @@ evd_peer_manager_check_peer (gpointer key,
     }
   else
     {
-      g_queue_push_tail (self->priv->removal_list, peer);
+      g_queue_push_tail (self->priv->removal_list, g_object_ref (peer));
 
       return TRUE;
     }
@@ -212,6 +217,7 @@ evd_peer_manager_cleanup_peers (EvdPeerManager *self)
       peer = EVD_PEER (g_queue_pop_head (self->priv->removal_list));
 
       evd_peer_manager_close_peer_internal (self, peer, FALSE);
+      g_object_unref (peer);
     }
 }
 
