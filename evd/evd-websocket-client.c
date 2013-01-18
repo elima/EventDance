@@ -61,8 +61,6 @@ typedef struct
 static void     evd_websocket_client_class_init           (EvdWebsocketClientClass *class);
 static void     evd_websocket_client_init                 (EvdWebsocketClient *self);
 static void     evd_websocket_client_transport_iface_init (EvdTransportInterface *iface);
-static void     evd_websocket_client_dispose              (GObject *obj);
-static void     evd_websocket_client_finalize             (GObject *obj);
 
 static gboolean io_stream_group_add                       (EvdIoStreamGroup *io_stream_group,
                                                            GIOStream        *io_stream);
@@ -115,9 +113,6 @@ evd_websocket_client_class_init (EvdWebsocketClientClass *class)
   EvdIoStreamGroupClass *io_stream_group_class
     = EVD_IO_STREAM_GROUP_CLASS (class);
 
-  obj_class->dispose = evd_websocket_client_dispose;
-  obj_class->finalize = evd_websocket_client_finalize;
-
   io_stream_group_class->add = io_stream_group_add;
   io_stream_group_class->remove = io_stream_group_remove;
 
@@ -144,22 +139,6 @@ evd_websocket_client_init (EvdWebsocketClient *self)
   self->priv = priv;
 
   priv->standalone = DEFAULT_STANDALONE;
-}
-
-static void
-evd_websocket_client_dispose (GObject *obj)
-{
-  /*  EvdWebsocketClient *self = EVD_WEBSOCKET_CLIENT (obj); */
-
-  G_OBJECT_CLASS (evd_websocket_client_parent_class)->dispose (obj);
-}
-
-static void
-evd_websocket_client_finalize (GObject *obj)
-{
-  /*  EvdWebsocketClient *self = EVD_WEBSOCKET_CLIENT (obj); */
-
-  G_OBJECT_CLASS (evd_websocket_client_parent_class)->finalize (obj);
 }
 
 static gboolean
