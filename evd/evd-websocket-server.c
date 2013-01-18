@@ -35,7 +35,7 @@
 #define PEER_DATA_KEY      "org.eventdance.lib.WebsocketServer.PEER_DATA"
 #define HANDSHAKE_DATA_KEY "org.eventdance.lib.WebsocketServer.HANDSHAKE_DATA"
 
-#define DEFAULT_STANDALONE FALSE
+#define DEFAULT_STANDALONE TRUE
 
 struct _EvdWebsocketServerPrivate
 {
