@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -148,9 +148,9 @@ evd_http_message_set_property (GObject      *obj,
 
 static void
 evd_http_message_get_property (GObject    *obj,
-                                guint       prop_id,
-                                GValue     *value,
-                                GParamSpec *pspec)
+                               guint       prop_id,
+                               GValue     *value,
+                               GParamSpec *pspec)
 {
   EvdHttpMessage *self;
 
@@ -214,13 +214,12 @@ evd_http_message_get_headers (EvdHttpMessage *self)
 
 /**
  * evd_http_message_headers_to_string:
- * @size: (out):
+ * @size: (out) (allow-none):
  *
  * Returns: (transfer full):
  **/
 gchar *
-evd_http_message_headers_to_string (EvdHttpMessage *self,
-                                    gsize          *size)
+evd_http_message_headers_to_string (EvdHttpMessage *self, gsize *size)
 {
   SoupMessageHeaders *headers;
   SoupMessageHeadersIter iter;
