@@ -238,6 +238,18 @@ evd_peer_manager_notify_new_peer (gpointer user_data)
   return FALSE;
 }
 
+static gboolean
+evd_peer_manager_cleanup_peers_cb (gpointer user_data)
+{
+  EvdPeerManager *self = EVD_PEER_MANAGER (user_data);
+
+  self->priv->peer_cleanup_src_id = 0;
+
+  evd_peer_manager_cleanup_peers (self);
+
+  return FALSE;
+}
+
 /* public methods */
 
 /**
@@ -287,18 +299,6 @@ evd_peer_manager_add_peer (EvdPeerManager *self, EvdPeer *peer)
                    peer);
 
   evd_peer_manager_cleanup_peers (self);
-}
-
-static gboolean
-evd_peer_manager_cleanup_peers_cb (gpointer user_data)
-{
-  EvdPeerManager *self = EVD_PEER_MANAGER (user_data);
-
-  self->priv->peer_cleanup_src_id = 0;
-
-  evd_peer_manager_cleanup_peers (self);
-
-  return FALSE;
 }
 
 /**
