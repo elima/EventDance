@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -75,7 +75,7 @@ gboolean                evd_websocket_client_get_standalone              (EvdWeb
 void                    evd_websocket_client_get_validate_peer_arguments (EvdWebsocketClient  *self,
                                                                           EvdPeer             *peer,
                                                                           EvdHttpConnection  **conn,
-                                                                          EvdHttpRequest     **request);
+                                                                          SoupMessageHeaders **response_headers);
 
 G_END_DECLS
 
