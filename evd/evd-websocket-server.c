@@ -336,13 +336,9 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
     }
 
   /* let WebSocket protocol handle request */
-  if (evd_websocket_protocol_handle_handshake_request (conn,
-                                                       request,
-                                                       &error))
-    {
-      /* @TODO */
-    }
-  else
+  if (! evd_websocket_protocol_handle_handshake_request (conn,
+                                                         request,
+                                                         &error))
     {
       g_print ("%s\n", error->message);
       g_error_free (error);
