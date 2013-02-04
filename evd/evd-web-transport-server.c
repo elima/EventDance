@@ -547,6 +547,14 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
 
   headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
+  /* prevent HTTP caching */
+  soup_message_headers_replace (headers,
+                                "Cache-Control",
+                                "Cache-Control: no-cache, must-revalidate");
+  soup_message_headers_replace (headers,
+                                "Expires",
+                                "Sat, 01 Jan 2000 00:00:00 GMT");
+
   if (! EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
                                                    data->conn,
                                                    SOUP_STATUS_OK,
