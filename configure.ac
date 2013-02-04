@@ -3,7 +3,7 @@
 #
 # EventDance, Peer-to-peer IPC library <http://eventdance.org>
 #
-# Copyright (C) 2009/2010/2011, Igalia S.L.
+# Copyright (C) 2009-2013, Igalia S.L.
 #
 # Authors:
 #   Eduardo Lima Mitev <elima@igalia.com>
@@ -31,7 +31,7 @@ m4_define([prj_home],       [http://eventdance.org])
 # even micro numbers indicate released versions
 m4_define([prj_version_major], [0])
 m4_define([prj_version_minor], [1])
-m4_define([prj_version_micro], [26])
+m4_define([prj_version_micro], [27])
 
 m4_define([prj_version],
           [prj_version_major.prj_version_minor.prj_version_micro])
