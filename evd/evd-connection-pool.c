@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -54,6 +54,9 @@ struct _EvdConnectionPoolPrivate
   GType connection_type;
 
   guint connecting_sockets;
+
+  gboolean tls_autostart;
+  EvdTlsCredentials *tls_cred;
 };
 
 /* properties */
@@ -141,6 +144,9 @@ evd_connection_pool_init (EvdConnectionPool *self)
   priv->requests = g_queue_new ();
 
   priv->connecting_sockets = 0;
+
+  priv->tls_autostart = FALSE;
+  priv->tls_cred = NULL;
 }
 
 static void
@@ -502,4 +508,51 @@ evd_connection_pool_recycle (EvdConnectionPool *self, EvdConnection *conn)
   else
     return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
                                     G_IO_STREAM (conn));
+}
+
+void
+evd_connection_pool_set_tls_autostart (EvdConnectionPool *self,
+                                       gboolean           autostart)
+{
+  g_return_if_fail (EVD_IS_CONNECTION_POOL (self));
+
+  self->priv->tls_autostart = autostart;
+}
+
+gboolean
+evd_connection_pool_get_tls_autostart (EvdConnectionPool *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), FALSE);
+
+  return self->priv->tls_autostart;
+}
+
+void
+evd_connection_pool_set_tls_credentials (EvdConnectionPool *self,
+                                         EvdTlsCredentials *credentials)
+{
+  g_return_if_fail (EVD_IS_CONNECTION_POOL (self));
+  g_return_if_fail (EVD_IS_TLS_CREDENTIALS (credentials));
+
+  if (self->priv->tls_cred != NULL)
+    g_object_unref (self->priv->tls_cred);
+
+  self->priv->tls_cred = credentials;
+  g_object_ref (self->priv->tls_cred);
+}
+
+/**
+ * evd_connection_pool_get_tls_credentials:
+ *
+ * Returns: (transfer none):
+ **/
+EvdTlsCredentials *
+evd_connection_pool_get_tls_credentials (EvdConnectionPool *self)
+{
+  g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), NULL);
+
+  if (self->priv->tls_cred == NULL)
+    self->priv->tls_cred = evd_tls_credentials_new ();
+
+  return self->priv->tls_cred;
 }
