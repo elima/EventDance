@@ -263,12 +263,9 @@ evd_connection_pool_finish_request (EvdConnectionPool  *self,
   g_object_unref (res);
 }
 
-static gboolean
-group_add_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
+static void
+connection_available (EvdConnectionPool *self, EvdConnection *conn)
 {
-  EvdConnectionPool *self = EVD_CONNECTION_POOL (group);
-  EvdConnection *conn = EVD_CONNECTION (io_stream);
-
   if (HAS_REQUESTS (self))
     {
       GSimpleAsyncResult *res;
@@ -278,18 +275,90 @@ group_add_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
       evd_connection_pool_finish_request (self, conn, res);
 
       evd_connection_pool_create_min_conns (self);
-
-      return FALSE;
     }
-
-  if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
-      (group, io_stream))
+  else
     {
-      return FALSE;
+      g_queue_push_tail (self->priv->conns, conn);
+      g_object_ref (conn);
+    }
+}
+
+static void
+connection_on_tls_started (GObject      *obj,
+                           GAsyncResult *res,
+                           gpointer      user_data)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
+  EvdConnection *conn = EVD_CONNECTION (obj);
+  GError *error = NULL;
+
+  if (evd_connection_starttls_finish (conn, res, &error))
+    {
+      connection_available (self, conn);
+    }
+  else
+    {
+      /* @TODO: do proper logging */
+      g_print ("TLS upgrade error in EvdConnectionPool: %s\n", error->message);
+      g_error_free (error);
+
+      g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
     }
 
-  g_queue_push_tail (self->priv->conns, conn);
-  g_object_ref (conn);
+  g_object_unref (self);
+}
+
+static void
+connection_starttls (EvdConnectionPool *self, EvdConnection *conn)
+{
+  EvdTlsSession *tls_session;
+  EvdTlsCredentials *tls_cred;
+
+  tls_session = evd_connection_get_tls_session (conn);
+  tls_cred = evd_connection_pool_get_tls_credentials (self);
+  evd_tls_session_set_credentials (tls_session, tls_cred);
+
+  g_object_ref (self);
+  evd_connection_starttls (conn,
+                           EVD_TLS_MODE_CLIENT,
+                           NULL,
+                           connection_on_tls_started,
+                           self);
+}
+
+static gboolean
+group_add_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (group);
+  EvdConnection *conn = EVD_CONNECTION (io_stream);
+
+  if (self->priv->tls_autostart && ! evd_connection_get_tls_active (conn))
+    {
+      if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
+          (group, io_stream))
+        {
+          return FALSE;
+        }
+
+      connection_starttls (self, conn);
+
+      return TRUE;
+    }
+
+  if (HAS_REQUESTS (self))
+    {
+      connection_available (self, conn);
+    }
+  else
+    {
+      if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
+          (group, io_stream))
+        {
+          return FALSE;
+        }
+
+      connection_available (self, conn);
+    }
 
   return TRUE;
 }
@@ -516,6 +585,23 @@ evd_connection_pool_set_tls_autostart (EvdConnectionPool *self,
   g_return_if_fail (EVD_IS_CONNECTION_POOL (self));
 
   self->priv->tls_autostart = autostart;
+
+  if (autostart)
+    {
+      gpointer item;
+      EvdConnection *conn;
+
+      item = g_queue_pop_head (self->priv->conns);
+      while (item != NULL)
+        {
+          conn = EVD_CONNECTION (item);
+
+          connection_starttls (self, conn);
+          g_object_unref (conn);
+
+          item = g_queue_pop_head (self->priv->conns);
+        }
+    }
 }
 
 gboolean
