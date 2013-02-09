@@ -21,7 +21,7 @@ AM_CFLAGS += -DENABLE_TESTS
 endif
 
 if ENABLE_DEBUG
-AM_CFLAGS += -Werror -g3 -O0 -ggdb -std=c89 -D_GNU_SOURCE
+AM_CFLAGS += -Werror -g3 -O0 -ggdb -D_GNU_SOURCE
 else
 AM_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
 endif
