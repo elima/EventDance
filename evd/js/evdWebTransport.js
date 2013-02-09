@@ -660,8 +660,10 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
 
             this._dispatching = false;
 
-            if (! this._flushing ())
+            if (! this._flushing ()) {
                 this._retryCount = 0;
+                this._flush ();
+            }
 
         }
         else {
