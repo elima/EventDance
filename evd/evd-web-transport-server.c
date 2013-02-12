@@ -325,12 +325,29 @@ evd_web_transport_server_get_property (GObject    *obj,
 }
 
 static void
+peer_on_closed (EvdTransport *transport,
+                EvdPeer      *peer,
+                gboolean      gracefully,
+                gpointer      user_data)
+{
+  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
+  EvdTransportInterface *iface;
+
+  iface = EVD_TRANSPORT_GET_INTERFACE (self);
+  iface->notify_peer_closed (EVD_TRANSPORT (self), peer, gracefully);
+}
+
+static void
 evd_web_transport_server_connect_signals (EvdWebTransportServer *self,
                                           EvdTransport          *transport)
 {
   g_signal_connect (transport,
                     "receive",
                     G_CALLBACK (evd_web_transport_server_on_receive),
+                    self);
+  g_signal_connect (transport,
+                    "peer-closed",
+                    G_CALLBACK (peer_on_closed),
                     self);
 }
 
@@ -340,6 +357,9 @@ evd_web_transport_server_disconnect_signals (EvdWebTransportServer *self,
 {
   g_signal_handlers_disconnect_by_func (transport,
                                         evd_web_transport_server_on_receive,
+                                        self);
+  g_signal_handlers_disconnect_by_func (transport,
+                                        peer_on_closed,
                                         self);
 }
 
