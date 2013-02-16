@@ -60,6 +60,7 @@ typedef struct
   gchar *filename;
   gsize response_content_size;
   guint response_status_code;
+  SoupMessageHeaders *response_headers;
   gboolean response_headers_sent;
 } EvdWebDirBinding;
 
@@ -263,6 +264,9 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
   if (binding->buffer != NULL)
     g_slice_free1 (BLOCK_SIZE, binding->buffer);
 
+  if (binding->response_headers != NULL)
+    soup_message_headers_free (binding->response_headers);
+
   g_free (binding->filename);
 
   g_slice_free (EvdWebDirBinding, binding);
@@ -283,6 +287,10 @@ evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
       binding->response_status_code = SOUP_STATUS_NOT_FOUND;
       break;
 
+    case G_IO_ERROR_PERMISSION_DENIED:
+      binding->response_status_code = SOUP_STATUS_FORBIDDEN;
+      break;
+
     default:
       binding->response_status_code = SOUP_STATUS_IO_ERROR;
       break;
@@ -297,6 +305,8 @@ evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
                NULL,
                0,
                NULL);
+  else
+    g_io_stream_close (G_IO_STREAM (binding->conn), NULL, NULL);
 
   evd_web_dir_finish_request (binding);
 }
@@ -371,22 +381,45 @@ evd_web_dir_file_on_open (GObject      *object,
   EvdWebDirBinding *binding = (EvdWebDirBinding *) user_data;
   GFile *file = G_FILE (object);
   GError *error = NULL;
+  SoupHTTPVersion ver;
 
   if ( (binding->file_input_stream = g_file_read_finish (file,
                                                          res,
-                                                         &error)) != NULL)
-    {
-      binding->buffer = g_slice_alloc (BLOCK_SIZE);
-
-      evd_web_dir_file_read_block (binding);
-    }
-  else
+                                                         &error)) == NULL)
     {
       /* @TODO: do proper logging */
-      g_debug ("Error opening file: %s", error->message);
+      g_print ("Error opening file: %s\n", error->message);
       evd_web_dir_handle_content_error (binding, error);
       g_error_free (error);
+
+      return;
     }
+
+  /* file opened successfully */
+
+  /* now it is ok to send response headers */
+  ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (binding->request));
+  if (! evd_http_connection_write_response_headers (binding->conn,
+                                                    ver,
+                                                    SOUP_STATUS_OK,
+                                                    NULL,
+                                                    binding->response_headers,
+                                                    &error))
+    {
+      g_print ("Error sending response headers: %s\n", error->message);
+      evd_web_dir_handle_content_error (binding, error);
+      g_error_free (error);
+
+      return;
+    }
+
+  /* headers successfully sent */
+  binding->response_headers_sent = TRUE;
+  binding->response_status_code = SOUP_STATUS_OK;
+
+  /* start reading */
+  binding->buffer = g_slice_alloc (BLOCK_SIZE);
+  evd_web_dir_file_read_block (binding);
 }
 
 static gboolean
@@ -456,7 +489,7 @@ evd_web_dir_file_on_info (GObject      *object,
   SoupHTTPVersion ver;
   EvdHttpRequest *request;
   GFileType file_type;
-  SoupMessageHeaders *headers;
+  SoupMessageHeaders *headers = NULL;
 
   guint64 file_modified_date_int;
   SoupDate *sdate;
@@ -532,7 +565,6 @@ evd_web_dir_file_on_info (GObject      *object,
     {
       evd_web_dir_finish_request (binding);
 
-      soup_message_headers_free (headers);
       goto out;
     }
 
@@ -565,32 +597,19 @@ evd_web_dir_file_on_info (GObject      *object,
   soup_message_headers_set_content_length (headers,
                                            g_file_info_get_size (info));
 
-  if (evd_http_connection_write_response_headers (conn,
-                                                  ver,
-                                                  SOUP_STATUS_OK,
-                                                  NULL,
-                                                  headers,
-                                                  &error))
-    {
-      binding->response_headers_sent = TRUE;
-      binding->response_status_code = SOUP_STATUS_OK;
+  /* now open file */
+  g_file_read_async (file,
+                     evd_connection_get_priority (EVD_CONNECTION (conn)),
+                     NULL,
+                     evd_web_dir_file_on_open,
+                     binding);
 
-      /* now open file */
-      g_file_read_async (file,
-                         evd_connection_get_priority (EVD_CONNECTION (conn)),
-                         NULL,
-                         evd_web_dir_file_on_open,
-                         binding);
-    }
-  else
-    {
-      g_debug ("error sending response headers: %s", error->message);
-      g_error_free (error);
-    }
-
-  soup_message_headers_free (headers);
+  binding->response_headers = headers;
+  headers = NULL;
 
  out:
+  if (headers != NULL)
+    soup_message_headers_free (headers);
   g_object_unref (info);
 }
 
