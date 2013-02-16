@@ -290,7 +290,7 @@ evd_web_service_conn_on_headers_read (GObject      *obj,
     {
       if (! g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CLOSED))
         {
-          g_debug ("error reading request headers: %s", error->message);
+          g_print ("error reading request headers: %s\n", error->message);
           g_io_stream_close (G_IO_STREAM (conn), NULL, NULL);
         }
 
@@ -436,6 +436,48 @@ evd_web_service_flush_and_return_connection (EvdWebService     *self,
                             conn);
 }
 
+static SoupMessageHeaders *
+prepare_response_headers (EvdWebService      *self,
+                          EvdHttpConnection  *conn,
+                          SoupMessageHeaders *_headers,
+                          SoupHTTPVersion    *version)
+{
+  SoupMessageHeaders *headers;
+  EvdHttpRequest *request;
+
+  request = evd_http_connection_get_current_request (conn);
+  if (version != NULL)
+    {
+      if (request == NULL)
+        *version = SOUP_HTTP_1_1;
+      else
+        *version = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
+    }
+
+  if (_headers == NULL)
+    headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  else
+    headers = _headers;
+
+  /* check cross origin */
+  if (request != NULL && evd_http_request_is_cross_origin (request))
+    {
+      const gchar *origin;
+
+      origin = evd_http_request_get_origin (request);
+
+      /* check if this origin is allowed */
+      if (evd_web_service_origin_allowed (self, origin))
+        {
+          soup_message_headers_replace (headers,
+                                        "Access-Control-Allow-Origin",
+                                        origin);
+        }
+    }
+
+  return headers;
+}
+
 static gboolean
 evd_web_service_respond_internal (EvdWebService       *self,
                                   EvdHttpConnection   *conn,
@@ -445,64 +487,34 @@ evd_web_service_respond_internal (EvdWebService       *self,
                                   gsize                size,
                                   GError             **error)
 {
-  EvdHttpRequest *request;
-  SoupHTTPVersion ver;
-  gboolean free_headers = FALSE;
+  SoupMessageHeaders *_headers;
   gboolean result;
+  SoupHTTPVersion ver;
 
-  request = evd_http_connection_get_current_request (conn);
-  if (request == NULL)
-    ver = SOUP_HTTP_1_1;
-  else
-    ver = evd_http_message_get_version (EVD_HTTP_MESSAGE (request));
-
-  /* check cross origin */
-  if (status_code != SOUP_STATUS_FORBIDDEN &&
-      request != NULL &&
-      evd_http_request_is_cross_origin (request))
-    {
-      const gchar *origin;
-
-      origin = evd_http_request_get_origin (request);
-
-      /* check if this origin is allowed */
-      if (evd_web_service_origin_allowed (self, origin))
-        {
-          if (headers == NULL)
-            {
-              headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
-              free_headers = TRUE;
-            }
-
-          soup_message_headers_replace (headers,
-                                        "Access-Control-Allow-Origin",
-                                        origin);
-        }
-    }
+  _headers = prepare_response_headers (self, conn, headers, &ver);
 
   if (evd_http_connection_respond (conn,
                                    ver,
                                    status_code,
                                    NULL,
-                                   headers,
+                                   _headers,
                                    content,
                                    size,
                                    FALSE,
                                    error))
     {
-      EVD_WEB_SERVICE_GET_CLASS (self)->flush_and_return_connection (self, conn);
-
+      EVD_WEB_SERVICE_GET_CLASS (self)->flush_and_return_connection (self,
+                                                                     conn);
       result = TRUE;
     }
   else
     {
       evd_connection_flush_and_shutdown (EVD_CONNECTION (conn), NULL);
-
       result = FALSE;
     }
 
-  if (free_headers)
-    soup_message_headers_free (headers);
+  if (headers == NULL)
+    soup_message_headers_free (_headers);
 
   return result;
 }
@@ -783,4 +795,30 @@ evd_web_service_origin_allowed (EvdWebService *self, const gchar *origin)
     return priv->origin_policy == EVD_POLICY_ALLOW;
   else
     return (gboolean) (*allowed);
+}
+
+gboolean
+evd_web_service_respond_headers (EvdWebService       *self,
+                                 EvdHttpConnection   *conn,
+                                 guint                status_code,
+                                 SoupMessageHeaders  *headers,
+                                 GError             **error)
+{
+  SoupMessageHeaders *_headers;
+  SoupHTTPVersion ver;
+  gboolean result;
+
+  _headers = prepare_response_headers (self, conn, headers, &ver);
+
+  result = evd_http_connection_write_response_headers (conn,
+                                                       ver,
+                                                       status_code,
+                                                       NULL,
+                                                       _headers,
+                                                       error);
+
+  if (headers == NULL)
+    soup_message_headers_free (headers);
+
+  return result;
 }

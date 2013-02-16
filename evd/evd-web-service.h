@@ -129,6 +129,12 @@ void              evd_web_service_deny_origin                 (EvdWebService *se
 gboolean          evd_web_service_origin_allowed              (EvdWebService *self,
                                                                const gchar   *origin);
 
+gboolean          evd_web_service_respond_headers             (EvdWebService       *self,
+                                                               EvdHttpConnection   *conn,
+                                                               guint                status_code,
+                                                               SoupMessageHeaders  *headers,
+                                                               GError             **error);
+
 #define EVD_WEB_SERVICE_LOG(web_service, conn, request, status_code, content_size, error) \
   (EVD_WEB_SERVICE_GET_CLASS (web_service)->log (web_service, conn, request, status_code, content_size, error))
 
