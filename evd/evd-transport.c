@@ -189,22 +189,6 @@ evd_transport_get_type (void)
 }
 
 static void
-evd_transport_free_peer_msg (gpointer  data,
-                             GObject  *where_the_object_was)
-{
-  EvdTransportPeerMessage *msg;
-
-  msg = g_object_get_data (G_OBJECT (where_the_object_was), PEER_MSG_KEY);
-
-  if (msg != NULL)
-    {
-      g_slice_free (EvdTransportPeerMessage, msg);
-
-      g_object_set_data (G_OBJECT (where_the_object_was), PEER_MSG_KEY, NULL);
-    }
-}
-
-static void
 evd_transport_notify_receive (EvdTransport *self, EvdPeer *peer)
 {
   g_signal_emit (self, evd_transport_signals[SIGNAL_RECEIVE], 0, peer, NULL);
@@ -223,10 +207,11 @@ evd_transport_receive_internal (EvdTransport *self,
   msg = g_object_get_data (G_OBJECT (peer), PEER_MSG_KEY);
   if (msg == NULL)
     {
-      msg = g_slice_new (EvdTransportPeerMessage);
-      g_object_set_data (G_OBJECT (peer), PEER_MSG_KEY, msg);
-
-      g_object_weak_ref (G_OBJECT (peer), evd_transport_free_peer_msg, NULL);
+      msg = g_new (EvdTransportPeerMessage, 1);
+      g_object_set_data_full (G_OBJECT (peer),
+                              PEER_MSG_KEY,
+                              msg,
+                              g_free);
     }
 
   msg->buffer = buffer;
