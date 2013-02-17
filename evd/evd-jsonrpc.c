@@ -510,7 +510,7 @@ evd_jsonrpc_transport_on_receive (EvdTransport *transport,
   EvdJsonrpc *self = EVD_JSONRPC (user_data);
   const gchar *data;
 
-  data = evd_transport_receive (transport, peer, NULL);
+  data = evd_transport_receive_text (transport, peer);
 
   evd_jsonrpc_transport_receive (self, data, peer, 0, NULL);
 }
