@@ -35,6 +35,8 @@ G_DEFINE_TYPE (EvdConnectionPool, evd_connection_pool, EVD_TYPE_IO_STREAM_GROUP)
 #define DEFAULT_MIN_CONNS 1
 #define DEFAULT_MAX_CONNS 5
 
+#define RETRY_TIMEOUT 500 /* in miliseconds */
+
 #define TOTAL_SOCKETS(pool) (self->priv->connecting_sockets + \
                              g_queue_get_length (pool->priv->conns))
 
@@ -57,6 +59,8 @@ struct _EvdConnectionPoolPrivate
 
   gboolean tls_autostart;
   EvdTlsCredentials *tls_cred;
+
+  guint retry_src_id;
 };
 
 /* properties */
@@ -91,7 +95,7 @@ static void     evd_connection_pool_unref_request         (GSimpleAsyncResult *r
 
 static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *self);
 
-static void     evd_connection_pool_create_min_conns      (EvdConnectionPool *self);
+static gboolean evd_connection_pool_create_min_conns      (gpointer user_data);
 
 static void
 evd_connection_pool_class_init (EvdConnectionPoolClass *class)
@@ -145,6 +149,8 @@ evd_connection_pool_init (EvdConnectionPool *self)
 
   priv->tls_autostart = FALSE;
   priv->tls_cred = NULL;
+
+  priv->retry_src_id = 0;
 }
 
 static void
@@ -184,6 +190,12 @@ evd_connection_pool_finalize (GObject *obj)
   EvdConnectionPool *self = EVD_CONNECTION_POOL (obj);
 
   g_free (self->priv->target);
+
+  if (self->priv->retry_src_id != 0)
+    {
+      g_source_remove (self->priv->retry_src_id);
+      self->priv->retry_src_id = 0;
+    }
 
   G_OBJECT_CLASS (evd_connection_pool_parent_class)->finalize (obj);
 }
@@ -392,13 +404,19 @@ evd_connection_pool_unref_request (GSimpleAsyncResult *result)
   g_object_unref (result);
 }
 
-static void
-evd_connection_pool_create_min_conns (EvdConnectionPool *self)
+static gboolean
+evd_connection_pool_create_min_conns (gpointer user_data)
 {
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
+
+  self->priv->retry_src_id = 0;
+
   while (TOTAL_SOCKETS (self) < self->priv->min_conns)
     {
       evd_connection_pool_create_new_socket (self);
     }
+
+  return FALSE;
 }
 
 static void
@@ -417,15 +435,28 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
                                                res,
                                                &error)) != NULL)
     {
+      /* remove any retry timoeut source */
+      if (self->priv->retry_src_id != 0)
+        {
+          g_source_remove (self->priv->retry_src_id);
+          self->priv->retry_src_id = 0;
+        }
+
       evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), io_stream);
     }
   else
     {
-      /* @TODO: handle error */
+      /* @TODO: log properly */
       g_print ("Connection pool error: %s\n", error->message);
       g_error_free (error);
 
-      evd_connection_pool_create_min_conns (self);
+      /* retry after a timeout */
+      self->priv->retry_src_id =
+        evd_timeout_add (NULL,
+                         RETRY_TIMEOUT,
+                         G_PRIORITY_LOW,
+                         evd_connection_pool_create_min_conns,
+                         self);
     }
 
   g_object_unref (socket);
