@@ -529,13 +529,12 @@ on_handshake_response (GObject      *obj,
   SoupMessageHeaders *res_headers = NULL;
   SoupHTTPVersion http_version;
   guint status_code;
-  gchar *reason;
 
   res_headers = evd_http_connection_read_response_headers_finish (conn,
                                                                   res,
                                                                   &http_version,
                                                                   &status_code,
-                                                                  &reason,
+                                                                  NULL,
                                                                   &error);
   if (res_headers == NULL)
     {
@@ -567,8 +566,6 @@ on_handshake_response (GObject      *obj,
       g_object_unref (conn_data->async_result);
       conn_data->async_result = NULL;
     }
-
-  g_free (reason);
 
   g_free (conn_data->handshake_key);
   conn_data->handshake_key = NULL;
