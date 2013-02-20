@@ -248,6 +248,19 @@ evd_peer_get_id (EvdPeer *self)
   return self->priv->id;
 }
 
+/**
+ * evd_peer_get_transport:
+ *
+ * Returns: (transfer none):
+ **/
+EvdTransport *
+evd_peer_get_transport (EvdPeer *self)
+{
+  g_return_val_if_fail (EVD_IS_PEER (self), NULL);
+
+  return self->priv->transport;
+}
+
 gboolean
 evd_peer_backlog_push_frame (EvdPeer      *self,
                              const gchar  *frame,

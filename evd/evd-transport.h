@@ -158,6 +158,9 @@ gboolean        evd_transport_open_finish                   (EvdTransport  *self
                                                              GAsyncResult  *result,
                                                              GError       **error);
 
+/* defines here get_transport() method of EvdPeer to avoid cyclic dependency */
+EvdTransport *  evd_peer_get_transport                      (EvdPeer *self);
+
 G_END_DECLS
 
 #endif /* __EVD_TRANSPORT_H__ */
