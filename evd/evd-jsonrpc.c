@@ -291,14 +291,6 @@ evd_jsonrpc_on_method_called (EvdJsonrpc  *self,
     }
 
   id_node = json_object_dup_member (msg, "id");
-  if (json_node_is_null (id_node))
-    {
-      /* @TODO: request is a notification */
-
-      json_node_free (id_node);
-
-      return TRUE;
-    }
 
   inv_data = g_slice_new0 (InvocationData);
   inv_data->remote_id = id_node;
@@ -395,6 +387,27 @@ evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
 }
 
 static void
+evd_jsonrpc_on_notification (EvdJsonrpc *self,
+                             JsonObject *msg,
+                             gpointer    context)
+{
+  const gchar *method;
+  JsonNode *params;
+
+  if (self->priv->notification_cb == NULL)
+    return;
+
+  method = json_object_get_string_member (msg, "method");
+  params = json_object_get_member (msg, "params");
+
+  self->priv->notification_cb (self,
+                               method,
+                               params,
+                               context,
+                               self->priv->cb_user_data);
+}
+
+static void
 evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
                             const gchar   *buffer,
                             gsize          size,
@@ -445,11 +458,21 @@ evd_jsonrpc_on_json_packet (EvdJsonFilter *filter,
   else if (json_object_has_member (obj, "method") &&
            json_object_has_member (obj, "params"))
     {
-      /* a method call */
-      evd_jsonrpc_on_method_called (self,
-                                    obj,
-                                    self->priv->context,
-                                    &error);
+      JsonNode *id_node;
+
+      id_node = json_object_get_member (obj, "id");
+
+      if (! json_node_is_null (id_node))
+        /* a method call */
+        evd_jsonrpc_on_method_called (self,
+                                      obj,
+                                      self->priv->context,
+                                      &error);
+      else
+        /* a notification */
+        evd_jsonrpc_on_notification (self,
+                                     obj,
+                                     self->priv->context);
     }
   else
     {
