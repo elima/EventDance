@@ -772,13 +772,15 @@ evd_websocket_protocol_handle_handshake_request (EvdHttpConnection  *conn,
 
   const gchar *key;
   gchar *accept_key;
+  const gchar *conn_header;
 
   req_headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
+  conn_header = soup_message_headers_get_one (req_headers, "Connection");
+
   if (g_strcmp0 (soup_message_headers_get_one (req_headers, "Upgrade"),
-                 "websocket") != 0 ||
-       g_strcmp0 (soup_message_headers_get_one (req_headers, "Connection"),
-                  "Upgrade") != 0)
+                 "websocket") != 0 || conn_header == NULL ||
+      g_strstr_len (conn_header, -1, "Upgrade") == NULL)
     {
       g_set_error (error,
                    G_IO_ERROR,
