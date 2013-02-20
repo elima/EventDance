@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -306,10 +306,10 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
           conn_header = soup_message_headers_get_one (headers, "Connection");
 
           self->priv->keepalive =
-            (version == SOUP_HTTP_1_0 &&
-             g_strcmp0 (conn_header, "keep-alive") == 0) ||
-            (version == SOUP_HTTP_1_1 &&
-             g_strcmp0 (conn_header, "close") != 0);
+            (version == SOUP_HTTP_1_0 && conn_header != NULL &&
+             g_strstr_len (conn_header, -1, "keep-alive") != NULL) ||
+            (version == SOUP_HTTP_1_1 && conn_header != NULL &&
+             g_strstr_len (conn_header, -1, "close") == NULL);
         }
       else
         {
