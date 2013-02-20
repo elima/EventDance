@@ -719,6 +719,10 @@ transport_open (EvdTransport       *transport,
 
   data->pool = evd_connection_pool_new (addr, EVD_TYPE_HTTP_CONNECTION);
 
+  /* if scheme is WSS (secure WebSocket), set connection pool to auto start TLS */
+  if (g_strcmp0 (uri->scheme, "wss") == 0)
+    evd_connection_pool_set_tls_autostart (data->pool, TRUE);
+
   g_free (addr);
 
   /* get a connection */
