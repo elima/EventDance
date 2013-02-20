@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -52,7 +52,9 @@ struct _EvdJsonrpcPrivate
   gpointer context;
 
   EvdJsonrpcMethodCallCb method_call_cb;
-  gpointer method_call_cb_user_data;
+  EvdJsonrpcNotificationCb notification_cb;
+  gpointer cb_user_data;
+  GDestroyNotify cb_user_data_free_func;
 
   GHashTable *transports;
 };
@@ -124,7 +126,9 @@ evd_jsonrpc_init (EvdJsonrpc *self)
   priv->context = NULL;
 
   priv->method_call_cb = NULL;
-  priv->method_call_cb_user_data = NULL;
+  priv->notification_cb = NULL;
+  priv->cb_user_data = NULL;
+  priv->cb_user_data_free_func = NULL;
 
   priv->transports = g_hash_table_new (g_direct_hash, g_direct_equal);
 }
@@ -313,7 +317,7 @@ evd_jsonrpc_on_method_called (EvdJsonrpc  *self,
                                   args,
                                   id,
                                   context,
-                                  self->priv->method_call_cb_user_data);
+                                  self->priv->cb_user_data);
     }
 
   return TRUE;
@@ -844,20 +848,27 @@ evd_jsonrpc_transport_receive (EvdJsonrpc    *self,
 }
 
 /**
- * evd_jsonrpc_set_method_call_callback:
- * @callback: (scope notified):
- * @user_data:
+ * evd_jsonrpc_set_callbacks:
+ * @method_call_cb: (scope notified) (allow-none):
+ * @notification_cb: (scope notified) (allow-none):
+ * @user_data: (allow-none):
+ * @user_data_free_func: (allow-none):
  *
  **/
 void
-evd_jsonrpc_set_method_call_callback (EvdJsonrpc             *self,
-                                      EvdJsonrpcMethodCallCb  callback,
-                                      gpointer                user_data)
+evd_jsonrpc_set_callbacks (EvdJsonrpc               *self,
+                           EvdJsonrpcMethodCallCb    method_call_cb,
+                           EvdJsonrpcNotificationCb  notification_cb,
+                           gpointer                  user_data,
+                           GDestroyNotify            user_data_free_func)
 {
   g_return_if_fail (EVD_IS_JSONRPC (self));
 
-  self->priv->method_call_cb = callback;
-  self->priv->method_call_cb_user_data = user_data;
+  self->priv->method_call_cb = method_call_cb;
+  self->priv->notification_cb = notification_cb;
+
+  self->priv->cb_user_data = user_data;
+  self->priv->cb_user_data_free_func = user_data_free_func;
 }
 
 /**

@@ -129,9 +129,11 @@ gboolean             evd_jsonrpc_call_method_finish           (EvdJsonrpc    *se
                                                                JsonNode     **error_json,
                                                                GError       **error);
 
-void                 evd_jsonrpc_set_method_call_callback     (EvdJsonrpc             *self,
-                                                               EvdJsonrpcMethodCallCb  callback,
-                                                               gpointer                user_data);
+void                 evd_jsonrpc_set_callbacks                (EvdJsonrpc               *self,
+                                                               EvdJsonrpcMethodCallCb    method_call_cb,
+                                                               EvdJsonrpcNotificationCb  notification_cb,
+                                                               gpointer                  user_data,
+                                                               GDestroyNotify            user_data_free_func);
 
 gboolean             evd_jsonrpc_respond                      (EvdJsonrpc  *self,
                                                                guint        invocation_id,
