@@ -58,6 +58,16 @@ typedef void (* EvdJsonrpcMethodCallCb) (EvdJsonrpc  *self,
                                          gpointer     context,
                                          gpointer     user_data);
 
+/**
+ * EvdJsonrpcNotificationCb:
+ * @context: (type GObject):
+ **/
+typedef void (* EvdJsonrpcNotificationCb) (EvdJsonrpc  *self,
+                                           const gchar *notification_name,
+                                           JsonNode    *params,
+                                           gpointer     context,
+                                           gpointer     user_data);
+
 struct _EvdJsonrpc
 {
   GObject parent;
