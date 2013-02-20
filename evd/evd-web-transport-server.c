@@ -768,31 +768,22 @@ evd_web_transport_server_on_request (EvdWebService     *web_service,
       EvdPeer *peer;
       EvdTransport *current_transport;
 
-      if (uri->query == NULL ||
+      if (uri->query != NULL &&
           (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
-                                             uri->query)) == NULL)
+                                             uri->query)) != NULL)
         {
-          EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
-                                                     conn,
-                                                     SOUP_STATUS_NOT_FOUND,
-                                                     NULL,
-                                                     NULL,
-                                                     0,
-                                                     NULL);
-          return;
-        }
+          evd_peer_touch (peer);
 
-      evd_peer_touch (peer);
-
-      current_transport = EVD_TRANSPORT (g_object_get_data (G_OBJECT (peer),
-                                                            PEER_DATA_KEY));
-      if (current_transport != EVD_TRANSPORT (actual_service))
-        {
-          g_object_ref (actual_service);
-          g_object_set_data_full (G_OBJECT (peer),
-                                  PEER_DATA_KEY,
-                                  actual_service,
-                                  g_object_unref);
+          current_transport = EVD_TRANSPORT (g_object_get_data (G_OBJECT (peer),
+                                                                PEER_DATA_KEY));
+          if (current_transport != EVD_TRANSPORT (actual_service))
+            {
+              g_object_ref (actual_service);
+              g_object_set_data_full (G_OBJECT (peer),
+                                      PEER_DATA_KEY,
+                                      actual_service,
+                                      g_object_unref);
+            }
         }
 
       evd_web_service_add_connection_with_request (EVD_WEB_SERVICE (actual_service),
