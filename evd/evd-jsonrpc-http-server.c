@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -128,9 +128,11 @@ evd_jsonrpc_http_server_init (EvdJsonrpcHttpServer *self)
   self->priv = priv;
 
   priv->rpc = evd_jsonrpc_new ();
-  evd_jsonrpc_set_method_call_callback (priv->rpc,
-                                        jsonrpc_on_method_call,
-                                        self);
+  evd_jsonrpc_set_callbacks (priv->rpc,
+                             jsonrpc_on_method_call,
+                             NULL,
+                             self,
+                             NULL);
 
   evd_jsonrpc_transport_set_send_callback (priv->rpc,
                                            jsonrpc_on_send,
