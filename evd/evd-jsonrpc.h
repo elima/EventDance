@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -57,6 +57,16 @@ typedef void (* EvdJsonrpcMethodCallCb) (EvdJsonrpc  *self,
                                          guint        invocation_id,
                                          gpointer     context,
                                          gpointer     user_data);
+
+/**
+ * EvdJsonrpcNotificationCb:
+ * @context: (type GObject):
+ **/
+typedef void (* EvdJsonrpcNotificationCb) (EvdJsonrpc  *self,
+                                           const gchar *notification_name,
+                                           JsonNode    *params,
+                                           gpointer     context,
+                                           gpointer     user_data);
 
 struct _EvdJsonrpc
 {
