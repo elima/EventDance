@@ -206,6 +206,14 @@ io_stream_group_remove (EvdIoStreamGroup *io_stream_group,
         {
           g_object_set_data (G_OBJECT (peer), PEER_DATA_KEY, NULL);
           conn_data->peer = NULL;
+
+          if (evd_peer_get_transport (peer) == EVD_TRANSPORT (io_stream_group))
+            {
+              evd_transport_close_peer (EVD_TRANSPORT (io_stream_group),
+                                        peer,
+                                        FALSE,
+                                        NULL);
+            }
         }
     }
 
