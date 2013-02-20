@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -116,10 +116,6 @@ static void     evd_web_transport_server_open                 (EvdTransport     
                                                                GSimpleAsyncResult *async_result,
                                                                GCancellable       *cancellable);
 
-static void     evd_web_transport_server_on_receive           (EvdTransport *transport,
-                                                               EvdPeer      *peer,
-                                                               gpointer      user_data);
-
 static gboolean evd_web_transport_server_send                 (EvdTransport    *transport,
                                                                EvdPeer         *peer,
                                                                const gchar     *buffer,
@@ -141,11 +137,6 @@ static gboolean evd_web_transport_server_accept_peer          (EvdTransport *tra
                                                                EvdPeer      *peer);
 static gboolean evd_web_transport_server_reject_peer          (EvdTransport *transport,
                                                                EvdPeer      *peer);
-
-static void     evd_web_transport_server_connect_signals      (EvdWebTransportServer *self,
-                                                               EvdTransport    *transport);
-static void     evd_web_transport_server_disconnect_signals   (EvdWebTransportServer *self,
-                                                               EvdTransport    *transport);
 
 G_DEFINE_TYPE_WITH_CODE (EvdWebTransportServer, evd_web_transport_server, EVD_TYPE_WEB_DIR,
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
@@ -221,10 +212,7 @@ evd_web_transport_server_init (EvdWebTransportServer *self)
   priv->selector = NULL;
 
   priv->lp = evd_longpolling_server_new ();
-  evd_web_transport_server_connect_signals (self, EVD_TRANSPORT (priv->lp));
-
   priv->ws = evd_websocket_server_new ();
-  evd_web_transport_server_connect_signals (self, EVD_TRANSPORT (priv->ws));
 
   js_path = g_getenv ("JSLIBDIR");
   if (js_path == NULL)
@@ -249,13 +237,9 @@ evd_web_transport_server_finalize (GObject *obj)
   EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (obj);
 
   g_free (self->priv->lp_base_path);
-  evd_web_transport_server_disconnect_signals (self,
-                                               EVD_TRANSPORT (self->priv->lp));
   g_object_unref (self->priv->lp);
 
   g_free (self->priv->ws_base_path);
-  evd_web_transport_server_disconnect_signals (self,
-                                               EVD_TRANSPORT (self->priv->ws));
   g_object_unref (self->priv->ws);
 
   g_free (self->priv->hs_base_path);
@@ -322,56 +306,6 @@ evd_web_transport_server_get_property (GObject    *obj,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
     }
-}
-
-static void
-peer_on_closed (EvdTransport *transport,
-                EvdPeer      *peer,
-                gboolean      gracefully,
-                gpointer      user_data)
-{
-  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
-  EvdTransportInterface *iface;
-
-  iface = EVD_TRANSPORT_GET_INTERFACE (self);
-  iface->notify_peer_closed (EVD_TRANSPORT (self), peer, gracefully);
-}
-
-static void
-evd_web_transport_server_connect_signals (EvdWebTransportServer *self,
-                                          EvdTransport          *transport)
-{
-  g_signal_connect (transport,
-                    "receive",
-                    G_CALLBACK (evd_web_transport_server_on_receive),
-                    self);
-  g_signal_connect (transport,
-                    "peer-closed",
-                    G_CALLBACK (peer_on_closed),
-                    self);
-}
-
-static void
-evd_web_transport_server_disconnect_signals (EvdWebTransportServer *self,
-                                             EvdTransport          *transport)
-{
-  g_signal_handlers_disconnect_by_func (transport,
-                                        evd_web_transport_server_on_receive,
-                                        self);
-  g_signal_handlers_disconnect_by_func (transport,
-                                        peer_on_closed,
-                                        self);
-}
-
-static void
-evd_web_transport_server_on_receive (EvdTransport *transport,
-                                     EvdPeer      *peer,
-                                     gpointer      user_data)
-{
-  EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (user_data);
-
-  EVD_TRANSPORT_GET_INTERFACE (self)->
-    notify_receive (EVD_TRANSPORT (self), peer);
 }
 
 static gboolean
