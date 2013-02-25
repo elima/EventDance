@@ -97,9 +97,6 @@ void                 evd_jsonrpc_transport_set_send_callback  (EvdJsonrpc       
                                                                gpointer                   user_data,
                                                                GDestroyNotify             user_data_free_func);
 
-void                 evd_jsonrpc_transport_set_write_callback (EvdJsonrpc                 *self,
-                                                               EvdJsonrpcTransportWriteCb  callback,
-                                                               gpointer                    user_data) G_GNUC_DEPRECATED_FOR (evd_jsonrpc_transport_set_send_callback);
 gboolean             evd_jsonrpc_transport_read               (EvdJsonrpc   *self,
                                                                const gchar  *buffer,
                                                                gsize         size,
