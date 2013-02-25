@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -25,7 +25,7 @@
 
 #include <glib-object.h>
 
-#include <evd-transport.h>
+#include <evd-ipc-mechanism.h>
 
 G_BEGIN_DECLS
 
@@ -35,18 +35,14 @@ typedef struct _EvdDBusBridgePrivate EvdDBusBridgePrivate;
 
 struct _EvdDBusBridge
 {
-  GObject parent;
+  EvdIpcMechanism parent;
 
   EvdDBusBridgePrivate *priv;
 };
 
 struct _EvdDBusBridgeClass
 {
-  GObjectClass parent_class;
-
-  /* virtual methods */
-
-  /* signal prototypes */
+  EvdIpcMechanismClass parent_class;
 };
 
 #define EVD_TYPE_DBUS_BRIDGE           (evd_dbus_bridge_get_type ())
