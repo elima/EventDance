@@ -45,11 +45,14 @@ struct _EvdIpcMechanismClass
   GObjectClass parent_class;
 
   /* virtual/abstract methods */
-  void (* transport_receive) (EvdIpcMechanism *self,
-                              EvdTransport    *transport,
-                              EvdPeer         *peer,
-                              const guchar    *data,
-                              gsize            size);
+  void (* transport_receive)  (EvdIpcMechanism *self,
+                               EvdTransport    *transport,
+                               EvdPeer         *peer,
+                               const guchar    *data,
+                               gsize            size);
+  void (* transport_new_peer) (EvdIpcMechanism *self,
+                               EvdTransport    *transport,
+                               EvdPeer         *peer);
 
   /* padding for future expansion */
   void (* _padding_0_) (void);
