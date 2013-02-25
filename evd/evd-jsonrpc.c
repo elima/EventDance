@@ -38,9 +38,6 @@ struct _EvdJsonrpcPrivate
 {
   guint invocation_counter;
 
-  EvdJsonrpcTransportWriteCb write_cb;
-  gpointer write_cb_user_data;
-
   EvdJsonrpcTransportSendCb send_cb;
   gpointer send_cb_user_data;
   GDestroyNotify send_cb_user_data_free_func;
@@ -111,8 +108,8 @@ evd_jsonrpc_init (EvdJsonrpc *self)
 
   priv->invocation_counter = 0;
 
-  priv->write_cb = NULL;
-  priv->write_cb_user_data = NULL;
+  priv->send_cb = NULL;
+  priv->send_cb_user_data = NULL;
 
   priv->invocations = g_hash_table_new_full (g_str_hash,
                                              g_str_equal,
@@ -595,17 +592,6 @@ EvdJsonrpc *
 evd_jsonrpc_new ()
 {
   return g_object_new (EVD_TYPE_JSONRPC, NULL);
-}
-
-void
-evd_jsonrpc_transport_set_write_callback (EvdJsonrpc                 *self,
-                                          EvdJsonrpcTransportWriteCb  callback,
-                                          gpointer                    user_data)
-{
-  g_return_if_fail (EVD_IS_JSONRPC (self));
-
-  self->priv->write_cb = callback;
-  self->priv->write_cb_user_data = user_data;
 }
 
 /**
