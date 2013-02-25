@@ -28,6 +28,7 @@
 #include <json-glib/json-glib.h>
 
 #include "evd-transport.h"
+#include "evd-ipc-mechanism.h"
 
 G_BEGIN_DECLS
 
@@ -70,14 +71,14 @@ typedef void (* EvdJsonrpcNotificationCb) (EvdJsonrpc  *self,
 
 struct _EvdJsonrpc
 {
-  GObject parent;
+  EvdIpcMechanism parent;
 
   EvdJsonrpcPrivate *priv;
 };
 
 struct _EvdJsonrpcClass
 {
-  GObjectClass parent_class;
+  EvdIpcMechanismClass parent_class;
 };
 
 #define EVD_TYPE_JSONRPC           (evd_jsonrpc_get_type ())

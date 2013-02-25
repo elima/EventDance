@@ -26,7 +26,7 @@
 
 #include "evd-json-filter.h"
 
-G_DEFINE_TYPE (EvdJsonrpc, evd_jsonrpc, G_TYPE_OBJECT)
+G_DEFINE_TYPE (EvdJsonrpc, evd_jsonrpc, EVD_TYPE_IPC_MECHANISM)
 
 #define EVD_JSONRPC_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                       EVD_TYPE_JSONRPC, \
