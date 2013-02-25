@@ -38,6 +38,9 @@ static void     evd_ipc_mechanism_init            (EvdIpcMechanism *self);
 
 static void     evd_ipc_mechanism_finalize        (GObject *obj);
 
+static void     transport_on_new_peer             (EvdTransport *transport,
+                                                   EvdPeer      *peer,
+                                                   gpointer      user_data);
 static void     transport_on_receive              (EvdTransport *transport,
                                                    EvdPeer      *peer,
                                                    gpointer      user_data);
@@ -82,6 +85,9 @@ evd_ipc_mechanism_finalize (GObject *obj)
           transport = EVD_TRANSPORT (node->data);
 
           g_signal_handlers_disconnect_by_func (transport,
+                                                transport_on_new_peer,
+                                                self);
+          g_signal_handlers_disconnect_by_func (transport,
                                                 transport_on_receive,
                                                 self);
 
@@ -98,6 +104,19 @@ evd_ipc_mechanism_finalize (GObject *obj)
 }
 
 static void
+transport_on_new_peer (EvdTransport *transport,
+                       EvdPeer      *peer,
+                       gpointer      user_data)
+{
+  EvdIpcMechanism *self = EVD_IPC_MECHANISM (user_data);
+  EvdIpcMechanismClass *class;
+
+  class = EVD_IPC_MECHANISM_GET_CLASS (self);
+  if (class->transport_new_peer != NULL)
+    class->transport_new_peer (self, transport, peer);
+}
+
+static void
 transport_on_receive (EvdTransport *transport,
                       EvdPeer      *peer,
                       gpointer      user_data)
@@ -106,7 +125,7 @@ transport_on_receive (EvdTransport *transport,
   EvdIpcMechanismClass *class;
 
   class = EVD_IPC_MECHANISM_GET_CLASS (self);
-  if (class->transport_receive)
+  if (class->transport_receive != NULL)
     {
       const gchar *data;
       gsize size;
@@ -144,6 +163,10 @@ evd_ipc_mechanism_use_transport (EvdIpcMechanism *self, EvdTransport *transport)
   self->priv->transports = g_list_append (self->priv->transports, transport);
 
   g_signal_connect (transport,
+                    "new-peer",
+                    G_CALLBACK (transport_on_new_peer),
+                    self);
+  g_signal_connect (transport,
                     "receive",
                     G_CALLBACK (transport_on_receive),
                     self);
@@ -161,6 +184,9 @@ evd_ipc_mechanism_unuse_transport (EvdIpcMechanism *self,
   if (g_list_find (self->priv->transports, transport) == NULL)
     return;
 
+  g_signal_handlers_disconnect_by_func (transport,
+                                        transport_on_new_peer,
+                                        self);
   g_signal_handlers_disconnect_by_func (transport,
                                         transport_on_receive,
                                         self);
