@@ -57,9 +57,6 @@ GType                   evd_dbus_bridge_get_type                (void) G_GNUC_CO
 
 EvdDBusBridge *         evd_dbus_bridge_new                     (void);
 
-void                    evd_dbus_bridge_add_transport           (EvdDBusBridge *self,
-                                                                 EvdTransport  *transport);
-
 #ifdef ENABLE_TESTS
 /* only for testing purposes, DO NOT use in your programs */
 

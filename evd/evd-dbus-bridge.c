@@ -151,6 +151,15 @@ static void     evd_dbus_bridge_on_reg_obj_call_method (GObject     *object,
                                                         guint64      serial,
                                                         gpointer     user_data);
 
+static void     transport_on_new_peer                  (EvdIpcMechanism *ipc_mechanism,
+                                                        EvdTransport    *transport,
+                                                        EvdPeer         *peer);
+static void     transport_on_receive                   (EvdIpcMechanism *self,
+                                                        EvdTransport    *transport,
+                                                        EvdPeer         *peer,
+                                                        const guchar    *data,
+                                                        gsize            size);
+
 #ifndef ENABLE_TESTS
 void            evd_dbus_bridge_process_msg            (EvdDBusBridge *self,
                                                         GObject       *object,
@@ -162,9 +171,13 @@ static void
 evd_dbus_bridge_class_init (EvdDBusBridgeClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  EvdIpcMechanismClass *ipc_mechanism_class = EVD_IPC_MECHANISM_CLASS (class);
 
   obj_class->dispose = evd_dbus_bridge_dispose;
   obj_class->finalize = evd_dbus_bridge_finalize;
+
+  ipc_mechanism_class->transport_receive = transport_on_receive;
+  ipc_mechanism_class->transport_new_peer = transport_on_new_peer;
 
   g_type_class_add_private (obj_class, sizeof (EvdDBusBridgePrivate));
 }
@@ -1349,11 +1362,11 @@ evd_dbus_bridge_emit_signal (EvdDBusBridge *self,
 }
 
 static void
-evd_dbus_bridge_on_transport_new_peer (EvdTransport *transport,
-                                       EvdPeer      *peer,
-                                       gpointer      user_data)
+transport_on_new_peer (EvdIpcMechanism *ipc_mechanism,
+                       EvdTransport    *transport,
+                       EvdPeer         *peer)
 {
-  EvdDBusBridge *self = EVD_DBUS_BRIDGE (user_data);
+  EvdDBusBridge *self = EVD_DBUS_BRIDGE (ipc_mechanism);
 
   evd_dbus_agent_set_object_vtable (G_OBJECT (peer),
                                     &self->priv->agent_vtable,
@@ -1361,19 +1374,16 @@ evd_dbus_bridge_on_transport_new_peer (EvdTransport *transport,
 }
 
 static void
-evd_dbus_bridge_on_transport_receive (EvdTransport *transport,
-                                      EvdPeer      *peer,
-                                      gpointer      user_data)
+transport_on_receive (EvdIpcMechanism *ipc_mechanism,
+                      EvdTransport    *transport,
+                      EvdPeer         *peer,
+                      const guchar    *data,
+                      gsize            size)
 {
-  const gchar *buf;
-  gsize len;
-
-  buf = evd_transport_receive (transport, peer, &len);
-
-  evd_dbus_bridge_process_msg (EVD_DBUS_BRIDGE (user_data),
+  evd_dbus_bridge_process_msg (EVD_DBUS_BRIDGE (ipc_mechanism),
                                G_OBJECT (peer),
-                               buf,
-                               len);
+                               (const gchar *) data,
+                               size);
 }
 
 /* public methods */
@@ -1386,25 +1396,6 @@ evd_dbus_bridge_new (void)
   self = g_object_new (EVD_TYPE_DBUS_BRIDGE, NULL);
 
   return self;
-}
-
-void
-evd_dbus_bridge_add_transport (EvdDBusBridge *self, EvdTransport *transport)
-{
-  g_return_if_fail (EVD_IS_DBUS_BRIDGE (self));
-  g_return_if_fail (EVD_IS_TRANSPORT (transport));
-
-  g_object_ref (transport);
-
-  g_signal_connect (transport,
-                    "new-peer",
-                    G_CALLBACK (evd_dbus_bridge_on_transport_new_peer),
-                    self);
-
-  g_signal_connect (transport,
-                    "receive",
-                    G_CALLBACK (evd_dbus_bridge_on_transport_receive),
-                    self);
 }
 
 void
