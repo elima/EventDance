@@ -97,12 +97,6 @@ void                 evd_jsonrpc_transport_set_send_callback  (EvdJsonrpc       
                                                                gpointer                   user_data,
                                                                GDestroyNotify             user_data_free_func);
 
-gboolean             evd_jsonrpc_transport_read               (EvdJsonrpc   *self,
-                                                               const gchar  *buffer,
-                                                               gsize         size,
-                                                               gpointer      context,
-                                                               GError      **error) G_GNUC_DEPRECATED_FOR (evd_jsonrpc_transport_receive);
-
 gboolean             evd_jsonrpc_transport_receive            (EvdJsonrpc    *self,
                                                                const gchar   *message,
                                                                gpointer       context,

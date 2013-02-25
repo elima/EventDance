@@ -771,28 +771,6 @@ evd_jsonrpc_call_method_finish (EvdJsonrpc    *self,
 }
 
 gboolean
-evd_jsonrpc_transport_read (EvdJsonrpc   *self,
-                            const gchar  *buffer,
-                            gsize         size,
-                            gpointer      context,
-                            GError      **error)
-{
-  gboolean result;
-
-  g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
-  g_return_val_if_fail (buffer != NULL, FALSE);
-
-  self->priv->context = context;
-  result = evd_json_filter_feed_len (self->priv->json_filter,
-                                     buffer,
-                                     size,
-                                     error);
-  self->priv->context = NULL;
-
-  return result;
-}
-
-gboolean
 evd_jsonrpc_transport_receive (EvdJsonrpc    *self,
                                const gchar   *message,
                                gpointer       context,
