@@ -3,7 +3,7 @@
  *
  * EventDance examples
  *
- * Copyright (C) 2010, 2011 Igalia S.L.
+ * Copyright (C) 2010-2013 Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -74,7 +74,8 @@ main (gint argc, gchar *argv[])
 
   /* DBus bridge */
   dbus_bridge = evd_dbus_bridge_new ();
-  evd_dbus_bridge_add_transport (dbus_bridge, EVD_TRANSPORT (transport));
+  evd_ipc_mechanism_use_transport (EVD_IPC_MECHANISM (dbus_bridge),
+                                   EVD_TRANSPORT (transport));
 
   /* web dir */
   web_dir = evd_web_dir_new ();
