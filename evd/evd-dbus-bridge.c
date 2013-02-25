@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -27,7 +27,7 @@
 #include "evd-utils.h"
 #include "evd-dbus-agent.h"
 
-G_DEFINE_TYPE (EvdDBusBridge, evd_dbus_bridge, G_TYPE_OBJECT)
+G_DEFINE_TYPE (EvdDBusBridge, evd_dbus_bridge, EVD_TYPE_IPC_MECHANISM)
 
 #define EVD_DBUS_BRIDGE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                           EVD_TYPE_DBUS_BRIDGE, \
