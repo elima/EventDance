@@ -55,8 +55,6 @@ struct _EvdJsonrpcPrivate
   EvdJsonrpcNotificationCb notification_cb;
   gpointer cb_user_data;
   GDestroyNotify cb_user_data_free_func;
-
-  GHashTable *transports;
 };
 
 typedef struct
@@ -82,11 +80,11 @@ static void     evd_jsonrpc_on_json_packet       (EvdJsonFilter *self,
                                                   gsize          size,
                                                   gpointer       user_data);
 
-static void     evd_jsonrpc_transport_destroyed  (gpointer  data,
-                                                  GObject  *where_the_object_was);
-static void     evd_jsonrpc_transport_on_receive (EvdTransport *transport,
-                                                  EvdPeer      *peer,
-                                                  gpointer      user_data);
+static void     transport_on_receive             (EvdIpcMechanism *ipc_mechanism,
+                                                  EvdTransport    *transport,
+                                                  EvdPeer         *peer,
+                                                  const guchar    *data,
+                                                  gsize            size);
 
 static void     free_invocation_data             (InvocationData *data);
 
@@ -94,8 +92,11 @@ static void
 evd_jsonrpc_class_init (EvdJsonrpcClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
+  EvdIpcMechanismClass *ipc_mechanism_class = EVD_IPC_MECHANISM_CLASS (class);
 
   obj_class->finalize = evd_jsonrpc_finalize;
+
+  ipc_mechanism_class->transport_receive = transport_on_receive;
 
   g_type_class_add_private (obj_class, sizeof (EvdJsonrpcPrivate));
 }
@@ -129,31 +130,12 @@ evd_jsonrpc_init (EvdJsonrpc *self)
   priv->notification_cb = NULL;
   priv->cb_user_data = NULL;
   priv->cb_user_data_free_func = NULL;
-
-  priv->transports = g_hash_table_new (g_direct_hash, g_direct_equal);
 }
 
 static void
 evd_jsonrpc_finalize (GObject *obj)
 {
   EvdJsonrpc *self = EVD_JSONRPC (obj);
-  GHashTableIter iter;
-  gpointer key, value;
-
-  g_hash_table_iter_init (&iter, self->priv->transports);
-  while (g_hash_table_iter_next (&iter, &key, &value))
-    {
-      GObject *transport = value;
-
-      g_object_weak_unref (transport,
-                           evd_jsonrpc_transport_destroyed,
-                           self);
-
-      g_signal_handlers_disconnect_by_func (transport,
-                                            evd_jsonrpc_transport_on_receive,
-                                            self);
-    }
-  g_hash_table_unref (self->priv->transports);
 
   g_object_unref (self->priv->json_filter);
 
@@ -166,15 +148,6 @@ evd_jsonrpc_finalize (GObject *obj)
     }
 
   G_OBJECT_CLASS (evd_jsonrpc_parent_class)->finalize (obj);
-}
-
-static void
-evd_jsonrpc_transport_destroyed (gpointer  data,
-                                 GObject  *where_the_object_was)
-{
-  EvdJsonrpc *self = EVD_JSONRPC (data);
-
-  g_hash_table_remove (self->priv->transports, where_the_object_was);
 }
 
 static gchar *
@@ -530,16 +503,15 @@ evd_jsonrpc_transport_write (EvdJsonrpc   *self,
 }
 
 static void
-evd_jsonrpc_transport_on_receive (EvdTransport *transport,
-                                  EvdPeer      *peer,
-                                  gpointer      user_data)
+transport_on_receive (EvdIpcMechanism *ipc_mechanism,
+                      EvdTransport    *transport,
+                      EvdPeer         *peer,
+                      const guchar    *data,
+                      gsize            size)
 {
-  EvdJsonrpc *self = EVD_JSONRPC (user_data);
-  const gchar *data;
+  EvdJsonrpc *self = EVD_JSONRPC (ipc_mechanism);
 
-  data = evd_transport_receive_text (transport, peer);
-
-  evd_jsonrpc_transport_receive (self, data, peer, 0, NULL);
+  evd_jsonrpc_transport_receive (self, (const gchar *) data, peer, 0, NULL);
 }
 
 static gboolean
@@ -960,42 +932,6 @@ evd_jsonrpc_respond_from_error (EvdJsonrpc  *self,
   json_node_free (result_node);
 
   return result;
-}
-
-void
-evd_jsonrpc_use_transport (EvdJsonrpc *self, EvdTransport *transport)
-{
-  g_return_if_fail (EVD_IS_JSONRPC (self));
-  g_return_if_fail (EVD_IS_TRANSPORT (transport));
-
-  g_signal_connect (transport,
-                    "receive",
-                    G_CALLBACK (evd_jsonrpc_transport_on_receive),
-                    self);
-
-  g_object_weak_ref (G_OBJECT (transport),
-                     evd_jsonrpc_transport_destroyed,
-                     self);
-
-  g_hash_table_insert (self->priv->transports, transport, transport);
-}
-
-void
-evd_jsonrpc_unuse_transport (EvdJsonrpc *self, EvdTransport *transport)
-{
-  g_return_if_fail (EVD_IS_JSONRPC (self));
-  g_return_if_fail (EVD_IS_TRANSPORT (transport));
-
-  if (g_hash_table_remove (self->priv->transports, transport))
-    {
-      g_object_weak_unref (G_OBJECT (transport),
-                           evd_jsonrpc_transport_destroyed,
-                           self);
-
-      g_signal_handlers_disconnect_by_func (transport,
-                                            evd_jsonrpc_transport_on_receive,
-                                            self);
-    }
 }
 
 /**

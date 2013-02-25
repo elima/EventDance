@@ -28,7 +28,6 @@
 #include <json-glib/json-glib.h>
 
 #include <evd-ipc-mechanism.h>
-#include <evd-transport.h>
 
 G_BEGIN_DECLS
 
@@ -151,11 +150,6 @@ gboolean             evd_jsonrpc_respond_from_error           (EvdJsonrpc  *self
                                                                GError      *result_error,
                                                                gpointer     context,
                                                                GError     **error);
-
-void                 evd_jsonrpc_use_transport                (EvdJsonrpc   *self,
-                                                               EvdTransport *transport);
-void                 evd_jsonrpc_unuse_transport              (EvdJsonrpc   *self,
-                                                               EvdTransport *transport);
 
 gboolean             evd_jsonrpc_send_notification            (EvdJsonrpc   *self,
                                                                const gchar  *notification_name,
