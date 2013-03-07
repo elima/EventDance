@@ -388,8 +388,9 @@ group_remove_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
       return FALSE;
     }
 
-  if (g_queue_remove (self->priv->conns, io_stream))
-    g_object_ref (io_stream);
+  g_queue_remove (self->priv->conns, io_stream);
+
+  g_object_unref (io_stream);
 
   return TRUE;
 }
