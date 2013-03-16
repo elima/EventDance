@@ -1,5 +1,7 @@
-if (! window["Evd"] || typeof (window["Evd"]) != "object")
-    window["Evd"] = {};
+(function () {
+
+function defineEvd () {
+    var Evd = {};
 
 if (! Evd["Object"] || typeof (Evd["Object"]) != "object") {
     // Evd.Constructor
@@ -781,3 +783,13 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
         this._fireEvent ("close", [gracefully]);
     }
 });
+
+    return Evd;
+} // defineEvd()
+
+     if (window["define"] && define.constructor == Function && define.amd)
+         define ([], defineEvd);
+     else
+         window["Evd"] = defineEvd ();
+
+}) ();

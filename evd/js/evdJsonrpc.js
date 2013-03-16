@@ -1,8 +1,12 @@
-// Evd.Jsonrpc
-Evd.Jsonrpc = new Evd.Constructor ();
-Evd.Jsonrpc.prototype = new Evd.Object ();
+(function () {
 
-Evd.Object.extend (Evd.Jsonrpc.prototype, {
+function defineJsonRpc (Evd) {
+
+// Evd.Jsonrpc
+var Jsonrpc = new Evd.Constructor ();
+Jsonrpc.prototype = new Evd.Object ();
+
+Evd.Object.extend (Jsonrpc.prototype, {
     _init: function (args) {
         this._invocationCounter = 0;
 
@@ -188,3 +192,15 @@ Evd.Object.extend (Evd.Jsonrpc.prototype, {
         this._transportWrite (msgSt, context);
     }
 });
+
+    return Object.freeze (Jsonrpc);
+} // defineJsonrpc()
+
+     if (window["define"] && define.constructor == Function && define.amd)
+         define (["./evdWebTransport.js"], defineJsonRpc);
+     else if (! window["Evd"])
+         throw ("Evd namespace not found, you need evdWebTransport.js");
+     else
+         window.Evd.Jsonrpc = defineJsonrpc (Evd);
+
+}) ();
