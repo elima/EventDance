@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -260,7 +260,7 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
   res = g_simple_async_result_new (G_OBJECT (self),
                                    callback,
                                    user_data,
-                                   evd_pki_pubkey_decrypt);
+                                   evd_pki_pubkey_encrypt);
 
   /* pack message into an S-expression */
   err = gcry_sexp_build (&data_sexp,
@@ -305,7 +305,7 @@ evd_pki_pubkey_encrypt_finish (EvdPkiPubkey  *self,
   g_return_val_if_fail (EVD_IS_PKI_PUBKEY (self), NULL);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                         G_OBJECT (self),
-                                                        evd_pki_pubkey_decrypt),
+                                                        evd_pki_pubkey_encrypt),
                         NULL);
 
   if (! g_simple_async_result_propagate_error (res, error))
@@ -324,24 +324,4 @@ evd_pki_pubkey_encrypt_finish (EvdPkiPubkey  *self,
     }
   else
     return NULL;
-}
-
-void
-evd_pki_pubkey_decrypt (EvdPkiPubkey        *self,
-                        const gchar         *data,
-                        gsize                size,
-                        GCancellable        *cancellable,
-                        GAsyncReadyCallback  callback,
-                        gpointer             user_data)
-{
-  evd_pki_pubkey_encrypt (self, data, size, cancellable, callback, user_data);
-}
-
-gchar *
-evd_pki_pubkey_decrypt_finish (EvdPkiPubkey  *self,
-                               GAsyncResult  *result,
-                               gsize         *size,
-                               GError       **error)
-{
-  return evd_pki_pubkey_encrypt_finish (self, result, size, error);
 }
