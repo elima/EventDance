@@ -52,7 +52,6 @@ static void     evd_pki_privkey_class_init         (EvdPkiPrivkeyClass *class);
 static void     evd_pki_privkey_init               (EvdPkiPrivkey *self);
 
 static void     evd_pki_privkey_finalize           (GObject *obj);
-static void     evd_pki_privkey_dispose            (GObject *obj);
 
 static void     evd_pki_privkey_get_property       (GObject    *obj,
                                                     guint       prop_id,
@@ -66,7 +65,6 @@ evd_pki_privkey_class_init (EvdPkiPrivkeyClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_pki_privkey_dispose;
   obj_class->finalize = evd_pki_privkey_finalize;
   obj_class->get_property = evd_pki_privkey_get_property;
 
@@ -95,12 +93,6 @@ evd_pki_privkey_init (EvdPkiPrivkey *self)
   priv->key_sexp = NULL;
 
   self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
-}
-
-static void
-evd_pki_privkey_dispose (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_pki_privkey_parent_class)->dispose (obj);
 }
 
 static void
