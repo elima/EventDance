@@ -202,91 +202,6 @@ load_cert_and_key (Fixture     *f,
 }
 
 static void
-pubkey_on_decrypt (GObject      *obj,
-                   GAsyncResult *res,
-                   gpointer      user_data)
-{
-  Fixture *f = user_data;
-  GError *error = NULL;
-  gsize size;
-
-  f->out_data = evd_pki_pubkey_decrypt_finish (EVD_PKI_PUBKEY (obj),
-                                               res,
-                                               &size,
-                                               &error);
-
-  if (f->test_case->error_code == 0)
-    {
-      g_assert_no_error (error);
-      g_assert (f->out_data != NULL);
-      g_assert_cmpint (size, ==, strlen (msg));
-      g_assert (compare_strings (f->out_data, msg, size));
-    }
-  else
-    {
-      g_assert_error (error,
-                      f->test_case->error_domain,
-                      f->test_case->error_code);
-    }
-
-  g_idle_add (quit, f->main_loop);
-}
-
-static void
-privkey_on_encrypt (GObject      *obj,
-                    GAsyncResult *res,
-                    gpointer      user_data)
-{
-  Fixture *f = user_data;
-  GError *error = NULL;
-  gsize size;
-
-  f->enc_data = evd_pki_privkey_encrypt_finish (EVD_PKI_PRIVKEY (obj),
-                                                res,
-                                                &size,
-                                                &error);
-  if (f->test_case->error_code == 0)
-    {
-      g_assert_no_error (error);
-      g_assert (f->enc_data != NULL);
-      g_assert_cmpint (size, >, 0);
-
-      evd_pki_pubkey_decrypt (f->pubkey,
-                              f->enc_data,
-                              size,
-                              NULL,
-                              pubkey_on_decrypt,
-                              f);
-    }
-  else
-    {
-      g_assert_error (error,
-                      f->test_case->error_domain,
-                      f->test_case->error_code);
-
-      g_idle_add (quit, f->main_loop);
-    }
-}
-
-static void
-test_privkey_encrypt (Fixture       *f,
-                      gconstpointer  test_data)
-{
-  load_cert_and_key (f,
-                     f->test_case->cert_filename,
-                     f->test_case->key_filename);
-
-  evd_pki_privkey_encrypt (f->privkey,
-                           msg,
-                           strlen (msg),
-                           NULL,
-                           privkey_on_encrypt,
-                           f);
-
-  g_main_loop_run (f->main_loop);
-}
-
-static void
 privkey_on_decrypt (GObject      *obj,
                     GAsyncResult *res,
                     gpointer      user_data)
@@ -443,21 +358,8 @@ main (gint argc, gchar *argv[])
     {
       gchar *test_name;
 
-      /* encrypt with private key, decrypt with public */
-      test_name = g_strdup_printf ("/evd/pki/%s/enc-priv/dec-pub",
-                                   test_cases[i].test_name);
-
-      g_test_add (test_name,
-                  Fixture,
-                  &test_cases[i],
-                  fixture_setup,
-                  test_privkey_encrypt,
-                  fixture_teardown);
-
-      g_free (test_name);
-
       /* encrypt with public key, decrypt with private */
-      test_name = g_strdup_printf ("/evd/pki/%s/enc-pub/dec-priv",
+      test_name = g_strdup_printf ("/evd/pki/%s/encrypt-decrypt",
                                    test_cases[i].test_name);
 
       g_test_add (test_name,
