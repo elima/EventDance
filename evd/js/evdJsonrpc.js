@@ -104,8 +104,10 @@ Evd.Object.extend (Jsonrpc.prototype, {
     },
 
     _transportWrite: function (msg, context) {
-        if (context && typeof (context) == "object" &&
-            context.__proto__.constructor == Evd.Peer) {
+        /* @TODO: when using require.js AMD, context.prototype is not
+           referentially equal to Evd.Peer. A bug in require.js? */
+        if (context && typeof (context) == "object"/* &&
+            context.prototype == Evd.Peer.prototype*/) {
             context.sendText (msg);
         }
         else if (this._transportWriteCb) {
