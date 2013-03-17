@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -77,17 +77,6 @@ void               evd_pki_pubkey_encrypt                 (EvdPkiPubkey       *s
                                                            GAsyncReadyCallback  callback,
                                                            gpointer             user_data);
 gchar *            evd_pki_pubkey_encrypt_finish          (EvdPkiPubkey  *self,
-                                                           GAsyncResult   *result,
-                                                           gsize          *size,
-                                                           GError        **error);
-
-void               evd_pki_pubkey_decrypt                 (EvdPkiPubkey       *self,
-                                                           const gchar         *data,
-                                                           gsize                size,
-                                                           GCancellable        *cancellable,
-                                                           GAsyncReadyCallback  callback,
-                                                           gpointer             user_data);
-gchar *            evd_pki_pubkey_decrypt_finish          (EvdPkiPubkey  *self,
                                                            GAsyncResult   *result,
                                                            gsize          *size,
                                                            GError        **error);
