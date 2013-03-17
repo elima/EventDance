@@ -52,7 +52,6 @@ static void     evd_pki_pubkey_class_init         (EvdPkiPubkeyClass *class);
 static void     evd_pki_pubkey_init               (EvdPkiPubkey *self);
 
 static void     evd_pki_pubkey_finalize           (GObject *obj);
-static void     evd_pki_pubkey_dispose            (GObject *obj);
 
 static void     evd_pki_pubkey_get_property       (GObject    *obj,
                                                    guint       prop_id,
@@ -66,7 +65,6 @@ evd_pki_pubkey_class_init (EvdPkiPubkeyClass *class)
 
   obj_class = G_OBJECT_CLASS (class);
 
-  obj_class->dispose = evd_pki_pubkey_dispose;
   obj_class->finalize = evd_pki_pubkey_finalize;
   obj_class->get_property = evd_pki_pubkey_get_property;
 
@@ -95,12 +93,6 @@ evd_pki_pubkey_init (EvdPkiPubkey *self)
   priv->key_sexp = NULL;
 
   self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
-}
-
-static void
-evd_pki_pubkey_dispose (GObject *obj)
-{
-  G_OBJECT_CLASS (evd_pki_pubkey_parent_class)->dispose (obj);
 }
 
 static void
