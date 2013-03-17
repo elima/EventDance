@@ -96,14 +96,19 @@ Evd.Object.extend (Evd.Peer.prototype, {
     },
 
     close: function (gracefully) {
-        if (! this._closed) {
-            this._closed = true;
+        if (this._closed)
+            return;
 
-            if (gracefully == undefined)
-                gracefully = true;
+        this._closed = true;
 
-            this.transport.closePeer (this, gracefully);
-        }
+        if (gracefully == undefined)
+            gracefully = true;
+
+        this.transport.closePeer (this, gracefully);
+    },
+
+    isClosed: function () {
+        return this._closed;
     }
 });
 
@@ -646,7 +651,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
 
     _onReceive: function (msgs, error) {
         if (! error) {
-            if (! this._peer)
+            if (! this._peer || this._peer.isClosed ())
                 return;
 
             this._dispatching = true;
