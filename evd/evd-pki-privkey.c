@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -332,24 +332,4 @@ evd_pki_privkey_decrypt_finish (EvdPkiPrivkey  *self,
     }
   else
     return NULL;
-}
-
-void
-evd_pki_privkey_encrypt (EvdPkiPrivkey       *self,
-                         const gchar         *data,
-                         gsize                size,
-                         GCancellable        *cancellable,
-                         GAsyncReadyCallback  callback,
-                         gpointer             user_data)
-{
-  evd_pki_privkey_decrypt (self, data, size, cancellable, callback, user_data);
-}
-
-gchar *
-evd_pki_privkey_encrypt_finish (EvdPkiPrivkey  *self,
-                                GAsyncResult   *result,
-                                gsize          *size,
-                                GError        **error)
-{
-  return evd_pki_privkey_decrypt_finish (self, result, size, error);
 }

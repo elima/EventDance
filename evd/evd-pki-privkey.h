@@ -70,17 +70,6 @@ gboolean           evd_pki_privkey_import                  (EvdPkiPrivkey  *self
                                                             gsize               len,
                                                             GError            **error);
 
-void               evd_pki_privkey_encrypt                 (EvdPkiPrivkey       *self,
-                                                            const gchar         *data,
-                                                            gsize                size,
-                                                            GCancellable        *cancellable,
-                                                            GAsyncReadyCallback  callback,
-                                                            gpointer             user_data);
-gchar *            evd_pki_privkey_encrypt_finish          (EvdPkiPrivkey  *self,
-                                                            GAsyncResult   *result,
-                                                            gsize          *size,
-                                                            GError        **error);
-
 void               evd_pki_privkey_decrypt                 (EvdPkiPrivkey       *self,
                                                             const gchar         *data,
                                                             gsize                size,
