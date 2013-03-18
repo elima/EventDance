@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -494,7 +494,6 @@ spawn_test (gconstpointer test_data)
 gint
 main (gint argc, gchar *argv[])
 {
-  GDBusConnection *dbus_conn;
   GError *error = NULL;
   GOptionContext *context;
 

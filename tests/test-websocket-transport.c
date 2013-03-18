@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -302,7 +302,6 @@ gint
 main (gint argc, gchar *argv[])
 {
   gint exit_code;
-  GError *error = NULL;
   gint i;
 
   g_type_init ();

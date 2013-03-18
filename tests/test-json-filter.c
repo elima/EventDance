@@ -3,7 +3,7 @@
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
- * Copyright (C) 2009, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -30,15 +30,15 @@
 
 static const gchar *evd_json_filter_chunks[] =
 {
-  " \ \  [\"hell",
-  "o world!\"\, 1, 4\, fal",
+  "   [\"hell",
+  "o world!\", 1, 4, fal",
   "se,    456, 4,   ",
   "null]      {\"foo\":1234} "
 };
 
 static const gchar *evd_json_filter_packets[] =
 {
-  "[\"hello world!\"\, 1, 4\, false,    456, 4,   null]",
+  "[\"hello world!\", 1, 4, false,    456, 4,   null]",
   "{\"foo\":1234} "
 };
 
@@ -91,9 +91,7 @@ evd_json_filter_test_basic (EvdJsonFilterFixture *f,
     {
       "{}",
       "[]",
-      "\{\}",
-      "\[\]",
-      " \ { \ } \ [ \ ] \ ",
+      "  {  }  [  ] ",
       "{\"foo\":123}",
       "[null,true,false]",
       "[1, 0.01, 3.12e5, -666.99E+12, -0.23e-5]",

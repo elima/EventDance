@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -93,7 +93,6 @@ socket_on_new_connection (EvdSocket     *socket,
                           gpointer       user_data)
 {
   Fixture *f = user_data;
-  EvdIoStreamGroup *group;
 
   g_assert (conn != NULL);
   g_assert (EVD_IS_CONNECTION (conn));
