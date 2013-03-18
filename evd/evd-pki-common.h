@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -32,7 +32,9 @@ typedef enum
 {
   EVD_PKI_KEY_TYPE_UNKNOWN = GNUTLS_PK_UNKNOWN,
   EVD_PKI_KEY_TYPE_RSA     = GNUTLS_PK_RSA,
-  EVD_PKI_KEY_TYPE_DSA     = GNUTLS_PK_DSA
+  EVD_PKI_KEY_TYPE_DSA     = GNUTLS_PK_DSA,
+  EVD_PKI_KEY_TYPE_DH      = GNUTLS_PK_DH,
+  EVD_PKI_KEY_TYPE_EC      = GNUTLS_PK_EC
 } EvdPkiKeyType;
 
 G_END_DECLS
