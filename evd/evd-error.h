@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010/2011, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -68,6 +68,9 @@ typedef enum
 void         evd_error_build_gnutls         (gint     gnutls_error,
                                              GError **error);
 void         evd_error_build_gcrypt         (guint    gcrypt_error,
+                                             GError **error);
+
+gboolean     evd_error_propagate_gnutls     (gint     gnutls_error_code,
                                              GError **error);
 
 #endif /* __EVD_ERROR_H__ */
