@@ -3,7 +3,7 @@
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -312,9 +312,6 @@ test_gen_key_pair (Fixture       *f,
                    gconstpointer  test_data)
 {
   EvdPkiKeyType type = * ((EvdPkiKeyType *) test_data);
-
-  g_assert (evd_pki_generate_key_pair != NULL);
-  g_assert (evd_pki_generate_key_pair_finish != NULL);
 
   evd_pki_generate_key_pair (type,
                              1024,

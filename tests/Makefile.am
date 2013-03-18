@@ -12,8 +12,12 @@ AM_CFLAGS = \
 	-DTESTS_DIR="\"$(tests_dir)\"" \
 	-I$(top_srcdir)/evd
 
+if ENABLE_TESTS
+AM_CFLAGS += -DENABLE_TESTS
+endif
+
 if ENABLE_DEBUG
-AM_CFLAGS += -g3 -O0 -ggdb
+AM_CFLAGS += -g3 -O0 -ggdb -Wall -Werror
 endif
 
 AM_LIBS = \
