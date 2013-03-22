@@ -29,7 +29,7 @@
 
 #include <glib-object.h>
 #include <gio/gio.h>
-#include <gnutls/gnutls.h>
+#include <gnutls/abstract.h>
 
 #include "evd-pki-common.h"
 
@@ -65,14 +65,9 @@ EvdPkiPrivkey *    evd_pki_privkey_new                     (void);
 
 EvdPkiKeyType      evd_pki_privkey_get_key_type            (EvdPkiPrivkey  *self);
 
-gboolean           evd_pki_privkey_import_native           (EvdPkiPrivkey  *self,
-                                                            gpointer        privkey_st,
-                                                            GError        **error);
-
-gboolean           evd_pki_privkey_import                  (EvdPkiPrivkey  *self,
-                                                            const gchar        *raw_data,
-                                                            gsize               len,
-                                                            GError            **error);
+gboolean           evd_pki_privkey_import_native           (EvdPkiPrivkey     *self,
+                                                            gnutls_privkey_t   privkey,
+                                                            GError           **error);
 
 void               evd_pki_privkey_decrypt                 (EvdPkiPrivkey       *self,
                                                             const gchar         *data,
