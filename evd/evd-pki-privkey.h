@@ -80,6 +80,17 @@ gchar *            evd_pki_privkey_decrypt_finish          (EvdPkiPrivkey  *self
                                                             gsize          *size,
                                                             GError        **error);
 
+void               evd_pki_privkey_sign_data               (EvdPkiPrivkey       *self,
+                                                            const gchar         *data,
+                                                            gsize                data_size,
+                                                            GCancellable        *cancellable,
+                                                            GAsyncReadyCallback  callback,
+                                                            gpointer             user_data);
+gchar *            evd_pki_privkey_sign_data_finish        (EvdPkiPrivkey  *self,
+                                                            GAsyncResult   *result,
+                                                            gsize          *size,
+                                                            GError        **error);
+
 G_END_DECLS
 
 #endif /* __EVD_PKI_PRIVKEY_H__ */
