@@ -165,6 +165,41 @@ encrypt_in_thread (GSimpleAsyncResult *res,
   g_object_unref (res);
 }
 
+static void
+verify_in_thread (GSimpleAsyncResult *res,
+                  GObject            *object,
+                  GCancellable       *cancellable)
+{
+  EvdPkiPubkey *self = EVD_PKI_PUBKEY (object);;
+  VerifyData *verify_data;
+  gint err_code;
+  GError *error = NULL;
+
+  gnutls_sign_algorithm_t sign_algo;
+
+  verify_data = g_simple_async_result_get_op_res_gpointer (res);
+
+  /* verify */
+  switch (self->priv->type)
+    {
+    case GNUTLS_PK_RSA: sign_algo = GNUTLS_SIGN_RSA_SHA256; break;
+    case GNUTLS_PK_DSA: sign_algo = GNUTLS_SIGN_DSA_SHA256; break;
+    case GNUTLS_PK_EC:  sign_algo = GNUTLS_SIGN_ECDSA_SHA256; break;
+    default: sign_algo = GNUTLS_SIGN_UNKNOWN;
+    }
+
+  err_code = gnutls_pubkey_verify_data2 (self->priv->key,
+                                         sign_algo,
+                                         0,
+                                         &verify_data->data,
+                                         &verify_data->signature);
+
+  if (err_code < 0 && evd_error_propagate_gnutls (err_code, &error))
+    g_simple_async_result_take_error (res, error);
+
+  g_object_unref (res);
+}
+
 /* public methods */
 
 EvdPkiPubkey *
@@ -277,4 +312,78 @@ evd_pki_pubkey_encrypt_finish (EvdPkiPubkey  *self,
     }
   else
     return NULL;
+}
+
+/**
+ * evd_pki_pubkey_verify_data:
+ *
+ * Since: 0.2.0
+ **/
+void
+evd_pki_pubkey_verify_data (EvdPkiPubkey        *self,
+                            const gchar         *data,
+                            gsize                data_size,
+                            const gchar         *signature,
+                            gsize                signature_size,
+                            GCancellable        *cancellable,
+                            GAsyncReadyCallback  callback,
+                            gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+  VerifyData *verify_data;
+
+  g_return_if_fail (EVD_IS_PKI_PUBKEY (self));
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_pki_pubkey_verify_data);
+
+  if (self->priv->key == NULL)
+    {
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_INITIALIZED,
+                                       "Public key not initialized");
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+      return;
+    }
+
+  verify_data = g_new (VerifyData, 1);
+
+  verify_data->data.data = (guchar *) data;
+  verify_data->data.size = data_size;
+
+  verify_data->signature.data = (guchar *) signature;
+  verify_data->signature.size = signature_size;
+
+  g_simple_async_result_set_op_res_gpointer (res, verify_data, g_free);
+
+  /* @TODO: use a thread pool to avoid overhead */
+  g_simple_async_result_run_in_thread (res,
+                                       verify_in_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
+}
+
+/**
+ * evd_pki_pubkey_verify_data_finish:
+ *
+ * Since: 0.2.0
+ **/
+gboolean
+evd_pki_pubkey_verify_data_finish (EvdPkiPubkey  *self,
+                                   GAsyncResult  *result,
+                                   GError       **error)
+{
+  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
+
+  g_return_val_if_fail (EVD_IS_PKI_PUBKEY (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                    G_OBJECT (self),
+                                                    evd_pki_pubkey_verify_data),
+                        FALSE);
+
+  return ! g_simple_async_result_propagate_error (res, error);
 }
