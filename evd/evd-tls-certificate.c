@@ -22,7 +22,7 @@
 
 #include <gnutls/x509.h>
 #include <gnutls/openpgp.h>
-#include <gcrypt.h>
+#include <gnutls/abstract.h>
 
 #include "evd-error.h"
 #include "evd-tls-common.h"
@@ -237,39 +237,6 @@ evd_tls_certificate_import_from_file_thread (GSimpleAsyncResult *res,
   g_free (content);
   g_free (filename);
   g_object_unref (res);
-}
-
-static gcry_sexp_t
-get_sexp_for_rsa_key (EvdTlsCertificate *self, GError **error)
-{
-  gint err = 0;
-  gcry_error_t gcry_err;
-  gcry_sexp_t key_sexp = NULL;
-
-  gnutls_datum_t m;
-  gnutls_datum_t e;
-
-  /* obtain key parameters */
-  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
-    err = gnutls_x509_crt_get_pk_rsa_raw (self->priv->x509_cert, &m, &e);
-  else
-    err = gnutls_openpgp_crt_get_pk_rsa_raw (self->priv->openpgp_cert, &m, &e);
-
-  if (evd_error_propagate_gnutls (err, error))
-    return NULL;
-
-  /* build a GRCY S-expression */
-  const gchar *sexp_format = "(public-key (rsa (n %b) (e %b)))";
-  gcry_err = gcry_sexp_build (&key_sexp, NULL, sexp_format,
-                              m.size, m.data,
-                              e.size, e.data);
-  if (evd_error_propagate_gcrypt (gcry_err, error))
-    key_sexp = NULL;
-
-  gnutls_free (m.data);
-  gnutls_free (e.data);
-
-  return key_sexp;
 }
 
 /* public methods */
@@ -636,8 +603,8 @@ EvdPkiPubkey *
 evd_tls_certificate_get_pki_key (EvdTlsCertificate *self, GError **error)
 {
   EvdPkiPubkey *key = NULL;
-  gnutls_pk_algorithm_t algo;
-  gcry_sexp_t key_sexp;
+  gnutls_pubkey_t pubkey = NULL;
+  gint err_code;
 
   g_return_val_if_fail (EVD_IS_TLS_CERTIFICATE (self), NULL);
 
@@ -650,28 +617,28 @@ evd_tls_certificate_get_pki_key (EvdTlsCertificate *self, GError **error)
       return NULL;
     }
 
+  err_code = gnutls_pubkey_init (&pubkey);
+  if (evd_error_propagate_gnutls (err_code, error))
+    return NULL;
+
   if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
-    algo = gnutls_x509_crt_get_pk_algorithm (self->priv->x509_cert, NULL);
-  else
-    algo = gnutls_openpgp_crt_get_pk_algorithm (self->priv->openpgp_cert, NULL);
+    err_code = gnutls_pubkey_import_x509 (pubkey, self->priv->x509_cert, 0);
+  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
+    err_code = gnutls_pubkey_import_openpgp (pubkey,
+                                             self->priv->openpgp_cert,
+                                             0);
 
-  if (algo == GNUTLS_PK_RSA)
-    key_sexp = get_sexp_for_rsa_key (self, error);
-  else
+  if (evd_error_propagate_gnutls (err_code, error))
     {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_NOT_SUPPORTED,
-                           "Only RSA keys are currently supported");
-      key_sexp = NULL;
+      gnutls_pubkey_deinit (pubkey);
+      return NULL;
     }
-
-  if (key_sexp != NULL)
+  else
     {
       key = evd_pki_pubkey_new ();
-      if (! evd_pki_pubkey_import_native (key, (gpointer) key_sexp, error))
+      if (! evd_pki_pubkey_import_native (key, pubkey, error))
         {
-          gcry_sexp_release (key_sexp);
+          gnutls_pubkey_deinit (pubkey);
           g_object_unref (key);
           key = NULL;
         }
