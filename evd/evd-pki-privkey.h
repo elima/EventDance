@@ -28,6 +28,7 @@
 #include <gnutls/abstract.h>
 
 #include <evd-pki-common.h>
+#include <evd-pki-pubkey.h>
 
 G_BEGIN_DECLS
 
@@ -95,6 +96,9 @@ void               evd_pki_privkey_generate                (EvdPkiPrivkey       
                                                             gpointer              user_data);
 gboolean           evd_pki_privkey_generate_finish         (EvdPkiPrivkey  *self,
                                                             GAsyncResult   *result,
+                                                            GError        **error);
+
+EvdPkiPubkey *     evd_pki_privkey_get_public_key          (EvdPkiPrivkey  *self,
                                                             GError        **error);
 
 G_END_DECLS
