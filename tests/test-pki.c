@@ -38,6 +38,8 @@ typedef struct
   GMainLoop *main_loop;
   gchar *enc_data;
   gchar *out_data;
+  gchar *signature;
+  gsize sig_size;
   const TestCase *test_case;
 } Fixture;
 
@@ -95,6 +97,7 @@ fixture_teardown (Fixture       *f,
     g_object_unref (f->privkey);
   if (f->pubkey != NULL)
     g_object_unref (f->pubkey);
+  g_free (f->signature);
 }
 
 static gboolean
@@ -287,22 +290,28 @@ test_pubkey_encrypt (Fixture       *f,
 }
 
 static void
-on_key_pair_generated (GObject      *obj,
-                       GAsyncResult *res,
-                       gpointer      user_data)
+on_privkey_generated (GObject      *obj,
+                      GAsyncResult *res,
+                      gpointer      user_data)
 {
   Fixture *f = user_data;
   GError *error = NULL;
   gboolean result;
 
-  g_assert (obj == NULL);
+  g_assert (obj != NULL && EVD_IS_PKI_PRIVKEY (obj));
+  g_assert (obj == G_OBJECT (f->privkey));
 
-  result = evd_pki_generate_key_pair_finish (res,
-                                             &f->privkey,
-                                             &f->pubkey,
-                                             &error);
+  result = evd_pki_privkey_generate_finish (EVD_PKI_PRIVKEY (obj),
+                                            res,
+                                            &error);
   g_assert_no_error (error);
   g_assert (result);
+
+  f->pubkey = evd_pki_privkey_get_public_key (f->privkey, &error);
+  g_assert_no_error (error);
+  g_assert (f->pubkey != NULL && EVD_IS_PKI_PUBKEY (f->pubkey));
+
+  test_pubkey_encrypt (f, f->test_case);
 
   g_idle_add (quit, f->main_loop);
 }
@@ -311,13 +320,92 @@ static void
 test_gen_key_pair (Fixture       *f,
                    gconstpointer  test_data)
 {
-  EvdPkiKeyType type = * ((EvdPkiKeyType *) test_data);
+  f->privkey = evd_pki_privkey_new ();
 
-  evd_pki_generate_key_pair (type,
-                             1024,
-                             TRUE,
+  evd_pki_privkey_generate (f->privkey,
+                            f->test_case->key_type,
+                            1024,
+                            NULL,
+                            on_privkey_generated,
+                            f);
+
+  g_main_loop_run (f->main_loop);
+}
+
+static void
+pubkey_on_verify (GObject      *obj,
+                 GAsyncResult *result,
+                 gpointer      user_data)
+{
+  EvdPkiPubkey *key;
+  GError *error = NULL;
+  Fixture *f = user_data;
+  gboolean verification;
+
+  g_assert (EVD_IS_PKI_PUBKEY (obj));
+  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result));
+
+  key = EVD_PKI_PUBKEY (obj);
+
+  verification = evd_pki_pubkey_verify_data_finish (key, result, &error);
+
+  g_assert_no_error (error);
+  g_assert (verification == TRUE);
+
+  g_main_loop_quit (f->main_loop);
+}
+
+static void
+pubkey_verify (Fixture *f)
+{
+  evd_pki_pubkey_verify_data (f->pubkey,
+                              msg,
+                              strlen (msg),
+                              f->signature,
+                              f->sig_size,
+                              NULL,
+                              pubkey_on_verify,
+                              f);
+}
+
+static void
+privkey_on_sign (GObject      *obj,
+                 GAsyncResult *result,
+                 gpointer      user_data)
+{
+  EvdPkiPrivkey *key;
+  GError *error = NULL;
+  Fixture *f = user_data;
+
+  g_assert (EVD_IS_PKI_PRIVKEY (obj));
+  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result));
+
+  key = EVD_PKI_PRIVKEY (obj);
+
+  f->signature = evd_pki_privkey_sign_data_finish (key,
+                                                   result,
+                                                   &f->sig_size,
+                                                   &error);
+
+  g_assert_no_error (error);
+  g_assert (f->signature != NULL);
+
+  pubkey_verify (f);
+}
+
+static void
+test_privkey_sign (Fixture       *f,
+                   gconstpointer  test_data)
+{
+  load_cert_and_key (f,
+                     f->test_case->cert_filename,
+                     f->test_case->key_filename);
+
+  evd_pki_privkey_sign_data (f->privkey,
+                             msg,
+                             strlen (msg),
                              NULL,
-                             on_key_pair_generated,
+                             privkey_on_sign,
                              f);
 
   g_main_loop_run (f->main_loop);
@@ -326,7 +414,6 @@ test_gen_key_pair (Fixture       *f,
 gint
 main (gint argc, gchar *argv[])
 {
-  EvdPkiKeyType key_type;
   gint i;
 
   g_type_init ();
@@ -364,12 +451,25 @@ main (gint argc, gchar *argv[])
                   fixture_teardown);
 
       g_free (test_name);
+
+      /* sign with private key, verify with public */
+      test_name = g_strdup_printf ("/evd/pki/%s/sign-verify",
+                                   test_cases[i].test_name);
+
+      g_test_add (test_name,
+                  Fixture,
+                  &test_cases[i],
+                  fixture_setup,
+                  test_privkey_sign,
+                  fixture_teardown);
+
+      g_free (test_name);
     }
 
-  key_type = EVD_PKI_KEY_TYPE_RSA;
-  g_test_add ("/evd/pki/gen-key-pair/RSA",
+  /* generate RSA key-pair */
+  g_test_add ("/evd/pki/generate-key-pair/RSA",
               Fixture,
-              &key_type,
+              &test_cases[0],
               fixture_setup,
               test_gen_key_pair,
               fixture_teardown);
