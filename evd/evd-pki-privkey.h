@@ -91,6 +91,16 @@ gchar *            evd_pki_privkey_sign_data_finish        (EvdPkiPrivkey  *self
                                                             gsize          *size,
                                                             GError        **error);
 
+void               evd_pki_privkey_generate                (EvdPkiPrivkey        *self,
+                                                            EvdPkiKeyType         key_type,
+                                                            guint                 bits,
+                                                            GCancellable         *cancellable,
+                                                            GAsyncReadyCallback   callback,
+                                                            gpointer              user_data);
+gboolean           evd_pki_privkey_generate_finish         (EvdPkiPrivkey  *self,
+                                                            GAsyncResult   *result,
+                                                            GError        **error);
+
 G_END_DECLS
 
 #endif /* __EVD_PKI_PRIVKEY_H__ */

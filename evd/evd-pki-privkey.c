@@ -196,6 +196,55 @@ sign_in_thread (GSimpleAsyncResult *res,
   g_object_unref (res);
 }
 
+static void
+generate_in_thread (GSimpleAsyncResult *res,
+                    GObject            *object,
+                    GCancellable       *cancellable)
+{
+  EvdPkiPrivkey *self = EVD_PKI_PRIVKEY (object);
+  GenKeyData *data;
+  gnutls_x509_privkey_t x509_privkey;
+  gnutls_privkey_t privkey;
+  gint err_code;
+  GError *error = NULL;
+
+  data = g_simple_async_result_get_op_res_gpointer (res);
+
+  /* generate X.509 private key */
+  gnutls_x509_privkey_init (&x509_privkey);
+  err_code = gnutls_x509_privkey_generate (x509_privkey,
+                                           data->key_type,
+                                           data->bits,
+                                           0);
+  if (evd_error_propagate_gnutls (err_code, &error))
+    {
+      g_simple_async_result_take_error (res, error);
+      goto out;
+    }
+
+  /* import to abstract private key struct */
+  gnutls_privkey_init (&privkey);
+  err_code = gnutls_privkey_import_x509 (privkey,
+                                         x509_privkey,
+                                         GNUTLS_PRIVKEY_IMPORT_COPY);
+  if (evd_error_propagate_gnutls (err_code, &error))
+    {
+      g_simple_async_result_take_error (res, error);
+      goto out;
+    }
+
+  /* set the abstract key as the new internal key */
+  if (self->priv->key != NULL)
+    gnutls_privkey_deinit (self->priv->key);
+
+  self->priv->key = privkey;
+
+ out:
+  gnutls_x509_privkey_deinit (x509_privkey);
+
+  g_object_unref (res);
+}
+
 /* public methods */
 
 EvdPkiPrivkey *
@@ -396,3 +445,58 @@ evd_pki_privkey_sign_data_finish (EvdPkiPrivkey  *self,
     return NULL;
 }
 
+/**
+ * evd_pki_privkey_generate:
+ *
+ * Since: 0.2.0
+ **/
+void
+evd_pki_privkey_generate (EvdPkiPrivkey        *self,
+                          EvdPkiKeyType         key_type,
+                          guint                 bits,
+                          GCancellable         *cancellable,
+                          GAsyncReadyCallback   callback,
+                          gpointer              user_data)
+{
+  GSimpleAsyncResult *res;
+  GenKeyData *data;
+
+  g_return_if_fail (EVD_IS_PKI_PRIVKEY (self));
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_pki_privkey_generate);
+
+  data = g_new (GenKeyData, 1);
+  data->key_type = key_type;
+  data->bits = bits;
+
+  g_simple_async_result_set_op_res_gpointer (res, data, g_free);
+
+  g_simple_async_result_run_in_thread (res,
+                                       generate_in_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
+}
+
+/**
+ * evd_pki_privkey_generate_finish:
+ *
+ * Since: 0.2.0
+ **/
+gboolean
+evd_pki_privkey_generate_finish (EvdPkiPrivkey  *self,
+                                 GAsyncResult   *result,
+                                 GError        **error)
+{
+  g_return_val_if_fail (EVD_IS_PKI_PRIVKEY (self), FALSE);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                       G_OBJECT (self),
+                                                       evd_pki_privkey_generate),
+                        FALSE);
+
+  return !
+    g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
+                                           error);
+}
