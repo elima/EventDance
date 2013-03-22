@@ -80,6 +80,18 @@ gchar *            evd_pki_pubkey_encrypt_finish          (EvdPkiPubkey   *self,
                                                            gsize          *size,
                                                            GError        **error);
 
+void               evd_pki_pubkey_verify_data             (EvdPkiPubkey        *self,
+                                                           const gchar         *data,
+                                                           gsize                data_size,
+                                                           const gchar         *signature,
+                                                           gsize                signature_size,
+                                                           GCancellable        *cancellable,
+                                                           GAsyncReadyCallback  callback,
+                                                           gpointer             user_data);
+gboolean           evd_pki_pubkey_verify_data_finish      (EvdPkiPubkey  *self,
+                                                           GAsyncResult  *result,
+                                                           GError       **error);
+
 G_END_DECLS
 
 #endif /* __EVD_PKI_PUBKEY_H__ */
