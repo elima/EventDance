@@ -25,7 +25,7 @@
 
 #include <glib-object.h>
 #include <gio/gio.h>
-#include <gnutls/gnutls.h>
+#include <gnutls/abstract.h>
 
 #include <evd-pki-common.h>
 
@@ -59,24 +59,19 @@ GType              evd_pki_pubkey_get_type                (void) G_GNUC_CONST;
 
 EvdPkiPubkey *     evd_pki_pubkey_new                     (void);
 
-EvdPkiKeyType      evd_pki_pubkey_get_key_type            (EvdPkiPubkey  *self);
+EvdPkiKeyType      evd_pki_pubkey_get_key_type            (EvdPkiPubkey *self);
 
-gboolean           evd_pki_pubkey_import_native           (EvdPkiPubkey  *self,
-                                                           gpointer        pubkey_st,
-                                                           GError        **error);
+gboolean           evd_pki_pubkey_import_native           (EvdPkiPubkey     *self,
+                                                           gnutls_pubkey_t   pubkey,
+                                                           GError          **error);
 
-gboolean           evd_pki_pubkey_import                  (EvdPkiPubkey  *self,
-                                                           const gchar        *raw_data,
-                                                           gsize               len,
-                                                           GError            **error);
-
-void               evd_pki_pubkey_encrypt                 (EvdPkiPubkey       *self,
+void               evd_pki_pubkey_encrypt                 (EvdPkiPubkey        *self,
                                                            const gchar         *data,
                                                            gsize                size,
                                                            GCancellable        *cancellable,
                                                            GAsyncReadyCallback  callback,
                                                            gpointer             user_data);
-gchar *            evd_pki_pubkey_encrypt_finish          (EvdPkiPubkey  *self,
+gchar *            evd_pki_pubkey_encrypt_finish          (EvdPkiPubkey   *self,
                                                            GAsyncResult   *result,
                                                            gsize          *size,
                                                            GError        **error);

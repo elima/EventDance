@@ -20,7 +20,7 @@
  * for more details.
  */
 
-#include <gcrypt.h>
+#include <gnutls/gnutls.h>
 
 #include "evd-pki-pubkey.h"
 
@@ -35,11 +35,16 @@ G_DEFINE_TYPE (EvdPkiPubkey, evd_pki_pubkey, G_TYPE_OBJECT)
 /* private data */
 struct _EvdPkiPubkeyPrivate
 {
-  gcry_sexp_t key_sexp;
+  gnutls_pubkey_t key;
 
   EvdPkiKeyType type;
 };
 
+typedef struct
+{
+  gnutls_datum_t data;
+  gnutls_datum_t signature;
+} VerifyData;
 
 /* properties */
 enum
@@ -90,7 +95,7 @@ evd_pki_pubkey_init (EvdPkiPubkey *self)
   priv = EVD_PKI_PUBKEY_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->key_sexp = NULL;
+  priv->key = NULL;
 
   self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
 }
@@ -100,8 +105,8 @@ evd_pki_pubkey_finalize (GObject *obj)
 {
   EvdPkiPubkey *self = EVD_PKI_PUBKEY (obj);
 
-  if (self->priv->key_sexp != NULL)
-    gcry_sexp_release (self->priv->key_sexp);
+  if (self->priv->key != NULL)
+    gnutls_pubkey_deinit (self->priv->key);
 
   G_OBJECT_CLASS (evd_pki_pubkey_parent_class)->finalize (obj);
 }
@@ -129,50 +134,34 @@ evd_pki_pubkey_get_property (GObject    *obj,
 }
 
 static void
-free_gstring_wisely (gpointer data)
-{
-  GString *st = data;
-
-  g_string_free (st, st->str != NULL);
-}
-
-static void
 encrypt_in_thread (GSimpleAsyncResult *res,
                    GObject            *object,
                    GCancellable       *cancellable)
 {
   EvdPkiPubkey *self = EVD_PKI_PUBKEY (object);;
-  gcry_sexp_t data_sexp;
-  gcry_sexp_t ciph_sexp;
-  gcry_sexp_t token_sexp;
-  gcry_error_t err;
+  gnutls_datum_t *clear_data;
+  gnutls_datum_t *enc_data;
+  gint err_code;
   GError *error = NULL;
-  const gchar *data;
-  GString *result;
-  gsize len;
 
-  data_sexp = g_simple_async_result_get_op_res_gpointer (res);
+  clear_data = g_simple_async_result_get_op_res_gpointer (res);
+  enc_data = g_new (gnutls_datum_t, 1);
 
   /* encrypt */
-  err = gcry_pk_encrypt (&ciph_sexp, data_sexp, self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
+  err_code = gnutls_pubkey_encrypt_data (self->priv->key,
+                                         0,
+                                         clear_data,
+                                         enc_data);
+  if (evd_error_propagate_gnutls (err_code, &error))
     {
-      evd_error_build_gcrypt (err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-      goto out;
+      g_simple_async_result_take_error (res, error);
+      g_free (enc_data);
+    }
+  else
+    {
+      g_simple_async_result_set_op_res_gpointer (res, enc_data, g_free);
     }
 
-  /* extract data */
-  token_sexp = gcry_sexp_find_token (ciph_sexp, "a", 0);
-  data = gcry_sexp_nth_data (token_sexp, 1, &len);
-  result = g_string_new_len (data, len);
-  gcry_sexp_release (ciph_sexp);
-  gcry_sexp_release (token_sexp);
-
-  g_simple_async_result_set_op_res_gpointer (res, result, free_gstring_wisely);
-
- out:
   g_object_unref (res);
 }
 
@@ -193,49 +182,30 @@ evd_pki_pubkey_get_key_type (EvdPkiPubkey *self)
 }
 
 gboolean
-evd_pki_pubkey_import_native (EvdPkiPubkey  *self,
-                              gpointer       pubkey_st,
-                              GError       **error)
+evd_pki_pubkey_import_native (EvdPkiPubkey     *self,
+                              gnutls_pubkey_t   pubkey,
+                              GError          **error)
 {
-  gcry_sexp_t algo_sexp;
-  gchar *algo_st;
-  gboolean result = TRUE;
+  EvdPkiKeyType type;
+  gint err_code;
+  guint bits;
 
   g_return_val_if_fail (EVD_IS_PKI_PUBKEY (self), FALSE);
-  g_return_val_if_fail (pubkey_st != NULL, FALSE);
+  g_return_val_if_fail (pubkey != NULL, FALSE);
 
-  /* check if there are operations pending and return error if so */
+  /* @TODO: check if there are operations pending and return error if so */
 
-  if (self->priv->key_sexp)
-    {
-      gcry_sexp_release (self->priv->key_sexp);
-      self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
-    }
+  type = gnutls_pubkey_get_pk_algorithm (pubkey, &bits);
+  if (type < 0 && evd_error_propagate_gnutls (err_code, error))
+    return FALSE;
 
-  self->priv->key_sexp = (gcry_sexp_t) pubkey_st;
+  if (self->priv->key != NULL)
+    gnutls_pubkey_deinit (self->priv->key);
 
-  /* detect key algorithm */
-  algo_sexp = gcry_sexp_nth (self->priv->key_sexp, 1);
-  algo_st = gcry_sexp_nth_string (algo_sexp, 0);
-  gcry_sexp_release (algo_sexp);
+  self->priv->key = pubkey;
+  self->priv->type = type;
 
-  if (g_strcmp0 (algo_st, "rsa") == 0)
-    self->priv->type = EVD_PKI_KEY_TYPE_RSA;
-  else if (g_strcmp0 (algo_st, "dsa") == 0)
-    self->priv->type = EVD_PKI_KEY_TYPE_DSA;
-  else
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_NOT_SUPPORTED,
-                           "Key algorithm not supported");
-      self->priv->key_sexp = NULL;
-      result = FALSE;
-    }
-
-  gcry_free (algo_st);
-
-  return result;
+  return TRUE;
 }
 
 void
@@ -246,9 +216,8 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
                         GAsyncReadyCallback  callback,
                         gpointer             user_data)
 {
-  gcry_sexp_t data_sexp;
   GSimpleAsyncResult *res;
-  gcry_error_t err;
+  gnutls_datum_t *enc_data;
 
   g_return_if_fail (EVD_IS_PKI_PUBKEY (self));
 
@@ -257,36 +226,28 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
                                    user_data,
                                    evd_pki_pubkey_encrypt);
 
-  /* pack message into an S-expression */
-  err = gcry_sexp_build (&data_sexp,
-                         0,
-                         "%b",
-                         size,
-                         data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (self->priv->key == NULL)
     {
-      GError *error = NULL;
-
-      evd_error_build_gcrypt (err, &error);
-
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_INITIALIZED,
+                                       "Public key not initialized");
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
+      return;
     }
-  else
-    {
-      g_simple_async_result_set_op_res_gpointer (res,
-                                                 data_sexp,
-                                                 (GDestroyNotify) gcry_sexp_release);
 
-      /* @TODO: use a thread pool to avoid overhead */
-      g_simple_async_result_run_in_thread (res,
-                                           encrypt_in_thread,
-                                           G_PRIORITY_DEFAULT,
-                                           cancellable);
-    }
+  enc_data = g_new (gnutls_datum_t, 1);
+  enc_data->data = (guchar *) data;
+  enc_data->size = size;
+
+  g_simple_async_result_set_op_res_gpointer (res, enc_data, g_free);
+
+  /* @TODO: use a thread pool to avoid overhead */
+  g_simple_async_result_run_in_thread (res,
+                                       encrypt_in_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
 }
 
 gchar *
@@ -305,17 +266,14 @@ evd_pki_pubkey_encrypt_finish (EvdPkiPubkey  *self,
 
   if (! g_simple_async_result_propagate_error (res, error))
     {
-      GString *data;
-      gchar *ret;
+      gnutls_datum_t *data;
 
       data = g_simple_async_result_get_op_res_gpointer (res);
-      ret = data->str;
-      data->str = NULL;
 
       if (size != NULL)
-        *size = data->len;
+        *size = data->size;
 
-      return ret;
+      return (gchar *) data->data;
     }
   else
     return NULL;
