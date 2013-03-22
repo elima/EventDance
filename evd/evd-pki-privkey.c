@@ -164,6 +164,38 @@ decrypt_in_thread (GSimpleAsyncResult *res,
   g_object_unref (res);
 }
 
+static void
+sign_in_thread (GSimpleAsyncResult *res,
+                GObject            *object,
+                GCancellable       *cancellable)
+{
+  EvdPkiPrivkey *self = EVD_PKI_PRIVKEY (object);
+  gint err_code;
+  GError *error = NULL;
+  gnutls_datum_t *data;
+  gnutls_datum_t *signed_data;
+
+  data = g_simple_async_result_get_op_res_gpointer (res);
+  signed_data = g_new (gnutls_datum_t, 1);
+
+  err_code = gnutls_privkey_sign_data (self->priv->key,
+                                       GNUTLS_DIG_SHA256,
+                                       0,
+                                       data,
+                                       signed_data);
+  if (evd_error_propagate_gnutls (err_code, &error))
+    {
+      g_simple_async_result_take_error (res, error);
+      g_free (signed_data);
+    }
+  else
+    {
+      g_simple_async_result_set_op_res_gpointer (res, signed_data, g_free);
+    }
+
+  g_object_unref (res);
+}
+
 /* public methods */
 
 EvdPkiPrivkey *
@@ -273,6 +305,87 @@ evd_pki_privkey_decrypt_finish (EvdPkiPrivkey  *self,
         *size = msg->size;
 
       return (gchar *) msg->data;
+    }
+  else
+    return NULL;
+}
+
+/**
+ * evd_pki_privkey_sign_data:
+ *
+ * Since: 0.2.0
+ **/
+void
+evd_pki_privkey_sign_data (EvdPkiPrivkey       *self,
+                           const gchar         *data,
+                           gsize                data_size,
+                           GCancellable        *cancellable,
+                           GAsyncReadyCallback  callback,
+                           gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+  gnutls_datum_t *sign_data;
+
+  g_return_if_fail (EVD_IS_PKI_PRIVKEY (self));
+
+  res = g_simple_async_result_new (G_OBJECT (self),
+                                   callback,
+                                   user_data,
+                                   evd_pki_privkey_sign_data);
+
+  if (self->priv->key == NULL)
+    {
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_INITIALIZED,
+                                       "Private key not initialized");
+      g_simple_async_result_complete_in_idle (res);
+      g_object_unref (res);
+      return;
+    }
+
+  sign_data = g_new (gnutls_datum_t, 1);
+  sign_data->data = (guchar *) data;
+  sign_data->size = data_size;
+
+  g_simple_async_result_set_op_res_gpointer (res, sign_data, g_free);
+
+  /* @TODO: use a thread pool to avoid overhead */
+  g_simple_async_result_run_in_thread (res,
+                                       sign_in_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
+}
+
+/**
+ * evd_pki_privkey_sign_data_finish:
+ *
+ * Since: 0.2.0
+ **/
+gchar *
+evd_pki_privkey_sign_data_finish (EvdPkiPrivkey  *self,
+                                  GAsyncResult   *result,
+                                  gsize          *size,
+                                  GError        **error)
+{
+  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
+
+  g_return_val_if_fail (EVD_IS_PKI_PRIVKEY (self), NULL);
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+                                                     G_OBJECT (self),
+                                                     evd_pki_privkey_sign_data),
+                        NULL);
+
+  if (! g_simple_async_result_propagate_error (res, error))
+    {
+      gnutls_datum_t *data;
+
+      data = g_simple_async_result_get_op_res_gpointer (res);
+
+      if (size != NULL)
+        *size = data->size;
+
+      return (gchar *) data->data;
     }
   else
     return NULL;
