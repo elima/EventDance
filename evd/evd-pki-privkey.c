@@ -500,3 +500,51 @@ evd_pki_privkey_generate_finish (EvdPkiPrivkey  *self,
     g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
                                            error);
 }
+
+/**
+ * evd_pki_privkey_get_public_key:
+ *
+ * Returns: (transfer full):
+ *
+ * Since: 0.2.0
+ **/
+EvdPkiPubkey *
+evd_pki_privkey_get_public_key (EvdPkiPrivkey *self, GError **error)
+{
+  gnutls_pubkey_t pubkey;
+  gint err_code;
+  EvdPkiPubkey *result = NULL;
+
+  g_return_val_if_fail (EVD_IS_PKI_PRIVKEY (self), NULL);
+
+  if (self->priv->key == NULL)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_INITIALIZED,
+                   "Private key not initialized");
+      return NULL;
+    }
+
+  gnutls_pubkey_init (&pubkey);
+
+  err_code = gnutls_pubkey_import_privkey (pubkey,
+                                           self->priv->key,
+                                           GNUTLS_KEY_ENCIPHER_ONLY,
+                                           0);
+  if (evd_error_propagate_gnutls (err_code, error))
+    {
+      gnutls_pubkey_deinit (pubkey);
+      return NULL;
+    }
+
+  result = evd_pki_pubkey_new ();
+  if (! evd_pki_pubkey_import_native (result, pubkey, error))
+    {
+      gnutls_pubkey_deinit (pubkey);
+      g_object_unref (result);
+      return NULL;
+    }
+
+  return result;
+}
