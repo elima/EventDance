@@ -20,7 +20,7 @@
  * for more details.
  */
 
-#include <gcrypt.h>
+#include <gnutls/gnutls.h>
 
 #include "evd-pki-privkey.h"
 
@@ -35,11 +35,16 @@ G_DEFINE_TYPE (EvdPkiPrivkey, evd_pki_privkey, G_TYPE_OBJECT)
 /* private data */
 struct _EvdPkiPrivkeyPrivate
 {
-  gcry_sexp_t key_sexp;
+  gnutls_privkey_t key;
 
   EvdPkiKeyType type;
 };
 
+typedef struct
+{
+  EvdPkiKeyType key_type;
+  guint bits;
+} GenKeyData;
 
 /* properties */
 enum
@@ -90,7 +95,7 @@ evd_pki_privkey_init (EvdPkiPrivkey *self)
   priv = EVD_PKI_PRIVKEY_GET_PRIVATE (self);
   self->priv = priv;
 
-  priv->key_sexp = NULL;
+  priv->key = NULL;
 
   self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
 }
@@ -100,8 +105,8 @@ evd_pki_privkey_finalize (GObject *obj)
 {
   EvdPkiPrivkey *self = EVD_PKI_PRIVKEY (obj);
 
-  if (self->priv->key_sexp != NULL)
-    gcry_sexp_release (self->priv->key_sexp);
+  if (self->priv->key != NULL)
+    gnutls_privkey_deinit (self->priv->key);
 
   G_OBJECT_CLASS (evd_pki_privkey_parent_class)->finalize (obj);
 }
@@ -129,47 +134,33 @@ evd_pki_privkey_get_property (GObject    *obj,
 }
 
 static void
-free_gstring_wisely (gpointer data)
-{
-  GString *st = data;
-
-  g_string_free (st, st->str != NULL);
-}
-
-static void
 decrypt_in_thread (GSimpleAsyncResult *res,
                    GObject            *object,
                    GCancellable       *cancellable)
 {
-  EvdPkiPrivkey *self = EVD_PKI_PRIVKEY (object);;
-  gcry_sexp_t data_sexp;
-  gcry_sexp_t ciph_sexp;
-  gcry_error_t err;
+  EvdPkiPrivkey *self = EVD_PKI_PRIVKEY (object);
+  gint err_code;
   GError *error = NULL;
-  const gchar *data;
-  GString *result;
-  gsize len;
+  gnutls_datum_t *data;
+  gnutls_datum_t *msg;
 
-  data_sexp = g_simple_async_result_get_op_res_gpointer (res);
+  data = g_simple_async_result_get_op_res_gpointer (res);
+  msg = g_new (gnutls_datum_t, 1);
 
-  /* decrypt */
-  err = gcry_pk_decrypt (&ciph_sexp, data_sexp, self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
+  err_code = gnutls_privkey_decrypt_data (self->priv->key,
+                                          0,
+                                          data,
+                                          msg);
+  if (evd_error_propagate_gnutls (err_code, &error))
     {
-      evd_error_build_gcrypt (err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-      goto out;
+      g_simple_async_result_take_error (res, error);
+      g_free (msg);
+    }
+  else
+    {
+      g_simple_async_result_set_op_res_gpointer (res, msg, g_free);
     }
 
-  /* extract data */
-  data = gcry_sexp_nth_data (ciph_sexp, 0, &len);
-  result = g_string_new_len (data, len);
-  gcry_sexp_release (ciph_sexp);
-
-  g_simple_async_result_set_op_res_gpointer (res, result, free_gstring_wisely);
-
- out:
   g_object_unref (res);
 }
 
@@ -190,59 +181,30 @@ evd_pki_privkey_get_key_type (EvdPkiPrivkey *self)
 }
 
 gboolean
-evd_pki_privkey_import_native (EvdPkiPrivkey  *self,
-                               gpointer        privkey_st,
-                               GError        **error)
+evd_pki_privkey_import_native (EvdPkiPrivkey     *self,
+                               gnutls_privkey_t   privkey,
+                               GError           **error)
 {
-  gcry_error_t err;
-  gcry_sexp_t algo_sexp;
-  gchar *algo_st;
-  gboolean result = TRUE;
+  gint err_code;
+  guint bits;
+  EvdPkiKeyType type;
 
   g_return_val_if_fail (EVD_IS_PKI_PRIVKEY (self), FALSE);
-  g_return_val_if_fail (privkey_st != NULL, FALSE);
+  g_return_val_if_fail (privkey != NULL, FALSE);
 
-  /* check if there are operations pending and return error if so */
+  /* @TODO: check if there are operations pending and return error if so */
 
-  if (self->priv->key_sexp)
-    {
-      gcry_sexp_release (self->priv->key_sexp);
-      self->priv->type = EVD_PKI_KEY_TYPE_UNKNOWN;
-    }
+  type = gnutls_privkey_get_pk_algorithm (privkey, &bits);
+  if (type < 0 && evd_error_propagate_gnutls (err_code, error))
+    return FALSE;
 
-  self->priv->key_sexp = (gcry_sexp_t) privkey_st;
+  if (self->priv->key != NULL)
+    gnutls_privkey_deinit (self->priv->key);
 
-  err = gcry_pk_testkey (self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
-    {
-      evd_error_build_gcrypt (err, error);
-      self->priv->key_sexp = NULL;
+  self->priv->key = privkey;
+  self->priv->type = type;
 
-      return FALSE;
-    }
-
-  /* detect key algorithm */
-  algo_sexp = gcry_sexp_nth (self->priv->key_sexp, 1);
-  algo_st = gcry_sexp_nth_string (algo_sexp, 0);
-  gcry_sexp_release (algo_sexp);
-
-  if (g_strcmp0 (algo_st, "rsa") == 0)
-    self->priv->type = EVD_PKI_KEY_TYPE_RSA;
-  else if (g_strcmp0 (algo_st, "dsa") == 0)
-    self->priv->type = EVD_PKI_KEY_TYPE_DSA;
-  else
-    {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_NOT_SUPPORTED,
-                           "Key algorithm not supported");
-      self->priv->key_sexp = NULL;
-      result = FALSE;
-    }
-
-  gcry_free (algo_st);
-
-  return result;
+  return TRUE;
 }
 
 void
@@ -253,9 +215,8 @@ evd_pki_privkey_decrypt (EvdPkiPrivkey       *self,
                          GAsyncReadyCallback  callback,
                          gpointer             user_data)
 {
-  gcry_sexp_t data_sexp;
   GSimpleAsyncResult *res;
-  gcry_error_t err;
+  gnutls_datum_t *dec_data;
 
   g_return_if_fail (EVD_IS_PKI_PRIVKEY (self));
 
@@ -264,37 +225,28 @@ evd_pki_privkey_decrypt (EvdPkiPrivkey       *self,
                                    user_data,
                                    evd_pki_privkey_decrypt);
 
-  /* pack message into an S-expression */
-  err = gcry_sexp_build (&data_sexp,
-                         0,
-                         "(enc-val (%s (a %b)))",
-                         self->priv->type == EVD_PKI_KEY_TYPE_RSA ? "rsa" : "dsa",
-                         size,
-                         data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (self->priv->key == NULL)
     {
-      GError *error = NULL;
-
-      evd_error_build_gcrypt (err, &error);
-
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
+      g_simple_async_result_set_error (res,
+                                       G_IO_ERROR,
+                                       G_IO_ERROR_NOT_INITIALIZED,
+                                       "Private key not initialized");
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
+      return;
     }
-  else
-    {
-      g_simple_async_result_set_op_res_gpointer (res,
-                                                 data_sexp,
-                                                 (GDestroyNotify) gcry_sexp_release);
 
-      /* @TODO: use a thread pool to avoid overhead */
-      g_simple_async_result_run_in_thread (res,
-                                           decrypt_in_thread,
-                                           G_PRIORITY_DEFAULT,
-                                           cancellable);
-    }
+  dec_data = g_new (gnutls_datum_t, 1);
+  dec_data->data = (guchar *) data;
+  dec_data->size = size;
+
+  g_simple_async_result_set_op_res_gpointer (res, dec_data, g_free);
+
+  /* @TODO: use a thread pool to avoid overhead */
+  g_simple_async_result_run_in_thread (res,
+                                       decrypt_in_thread,
+                                       G_PRIORITY_DEFAULT,
+                                       cancellable);
 }
 
 gchar *
@@ -313,17 +265,14 @@ evd_pki_privkey_decrypt_finish (EvdPkiPrivkey  *self,
 
   if (! g_simple_async_result_propagate_error (res, error))
     {
-      GString *data;
-      gchar *ret;
+      gnutls_datum_t *msg;
 
-      data = g_simple_async_result_get_op_res_gpointer (res);
-      ret = data->str;
-      data->str = NULL;
+      msg = g_simple_async_result_get_op_res_gpointer (res);
 
       if (size != NULL)
-        *size = data->len;
+        *size = msg->size;
 
-      return ret;
+      return (gchar *) msg->data;
     }
   else
     return NULL;

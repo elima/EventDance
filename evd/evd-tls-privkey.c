@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -244,59 +244,6 @@ evd_tls_privkey_import_from_file_thread (GSimpleAsyncResult *res,
   g_object_unref (res);
 }
 
-static gcry_sexp_t
-get_sexp_for_rsa_key (EvdTlsPrivkey *self, GError **error)
-{
-  gint err = 0;
-  gcry_error_t gcry_err;
-  gcry_sexp_t key_sexp = NULL;
-
-  gnutls_datum_t m;
-  gnutls_datum_t e;
-  gnutls_datum_t d;
-  gnutls_datum_t p;
-  gnutls_datum_t q;
-  gnutls_datum_t u;
-
-  /* obtain key parameters */
-  if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
-    err = gnutls_x509_privkey_export_rsa_raw (self->priv->x509_privkey,
-                                              &m, &e, &d, &p, &q, &u);
-  else
-    err = gnutls_openpgp_privkey_export_rsa_raw (self->priv->openpgp_privkey,
-                                                 &m, &e, &d, &p, &q, &u);
-
-  if (err != GNUTLS_E_SUCCESS)
-    {
-      evd_error_build_gnutls (err, error);
-      return NULL;
-    }
-
-  /* build a GRCY S-expression */
-  const gchar *sexp_format = "(private-key (rsa (n %b) (e %b) (d %b) (p %b) (q %b) (u %b)))";
-  gcry_err = gcry_sexp_build (&key_sexp, NULL, sexp_format,
-                              m.size, m.data,
-                              e.size, e.data,
-                              d.size, d.data,
-                              p.size, p.data,
-                              q.size, q.data,
-                              u.size, u.data);
-  if (gcry_err != GPG_ERR_NO_ERROR)
-    {
-      evd_error_build_gcrypt (gcry_err, error);
-      key_sexp = NULL;
-    }
-
-  gnutls_free (m.data);
-  gnutls_free (e.data);
-  gnutls_free (d.data);
-  gnutls_free (p.data);
-  gnutls_free (q.data);
-  gnutls_free (u.data);
-
-  return key_sexp;
-}
-
 /* public methods */
 
 EvdTlsPrivkey *
@@ -488,8 +435,8 @@ EvdPkiPrivkey *
 evd_tls_privkey_get_pki_key (EvdTlsPrivkey *self, GError **error)
 {
   EvdPkiPrivkey *key = NULL;
-  gnutls_pk_algorithm_t algo;
-  gcry_sexp_t key_sexp;
+  gnutls_privkey_t privkey = NULL;
+  gint err_code;
 
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), NULL);
 
@@ -502,28 +449,30 @@ evd_tls_privkey_get_pki_key (EvdTlsPrivkey *self, GError **error)
       return NULL;
     }
 
+  err_code = gnutls_privkey_init (&privkey);
+  if (evd_error_propagate_gnutls (err_code, error))
+    return NULL;
+
   if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
-    algo = gnutls_x509_privkey_get_pk_algorithm (self->priv->x509_privkey);
-  else
-    algo = gnutls_openpgp_privkey_get_pk_algorithm (self->priv->openpgp_privkey, NULL);
+    err_code = gnutls_privkey_import_x509 (privkey,
+                                           self->priv->x509_privkey,
+                                           GNUTLS_PRIVKEY_IMPORT_COPY);
+  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
+    err_code = gnutls_privkey_import_openpgp (privkey,
+                                              self->priv->openpgp_privkey,
+                                              GNUTLS_PRIVKEY_IMPORT_COPY);
 
-  if (algo == GNUTLS_PK_RSA)
-    key_sexp = get_sexp_for_rsa_key (self, error);
-  else
+  if (evd_error_propagate_gnutls (err_code, error))
     {
-      g_set_error_literal (error,
-                           G_IO_ERROR,
-                           G_IO_ERROR_NOT_SUPPORTED,
-                           "Only RSA keys are currently supported");
-      key_sexp = NULL;
+      gnutls_privkey_deinit (privkey);
+      return NULL;
     }
-
-  if (key_sexp != NULL)
+  else
     {
       key = evd_pki_privkey_new ();
-      if (! evd_pki_privkey_import_native (key, (gpointer) key_sexp, error))
+      if (! evd_pki_privkey_import_native (key, privkey, error))
         {
-          gcry_sexp_release (key_sexp);
+          gnutls_privkey_deinit (privkey);
           g_object_unref (key);
           key = NULL;
         }
