@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -955,6 +955,12 @@ evd_websocket_protocol_handle_handshake_response (EvdHttpConnection   *conn,
   return result;
 }
 
+/**
+ * evd_websocket_protocol_bind:
+ * @frame_cb: (scope notified):
+ * @frame_cb: (scope notified):
+ *
+ **/
 void
 evd_websocket_protocol_bind (EvdHttpConnection   *conn,
                              EvdWebsocketFrameCb  frame_cb,
