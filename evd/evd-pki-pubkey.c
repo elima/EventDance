@@ -192,6 +192,11 @@ evd_pki_pubkey_get_key_type (EvdPkiPubkey *self)
   return self->priv->type;
 }
 
+/**
+ * evd_pki_pubkey_import_native:
+ * @pubkey: (type guintptr):
+ *
+ **/
 gboolean
 evd_pki_pubkey_import_native (EvdPkiPubkey  *self,
                               gpointer       pubkey_st,
