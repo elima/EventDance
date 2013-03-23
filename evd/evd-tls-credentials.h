@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -87,7 +87,8 @@ gpointer           evd_tls_credentials_get_credentials                  (EvdTlsC
 
 void               evd_tls_credentials_set_cert_callback                (EvdTlsCredentials       *self,
                                                                          EvdTlsCredentialsCertCb  callback,
-                                                                         gpointer                 user_data);
+                                                                         gpointer                 user_data,
+                                                                         GDestroyNotify           user_data_free_func);
 
 gboolean           evd_tls_credentials_add_certificate                  (EvdTlsCredentials  *self,
                                                                          EvdTlsCertificate  *cert,

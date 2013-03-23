@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010/2011, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -48,6 +48,7 @@ struct _EvdTlsCredentialsPrivate
 
   EvdTlsCredentialsCertCb cert_cb;
   gpointer cert_cb_user_data;
+  GDestroyNotify cert_cb_user_data_free_func;
   gpointer cert_cb_certs[MAX_DYNAMIC_CERTS];
   gnutls_retr2_st *cert_cb_ret_st;
   gboolean inside_cert_cb;
@@ -152,6 +153,7 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 
   priv->cert_cb = NULL;
   priv->cert_cb_user_data = NULL;
+  priv->cert_cb_user_data_free_func = NULL;
   priv->cert_cb_result = 0;
   priv->inside_cert_cb = FALSE;
   priv->async_ops_count = 0;
@@ -163,6 +165,15 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 static void
 evd_tls_credentials_dispose (GObject *obj)
 {
+  EvdTlsCredentials *self = EVD_TLS_CREDENTIALS (obj);
+
+  if (self->priv->cert_cb_user_data != NULL &&
+      self->priv->cert_cb_user_data_free_func != NULL)
+    {
+      self->priv->cert_cb_user_data_free_func (self->priv->cert_cb_user_data);
+      self->priv->cert_cb_user_data = NULL;
+    }
+
   G_OBJECT_CLASS (evd_tls_credentials_parent_class)->dispose (obj);
 }
 
@@ -466,12 +477,20 @@ evd_tls_credentials_get_credentials (EvdTlsCredentials *self)
 void
 evd_tls_credentials_set_cert_callback (EvdTlsCredentials       *self,
                                        EvdTlsCredentialsCertCb  callback,
-                                       gpointer                 user_data)
+                                       gpointer                 user_data,
+                                       GDestroyNotify           user_data_free_func)
 {
   g_return_if_fail (EVD_IS_TLS_CREDENTIALS (self));
 
+  if (self->priv->cert_cb_user_data != NULL &&
+      self->priv->cert_cb_user_data_free_func != NULL)
+    {
+      self->priv->cert_cb_user_data_free_func (self->priv->cert_cb_user_data);
+    }
+
   self->priv->cert_cb = callback;
   self->priv->cert_cb_user_data = user_data;
+  self->priv->cert_cb_user_data_free_func = user_data_free_func;
 
   if (self->priv->cred == NULL)
     gnutls_certificate_allocate_credentials (&self->priv->cred);
