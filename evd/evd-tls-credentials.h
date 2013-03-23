@@ -87,7 +87,8 @@ gpointer           evd_tls_credentials_get_credentials                  (EvdTlsC
 
 void               evd_tls_credentials_set_cert_callback                (EvdTlsCredentials       *self,
                                                                          EvdTlsCredentialsCertCb  callback,
-                                                                         gpointer                 user_data);
+                                                                         gpointer                 user_data,
+                                                                         GDestroyNotify           user_data_free_func);
 
 gboolean           evd_tls_credentials_add_certificate                  (EvdTlsCredentials  *self,
                                                                          EvdTlsCertificate  *cert,
