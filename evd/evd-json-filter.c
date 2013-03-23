@@ -209,7 +209,9 @@ struct _EvdJsonFilterPrivate
   gint     content_start;
   GString *cache;
 
-  GClosure *on_packet;
+  EvdJsonFilterOnPacketHandler packet_cb;
+  gpointer user_data;
+  GDestroyNotify user_data_free_func;
 };
 
 static void     evd_json_filter_class_init         (EvdJsonFilterClass *class);
@@ -244,7 +246,8 @@ evd_json_filter_init (EvdJsonFilter *self)
 
   evd_json_filter_reset (self);
 
-  priv->on_packet = NULL;
+  priv->packet_cb = NULL;
+  priv->user_data = NULL;
 }
 
 static void
@@ -256,8 +259,11 @@ evd_json_filter_finalize (GObject *obj)
 
   g_string_free (self->priv->cache, TRUE);
 
-  if (self->priv->on_packet != NULL)
-    g_closure_unref (self->priv->on_packet);
+  if (self->priv->user_data != NULL &&
+      self->priv->user_data_free_func != NULL)
+    {
+      self->priv->user_data_free_func (self->priv->user_data);
+    }
 
   G_OBJECT_CLASS (evd_json_filter_parent_class)->finalize (obj);
 }
@@ -457,27 +463,8 @@ evd_json_filter_notify_packet (EvdJsonFilter *self,
                                const gchar   *buffer,
                                gsize          size)
 {
-  if (self->priv->on_packet != NULL)
-    {
-      GValue params[3] = { {0, } };
-
-      g_value_init (&params[0], EVD_TYPE_JSON_FILTER);
-      g_value_set_object (&params[0], self);
-
-      g_value_init (&params[1], G_TYPE_STRING);
-      g_value_set_static_string (&params[1], buffer);
-
-      g_value_init (&params[2], G_TYPE_ULONG);
-      g_value_set_ulong (&params[2], size);
-
-      g_object_ref (self);
-      g_closure_invoke (self->priv->on_packet, NULL, 3, params, NULL);
-      g_object_unref (self);
-
-      g_value_unset (&params[0]);
-      g_value_unset (&params[1]);
-      g_value_unset (&params[2]);
-    }
+  if (self->priv->packet_cb != NULL)
+    self->priv->packet_cb (self, buffer, size, self->priv->user_data);
 }
 
 /* public methods */
@@ -581,31 +568,20 @@ evd_json_filter_feed (EvdJsonFilter  *self,
 
 void
 evd_json_filter_set_packet_handler (EvdJsonFilter                *self,
-                                    EvdJsonFilterOnPacketHandler  handler,
-                                    gpointer                      user_data)
+                                    EvdJsonFilterOnPacketHandler  callback,
+                                    gpointer                      user_data,
+                                    GDestroyNotify                user_data_free_func)
 {
-  GClosure *closure;
-
   g_return_if_fail (EVD_IS_JSON_FILTER (self));
 
-  if (handler == NULL)
+  if (self->priv->packet_cb != NULL &&
+      self->priv->user_data != NULL &&
+      self->priv->user_data_free_func != NULL)
     {
-      evd_json_filter_set_packet_handler_closure (self, NULL);
-      return;
+      self->priv->user_data_free_func (self->priv->user_data);
     }
 
-  closure = g_cclosure_new (G_CALLBACK (handler),
-			    user_data,
-			    NULL);
-
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    {
-      GClosureMarshal marshal = evd_marshal_VOID__STRING_ULONG;
-      g_closure_set_marshal (closure, marshal);
-    }
-
-  evd_json_filter_set_packet_handler_closure (self, closure);
-}
-    }
-
+  self->priv->packet_cb = callback;
+  self->priv->user_data = user_data;
+  self->priv->user_data_free_func = user_data_free_func;
 }

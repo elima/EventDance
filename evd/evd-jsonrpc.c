@@ -119,7 +119,8 @@ evd_jsonrpc_init (EvdJsonrpc *self)
   priv->json_filter = evd_json_filter_new ();
   evd_json_filter_set_packet_handler (priv->json_filter,
                                       evd_jsonrpc_on_json_packet,
-                                      self);
+                                      self,
+                                      NULL);
 
   priv->context = NULL;
 

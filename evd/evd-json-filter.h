@@ -72,7 +72,8 @@ gboolean          evd_json_filter_feed                       (EvdJsonFilter  *se
 
 void              evd_json_filter_set_packet_handler         (EvdJsonFilter                *self,
                                                               EvdJsonFilterOnPacketHandler  handler,
-                                                              gpointer                      user_data);
+                                                              gpointer                      user_data,
+                                                              GDestroyNotify                user_data_free_func);
 
 G_END_DECLS
 
