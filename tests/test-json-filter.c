@@ -149,7 +149,8 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
 
   evd_json_filter_set_packet_handler (f->filter,
           (EvdJsonFilterOnPacketHandler) evd_json_filter_test_chunked_on_packet,
-          (gpointer) f);
+          (gpointer) f,
+          NULL);
 
   for (i=0; i<sizeof (evd_json_filter_chunks) / sizeof (gchar *); i++)
     {
