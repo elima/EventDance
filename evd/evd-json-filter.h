@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -73,8 +73,6 @@ gboolean          evd_json_filter_feed                       (EvdJsonFilter  *se
 void              evd_json_filter_set_packet_handler         (EvdJsonFilter                *self,
                                                               EvdJsonFilterOnPacketHandler  handler,
                                                               gpointer                      user_data);
-void              evd_json_filter_set_packet_handler_closure (EvdJsonFilter *self,
-                                                              GClosure      *closure);
 
 G_END_DECLS
 
