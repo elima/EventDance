@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -492,6 +492,7 @@ static evd_socket_watch (EvdSocket *self, GIOCondition cond, GError **error)
                       self->priv->actual_priority,
                       evd_socket_on_condition,
                       self,
+                      NULL,
                       error);
 
       return (self->priv->poll_session != NULL);
