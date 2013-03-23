@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010/2011, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -66,6 +66,7 @@ struct _EvdPollSession
   guint priority;
   EvdPollCallback callback;
   gpointer user_data;
+  GDestroyNotify user_data_free_func;
   gint src_id;
 };
 
@@ -159,6 +160,9 @@ evd_poll_session_unref (EvdPollSession *session)
         g_source_remove (session->src_id);
 
       g_main_context_unref (session->main_context);
+
+      if (session->user_data != NULL && session->user_data_free_func != NULL)
+        session->user_data_free_func (session->user_data);
 
       g_slice_free (EvdPollSession, session);
 
@@ -477,6 +481,7 @@ evd_poll_add (EvdPoll          *self,
               guint             priority,
               EvdPollCallback   callback,
               gpointer          user_data,
+              GDestroyNotify    user_data_free_func,
               GError          **error)
 {
   EvdPollSession *session;
@@ -507,6 +512,7 @@ evd_poll_add (EvdPoll          *self,
   session->priority = priority;
   session->callback = callback;
   session->user_data = user_data;
+  session->user_data_free_func = user_data_free_func;
   session->src_id = 0;
 
   if (! evd_poll_epoll_ctl (self,

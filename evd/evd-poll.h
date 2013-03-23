@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -68,6 +68,7 @@ EvdPollSession    *evd_poll_add           (EvdPoll          *self,
                                            guint             priority,
                                            EvdPollCallback   callback,
                                            gpointer          user_data,
+                                           GDestroyNotify    user_data_free_func,
                                            GError          **error);
 
 gboolean           evd_poll_mod           (EvdPoll         *self,
