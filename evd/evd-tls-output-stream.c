@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -213,7 +213,8 @@ evd_tls_output_stream_new (EvdTlsSession *session,
 
   evd_tls_session_set_transport_push_func (session,
                                            evd_tls_output_stream_push,
-                                           self);
+                                           self,
+                                           NULL);
 
   return self;
 }

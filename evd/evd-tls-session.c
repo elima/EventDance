@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -50,6 +50,8 @@ struct _EvdTlsSessionPrivate
   EvdTlsSessionPushFunc push_func;
   gpointer              pull_user_data;
   gpointer              push_user_data;
+  GDestroyNotify        pull_user_data_free_func;
+  GDestroyNotify        push_user_data_free_func;
 
   gchar *priority;
 
@@ -156,6 +158,8 @@ evd_tls_session_init (EvdTlsSession *self)
   priv->push_func = NULL;
   priv->pull_user_data = NULL;
   priv->push_user_data = NULL;
+  priv->pull_user_data_free_func = NULL;
+  priv->push_user_data_free_func = NULL;
 
   priv->priority = g_strdup (EVD_TLS_SESSION_DEFAULT_PRIORITY);
 
@@ -174,6 +178,20 @@ static void
 evd_tls_session_dispose (GObject *obj)
 {
   EvdTlsSession *self = EVD_TLS_SESSION (obj);
+
+  if (self->priv->pull_user_data != NULL &&
+      self->priv->pull_user_data_free_func != NULL)
+    {
+      self->priv->pull_user_data_free_func (self->priv->pull_user_data);
+      self->priv->pull_user_data = NULL;
+    }
+
+  if (self->priv->push_user_data != NULL &&
+      self->priv->push_user_data_free_func != NULL)
+    {
+      self->priv->push_user_data_free_func (self->priv->push_user_data);
+      self->priv->push_user_data = NULL;
+    }
 
   if (self->priv->cred != NULL)
     {
@@ -555,25 +573,41 @@ evd_tls_session_get_credentials (EvdTlsSession *self)
 void
 evd_tls_session_set_transport_pull_func (EvdTlsSession         *self,
                                          EvdTlsSessionPullFunc  func,
-                                         gpointer               user_data)
+                                         gpointer               user_data,
+                                         GDestroyNotify         user_data_free_func)
 {
   g_return_if_fail (EVD_IS_TLS_SESSION (self));
   g_return_if_fail (func != NULL);
 
+  if (self->priv->pull_user_data != NULL &&
+      self->priv->pull_user_data_free_func != NULL)
+    {
+      self->priv->pull_user_data_free_func (self->priv->pull_user_data);
+    }
+
   self->priv->pull_func = func;
   self->priv->pull_user_data = user_data;
+  self->priv->pull_user_data_free_func = user_data_free_func;
 }
 
 void
 evd_tls_session_set_transport_push_func (EvdTlsSession         *self,
                                          EvdTlsSessionPushFunc  func,
-                                         gpointer               user_data)
+                                         gpointer               user_data,
+                                         GDestroyNotify         user_data_free_func)
 {
   g_return_if_fail (EVD_IS_TLS_SESSION (self));
   g_return_if_fail (func != NULL);
 
+  if (self->priv->push_user_data != NULL &&
+      self->priv->push_user_data_free_func != NULL)
+    {
+      self->priv->push_user_data_free_func (self->priv->push_user_data);
+    }
+
   self->priv->push_func = func;
   self->priv->push_user_data = user_data;
+  self->priv->push_user_data_free_func = user_data_free_func;
 }
 
 gint
