@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -82,10 +82,12 @@ EvdTlsSession     *evd_tls_session_new                     (void);
 
 void               evd_tls_session_set_transport_pull_func (EvdTlsSession         *self,
                                                             EvdTlsSessionPullFunc  func,
-                                                            gpointer               user_data);
+                                                            gpointer               user_data,
+                                                            GDestroyNotify         user_data_free_func);
 void               evd_tls_session_set_transport_push_func (EvdTlsSession         *self,
                                                             EvdTlsSessionPushFunc  func,
-                                                            gpointer               user_data);
+                                                            gpointer               user_data,
+                                                            GDestroyNotify         user_data_free_func);
 
 gint               evd_tls_session_handshake               (EvdTlsSession   *self,
                                                             GError         **error);
