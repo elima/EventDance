@@ -148,6 +148,8 @@ gboolean            evd_http_connection_redirect                     (EvdHttpCon
                                                                       gboolean            permanently,
                                                                       GError            **error);
 
+void                evd_http_connection_set_keepalive                (EvdHttpConnection *self,
+                                                                      gboolean           keepalive);
 gboolean            evd_http_connection_get_keepalive                (EvdHttpConnection *self);
 
 void                evd_http_connection_write_request_headers        (EvdHttpConnection   *self,
