@@ -1458,6 +1458,22 @@ evd_http_connection_redirect (EvdHttpConnection  *self,
   return result;
 }
 
+/**
+ * evd_http_connection_set_keepalive:
+ * @self: The #EvdHttpConnection
+ * @keepalive: %TRUE or %FALSE
+ *
+ * Manually sets the keepalive flag, overriding the internal state obtained from
+ * HTTP headers.
+ **/
+void
+evd_http_connection_set_keepalive (EvdHttpConnection *self, gboolean keepalive)
+{
+  g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
+
+  self->priv->keepalive = keepalive;
+}
+
 gboolean
 evd_http_connection_get_keepalive (EvdHttpConnection *self)
 {
