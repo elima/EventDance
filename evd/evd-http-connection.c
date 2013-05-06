@@ -422,20 +422,23 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
           void *unread_buf;
           gsize unread_size;
 
-          /* unread data beyond HTTP headers, back to the stream */
-          unread_buf = self->priv->buf->str + pos;
           unread_size = self->priv->buf->len - pos;
-
-          if (evd_buffered_input_stream_unread (EVD_BUFFERED_INPUT_STREAM (obj),
-                                                unread_buf,
-                                                unread_size,
-                                                NULL,
-                                                &error) >= 0)
+          if (unread_size > 0)
             {
-              g_string_set_size (self->priv->buf, pos);
+              /* unread data beyond HTTP headers, back to the stream */
+              unread_buf = self->priv->buf->str + pos;
 
-              evd_http_connection_on_read_headers (self, self->priv->buf);
+              if (evd_buffered_input_stream_unread (EVD_BUFFERED_INPUT_STREAM (obj),
+                                                    unread_buf,
+                                                    unread_size,
+                                                    NULL,
+                                                    &error) >= 0)
+                {
+                  g_string_set_size (self->priv->buf, pos);
+                }
             }
+
+          evd_http_connection_on_read_headers (self, self->priv->buf);
 
           self->priv->last_headers_pos = 0;
           g_string_set_size (self->priv->buf, 0);
