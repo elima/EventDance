@@ -173,14 +173,6 @@ evd_daemon_new (gint *argc, gchar **argv[])
   return self;
 }
 
-GMainLoop *
-evd_daemon_get_main_loop (EvdDaemon *self)
-{
-  g_return_val_if_fail (EVD_IS_DAEMON (self), NULL);
-
-  return self->priv->main_loop;
-}
-
 gint
 evd_daemon_run (EvdDaemon *self, GError **error)
 {
