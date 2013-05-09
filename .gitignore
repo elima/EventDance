@@ -28,5 +28,6 @@ config.sub
 depcomp
 
 *.stamp
+*.bak
 
 vgdump
