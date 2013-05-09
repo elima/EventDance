@@ -1,0 +1,16 @@
+html/
+tmpl/
+xml/
+*.hierarchy
+*.interfaces
+*.prerequisites
+*.signals
+*.types
+*.args
+*-overrides.txt
+*-unused.txt
+*-undocumented.txt
+*-undeclared.txt
+*-sections.txt
+*-decl.txt
+*-decl-list.txt
