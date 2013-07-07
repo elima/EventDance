@@ -54,17 +54,26 @@ static void     evd_tls_output_stream_get_property       (GObject    *obj,
                                                           GValue     *value,
                                                           GParamSpec *pspec);
 
+/*
 static gssize   evd_tls_output_stream_write              (GOutputStream  *stream,
                                                           const void     *buffer,
                                                           gsize          size,
                                                           GCancellable  *cancellable,
                                                           GError       **error);
+*/
+
+static gssize   evd_tls_output_stream_real_write         (EvdBufferedOutputStream  *self,
+                                                          const void               *buffer,
+                                                          gsize                     size,
+                                                          GCancellable             *cancellable,
+                                                          GError                  **error);
 
 static void
 evd_tls_output_stream_class_init (EvdTlsOutputStreamClass *class)
 {
   GObjectClass *obj_class;
-  GOutputStreamClass *output_stream_class;
+  /* GOutputStreamClass *output_stream_class; */
+  EvdBufferedOutputStreamClass *buf_out_stream_class;
 
   obj_class = G_OBJECT_CLASS (class);
 
@@ -72,8 +81,13 @@ evd_tls_output_stream_class_init (EvdTlsOutputStreamClass *class)
   obj_class->get_property = evd_tls_output_stream_get_property;
   obj_class->set_property = evd_tls_output_stream_set_property;
 
+  /*
   output_stream_class = G_OUTPUT_STREAM_CLASS (class);
   output_stream_class->write_fn = evd_tls_output_stream_write;
+  */
+
+  buf_out_stream_class = EVD_BUFFERED_OUTPUT_STREAM_CLASS (class);
+  buf_out_stream_class->real_write = evd_tls_output_stream_real_write;
 
    g_object_class_install_property (obj_class, PROP_SESSION,
 				   g_param_spec_object ("session",
@@ -160,6 +174,8 @@ evd_tls_output_stream_push (EvdTlsSession  *session,
   EvdTlsOutputStream *self = EVD_TLS_OUTPUT_STREAM (user_data);
   gssize result;
 
+  g_print ("tls pushing %lu\n", size);
+
   if (g_output_stream_is_closed (G_OUTPUT_STREAM (self)))
     {
       g_set_error_literal (error,
@@ -170,22 +186,22 @@ evd_tls_output_stream_push (EvdTlsSession  *session,
     }
 
   result =
-    G_OUTPUT_STREAM_CLASS (evd_tls_output_stream_parent_class)->
-    write_fn (G_OUTPUT_STREAM (self),
-              buffer,
-              size,
-              NULL,
-              error);
+    EVD_BUFFERED_OUTPUT_STREAM_CLASS (evd_tls_output_stream_parent_class)->
+    real_write (EVD_BUFFERED_OUTPUT_STREAM (self),
+                buffer,
+                size,
+                NULL,
+                error);
 
   return result;
 }
 
 static gssize
-evd_tls_output_stream_write (GOutputStream  *stream,
-                             const void     *buffer,
-                             gsize          size,
-                             GCancellable  *cancellable,
-                             GError       **error)
+evd_tls_output_stream_real_write (EvdBufferedOutputStream  *stream,
+                                  const void               *buffer,
+                                  gsize                     size,
+                                  GCancellable             *cancellable,
+                                  GError                  **error)
 {
   EvdTlsOutputStream *self = EVD_TLS_OUTPUT_STREAM (stream);
 

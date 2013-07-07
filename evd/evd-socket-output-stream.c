@@ -218,6 +218,7 @@ evd_socket_output_stream_write (GOutputStream  *stream,
                      0,
                      NULL);
       g_object_unref (self);
+      g_print ("%p: output stream filled!\n", self);
     }
 
   return actual_size;

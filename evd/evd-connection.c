@@ -1133,6 +1133,7 @@ evd_connection_starttls (EvdConnection       *self,
   self->priv->tls_output_stream =
     evd_tls_output_stream_new (session,
                                G_OUTPUT_STREAM (self->priv->throt_output_stream));
+  evd_buffered_output_stream_set_auto_flush (EVD_BUFFERED_OUTPUT_STREAM (self->priv->tls_output_stream), TRUE);
 
   g_filter_output_stream_set_close_base_stream (
     G_FILTER_OUTPUT_STREAM (self->priv->buf_output_stream), FALSE);

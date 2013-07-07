@@ -47,6 +47,12 @@ struct _EvdBufferedOutputStreamClass
 {
   GFilterOutputStreamClass parent_class;
 
+  gssize (* real_write) (EvdBufferedOutputStream  *self,
+                         const void               *buffer,
+                         gsize                     size,
+                         GCancellable             *cancellable,
+                         GError                  **error);
+
   /* padding for future expansion */
   void (* _padding_0_) (void);
   void (* _padding_1_) (void);
@@ -55,7 +61,6 @@ struct _EvdBufferedOutputStreamClass
   void (* _padding_4_) (void);
   void (* _padding_5_) (void);
   void (* _padding_6_) (void);
-  void (* _padding_7_) (void);
 };
 
 #define EVD_TYPE_BUFFERED_OUTPUT_STREAM           (evd_buffered_output_stream_get_type ())

@@ -104,6 +104,12 @@ static gboolean evd_buffered_output_stream_close              (GOutputStream  *s
                                                                GCancellable   *cancellable,
                                                                GError        **error);
 
+static gssize   evd_buffered_output_stream_real_write         (EvdBufferedOutputStream  *self,
+                                                               const void               *buffer,
+                                                               gsize                     size,
+                                                               GCancellable             *cancellable,
+                                                               GError                  **error);
+
 static void
 evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
 {
@@ -124,6 +130,8 @@ evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
   output_stream_class->write_async = evd_buffered_output_stream_write_async;
   output_stream_class->write_finish = evd_buffered_output_stream_write_finish;
   output_stream_class->close_fn = evd_buffered_output_stream_close;
+
+  class->real_write = evd_buffered_output_stream_real_write;
 
   g_object_class_install_property (obj_class, PROP_AUTO_FLUSH,
                                    g_param_spec_boolean ("auto-flush",
@@ -238,16 +246,16 @@ evd_buffered_output_stream_fill (EvdBufferedOutputStream  *self,
 }
 
 static gssize
-evd_buffered_output_stream_real_write (GOutputStream  *stream,
-                                       const void     *buffer,
-                                       gsize           size,
-                                       GCancellable   *cancellable,
-                                       GError        **error)
+evd_buffered_output_stream_real_write (EvdBufferedOutputStream  *self,
+                                       const void               *buffer,
+                                       gsize                     size,
+                                       GCancellable             *cancellable,
+                                       GError                  **error)
 {
   GOutputStream *base_stream;
 
   base_stream =
-    g_filter_output_stream_get_base_stream (G_FILTER_OUTPUT_STREAM (stream));
+    g_filter_output_stream_get_base_stream (G_FILTER_OUTPUT_STREAM (self));
 
   return g_output_stream_write (base_stream,
                                 buffer,
@@ -268,6 +276,8 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
   gsize buffered_size = 0;
   GError *_error = NULL;
 
+  g_print ("%s: out buf write: %lu\n", G_OBJECT_TYPE_NAME (self), size);
+
   if (self->priv->buffer->len > 0 ||
       ! self->priv->auto_flush)
     {
@@ -275,11 +285,11 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
     }
   else
     {
-      actual_size = evd_buffered_output_stream_real_write (stream,
-                                                           buffer,
-                                                           size,
-                                                           cancellable,
-                                                           &_error);
+      actual_size = EVD_BUFFERED_OUTPUT_STREAM_GET_CLASS (self)->real_write (self,
+                                                                             buffer,
+                                                                             size,
+                                                                             cancellable,
+                                                                             &_error);
 
       if (actual_size < 0)
         {
@@ -297,6 +307,7 @@ evd_buffered_output_stream_write (GOutputStream  *stream,
         }
       else if (actual_size < size)
         {
+          g_print ("(%s) buffered: %lu\n", G_OBJECT_TYPE_NAME (self), size - actual_size);
           buffered_size = evd_buffered_output_stream_fill (self,
                                                            buffer + actual_size,
                                                            size - actual_size);
@@ -443,17 +454,28 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
 
   size = self->priv->buffer->len;
 
+  g_print ("(%s)\t flush size: %lu\n", G_OBJECT_TYPE_NAME (self), size);
+
   if (size == 0)
     return TRUE;
 
-  actual_size = evd_buffered_output_stream_real_write (stream,
+  /*
+  actual_size = evd_buffered_output_stream_real_write (self,
                                                        self->priv->buffer->str,
                                                        size,
                                                        cancellable,
                                                        &_error);
+  */
+  actual_size = EVD_BUFFERED_OUTPUT_STREAM_GET_CLASS (self)->real_write (self,
+                                                                         self->priv->buffer->str,
+                                                                         size,
+                                                                         cancellable,
+                                                                         &_error);
+  g_print ("(%s)\t actual size flushed: %lu\n", G_OBJECT_TYPE_NAME (self), actual_size);
 
   if (actual_size < 0)
     {
+      g_print ("write error\n");
       if (self->priv->async_result != NULL)
         {
           GSimpleAsyncResult *res;
@@ -476,6 +498,8 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
     {
       g_string_erase (self->priv->buffer, 0, actual_size);
       self->priv->actual_size += actual_size;
+
+      g_print ("(%s)\t left in buf: %lu\n", G_OBJECT_TYPE_NAME (self), self->priv->buffer->len);
 
       if (self->priv->async_result != NULL)
         {
@@ -668,6 +692,8 @@ void
 evd_buffered_output_stream_notify_write (EvdBufferedOutputStream *self)
 {
   g_return_if_fail (EVD_IS_BUFFERED_OUTPUT_STREAM (self));
+
+  g_print ("%s: notify write (buf len: %lu)\n", G_OBJECT_TYPE_NAME (self), self->priv->buffer->len);
 
   if ( self->priv->flushing ||
        (self->priv->auto_flush && self->priv->buffer->len > 0) )

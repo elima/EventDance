@@ -3,7 +3,7 @@
  *
  * EventDance examples
  *
- * Copyright (C) 2010, Igalia S.L.
+ * Copyright (C) 2010-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -11,7 +11,7 @@
 
 #include <evd.h>
 
-#define LISTEN_PORT 8080
+#define LISTEN_PORT 4430
 
 static EvdDaemon *evd_daemon;
 
@@ -82,7 +82,7 @@ main (gint argc, gchar *argv[])
   evd_web_selector_set_default_service (selector, EVD_SERVICE (web_dir));
   evd_web_transport_server_use_selector (transport, selector);
 
-  /*  evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE); */
+  evd_service_set_tls_autostart (EVD_SERVICE (selector), TRUE);
   cred = evd_service_get_tls_credentials (EVD_SERVICE (selector));
   evd_tls_credentials_add_certificate_from_file (cred,
                                           "../tests/certs/x509-server.pem",
