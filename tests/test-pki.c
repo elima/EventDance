@@ -417,7 +417,10 @@ main (gint argc, gchar *argv[])
   EvdPkiKeyType key_type;
   gint i;
 
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
+
   g_test_init (&argc, &argv, NULL);
 
   evd_tls_init (NULL);

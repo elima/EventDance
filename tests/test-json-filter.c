@@ -166,7 +166,10 @@ evd_json_filter_test_chunked (EvdJsonFilterFixture *f,
 gint
 main (gint argc, gchar *argv[])
 {
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
+
   g_test_init (&argc, &argv, NULL);
 
   g_test_add ("/evd/json/filter/basic",

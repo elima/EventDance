@@ -500,7 +500,10 @@ main (gint argc, gchar *argv[])
 
   self_name = argv[0];
 
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
+
   g_test_init (&argc, &argv, NULL);
 
   context = g_option_context_new (NULL);

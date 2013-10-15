@@ -58,7 +58,9 @@ main (gint argc, gchar *argv[])
   EvdWebSelector *selector;
   gchar *addr;
 
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
 
   /* Session bus address */
   session_bus_addr = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION,

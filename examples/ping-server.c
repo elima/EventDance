@@ -60,7 +60,6 @@ main (gint argc, gchar *argv[])
   EvdTlsCredentials *cred;
   gchar *addr;
 
-  g_type_init ();
   evd_tls_init (NULL);
 
   /* daemon */

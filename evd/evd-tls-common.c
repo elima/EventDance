@@ -49,7 +49,9 @@ evd_tls_init (GError **error)
     {
       gint err_code;
 
+#ifndef GLIB_VERSION_2_36
       g_type_init ();
+#endif
 
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
       g_thread_init (NULL);

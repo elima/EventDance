@@ -233,7 +233,10 @@ main (gint argc, gchar *argv[])
 {
   gint i;
 
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
+
   g_test_init (&argc, &argv, NULL);
 
   g_test_add ("/evd/tls/cipher/basic",
