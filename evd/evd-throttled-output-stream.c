@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -52,6 +52,14 @@ static gssize   evd_throttled_output_stream_write              (GOutputStream  *
                                                                 gsize          size,
                                                                 GCancellable  *cancellable,
                                                                 GError       **error);
+static void     flush_async                                    (GOutputStream       *stream,
+                                                                gint                 io_priority,
+                                                                GCancellable        *cancellable,
+                                                                GAsyncReadyCallback  callback,
+                                                                gpointer             user_data);
+static gboolean flush_finish                                   (GOutputStream  *stream,
+                                                                GAsyncResult   *res,
+                                                                GError        **error);
 
 static void
 evd_throttled_output_stream_class_init (EvdThrottledOutputStreamClass *class)
@@ -65,8 +73,8 @@ evd_throttled_output_stream_class_init (EvdThrottledOutputStreamClass *class)
 
   output_stream_class = G_OUTPUT_STREAM_CLASS (class);
   output_stream_class->write_fn = evd_throttled_output_stream_write;
-  output_stream_class->flush_async = NULL;
-  output_stream_class->flush_finish = NULL;
+  output_stream_class->flush_async = flush_async;
+  output_stream_class->flush_finish = flush_finish;
 
   evd_throttled_output_stream_signals[SIGNAL_DELAY_WRITE] =
     g_signal_new ("delay-write",
@@ -205,6 +213,68 @@ evd_throttled_output_stream_write (GOutputStream  *stream,
     }
 
   return actual_size;
+}
+
+static void
+base_stream_on_flush (GObject      *obj,
+                      GAsyncResult *result,
+                      gpointer      user_data)
+{
+  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
+  GError *error = NULL;
+  GOutputStream *stream;
+
+  stream =
+    G_OUTPUT_STREAM (g_async_result_get_source_object (G_ASYNC_RESULT (res)));
+  g_output_stream_clear_pending (stream);
+
+  if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
+                                      result,
+                                      &error))
+    {
+      g_simple_async_result_take_error (res, error);
+    }
+
+  g_simple_async_result_complete (res);
+  g_object_unref (res);
+}
+
+static void
+flush_async (GOutputStream       *stream,
+             gint                 io_priority,
+             GCancellable        *cancellable,
+             GAsyncReadyCallback  callback,
+             gpointer             user_data)
+{
+  GSimpleAsyncResult *res;
+  GOutputStream *base_stream;
+
+  res = g_simple_async_result_new (G_OBJECT (stream),
+                                   callback,
+                                   user_data,
+                                   flush_async);
+
+  base_stream =
+    g_filter_output_stream_get_base_stream (G_FILTER_OUTPUT_STREAM (stream));
+  g_output_stream_flush_async (base_stream,
+                               io_priority,
+                               cancellable,
+                               base_stream_on_flush,
+                               res);
+}
+
+static gboolean
+flush_finish (GOutputStream  *stream,
+              GAsyncResult   *res,
+              GError        **error)
+{
+  g_return_val_if_fail (g_simple_async_result_is_valid (res,
+                                                        G_OBJECT (stream),
+                                                        flush_async),
+                        FALSE);
+
+  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (res),
+                                                  error);
 }
 
 /* public methods */
