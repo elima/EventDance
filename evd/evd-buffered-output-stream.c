@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -386,20 +386,24 @@ evd_buffered_output_stream_on_base_stream_flushed (GObject      *obj,
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (user_data);
   GError *error = NULL;
 
+  g_assert (! g_output_stream_has_pending (G_OUTPUT_STREAM (base_stream)));
+
+  if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
+                                      result,
+                                      &error))
+    {
+      if (self->priv->async_result != NULL)
+        g_simple_async_result_take_error (self->priv->async_result, error);
+      else
+        g_error_free (error);
+    }
+
   if (self->priv->async_result != NULL)
     {
       GSimpleAsyncResult *res;
 
       res = self->priv->async_result;
       self->priv->async_result = NULL;
-
-      if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
-                                          result,
-                                          &error))
-        {
-          g_simple_async_result_set_from_error (res, error);
-          g_error_free (error);
-        }
 
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);
