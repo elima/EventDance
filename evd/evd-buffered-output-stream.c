@@ -386,7 +386,7 @@ evd_buffered_output_stream_on_base_stream_flushed (GObject      *obj,
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (user_data);
   GError *error = NULL;
 
-  g_assert (! g_output_stream_has_pending (G_OUTPUT_STREAM (base_stream)));
+  g_assert (! g_output_stream_has_pending (G_OUTPUT_STREAM (obj)));
 
   if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
                                       result,
