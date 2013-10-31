@@ -104,15 +104,9 @@ static void
 evd_throttled_output_stream_dispose (GObject *obj)
 {
   EvdThrottledOutputStream *self = EVD_THROTTLED_OUTPUT_STREAM (obj);
-  GList *node;
 
-  node = self->priv->stream_throttles;
-  while (node != NULL)
-    {
-      g_object_unref (G_OBJECT (node->data));
-      node = node->next;
-    }
-  g_list_free (self->priv->stream_throttles);
+  g_list_free_full (self->priv->stream_throttles, g_object_unref);
+  self->priv->stream_throttles = NULL;
 
   G_OBJECT_CLASS (evd_throttled_output_stream_parent_class)->dispose (obj);
 }
