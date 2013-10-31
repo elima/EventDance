@@ -302,10 +302,8 @@ gint
 main (gint argc, gchar *argv[])
 {
   gint exit_code;
-  GError *error = NULL;
   gint i;
 
-  g_type_init ();
   g_test_init (&argc, &argv, NULL);
   evd_tls_init (NULL);
 
