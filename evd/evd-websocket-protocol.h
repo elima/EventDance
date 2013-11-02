@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,10 +23,10 @@
 #ifndef __EVD_WEBSOCKET_PROTOCOL_H__
 #define __EVD_WEBSOCKET_PROTOCOL_H__
 
-#include <evd-web-service.h>
-#include <evd-http-connection.h>
-#include <evd-http-request.h>
-#include <evd-peer.h>
+#include "evd-web-service.h"
+#include "evd-http-connection.h"
+#include "evd-http-request.h"
+#include "evd-peer.h"
 
 G_BEGIN_DECLS
 

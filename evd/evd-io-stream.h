@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -26,7 +26,7 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include <evd-stream-throttle.h>
+#include "evd-stream-throttle.h"
 
 G_BEGIN_DECLS
 

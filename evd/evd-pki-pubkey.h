@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -27,7 +27,7 @@
 #include <gio/gio.h>
 #include <gnutls/gnutls.h>
 
-#include <evd-pki-common.h>
+#include "evd-pki-common.h"
 
 G_BEGIN_DECLS
 

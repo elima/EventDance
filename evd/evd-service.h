@@ -26,9 +26,9 @@
 #include <glib-object.h>
 #include <gio/gio.h>
 
-#include <evd-io-stream-group.h>
-#include <evd-connection.h>
-#include <evd-tls-credentials.h>
+#include "evd-io-stream-group.h"
+#include "evd-connection.h"
+#include "evd-tls-credentials.h"
 
 G_BEGIN_DECLS
 

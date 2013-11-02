@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,7 +23,7 @@
 #ifndef __EVD_WEB_DIR_H__
 #define __EVD_WEB_DIR_H__
 
-#include <evd-web-service.h>
+#include "evd-web-service.h"
 
 G_BEGIN_DECLS
 

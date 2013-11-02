@@ -23,10 +23,10 @@
 #ifndef __EVD_WEBSOCKET_CLIENT_H__
 #define __EVD_WEBSOCKET_CLIENT_H__
 
-#include <evd-web-service.h>
-#include <evd-http-connection.h>
-#include <evd-http-request.h>
-#include <evd-peer.h>
+#include "evd-web-service.h"
+#include "evd-http-connection.h"
+#include "evd-http-request.h"
+#include "evd-peer.h"
 
 G_BEGIN_DECLS
 

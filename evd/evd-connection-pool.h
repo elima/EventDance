@@ -23,10 +23,9 @@
 #ifndef __EVD_CONNECTION_POOL_H__
 #define __EVD_CONNECTION_POOL_H__
 
-#include <evd-io-stream-group.h>
-
-#include <evd-connection.h>
-#include <evd-tls-credentials.h>
+#include "evd-io-stream-group.h"
+#include "evd-connection.h"
+#include "evd-tls-credentials.h"
 
 G_BEGIN_DECLS
 

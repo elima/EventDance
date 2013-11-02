@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,9 +23,8 @@
 #ifndef __EVD_REPROXY_H__
 #define __EVD_REPROXY_H__
 
-#include <evd-service.h>
-
-#include <evd-connection-pool.h>
+#include "evd-service.h"
+#include "evd-connection-pool.h"
 
 G_BEGIN_DECLS
 
