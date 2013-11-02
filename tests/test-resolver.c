@@ -62,16 +62,6 @@ fixture_teardown (Fixture       *f,
   g_main_loop_unref (f->main_loop);
 }
 
-/*
-static gboolean
-terminate_loop (gpointer user_data)
-{
-  g_main_loop_quit ((GMainLoop *) user_data);
-
-  return FALSE;
-}
-*/
-
 static void
 get_default (Fixture       *f,
              gconstpointer  test_data)

@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012, Igalia S.L.
+ * Copyright (C) 2012-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -67,11 +67,6 @@ static void
 fixture_teardown (Fixture       *f,
                   gconstpointer  data)
 {
-  /*
-  g_print ("server ref-count: %d\n", G_OBJECT (f->ws_server)->ref_count);
-  g_print ("client ref-count: %d\n", G_OBJECT (f->ws_client)->ref_count);
-  */
-
   g_object_unref (f->ws_client);
   g_object_unref (f->ws_server);
 
