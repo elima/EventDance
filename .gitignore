@@ -31,3 +31,5 @@ depcomp
 *.bak
 
 vgdump
+
+test-driver
