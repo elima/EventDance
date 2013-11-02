@@ -3,7 +3,7 @@
  *
  * EventDance project - An event distribution framework (http://eventdance.org)
  *
- * Copyright (C) 2009, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -431,12 +431,13 @@ main (gint argc, gchar **argv)
               resolve_cancel,
               fixture_teardown);
 
-  g_test_add ("/evd/resolver/error",
-              Fixture,
-              NULL,
-              fixture_setup,
-              resolve_error,
-              fixture_teardown);
+  if (g_test_slow ())
+    g_test_add ("/evd/resolver/error",
+                Fixture,
+                NULL,
+                fixture_setup,
+                resolve_error,
+                fixture_teardown);
 
   g_test_run ();
 
