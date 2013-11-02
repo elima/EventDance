@@ -25,15 +25,18 @@ else
 AM_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
 endif
 
-evd-marshal.h: evd-marshal.list
-	glib-genmarshal --header \
-		--prefix=evd_marshal evd-marshal.list > evd-marshal.h
+evd_marshal_list = $(addprefix $(srcdir)/, evd-marshal.list)
 
-evd-marshal.c: evd-marshal.list
+evd-marshal.h: $(evd_marshal_list)
+	glib-genmarshal --header \
+		--prefix=evd_marshal $(evd_marshal_list) > evd-marshal.h
+
+evd-marshal.c: $(evd_marshal_list)
 	glib-genmarshal --body \
-		--prefix=evd_marshal evd-marshal.list > evd-marshal.c
+		--prefix=evd_marshal $(evd_marshal_list) > evd-marshal.c
 
 BUILT_SOURCES = evd-marshal.c evd-marshal.h
+EXTRA_DIST = $(evd_marshal_list)
 
 # libraries
 lib_LTLIBRARIES = lib@EVD_API_NAME@.la
@@ -235,8 +238,7 @@ endif
 maintainer-clean-local:
 	rm -rf tmp-introspect*
 
-EXTRA_DIST = \
-	evd-marshal.list \
+EXTRA_DIST += \
 	js/evdWebTransport.js \
 	js/evdDBusBridge.js \
 	js/evdJsonrpc.js
