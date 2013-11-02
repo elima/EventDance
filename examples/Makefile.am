@@ -25,7 +25,7 @@ AM_LIBS = \
 	$(JSON_LIBS) \
 	$(SOUP_LIBS) \
 	-lgcrypt \
-	$(top_srcdir)/evd/libevd-@EVD_API_VERSION@.la
+	$(top_builddir)/evd/libevd-@EVD_API_VERSION@.la
 
 if HAVE_GIO_UNIX
 AM_LIBS += \
