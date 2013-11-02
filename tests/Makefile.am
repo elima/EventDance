@@ -1,7 +1,7 @@
 MAINTAINERCLEANFILES = \
 	Makefile.in
 
-tests_dir = `pwd`/
+tests_dir = $(top_srcdir)/tests/
 
 AM_CFLAGS = \
 	$(GLIB_CFLAGS) \
