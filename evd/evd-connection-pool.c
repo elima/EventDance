@@ -105,7 +105,7 @@ evd_connection_pool_class_init (EvdConnectionPoolClass *class)
                                                         "Address",
                                                         "The target socket address to connect to",
                                                         NULL,
-                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_CONNECTION_TYPE,
@@ -126,8 +126,6 @@ evd_connection_pool_init (EvdConnectionPool *self)
 
   priv = EVD_CONNECTION_POOL_GET_PRIVATE (self);
   self->priv = priv;
-
-  self->priv->target = NULL;
 
   priv->min_conns = DEFAULT_MIN_CONNS;
   priv->max_conns = DEFAULT_MAX_CONNS;
