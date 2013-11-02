@@ -104,7 +104,6 @@
       <xi:include href="xml/evd-tls-dh-generator.xml"/>
       <xi:include href="xml/evd-utils.xml"/>
       <xi:include href="xml/evd-error.xml"/>
-      <xi:include href="xml/evd-marshal.xml"/>
       <xi:include href="xml/evd-tls-common.xml"/>
     </chapter>
 
