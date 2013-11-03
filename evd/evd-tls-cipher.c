@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -190,11 +190,8 @@ evd_tls_cipher_create_new_handler (EvdTlsCipher *self, GError **error)
   gcry_error_t gcry_err;
 
   gcry_err = gcry_cipher_open (&hd, self->priv->algo, self->priv->mode, 0);
-  if (gcry_err != 0)
-    {
-      evd_error_build_gcrypt (gcry_err, error);
-      return NULL;
-    }
+  if (evd_error_propagate_gcrypt (gcry_err, error))
+    return NULL;
 
   return hd;
 }
@@ -324,12 +321,8 @@ evd_tls_cipher_do_in_thread (GSimpleAsyncResult *res,
         }
     }
 
-  if (gcry_err != 0)
-    {
-      evd_error_build_gcrypt (gcry_err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-    }
+  if (evd_error_propagate_gcrypt (gcry_err, &error))
+    g_simple_async_result_take_error (res, error);
 
   g_object_unref (res);
   g_object_unref (self);
@@ -390,8 +383,7 @@ evd_tls_cipher_do (EvdTlsCipher        *self,
       memcpy (_key, key, MIN (_key_size, key_size));
 
       gcry_err = gcry_cipher_setkey (hd, _key, _key_size);
-      if (gcry_err != 0)
-        evd_error_build_gcrypt (gcry_err, &error);
+      evd_error_propagate_gcrypt (gcry_err, &error);
     }
 
   if (error != NULL)

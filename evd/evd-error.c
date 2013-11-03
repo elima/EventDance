@@ -44,12 +44,24 @@ evd_error_propagate_gnutls (gint gnutls_error_code, GError **error)
     }
 }
 
-void
-evd_error_build_gcrypt (guint    gcrypt_error,
-                        GError **error)
+/**
+ * evd_error_propagate_gcrypt:
+ *
+ * Since: 0.2.0
+ **/
+gboolean
+evd_error_propagate_gcrypt (guint gcrypt_error_code, GError **error)
 {
-  g_set_error_literal (error,
-                       EVD_GCRYPT_ERROR,
-                       gcry_err_code (gcrypt_error),
-                       gcry_strerror (gcrypt_error));
+  if (gcrypt_error_code == GPG_ERR_NO_ERROR)
+    {
+      return FALSE;
+    }
+  else
+    {
+      g_set_error_literal (error,
+                           EVD_GCRYPT_ERROR,
+                           gcry_err_code (gcrypt_error_code),
+                           gcry_strerror (gcrypt_error_code));
+      return TRUE;
+    }
 }

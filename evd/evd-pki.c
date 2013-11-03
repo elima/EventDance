@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011, Igalia S.L.
+ * Copyright (C) 2011-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -115,12 +115,8 @@ generate_keypair_in_thread (GSimpleAsyncResult *res,
 
   g_free (format);
 
-  if (err != GPG_ERR_NO_ERROR)
-    {
-      evd_error_build_gcrypt (err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-    }
+  if (evd_error_propagate_gcrypt (err, &error))
+    g_simple_async_result_take_error (res, error);
 
   g_object_unref (res);
 }

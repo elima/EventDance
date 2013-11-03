@@ -154,11 +154,9 @@ decrypt_in_thread (GSimpleAsyncResult *res,
 
   /* decrypt */
   err = gcry_pk_decrypt (&ciph_sexp, data_sexp, self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
+  if (evd_error_propagate_gcrypt (err, &error))
     {
-      evd_error_build_gcrypt (err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_simple_async_result_take_error (res, error);
       goto out;
     }
 
@@ -218,9 +216,8 @@ evd_pki_privkey_import_native (EvdPkiPrivkey  *self,
   self->priv->key_sexp = (gcry_sexp_t) privkey_st;
 
   err = gcry_pk_testkey (self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
+  if (evd_error_propagate_gcrypt (err, error))
     {
-      evd_error_build_gcrypt (err, error);
       self->priv->key_sexp = NULL;
 
       return FALSE;
@@ -261,6 +258,7 @@ evd_pki_privkey_decrypt (EvdPkiPrivkey       *self,
   gcry_sexp_t data_sexp;
   GSimpleAsyncResult *res;
   gcry_error_t err;
+  GError *error = NULL;
 
   g_return_if_fail (EVD_IS_PKI_PRIVKEY (self));
 
@@ -276,14 +274,9 @@ evd_pki_privkey_decrypt (EvdPkiPrivkey       *self,
                          self->priv->type == EVD_PKI_KEY_TYPE_RSA ? "rsa" : "dsa",
                          size,
                          data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (evd_error_propagate_gcrypt (err, &error))
     {
-      GError *error = NULL;
-
-      evd_error_build_gcrypt (err, &error);
-
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_simple_async_result_take_error (res, error);
 
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);

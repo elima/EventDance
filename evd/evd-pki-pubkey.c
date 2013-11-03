@@ -155,11 +155,9 @@ encrypt_in_thread (GSimpleAsyncResult *res,
 
   /* encrypt */
   err = gcry_pk_encrypt (&ciph_sexp, data_sexp, self->priv->key_sexp);
-  if (err != GPG_ERR_NO_ERROR)
+  if (evd_error_propagate_gcrypt (err, &error))
     {
-      evd_error_build_gcrypt (err, &error);
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_simple_async_result_take_error (res, error);
       goto out;
     }
 
@@ -254,6 +252,7 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
   gcry_sexp_t data_sexp;
   GSimpleAsyncResult *res;
   gcry_error_t err;
+  GError *error = NULL;
 
   g_return_if_fail (EVD_IS_PKI_PUBKEY (self));
 
@@ -268,14 +267,9 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
                          "%b",
                          size,
                          data);
-  if (err != GPG_ERR_NO_ERROR)
+  if (evd_error_propagate_gcrypt (err, &error))
     {
-      GError *error = NULL;
-
-      evd_error_build_gcrypt (err, &error);
-
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_simple_async_result_take_error (res, error);
 
       g_simple_async_result_complete_in_idle (res);
       g_object_unref (res);

@@ -274,11 +274,8 @@ get_sexp_for_rsa_key (EvdTlsPrivkey *self, GError **error)
                               p.size, p.data,
                               q.size, q.data,
                               u.size, u.data);
-  if (gcry_err != GPG_ERR_NO_ERROR)
-    {
-      evd_error_build_gcrypt (gcry_err, error);
-      key_sexp = NULL;
-    }
+  if (evd_error_propagate_gcrypt (gcry_err, error))
+    key_sexp = NULL;
 
   gnutls_free (m.data);
   gnutls_free (e.data);
