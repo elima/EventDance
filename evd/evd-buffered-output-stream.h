@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -66,7 +66,7 @@ GType                   evd_buffered_output_stream_get_type          (void) G_GN
 
 EvdBufferedOutputStream *evd_buffered_output_stream_new              (GOutputStream *base_stream);
 
-gssize                  evd_buffered_output_stream_write_str         (EvdBufferedOutputStream  *self,
+gssize                  evd_buffered_output_stream_write_str_sync    (EvdBufferedOutputStream  *self,
                                                                       const gchar              *buffer,
                                                                       GError                  **error);
 

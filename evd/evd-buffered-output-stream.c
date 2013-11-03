@@ -596,9 +596,9 @@ evd_buffered_output_stream_new (GOutputStream *base_stream)
 }
 
 gssize
-evd_buffered_output_stream_write_str (EvdBufferedOutputStream  *self,
-                                      const gchar              *buffer,
-                                      GError                  **error)
+evd_buffered_output_stream_write_str_sync (EvdBufferedOutputStream  *self,
+                                           const gchar              *buffer,
+                                           GError                  **error)
 {
   g_return_val_if_fail (EVD_IS_BUFFERED_OUTPUT_STREAM (self), 0);
 
