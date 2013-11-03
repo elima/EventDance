@@ -121,11 +121,11 @@ static void
 unix_addr (Fixture       *f,
            gconstpointer  test_data)
 {
-  evd_resolver_resolve_async (f->resolver,
-                              UNIX_ADDR,
-                              NULL,
-                              unix_addr_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        UNIX_ADDR,
+                        NULL,
+                        unix_addr_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -181,11 +181,11 @@ static void
 ipv4 (Fixture       *f,
       gconstpointer  test_data)
 {
-  evd_resolver_resolve_async (f->resolver,
-                              IPV4_1,
-                              NULL,
-                              ipv4_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        IPV4_1,
+                        NULL,
+                        ipv4_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -239,11 +239,11 @@ static void
 ipv6 (Fixture       *f,
       gconstpointer  test_data)
 {
-  evd_resolver_resolve_async (f->resolver,
-                              IPV6_1,
-                              NULL,
-                              ipv6_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        IPV6_1,
+                        NULL,
+                        ipv6_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -277,11 +277,11 @@ static void
 resolve_good_localhost (Fixture       *f,
                         gconstpointer  test_data)
 {
-  evd_resolver_resolve_async (f->resolver,
-                              RESOLVE_GOOD_LOCALHOST,
-                              NULL,
-                              resolve_good_localhost_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        RESOLVE_GOOD_LOCALHOST,
+                        NULL,
+                        resolve_good_localhost_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 }
@@ -351,19 +351,19 @@ static void
 resolve_error (Fixture       *f,
                gconstpointer  test_data)
 {
-  evd_resolver_resolve_async (f->resolver,
-                              NONEXISTANT_1,
-                              NULL,
-                              resolve_error_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        NONEXISTANT_1,
+                        NULL,
+                        resolve_error_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 
-  evd_resolver_resolve_async (f->resolver,
-                              NONEXISTANT_2,
-                              NULL,
-                              resolve_error_on_resolve,
-                              f);
+  evd_resolver_resolve (f->resolver,
+                        NONEXISTANT_2,
+                        NULL,
+                        resolve_error_on_resolve,
+                        f);
 
   g_main_loop_run (f->main_loop);
 }

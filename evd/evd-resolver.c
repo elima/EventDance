@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -154,11 +154,11 @@ evd_resolver_new (void)
 }
 
 void
-evd_resolver_resolve_async (EvdResolver         *self,
-                            const gchar         *address,
-                            GCancellable        *cancellable,
-                            GAsyncReadyCallback  callback,
-                            gpointer             user_data)
+evd_resolver_resolve (EvdResolver         *self,
+                      const gchar         *address,
+                      GCancellable        *cancellable,
+                      GAsyncReadyCallback  callback,
+                      gpointer             user_data)
 {
   GSimpleAsyncResult *res;
   EvdResolverData *data;
@@ -166,7 +166,7 @@ evd_resolver_resolve_async (EvdResolver         *self,
   res = g_simple_async_result_new (G_OBJECT (self),
                                    callback,
                                    user_data,
-                                   evd_resolver_resolve_async);
+                                   evd_resolver_resolve);
 
   data = g_slice_new0 (EvdResolverData);
   data->resolver = self;
@@ -265,7 +265,7 @@ evd_resolver_resolve_finish (EvdResolver   *self,
   g_return_val_if_fail (EVD_IS_RESOLVER (self), NULL);
   g_return_val_if_fail (g_simple_async_result_is_valid (result,
                                                       G_OBJECT (self),
-                                                      evd_resolver_resolve_async),
+                                                      evd_resolver_resolve),
                         NULL);
 
   res = G_SIMPLE_ASYNC_RESULT (result);

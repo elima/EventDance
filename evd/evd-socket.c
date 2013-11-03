@@ -866,11 +866,11 @@ evd_socket_resolve_address (EvdSocket       *self,
   resolver = evd_resolver_get_default ();
 
   g_object_ref (self);
-  evd_resolver_resolve_async (resolver,
-                              address,
-                              cancellable,
-                              evd_socket_on_address_resolved,
-                              self);
+  evd_resolver_resolve (resolver,
+                        address,
+                        cancellable,
+                        evd_socket_on_address_resolved,
+                        self);
 }
 
 static void

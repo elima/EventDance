@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -54,7 +54,7 @@ EvdResolver        *evd_resolver_get_default          (void);
 
 EvdResolver        *evd_resolver_new                  (void);
 
-void                evd_resolver_resolve_async        (EvdResolver         *resolver,
+void                evd_resolver_resolve              (EvdResolver         *resolver,
                                                        const gchar         *address,
                                                        GCancellable        *cancellable,
                                                        GAsyncReadyCallback  callback,
