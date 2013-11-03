@@ -25,7 +25,7 @@
 
 #include <glib-object.h>
 
-#include <evd-transport.h>
+#include "evd-transport.h"
 
 G_BEGIN_DECLS
 
