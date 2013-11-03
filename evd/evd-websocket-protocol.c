@@ -958,7 +958,7 @@ evd_websocket_protocol_handle_handshake_response (EvdHttpConnection   *conn,
 /**
  * evd_websocket_protocol_bind:
  * @frame_cb: (scope notified):
- * @frame_cb: (scope notified):
+ * @close_cb: (scope notified):
  *
  **/
 void
