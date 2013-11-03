@@ -145,11 +145,11 @@ source_h = \
 	evd-pki-pubkey.h \
 	evd-daemon.h \
 	evd-jsonrpc-http-client.h \
-	evd-jsonrpc-http-server.h
+	evd-jsonrpc-http-server.h \
+	evd-tls-common.h
 
 source_h_priv = \
 	evd-poll.h \
-	evd-tls-common.h \
 	evd-tls-dh-generator.h \
 	evd-websocket-protocol.h \
 	evd-resolver.h \
