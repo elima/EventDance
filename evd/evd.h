@@ -28,8 +28,6 @@
 #include "evd-error.h"
 #include "evd-utils.h"
 #include "evd-socket.h"
-#include "evd-tls-input-stream.h"
-#include "evd-tls-output-stream.h"
 #include "evd-stream-throttle.h"
 #include "evd-buffered-input-stream.h"
 #include "evd-buffered-output-stream.h"

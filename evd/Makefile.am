@@ -105,8 +105,6 @@ source_h = \
 	evd-error.h \
 	evd-utils.h \
 	evd-socket.h \
-	evd-tls-input-stream.h \
-	evd-tls-output-stream.h \
 	evd-stream-throttle.h \
 	evd-buffered-input-stream.h \
 	evd-buffered-output-stream.h \
@@ -158,7 +156,9 @@ source_h_priv = \
 	evd-websocket-protocol.h \
 	evd-resolver.h \
 	evd-socket-input-stream.h \
-	evd-socket-output-stream.h
+	evd-socket-output-stream.h \
+	evd-tls-input-stream.h \
+	evd-tls-output-stream.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
