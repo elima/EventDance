@@ -242,6 +242,5 @@ maintainer-clean-local:
 	rm -rf tmp-introspect*
 
 EXTRA_DIST += \
-	js/evdWebTransport.js \
-	js/evdDBusBridge.js \
-	js/evdJsonrpc.js
+	$(source_h_priv) \
+	$(jslib_DATA)
