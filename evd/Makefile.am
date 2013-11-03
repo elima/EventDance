@@ -191,8 +191,7 @@ lib@EVD_API_NAME@_la_LDFLAGS = \
 
 lib@EVD_API_NAME@_la_SOURCES = \
 	$(source_c) \
-	$(source_h) \
-	$(source_h_priv)
+	$(source_h)
 
 nodist_lib@EVD_API_NAME@_la_SOURCES = \
 	evd-marshal.c \
@@ -200,8 +199,7 @@ nodist_lib@EVD_API_NAME@_la_SOURCES = \
 
 evddir = $(includedir)/@EVD_API_NAME@
 evd_HEADERS = \
-	$(source_h) \
-	$(source_h_priv)
+	$(source_h)
 
 jslib_DATA = \
 	js/evdWebTransport.js \
