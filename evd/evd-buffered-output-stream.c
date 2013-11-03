@@ -613,12 +613,12 @@ evd_buffered_output_stream_write_str_sync (EvdBufferedOutputStream  *self,
 }
 
 void
-evd_buffered_output_stream_write_str_async (EvdBufferedOutputStream *self,
-                                            const gchar             *buffer,
-                                            int                      io_priority,
-                                            GCancellable            *cancellable,
-                                            GAsyncReadyCallback      callback,
-                                            gpointer                 user_data)
+evd_buffered_output_stream_write_str (EvdBufferedOutputStream *self,
+                                      const gchar             *buffer,
+                                      int                      io_priority,
+                                      GCancellable            *cancellable,
+                                      GAsyncReadyCallback      callback,
+                                      gpointer                 user_data)
 {
   g_return_if_fail (EVD_IS_BUFFERED_OUTPUT_STREAM (self));
 
