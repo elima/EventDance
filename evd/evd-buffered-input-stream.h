@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -72,7 +72,7 @@ gssize                  evd_buffered_input_stream_unread            (EvdBuffered
                                                                      GCancellable            *cancellable,
                                                                      GError                 **error);
 
-gchar                  *evd_buffered_input_stream_read_str          (EvdBufferedInputStream *self,
+gchar                  *evd_buffered_input_stream_read_str_sync     (EvdBufferedInputStream *self,
                                                                      gssize                 *size,
                                                                      GError                **error);
 void                    evd_buffered_input_stream_read_str_async    (EvdBufferedInputStream *stream,
