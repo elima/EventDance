@@ -159,9 +159,6 @@
 
   <part id="evdglossary">
     <title>Glossaries</title>
-
-    <xi:include href="xml/glossary.xml"><xi:fallback /></xi:include>
-    <xi:include href="xml/annotation-glossary.xml"/>
   </part>
 
   <index>
