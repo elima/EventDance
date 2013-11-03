@@ -87,7 +87,9 @@ main (gint argc, gchar *argv[])
   gchar *filename;
   GError *error = NULL;
 
-  g_type_init ();
+#ifndef GLIB_VERSION_2_36
+      g_type_init ();
+#endif
 
   if ( (argc > 1) &&
        (g_strcmp0 (argv[1], "--help") == 0 ||

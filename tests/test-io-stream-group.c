@@ -179,7 +179,10 @@ test_func (Fixture *f, gconstpointer test_data)
 gint
 main (gint argc, gchar *argv[])
 {
+#ifndef GLIB_VERSION_2_36
   g_type_init ();
+#endif
+
   g_test_init (&argc, &argv, NULL);
 
   g_test_add ("/evd/io-stream-group/all",
