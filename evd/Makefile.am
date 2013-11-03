@@ -1,5 +1,6 @@
 MAINTAINERCLEANFILES = \
 	Makefile.in
+DISTCLEANFILES =
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = @EVD_API_NAME@.pc
@@ -37,6 +38,7 @@ evd-marshal.c: $(evd_marshal_list)
 
 BUILT_SOURCES = evd-marshal.c evd-marshal.h
 EXTRA_DIST = $(evd_marshal_list)
+DISTCLEANFILES += evd-marshal.c evd-marshal.h
 
 # libraries
 lib_LTLIBRARIES = lib@EVD_API_NAME@.la
@@ -233,6 +235,7 @@ typelibdir = @INTROSPECTION_TYPELIBDIR@
 typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
 
 CLEANFILES += $(dist_gir_DATA) $(typelib_DATA)
+DISTCLEANFILES += $(INTROSPECTION_GIRS)
 endif
 
 maintainer-clean-local:
