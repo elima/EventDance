@@ -144,7 +144,6 @@ source_h = \
 	evd-pki-privkey.h \
 	evd-pki-pubkey.h \
 	evd-daemon.h \
-	evd-http-chunked-decoder.h \
 	evd-jsonrpc-http-client.h \
 	evd-jsonrpc-http-server.h
 
@@ -158,7 +157,8 @@ source_h_priv = \
 	evd-socket-output-stream.h \
 	evd-tls-input-stream.h \
 	evd-tls-output-stream.h \
-	evd-json-filter.h
+	evd-json-filter.h \
+	evd-http-chunked-decoder.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \

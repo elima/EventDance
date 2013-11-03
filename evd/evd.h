@@ -62,7 +62,6 @@
 #include "evd-pki-privkey.h"
 #include "evd-pki-pubkey.h"
 #include "evd-daemon.h"
-#include "evd-http-chunked-decoder.h"
 #include "evd-jsonrpc-http-client.h"
 #include "evd-jsonrpc-http-server.h"
 
