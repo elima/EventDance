@@ -23,6 +23,10 @@
 #ifndef __EVD_PEER_MANAGER_H__
 #define __EVD_PEER_MANAGER_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include <glib-object.h>
 
 #include "evd-peer.h"

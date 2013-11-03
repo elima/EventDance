@@ -64,4 +64,6 @@
 #include "evd-jsonrpc-http-client.h"
 #include "evd-jsonrpc-http-server.h"
 
+#undef __EVD_H_INSIDE__
+
 #endif /* __EVD_H__ */

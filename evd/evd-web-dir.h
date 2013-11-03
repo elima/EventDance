@@ -23,6 +23,10 @@
 #ifndef __EVD_WEB_DIR_H__
 #define __EVD_WEB_DIR_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include "evd-web-service.h"
 
 G_BEGIN_DECLS

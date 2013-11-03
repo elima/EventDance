@@ -23,6 +23,10 @@
 #ifndef __EVD_STREAM_THROTTLE_H__
 #define __EVD_STREAM_THROTTLE_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include <glib-object.h>
 
 G_BEGIN_DECLS

@@ -23,6 +23,10 @@
 #ifndef __EVD_ERROR_H__
 #define __EVD_ERROR_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include <glib.h>
 #include <gnutls/gnutls.h>
 #include <gcrypt.h>

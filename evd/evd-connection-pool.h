@@ -23,6 +23,10 @@
 #ifndef __EVD_CONNECTION_POOL_H__
 #define __EVD_CONNECTION_POOL_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include "evd-io-stream-group.h"
 #include "evd-connection.h"
 #include "evd-tls-credentials.h"

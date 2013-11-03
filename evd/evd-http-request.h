@@ -23,6 +23,10 @@
 #ifndef __EVD_HTTP_REQUEST_H__
 #define __EVD_HTTP_REQUEST_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include <libsoup/soup-uri.h>
 
 #include "evd-http-message.h"
