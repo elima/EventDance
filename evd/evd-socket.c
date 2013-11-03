@@ -560,8 +560,8 @@ evd_socket_is_connected (EvdSocket *self, GError **error)
   if (self->priv->socket == NULL)
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_NOT_CONNECTED,
+                           G_IO_ERROR,
+                           G_IO_ERROR_NOT_INITIALIZED,
                            "Socket is not connected");
 
       return FALSE;
@@ -984,8 +984,6 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
         {
           if (error->code != G_IO_ERROR_WOULD_BLOCK)
             {
-              /* error accepting connection, emit 'error' signal */
-              error->code = EVD_ERROR_SOCKET_ACCEPT;
               evd_socket_throw_error (self, error);
 
               /* @TODO: even on error, we should continue
@@ -1291,8 +1289,8 @@ evd_socket_watch_condition (EvdSocket *self, GIOCondition cond, GError **error)
   else
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_NOT_CONNECTED,
+                           G_IO_ERROR,
+                           G_IO_ERROR_NOT_INITIALIZED,
                            "Socket is not active");
 
       return FALSE;

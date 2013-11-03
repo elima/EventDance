@@ -378,8 +378,8 @@ evd_buffered_input_stream_unread (EvdBufferedInputStream  *self,
       g_buffered_input_stream_get_buffer_size (G_BUFFERED_INPUT_STREAM (self)))
     {
       if (error != NULL)
-        *error = g_error_new (EVD_ERROR,
-                              EVD_ERROR_BUFFER_FULL,
+        *error = g_error_new (G_IO_ERROR,
+                              G_IO_ERROR_NO_SPACE,
                               "Buffer is full");
 
       return -1;

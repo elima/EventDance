@@ -330,8 +330,8 @@ evd_poll_start (EvdPoll *self, GError **error)
   if ( (self->priv->epoll_fd = epoll_create (DEFAULT_MAX_FDS)) == -1)
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_EPOLL,
+                           G_IO_ERROR,
+                           G_IO_ERROR_FAILED,
                            "Failed to create epoll set");
 
       return FALSE;
@@ -522,8 +522,8 @@ evd_poll_add (EvdPoll          *self,
                             session))
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_EPOLL,
+                           G_IO_ERROR,
+                           G_IO_ERROR_FAILED,
                            "Failed to add file descriptor to epoll set");
 
       evd_poll_session_unref (session);
@@ -562,8 +562,8 @@ evd_poll_mod (EvdPoll         *self,
       if (! evd_poll_epoll_ctl (self, session->fd, EPOLL_CTL_MOD, condition, session))
         {
           g_set_error_literal (error,
-                               EVD_ERROR,
-                               EVD_ERROR_EPOLL,
+                               G_IO_ERROR,
+                               G_IO_ERROR_FAILED,
                                "Failed to modify watched conditions in epoll set");
 
           result = FALSE;
@@ -615,8 +615,8 @@ evd_poll_del (EvdPoll         *self,
   else
     {
       g_set_error_literal (error,
-                           EVD_ERROR,
-                           EVD_ERROR_EPOLL,
+                           G_IO_ERROR,
+                           G_IO_ERROR_FAILED,
                            "Failed to delete file descriptor from epoll set");
 
       result = FALSE;

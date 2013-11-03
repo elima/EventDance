@@ -462,8 +462,8 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
       else
         {
           g_set_error_literal (&error,
-                               EVD_ERROR,
-                               EVD_ERROR_TOO_LONG,
+                               G_IO_ERROR,
+                               G_IO_ERROR_INVALID_DATA,
                                "HTTP headers are too long");
         }
     }
