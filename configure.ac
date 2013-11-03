@@ -3,7 +3,7 @@
 #
 # EventDance, Peer-to-peer IPC library <http://eventdance.org>
 #
-# Copyright (C) 2009/2010/2011, Igalia S.L.
+# Copyright (C) 2009-2013, Igalia S.L.
 #
 # Authors:
 #   Eduardo Lima Mitev <elima@igalia.com>
@@ -97,6 +97,12 @@ if test "x$found_introspection" = "xyes"; then
 
    EVD_GIR_TARGET_NAME="prj_gir_namespace"_"prj_version_major"_"prj_version_minor"_gir
    AC_SUBST(EVD_GIR_TARGET_NAME)
+
+   INTROSPECTION_GIRDIR=${prefix}/share/gir-1.0
+   AC_SUBST(INTROSPECTION_GIRDIR)
+
+   INTROSPECTION_TYPELIBDIR=${libdir}/girepository-1.0
+   AC_SUBST(INTROSPECTION_TYPELIBDIR)
 fi
 
 # Javascript support check
