@@ -110,7 +110,6 @@ source_h = \
 	evd-buffered-output-stream.h \
 	evd-throttled-input-stream.h \
 	evd-throttled-output-stream.h \
-	evd-json-filter.h \
 	evd-service.h \
 	evd-tls-session.h \
 	evd-tls-certificate.h \
@@ -158,7 +157,8 @@ source_h_priv = \
 	evd-socket-input-stream.h \
 	evd-socket-output-stream.h \
 	evd-tls-input-stream.h \
-	evd-tls-output-stream.h
+	evd-tls-output-stream.h \
+	evd-json-filter.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \

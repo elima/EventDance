@@ -24,9 +24,10 @@
  */
 
 #include <glib.h>
+#include <gio/gio.h>
 #include <string.h>
 
-#include <evd.h>
+#include "evd-json-filter.h"
 
 static const gchar *evd_json_filter_chunks[] =
 {
