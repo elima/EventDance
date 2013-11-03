@@ -75,7 +75,7 @@ gssize                  evd_buffered_input_stream_unread            (EvdBuffered
 gchar                  *evd_buffered_input_stream_read_str_sync     (EvdBufferedInputStream *self,
                                                                      gssize                 *size,
                                                                      GError                **error);
-void                    evd_buffered_input_stream_read_str_async    (EvdBufferedInputStream *stream,
+void                    evd_buffered_input_stream_read_str          (EvdBufferedInputStream *stream,
                                                                      gsize                   count,
                                                                      int                     io_priority,
                                                                      GCancellable           *cancellable,

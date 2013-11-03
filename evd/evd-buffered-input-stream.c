@@ -441,16 +441,16 @@ evd_buffered_input_stream_read_str_sync (EvdBufferedInputStream *self,
 }
 
 /**
- * evd_buffered_input_stream_read_str_async:
+ * evd_buffered_input_stream_read_str:
  * @callback: (scope async): the #GAsyncReadyCallback
  **/
 void
-evd_buffered_input_stream_read_str_async (EvdBufferedInputStream *self,
-                                          gsize                   size,
-                                          int                     io_priority,
-                                          GCancellable           *cancellable,
-                                          GAsyncReadyCallback     callback,
-                                          gpointer                user_data)
+evd_buffered_input_stream_read_str (EvdBufferedInputStream *self,
+                                    gsize                   size,
+                                    int                     io_priority,
+                                    GCancellable           *cancellable,
+                                    GAsyncReadyCallback     callback,
+                                    gpointer                user_data)
 {
   g_return_if_fail (EVD_IS_BUFFERED_INPUT_STREAM (self));
 
