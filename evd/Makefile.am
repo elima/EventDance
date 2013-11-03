@@ -104,7 +104,6 @@ source_h = \
 	evd.h \
 	evd-error.h \
 	evd-utils.h \
-	evd-resolver.h \
 	evd-socket.h \
 	evd-socket-input-stream.h \
 	evd-socket-output-stream.h \
@@ -158,7 +157,8 @@ source_h_priv = \
 	evd-poll.h \
 	evd-tls-common.h \
 	evd-tls-dh-generator.h \
-	evd-websocket-protocol.h
+	evd-websocket-protocol.h \
+	evd-resolver.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \

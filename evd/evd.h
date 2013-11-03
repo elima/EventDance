@@ -23,9 +23,10 @@
 #ifndef __EVD_H__
 #define __EVD_H__
 
+#define __EVD_H_INSIDE__
+
 #include "evd-error.h"
 #include "evd-utils.h"
-#include "evd-resolver.h"
 #include "evd-socket.h"
 #include "evd-socket-input-stream.h"
 #include "evd-socket-output-stream.h"
