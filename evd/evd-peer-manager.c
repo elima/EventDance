@@ -253,7 +253,7 @@ evd_peer_manager_cleanup_peers_cb (gpointer user_data)
 /* public methods */
 
 /**
- * evd_peer_manager_get_default: (constructor):
+ * evd_peer_manager_get_default:
  *
  * Returns: (transfer full):
  **/

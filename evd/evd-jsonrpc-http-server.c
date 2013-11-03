@@ -370,7 +370,7 @@ on_request_headers (EvdWebService     *web_service,
 /* public methods */
 
 /**
- * evd_jsonrpc_http_server_new: (constructor):
+ * evd_jsonrpc_http_server_new:
  *
  * Returns: (transfer full):
  **/

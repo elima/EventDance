@@ -127,13 +127,6 @@ evd_io_stream_class_init (EvdIoStreamClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  /**
-   * EvdIoStream:group: (transfer none):
-   *
-   * The #EvdIoStreamGroup group this stream belongs to.
-   *
-   * Since: 0.2
-   **/
   g_object_class_install_property (obj_class, PROP_GROUP,
                                    g_param_spec_object ("group",
                                                         "IO stream group",

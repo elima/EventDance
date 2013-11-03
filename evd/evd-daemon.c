@@ -120,7 +120,7 @@ evd_daemon_on_user_interrupt (gint sig)
 /* public methods */
 
 /**
- * evd_daemon_get_default: (constructor):
+ * evd_daemon_get_default:
  * @argc: (allow-none):
  * @argv: (allow-none):
  *
@@ -138,7 +138,7 @@ evd_daemon_get_default (gint *argc, gchar **argv[])
 }
 
 /**
- * evd_daemon_new: (constructor):
+ * evd_daemon_new:
  * @argv: (allow-none):
  *
  * Returns: (transfer full):

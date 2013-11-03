@@ -508,7 +508,7 @@ jsonrpc_on_method_call_result (GObject      *obj,
 /* public methods */
 
 /**
- * evd_jsonrpc_http_client_new: (constructor):
+ * evd_jsonrpc_http_client_new:
  *
  * Returns: (transfer full):
  **/
