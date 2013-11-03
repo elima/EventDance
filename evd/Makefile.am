@@ -134,7 +134,6 @@ source_h = \
 	evd-http-request.h \
 	evd-web-dir.h \
 	evd-ipc-mechanism.h \
-	evd-dbus-agent.h \
 	evd-dbus-bridge.h \
 	evd-dbus-daemon.h \
 	evd-jsonrpc.h \
@@ -158,7 +157,8 @@ source_h_priv = \
 	evd-tls-input-stream.h \
 	evd-tls-output-stream.h \
 	evd-json-filter.h \
-	evd-http-chunked-decoder.h
+	evd-http-chunked-decoder.h \
+	evd-dbus-agent.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \

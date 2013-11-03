@@ -13,6 +13,7 @@
 #include <json-glib/json-glib.h>
 
 #include <evd.h>
+#include "evd-dbus-agent.h"
 
 #define BASE_NAME "org.eventdance.lib.test"
 #define BASE_OBJ_PATH "/org/eventdance/lib/test"
