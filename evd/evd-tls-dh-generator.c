@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -184,9 +184,7 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
   g_mutex_lock (&source->mutex);
 #endif
 
-  if (err_code != GNUTLS_E_SUCCESS)
-    evd_error_build_gnutls (err_code, &error);
-  else
+  if (! evd_error_propagate_gnutls (err_code, &error))
     source->dh_params = dh_params;
 
   while ( (item =

@@ -65,8 +65,6 @@ typedef enum
 } EvdErrorEnum;
 
 
-void         evd_error_build_gnutls         (gint     gnutls_error,
-                                             GError **error);
 void         evd_error_build_gcrypt         (guint    gcrypt_error,
                                              GError **error);
 

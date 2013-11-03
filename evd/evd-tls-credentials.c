@@ -395,10 +395,8 @@ add_certificate_from_file_thread (GSimpleAsyncResult *res,
                                                    data->cert_file,
                                                    data->key_file,
                                                    GNUTLS_X509_FMT_PEM);
-  if (err_code != GNUTLS_E_SUCCESS)
+  if (evd_error_propagate_gnutls (err_code, &error))
     {
-      evd_error_build_gnutls (err_code, &error);
-
       g_simple_async_result_set_from_error (res, error);
       g_error_free (error);
     }
@@ -614,11 +612,8 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
                                                          (gnutls_openpgp_privkey_t) _privkey);
         }
 
-      if (err_code != GNUTLS_E_SUCCESS)
-        {
-          evd_error_build_gnutls (err_code, error);
-          return FALSE;
-        }
+      if (evd_error_propagate_gnutls (err_code, error))
+        return FALSE;
     }
 
   return TRUE;

@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -61,7 +61,7 @@ evd_tls_init (GError **error)
       gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
 
       err_code = gnutls_global_init ();
-      if (err_code == GNUTLS_E_SUCCESS)
+      if (! evd_error_propagate_gnutls (err_code, error))
         {
           evd_tls_dh_gen = evd_tls_dh_generator_new ();
 
@@ -69,8 +69,6 @@ evd_tls_init (GError **error)
         }
       else
         {
-          evd_error_build_gnutls (err_code, error);
-
           result = FALSE;
         }
 

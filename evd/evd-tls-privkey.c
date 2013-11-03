@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009/2010, Igalia S.L.
+ * Copyright (C) 2009-2013, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -202,7 +202,7 @@ evd_tls_privkey_import_x509 (EvdTlsPrivkey      *self,
       err_code = gnutls_x509_privkey_import (privkey, &datum, format);
     }
 
-  if (err_code == GNUTLS_E_SUCCESS)
+  if (! evd_error_propagate_gnutls (err_code, error))
     {
       evd_tls_privkey_cleanup (self);
 
@@ -210,10 +210,6 @@ evd_tls_privkey_import_x509 (EvdTlsPrivkey      *self,
       self->priv->type = EVD_TLS_CERTIFICATE_TYPE_X509;
 
       return TRUE;
-    }
-  else
-    {
-      evd_error_build_gnutls (err_code, error);
     }
 
   return FALSE;
@@ -266,11 +262,8 @@ get_sexp_for_rsa_key (EvdTlsPrivkey *self, GError **error)
     err = gnutls_openpgp_privkey_export_rsa_raw (self->priv->openpgp_privkey,
                                                  &m, &e, &d, &p, &q, &u);
 
-  if (err != GNUTLS_E_SUCCESS)
-    {
-      evd_error_build_gnutls (err, error);
-      return NULL;
-    }
+  if (evd_error_propagate_gnutls (err, error))
+    return NULL;
 
   /* build a GRCY S-expression */
   const gchar *sexp_format = "(private-key (rsa (n %b) (e %b) (d %b) (p %b) (q %b) (u %b)))";
@@ -358,7 +351,7 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
                                                       0);
           }
 
-        if (err_code == GNUTLS_E_SUCCESS)
+        if (! evd_error_propagate_gnutls (err_code, error))
           {
             evd_tls_privkey_cleanup (self);
 
@@ -366,10 +359,6 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
             self->priv->type = EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
 
             return TRUE;
-          }
-        else
-          {
-            evd_error_build_gnutls (err_code, error);
           }
 
         break;

@@ -22,20 +22,10 @@
 
 #include "evd-error.h"
 
-void
-evd_error_build_gnutls (gint     gnutls_error,
-                        GError **error)
-{
-  g_set_error_literal (error,
-                       EVD_GNUTLS_ERROR,
-                       gnutls_error,
-                       gnutls_strerror (gnutls_error));
-}
-
 /**
  * evd_error_propagate_gnutls:
  *
- * Since: 0.1.28
+ * Since: 0.2.0
  **/
 gboolean
 evd_error_propagate_gnutls (gint gnutls_error_code, GError **error)
