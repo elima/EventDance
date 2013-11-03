@@ -20,12 +20,12 @@
  * for more details.
  */
 
+#ifndef __EVD_ERROR_H__
+#define __EVD_ERROR_H__
+
 #include <glib.h>
 #include <gnutls/gnutls.h>
 #include <gcrypt.h>
-
-#ifndef __EVD_ERROR_H__
-#define __EVD_ERROR_H__
 
 #define EVD_ERROR_DOMAIN_STR "org.eventdance.lib.Evd.ErrorDomain"
 #define EVD_ERROR            g_quark_from_string (EVD_ERROR_DOMAIN_STR)
