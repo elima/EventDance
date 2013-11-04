@@ -98,10 +98,10 @@ if test "x$found_introspection" = "xyes"; then
    EVD_GIR_TARGET_NAME="prj_gir_namespace"_"prj_version_major"_"prj_version_minor"_gir
    AC_SUBST(EVD_GIR_TARGET_NAME)
 
-   INTROSPECTION_GIRDIR=${prefix}/share/gir-1.0
+   INTROSPECTION_GIRDIR=`$PKG_CONFIG --define-variable=prefix='${prefix}' --variable=girdir gobject-introspection-1.0`
    AC_SUBST(INTROSPECTION_GIRDIR)
 
-   INTROSPECTION_TYPELIBDIR=${libdir}/girepository-1.0
+   INTROSPECTION_TYPELIBDIR=`$PKG_CONFIG --define-variable=prefix='${prefix}' --variable=typelibdir gobject-introspection-1.0`
    AC_SUBST(INTROSPECTION_TYPELIBDIR)
 fi
 
