@@ -25,7 +25,6 @@
 
 #define __EVD_H_INSIDE__
 
-#include "evd-error.h"
 #include "evd-utils.h"
 #include "evd-socket.h"
 #include "evd-stream-throttle.h"

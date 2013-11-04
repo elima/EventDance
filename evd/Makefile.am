@@ -103,7 +103,6 @@ source_c = \
 
 source_h = \
 	evd.h \
-	evd-error.h \
 	evd-utils.h \
 	evd-socket.h \
 	evd-stream-throttle.h \
@@ -159,7 +158,8 @@ source_h_priv = \
 	evd-tls-output-stream.h \
 	evd-json-filter.h \
 	evd-http-chunked-decoder.h \
-	evd-dbus-agent.h
+	evd-dbus-agent.h \
+	evd-error.h
 
 lib@EVD_API_NAME@_la_LIBADD = \
 	$(GLIB_LIBS) \
