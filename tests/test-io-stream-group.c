@@ -11,8 +11,6 @@
 
 #include <evd.h>
 
-#define LISTEN_PORT 54321
-
 typedef struct
 {
   EvdIoStreamGroup *group0;
@@ -24,6 +22,8 @@ typedef struct
   guint count_group_changes;
   EvdIoStreamGroup *expected_old_group;
   EvdIoStreamGroup *expected_new_group;
+
+  guint listen_port;
 } Fixture;
 
 static void
@@ -40,6 +40,8 @@ fixture_setup (Fixture *f, gconstpointer test_data)
   f->expected_new_group = NULL;
 
   f->main_loop = g_main_loop_new (NULL, FALSE);
+
+  f->listen_port = g_random_int_range (1025, 65535);
 }
 
 static void
@@ -153,7 +155,7 @@ test_func (Fixture *f, gconstpointer test_data)
 {
   gchar *addr;
 
-  addr = g_strdup_printf ("0.0.0.0:%d", LISTEN_PORT);
+  addr = g_strdup_printf ("0.0.0.0:%d", f->listen_port);
 
   evd_socket_listen (f->socket0,
                      addr,

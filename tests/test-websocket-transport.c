@@ -14,8 +14,6 @@
 #define LISTEN_ADDR "0.0.0.0:%d"
 #define WS_ADDR     "ws://127.0.0.1:%d/"
 
-static gint listen_port = 54321;
-
 typedef struct
 {
   gchar *test_name;
@@ -32,6 +30,8 @@ typedef struct
 
   GMainLoop *main_loop;
   gboolean client_new_peer;
+
+  guint listen_port;
 } Fixture;
 
 static const TestCase test_cases[] =
@@ -61,6 +61,8 @@ fixture_setup (Fixture       *f,
   f->main_loop = g_main_loop_new (NULL, FALSE);
 
   f->client_new_peer = FALSE;
+
+  f->listen_port = g_random_int_range (1025, 65535);
 }
 
 static void
@@ -123,8 +125,7 @@ on_server_open (GObject *obj,
   g_assert (ok);
 
   /* open client transport */
-  addr = g_strdup_printf (WS_ADDR, listen_port);
-  listen_port++;
+  addr = g_strdup_printf (WS_ADDR, f->listen_port);
 
   evd_transport_open (EVD_TRANSPORT (f->ws_client),
                       addr,
@@ -281,7 +282,7 @@ test_func (Fixture       *f,
   evd_websocket_server_set_standalone (f->ws_server, TRUE);
 
   /* open server transport */
-  addr = g_strdup_printf (LISTEN_ADDR, listen_port);
+  addr = g_strdup_printf (LISTEN_ADDR, f->listen_port);
 
   evd_transport_open (EVD_TRANSPORT (f->ws_server),
                       addr,
