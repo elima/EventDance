@@ -8,7 +8,7 @@ localedir=@localedir@
 
 Name: EventDance
 Description: An event distribution framework.
-Requires: glib-2.0 gio-2.0 gobject-2.0 libsoup-2.4 json-glib-1.0 gnutls
+Requires: glib-2.0 gio-2.0 gobject-2.0 libsoup-2.4 json-glib-1.0 gnutls uuid
 Version: @EVD_VERSION@
 Libs: -L${libdir} -levd-@EVD_API_VERSION@
 Cflags: -I${includedir}/evd-@EVD_API_VERSION@
