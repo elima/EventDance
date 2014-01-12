@@ -771,30 +771,26 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
   gssize size;
   GError *error = NULL;
   EvdHttpConnection *self = EVD_HTTP_CONNECTION (user_data);
+  GSimpleAsyncResult *_res;
 
-  if (self->priv->async_result != NULL)
-    {
-      GSimpleAsyncResult *_res;
+  g_assert (self->priv->async_result != NULL);
 
-      _res = self->priv->async_result;
-      self->priv->async_result = NULL;
-      g_io_stream_clear_pending (G_IO_STREAM (self));
+  _res = self->priv->async_result;
+  self->priv->async_result = NULL;
+  g_io_stream_clear_pending (G_IO_STREAM (self));
 
-      size = g_output_stream_write_finish (G_OUTPUT_STREAM (obj),
+  size = g_output_stream_write_finish (G_OUTPUT_STREAM (obj),
                                            res,
                                            &error);
 
-      if (size < 0)
-        {
-          g_simple_async_result_set_from_error (_res, error);
-          g_error_free (error);
-        }
-
-      g_simple_async_result_complete (_res);
-      g_object_unref (_res);
+  if (size < 0)
+    {
+      g_simple_async_result_set_from_error (_res, error);
+      g_error_free (error);
     }
 
-  g_object_unref (self);
+  g_simple_async_result_complete (_res);
+  g_object_unref (_res);
 }
 
 static gboolean
@@ -1528,17 +1524,13 @@ evd_http_connection_write_request_headers (EvdHttpConnection   *self,
 
   st = evd_http_request_to_string (request, &size);
 
-  g_object_ref (self);
-
   stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
   g_output_stream_write_async (stream,
                                st,
                                size,
                                G_PRIORITY_DEFAULT,
                                cancellable,
-                               callback != NULL ?
-                               evd_http_connection_on_write_request_headers :
-                               NULL,
+                               evd_http_connection_on_write_request_headers,
                                self);
 
   g_free (st);
