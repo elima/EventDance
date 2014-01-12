@@ -58,36 +58,36 @@ struct _EvdHttpRequestClass
 #define EVD_HTTP_REQUEST_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_HTTP_REQUEST, EvdHttpRequestClass))
 
 
-GType                    evd_http_request_get_type          (void) G_GNUC_CONST;
+GType             evd_http_request_get_type                   (void) G_GNUC_CONST;
 
-EvdHttpRequest          *evd_http_request_new               (const gchar *method,
-                                                             const gchar *url);
+EvdHttpRequest *  evd_http_request_new                        (const gchar *method,
+                                                               const gchar *url);
 
-const gchar             *evd_http_request_get_method        (EvdHttpRequest *self);
+const gchar *     evd_http_request_get_method                 (EvdHttpRequest *self);
 
- gchar                  *evd_http_request_get_path          (EvdHttpRequest *self);
+gchar *           evd_http_request_get_path                   (EvdHttpRequest *self);
 
-SoupURI                 *evd_http_request_get_uri           (EvdHttpRequest *self);
+SoupURI *         evd_http_request_get_uri                    (EvdHttpRequest *self);
 
-EvdHttpResponse         *evd_http_request_get_response      (EvdHttpRequest *self);
+EvdHttpResponse * evd_http_request_get_response               (EvdHttpRequest *self);
 
-gchar                   *evd_http_request_to_string         (EvdHttpRequest *self,
-                                                             gsize          *size);
+gchar *           evd_http_request_to_string                  (EvdHttpRequest *self,
+                                                               gsize          *size);
 
-void             evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
-                                                              const gchar    *user,
-                                                              const gchar    *passw);
-gboolean         evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
-                                                              gchar          **user,
-                                                              gchar          **password);
+void              evd_http_request_set_basic_auth_credentials (EvdHttpRequest *self,
+                                                               const gchar    *user,
+                                                               const gchar    *passw);
+gboolean          evd_http_request_get_basic_auth_credentials (EvdHttpRequest  *self,
+                                                               gchar          **user,
+                                                               gchar          **password);
 
-gchar           *evd_http_request_get_cookie_value           (EvdHttpRequest *self,
-                                                              const gchar    *cookie_name);
+gchar *           evd_http_request_get_cookie_value           (EvdHttpRequest *self,
+                                                               const gchar    *cookie_name);
 
-const gchar     *evd_http_request_get_origin                 (EvdHttpRequest *self);
+const gchar *     evd_http_request_get_origin                 (EvdHttpRequest *self);
 
-gboolean         evd_http_request_is_cross_origin            (EvdHttpRequest *self);
-gboolean         evd_http_request_is_cors_preflight          (EvdHttpRequest *self);
+gboolean          evd_http_request_is_cross_origin            (EvdHttpRequest *self);
+gboolean          evd_http_request_is_cors_preflight          (EvdHttpRequest *self);
 
 G_END_DECLS
 
