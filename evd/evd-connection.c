@@ -241,8 +241,6 @@ evd_connection_finalize (GObject *obj)
 
   evd_connection_teardown_streams (self);
 
-  g_object_unref (self->priv->socket);
-
   if (self->priv->tls_session != NULL)
     g_object_unref (self->priv->tls_session);
 
@@ -963,11 +961,9 @@ evd_connection_set_socket (EvdConnection *self, EvdSocket *socket)
                                             evd_connection_socket_on_error,
                                             self);
       evd_socket_set_notify_condition_callback (self->priv->socket, NULL, NULL);
-      g_object_unref (self->priv->socket);
     }
 
   self->priv->socket = socket;
-  g_object_ref (self->priv->socket);
   g_signal_connect (self->priv->socket,
                     "state-changed",
                     G_CALLBACK (evd_connection_socket_on_status_changed),
