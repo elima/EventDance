@@ -268,7 +268,6 @@ evd_connection_pool_finish_request (EvdConnectionPool  *self,
                                     EvdConnection      *conn,
                                     GSimpleAsyncResult *res)
 {
-  g_object_ref (conn);
   g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
   g_simple_async_result_complete_in_idle (res);
   g_object_unref (res);
