@@ -513,6 +513,8 @@ evd_service_socket_on_listen (GObject      *obj,
   g_simple_async_result_complete (res);
   g_object_unref (res);
 
+  /* this is because g_async_result_get_source_object() increases reference
+     count */
   g_object_unref (self);
 }
 

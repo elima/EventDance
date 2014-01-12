@@ -325,6 +325,9 @@ evd_tls_cipher_do_in_thread (GSimpleAsyncResult *res,
     g_simple_async_result_take_error (res, error);
 
   g_object_unref (res);
+
+  /* this is because g_async_result_get_source_object() increases reference
+     count */
   g_object_unref (self);
 }
 
