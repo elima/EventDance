@@ -37,8 +37,6 @@ struct _EvdHttpRequestPrivate
 {
   gchar *method;
   SoupURI *uri;
-
-  EvdHttpResponse *response;
 };
 
 /* properties */
@@ -104,14 +102,6 @@ evd_http_request_class_init (EvdHttpRequestClass *class)
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_RESPONSE,
-                                   g_param_spec_object ("response",
-                                                        "Response object",
-                                                        "The response object for this request",
-                                                        EVD_TYPE_HTTP_RESPONSE,
-                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_type_class_add_private (obj_class, sizeof (EvdHttpRequestPrivate));
 }
 
@@ -122,21 +112,11 @@ evd_http_request_init (EvdHttpRequest *self)
 
   priv = EVD_HTTP_REQUEST_GET_PRIVATE (self);
   self->priv = priv;
-
-  priv->response = NULL;
 }
 
 static void
 evd_http_request_dispose (GObject *obj)
 {
-  EvdHttpRequest *self = EVD_HTTP_REQUEST (obj);
-
-  if (self->priv->response != NULL)
-    {
-      g_object_unref (self->priv->response);
-      self->priv->response = NULL;
-    }
-
   G_OBJECT_CLASS (evd_http_request_parent_class)->dispose (obj);
 }
 
@@ -173,10 +153,6 @@ evd_http_request_set_property (GObject      *obj,
       self->priv->uri = g_value_dup_boxed (value);
       break;
 
-    case PROP_RESPONSE:
-      self->priv->response = g_value_get_object (value);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -205,10 +181,6 @@ evd_http_request_get_property (GObject    *obj,
 
     case PROP_URI:
       g_value_set_boxed (value, self->priv->uri);
-      break;
-
-    case PROP_RESPONSE:
-      g_value_set_object (value, self->priv->response);
       break;
 
     default:
@@ -263,26 +235,6 @@ evd_http_request_get_uri (EvdHttpRequest *self)
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
   return self->priv->uri;
-}
-
-/**
- * evd_http_request_get_response:
- *
- * Returns: (transfer full):
- **/
-EvdHttpResponse *
-evd_http_request_get_response (EvdHttpRequest *self)
-{
-  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
-
-  if (self->priv->response == NULL)
-    {
-      self->priv->response = g_object_new (EVD_TYPE_HTTP_RESPONSE,
-              "version", evd_http_message_get_version (EVD_HTTP_MESSAGE (self)),
-              NULL);
-    }
-
-  return g_object_ref (self->priv->response);
 }
 
 /**
