@@ -27,7 +27,7 @@
                                             EVD_TYPE_HTTP_RESPONSE, \
                                             EvdHttpResponsePrivate))
 
-G_DEFINE_TYPE (EvdHttpResponse, evd_http_response, EVD_TYPE_HTTP_MESSAGE)
+G_DEFINE_TYPE (EvdHttpResponse, evd_http_response, G_TYPE_OUTPUT_STREAM)
 
 /* private data */
 struct _EvdHttpResponsePrivate

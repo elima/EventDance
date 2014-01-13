@@ -26,7 +26,7 @@
 #error "Only <evd.h> can be included directly."
 #endif
 
-#include "evd-http-message.h"
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -36,14 +36,14 @@ typedef struct _EvdHttpResponsePrivate EvdHttpResponsePrivate;
 
 struct _EvdHttpResponse
 {
-  EvdHttpMessage parent;
+  GOutputStream parent;
 
   EvdHttpResponsePrivate *priv;
 };
 
 struct _EvdHttpResponseClass
 {
-  EvdHttpMessageClass parent_class;
+  GOutputStreamClass parent_class;
 };
 
 #define EVD_TYPE_HTTP_RESPONSE           (evd_http_response_get_type ())
