@@ -19,6 +19,7 @@
  * for more details.
  */
 
+#include <string.h>
 #include <libsoup/soup-method.h>
 
 #include "evd-http-response.h"
@@ -35,6 +36,11 @@ struct _EvdHttpResponsePrivate
   EvdConnection *conn;
   guint status_code;
   gchar *reason_phrase;
+  SoupMessageHeaders *headers;
+
+  EvdHttpRequest *request;
+
+  SoupEncoding encoding;
 };
 
 /* properties */
@@ -43,7 +49,9 @@ enum
   PROP_0,
   PROP_CONNECTION,
   PROP_STATUS_CODE,
-  PROP_REASON_PHRASE
+  PROP_REASON_PHRASE,
+  PROP_HEADERS,
+  PROP_REQUEST
 };
 
 static void     evd_http_response_class_init           (EvdHttpResponseClass *class);
@@ -95,15 +103,34 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
                                                       SOUP_STATUS_NONE,
                                                       G_MAXUINT,
                                                       SOUP_STATUS_OK,
-                                                      G_PARAM_READWRITE |
+                                                      G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_REASON_PHRASE,
+  g_object_class_install_property (obj_class,
+                                   PROP_REASON_PHRASE,
                                    g_param_spec_string ("reason-phrase",
                                                         "Reason phrase",
                                                         "The reason phrase of the HTTP response",
                                                         NULL,
-                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_READABLE |
+                                                        G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class,
+                                   PROP_HEADERS,
+                                   g_param_spec_boxed ("headers",
+                                                       "HTTP headers",
+                                                       "The HTTP response headers",
+                                                       SOUP_TYPE_MESSAGE_HEADERS,
+                                                       G_PARAM_READABLE |
+                                                       G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (obj_class,
+                                   PROP_REQUEST,
+                                   g_param_spec_object ("request",
+                                                        "Request",
+                                                        "The request object for this response",
+                                                        EVD_TYPE_HTTP_REQUEST,
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_type_class_add_private (obj_class, sizeof (EvdHttpResponsePrivate));
@@ -116,6 +143,12 @@ evd_http_response_init (EvdHttpResponse *self)
 
   priv = EVD_HTTP_RESPONSE_GET_PRIVATE (self);
   self->priv = priv;
+
+  priv->status_code = 0;
+  priv->reason_phrase = NULL;
+  priv->headers = NULL;
+
+  priv->encoding = SOUP_ENCODING_UNRECOGNIZED;
 }
 
 static void
@@ -129,6 +162,12 @@ evd_http_response_dispose (GObject *obj)
       self->priv->conn = NULL;
     }
 
+  if (self->priv->request != NULL)
+    {
+      g_object_unref (self->priv->request);
+      self->priv->request = NULL;
+    }
+
   G_OBJECT_CLASS (evd_http_response_parent_class)->dispose (obj);
 }
 
@@ -137,8 +176,10 @@ evd_http_response_finalize (GObject *obj)
 {
   EvdHttpResponse *self = EVD_HTTP_RESPONSE (obj);
 
-  if (self->priv->reason_phrase != NULL)
-    g_free (self->priv->reason_phrase);
+  g_free (self->priv->reason_phrase);
+
+  if (self->priv->headers != NULL)
+    soup_message_headers_free (self->priv->headers);
 
   G_OBJECT_CLASS (evd_http_response_parent_class)->finalize (obj);
 }
@@ -159,8 +200,12 @@ evd_http_response_set_property (GObject      *obj,
       self->priv->conn = g_value_get_object (value);
       break;
 
-    case PROP_REASON_PHRASE:
-      evd_http_response_set_reason_phrase (self, g_value_dup_string (value));
+    case PROP_HEADERS:
+      self->priv->headers = g_value_get_boxed (value);
+      break;
+
+    case PROP_REQUEST:
+      self->priv->request = g_value_get_object (value);
       break;
 
     default:
@@ -191,6 +236,14 @@ evd_http_response_get_property (GObject    *obj,
 
     case PROP_REASON_PHRASE:
       g_value_set_string (value, evd_http_response_get_reason_phrase (self));
+      break;
+
+    case PROP_HEADERS:
+      g_value_set_boxed (value, self->priv->headers);
+      break;
+
+    case PROP_REQUEST:
+      g_value_set_object (value, self->priv->request);
       break;
 
     default:
@@ -237,11 +290,17 @@ write_fn (GOutputStream  *stream,
 /* public methods */
 
 EvdHttpResponse *
-evd_http_response_new (void)
+evd_http_response_new (EvdConnection *conn, EvdHttpRequest *request)
 {
   EvdHttpResponse *self;
 
-  self = g_object_new (EVD_TYPE_HTTP_RESPONSE, NULL);
+  g_return_val_if_fail (EVD_IS_CONNECTION (conn), NULL);
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (conn), NULL);
+
+  self = g_object_new (EVD_TYPE_HTTP_RESPONSE,
+                       "connection", conn,
+                       "request", request,
+                       NULL);
 
   return self;
 }
@@ -267,19 +326,87 @@ evd_http_response_get_reason_phrase (EvdHttpResponse *self)
   return self->priv->reason_phrase;
 }
 
-void
-evd_http_response_set_status_code (EvdHttpResponse *self,
-                                   guint            status_code)
-{
-  g_return_if_fail (EVD_IS_HTTP_RESPONSE (self));
-
-  self->priv->status_code = status_code;
-}
-
 guint
 evd_http_response_get_status_code (EvdHttpResponse *self)
 {
   g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), 0);
 
   return self->priv->status_code;
+}
+
+/**
+ * evd_http_response_get_request:
+ *
+ * Returns: (transfer none):
+ **/
+EvdHttpRequest *
+evd_http_response_get_request (EvdHttpResponse *self)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), NULL);
+
+  return self->priv->request;
+}
+
+gboolean
+evd_http_response_write_headers (EvdHttpResponse  *self,
+                                 guint             status_code,
+                                 const gchar      *reason_phrase,
+                                 GError          **error)
+{
+  GString *buf;
+  gchar *st;
+  SoupHTTPVersion version;
+  gboolean result = TRUE;
+
+  g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), FALSE);
+
+  /* @TODO: check that headers have not been already sent */
+
+  buf = g_string_new ("");
+
+  if (reason_phrase == NULL)
+    reason_phrase = soup_status_get_phrase (status_code);
+
+  version =
+    evd_http_message_get_version (EVD_HTTP_MESSAGE (self->priv->request));
+
+  /* send status line */
+  st = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
+                        version,
+                        status_code,
+                        reason_phrase);
+  g_string_append_len (buf, st, strlen (st));
+  g_free (st);
+
+  /* send headers, if any */
+  if (self->priv->headers != NULL)
+    {
+      SoupMessageHeadersIter iter;
+      const gchar *name;
+      const gchar *value;
+
+      soup_message_headers_iter_init (&iter, self->priv->headers);
+      while (soup_message_headers_iter_next (&iter, &name, &value))
+        {
+          st = g_strdup_printf ("%s: %s\r\n", name, value);
+          g_string_append_len (buf, st, strlen (st));
+          g_free (st);
+        }
+
+      self->priv->encoding =
+        soup_message_headers_get_encoding (self->priv->headers);
+    }
+  else
+    {
+      self->priv->encoding = SOUP_ENCODING_EOF;
+    }
+
+  g_string_append_len (buf, "\r\n", 2);
+
+  if (write_to_connection (self, buf->str, buf->len, NULL, error) < 0)
+    result = FALSE;
+
+  g_string_free (buf, TRUE);
+
+  return result;
 }

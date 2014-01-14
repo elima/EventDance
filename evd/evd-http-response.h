@@ -29,6 +29,7 @@
 #include <gio/gio.h>
 
 #include "evd-connection.h"
+#include "evd-http-request.h"
 
 G_BEGIN_DECLS
 
@@ -58,17 +59,21 @@ struct _EvdHttpResponseClass
 
 GType                    evd_http_response_get_type          (void) G_GNUC_CONST;
 
-EvdHttpResponse *        evd_http_response_new               (void);
+EvdHttpResponse *        evd_http_response_new               (EvdConnection  *conn,
+                                                              EvdHttpRequest *request);
 
 EvdConnection *          evd_http_response_get_connection    (EvdHttpResponse *self);
 
-void                     evd_http_response_set_reason_phrase (EvdHttpResponse *self,
-                                                              const gchar     *reason_phrase);
 const gchar *            evd_http_response_get_reason_phrase (EvdHttpResponse *self);
 
-void                     evd_http_response_set_status_code   (EvdHttpResponse *self,
-                                                              guint            status_code);
 guint                    evd_http_response_get_status_code   (EvdHttpResponse *self);
+
+EvdHttpRequest *         evd_http_response_get_request       (EvdHttpResponse *self);
+
+gboolean                 evd_http_response_write_headers     (EvdHttpResponse  *self,
+                                                              guint             status_code,
+                                                              const gchar      *reason_phrase,
+                                                              GError          **error);
 
 G_END_DECLS
 
