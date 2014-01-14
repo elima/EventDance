@@ -28,6 +28,8 @@
 
 #include <gio/gio.h>
 
+#include "evd-connection.h"
+
 G_BEGIN_DECLS
 
 typedef struct _EvdHttpResponse EvdHttpResponse;
@@ -57,6 +59,8 @@ struct _EvdHttpResponseClass
 GType                    evd_http_response_get_type          (void) G_GNUC_CONST;
 
 EvdHttpResponse *        evd_http_response_new               (void);
+
+EvdConnection *          evd_http_response_get_connection    (EvdHttpResponse *self);
 
 void                     evd_http_response_set_reason_phrase (EvdHttpResponse *self,
                                                               const gchar     *reason_phrase);

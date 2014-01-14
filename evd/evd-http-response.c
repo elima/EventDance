@@ -32,6 +32,7 @@ G_DEFINE_TYPE (EvdHttpResponse, evd_http_response, G_TYPE_OUTPUT_STREAM)
 /* private data */
 struct _EvdHttpResponsePrivate
 {
+  EvdConnection *conn;
   guint status_code;
   gchar *reason_phrase;
 };
@@ -40,6 +41,7 @@ struct _EvdHttpResponsePrivate
 enum
 {
   PROP_0,
+  PROP_CONNECTION,
   PROP_STATUS_CODE,
   PROP_REASON_PHRASE
 };
@@ -58,19 +60,33 @@ static void     evd_http_response_get_property         (GObject    *obj,
                                                         guint       prop_id,
                                                         GValue     *value,
                                                         GParamSpec *pspec);
+static gssize   write_fn                               (GOutputStream  *stream,
+                                                        const void     *buffer,
+                                                        gsize           count,
+                                                        GCancellable   *cancellable,
+                                                        GError        **error);
 
 static void
 evd_http_response_class_init (EvdHttpResponseClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  EvdHttpMessageClass *http_msg_class = EVD_HTTP_MESSAGE_CLASS (class);
+  GOutputStreamClass *stream_class = G_OUTPUT_STREAM_CLASS (class);
 
   obj_class->dispose = evd_http_response_dispose;
   obj_class->finalize = evd_http_response_finalize;
   obj_class->get_property = evd_http_response_get_property;
   obj_class->set_property = evd_http_response_set_property;
 
-  http_msg_class->type = SOUP_MESSAGE_HEADERS_RESPONSE;
+  stream_class->write_fn = write_fn;
+
+  g_object_class_install_property (obj_class,
+                                   PROP_CONNECTION,
+                                   g_param_spec_object ("connection",
+                                                        "Connection",
+                                                        "The TCP connection used by the HTTP response",
+                                                        EVD_TYPE_CONNECTION,
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (obj_class, PROP_STATUS_CODE,
                                    g_param_spec_uint ("status-code",
@@ -105,6 +121,14 @@ evd_http_response_init (EvdHttpResponse *self)
 static void
 evd_http_response_dispose (GObject *obj)
 {
+  EvdHttpResponse *self = EVD_HTTP_RESPONSE (obj);
+
+  if (self->priv->conn != NULL)
+    {
+      g_object_unref (self->priv->conn);
+      self->priv->conn = NULL;
+    }
+
   G_OBJECT_CLASS (evd_http_response_parent_class)->dispose (obj);
 }
 
@@ -131,8 +155,8 @@ evd_http_response_set_property (GObject      *obj,
 
   switch (prop_id)
     {
-    case PROP_STATUS_CODE:
-      self->priv->status_code = g_value_get_uint (value);
+    case PROP_CONNECTION:
+      self->priv->conn = g_value_get_object (value);
       break;
 
     case PROP_REASON_PHRASE:
@@ -157,6 +181,10 @@ evd_http_response_get_property (GObject    *obj,
 
   switch (prop_id)
     {
+    case PROP_CONNECTION:
+      g_value_set_object (value, self->priv->conn);
+      break;
+
     case PROP_STATUS_CODE:
       g_value_set_uint (value, self->priv->status_code);
       break;
@@ -171,6 +199,41 @@ evd_http_response_get_property (GObject    *obj,
     }
 }
 
+static gssize
+write_to_connection (EvdHttpResponse  *self,
+                     const void       *buffer,
+                     gsize             count,
+                     GCancellable     *cancellable,
+                     GError          **error)
+{
+  GOutputStream *conn_stream;
+
+  conn_stream = g_io_stream_get_output_stream (G_IO_STREAM (self->priv->conn));
+
+  return g_output_stream_write (conn_stream,
+                                buffer,
+                                count,
+                                cancellable,
+                                error);
+}
+
+static gssize
+write_fn (GOutputStream  *stream,
+          const void     *buffer,
+          gsize           count,
+          GCancellable   *cancellable,
+          GError        **error)
+{
+  /* @TODO: check that headers have been sent.
+     Raise warning if writing beyond content boundaries. */
+
+  return write_to_connection (EVD_HTTP_RESPONSE (stream),
+                              buffer,
+                              count,
+                              cancellable,
+                              error);
+}
+
 /* public methods */
 
 EvdHttpResponse *
@@ -183,17 +246,17 @@ evd_http_response_new (void)
   return self;
 }
 
-void
-evd_http_response_set_reason_phrase (EvdHttpResponse *self,
-                                     const gchar     *reason_phrase)
+/**
+ * evd_http_response_get_connection:
+ *
+ * Returns: (transfer none):
+ **/
+EvdConnection *
+evd_http_response_get_connection (EvdHttpResponse *self)
 {
-  g_return_if_fail (EVD_IS_HTTP_RESPONSE (self));
-  g_return_if_fail (reason_phrase != NULL);
+  g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), NULL);
 
-  if (self->priv->reason_phrase != NULL)
-    g_free (self->priv->reason_phrase);
-
-  self->priv->reason_phrase = g_strdup (reason_phrase);
+  return self->priv->conn;
 }
 
 const gchar *
