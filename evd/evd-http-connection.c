@@ -222,8 +222,7 @@ evd_http_connection_response_headers_destroy (gpointer data)
 
   if (response->headers != NULL)
     soup_message_headers_free (response->headers);
-  if (response->reason_phrase != NULL)
-    g_free (response->reason_phrase);
+  g_free (response->reason_phrase);
 
   g_free (response);
 }
