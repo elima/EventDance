@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -97,6 +97,8 @@ static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *se
 
 static gboolean evd_connection_pool_create_min_conns      (gpointer user_data);
 
+static void     free_connection_in_queue                  (gpointer user_data);
+
 static void
 evd_connection_pool_class_init (EvdConnectionPoolClass *class)
 {
@@ -170,7 +172,7 @@ evd_connection_pool_dispose (GObject *obj)
 
   if (self->priv->conns != NULL)
     {
-      g_queue_free_full (self->priv->conns, g_object_unref);
+      g_queue_free_full (self->priv->conns, free_connection_in_queue);
       self->priv->conns = NULL;
     }
 
@@ -264,10 +266,36 @@ evd_connection_pool_get_property (GObject    *obj,
 }
 
 static void
+connection_on_close (EvdConnection *conn, gpointer user_data)
+{
+  EvdConnectionPool *self = EVD_CONNECTION_POOL (user_data);
+
+  evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
+
+  evd_connection_pool_create_min_conns (self);
+}
+
+static void
+free_connection_in_queue (gpointer user_data)
+{
+  EvdIoStream *io_stream;
+
+  g_assert (EVD_IS_CONNECTION (user_data));
+  io_stream = EVD_IO_STREAM (user_data);
+  g_assert (EVD_IS_CONNECTION_POOL (evd_io_stream_get_group (io_stream)));
+
+  g_signal_handlers_disconnect_by_func (io_stream,
+                                        connection_on_close,
+                                        evd_io_stream_get_group (io_stream));
+  g_object_unref (io_stream);
+}
+
+static void
 evd_connection_pool_finish_request (EvdConnectionPool  *self,
                                     EvdConnection      *conn,
                                     GSimpleAsyncResult *res)
 {
+  g_object_ref (conn);
   g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
   g_simple_async_result_complete_in_idle (res);
   g_object_unref (res);
@@ -290,8 +318,12 @@ connection_available (EvdConnectionPool *self, EvdConnection *conn)
     }
   else
     {
-      g_queue_push_tail (self->priv->conns, conn);
-      g_object_ref (conn);
+      g_signal_connect (conn,
+                        "close",
+                        G_CALLBACK (connection_on_close),
+                        self);
+
+      g_queue_push_tail (self->priv->conns, g_object_ref (conn));
     }
 }
 
@@ -344,33 +376,16 @@ group_add_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
   EvdConnectionPool *self = EVD_CONNECTION_POOL (group);
   EvdConnection *conn = EVD_CONNECTION (io_stream);
 
+  if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
+      (group, io_stream))
+    {
+      return FALSE;
+    }
+
   if (self->priv->tls_autostart && ! evd_connection_get_tls_active (conn))
-    {
-      if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
-          (group, io_stream))
-        {
-          return FALSE;
-        }
-
-      connection_starttls (self, conn);
-
-      return TRUE;
-    }
-
-  if (HAS_REQUESTS (self))
-    {
-      connection_available (self, conn);
-    }
+    connection_starttls (self, conn);
   else
-    {
-      if (! EVD_IO_STREAM_GROUP_CLASS (evd_connection_pool_parent_class)->add
-          (group, io_stream))
-        {
-          return FALSE;
-        }
-
-      connection_available (self, conn);
-    }
+    connection_available (self, conn);
 
   return TRUE;
 }
@@ -386,9 +401,12 @@ group_remove_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
       return FALSE;
     }
 
-  g_queue_remove (self->priv->conns, io_stream);
+  g_signal_handlers_disconnect_by_func (io_stream,
+                                        connection_on_close,
+                                        self);
 
-  g_object_unref (io_stream);
+  if (g_queue_remove (self->priv->conns, io_stream))
+    g_object_unref (io_stream);
 
   return TRUE;
 }
@@ -443,6 +461,7 @@ evd_connection_pool_socket_on_connect (GObject      *obj,
         }
 
       evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self), io_stream);
+      g_object_unref (io_stream);
     }
   else
     {
@@ -541,19 +560,19 @@ evd_connection_pool_get_connection (EvdConnectionPool   *self,
 
   if (g_queue_get_length (self->priv->conns) > 0)
     {
-      evd_connection_pool_finish_request (self,
-                          EVD_CONNECTION (g_queue_pop_head (self->priv->conns)),
-                          res);
+      EvdConnection *conn;
 
-      if (TOTAL_SOCKETS (self) < self->priv->min_conns)
-        evd_connection_pool_create_new_socket (self);
+      conn = EVD_CONNECTION (g_queue_pop_head (self->priv->conns));
+      evd_connection_pool_finish_request (self, conn, res);
+      g_object_unref (conn);
+
+      evd_connection_pool_create_min_conns (self);
     }
   else
     {
       g_queue_push_tail (self->priv->requests, res);
 
-      if (TOTAL_SOCKETS (self) < self->priv->max_conns)
-        evd_connection_pool_create_new_socket (self);
+      evd_connection_pool_create_min_conns (self);
     }
 }
 
@@ -602,11 +621,8 @@ evd_connection_pool_recycle (EvdConnectionPool *self, EvdConnection *conn)
   if (TOTAL_SOCKETS (self) >= self->priv->max_conns)
     return FALSE;
 
-  if (evd_io_stream_get_group (EVD_IO_STREAM (conn)) == EVD_IO_STREAM_GROUP (self))
-    return TRUE;
-  else
-    return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
-                                    G_IO_STREAM (conn));
+  return evd_io_stream_group_add (EVD_IO_STREAM_GROUP (self),
+                                  G_IO_STREAM (conn));
 }
 
 void
