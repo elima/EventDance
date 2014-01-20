@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2012-2013 Igalia S.L.
+ * Copyright (C) 2012-2014 Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -151,8 +151,6 @@ io_stream_group_add (EvdIoStreamGroup *io_stream_group,
 
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (io_stream), FALSE);
 
-  conn = EVD_HTTP_CONNECTION (io_stream);
-
   if (! EVD_IO_STREAM_GROUP_CLASS
       (evd_websocket_client_parent_class)->add (io_stream_group, io_stream))
     {
@@ -163,6 +161,8 @@ io_stream_group_add (EvdIoStreamGroup *io_stream_group,
                     "close",
                     G_CALLBACK (on_connection_closed),
                     io_stream_group);
+
+  conn = EVD_HTTP_CONNECTION (io_stream);
 
   /* check state of the connection and act accordingly */
   state = evd_websocket_protocol_get_state (conn);
@@ -261,6 +261,10 @@ on_close_requested (EvdHttpConnection *conn,
 
   conn_data = g_object_get_data (G_OBJECT (conn), CONN_DATA_KEY);
 
+  g_signal_handlers_disconnect_by_func (conn,
+                                        G_CALLBACK (on_connection_closed),
+                                        self);
+
   if (conn_data->peer != NULL)
     {
       if (gracefully)
@@ -272,12 +276,10 @@ on_close_requested (EvdHttpConnection *conn,
         }
       else
         {
-          /* @TODO: retry */
+          /* retry */
           retry_connection (conn_data);
         }
     }
-
-  g_object_unref (conn);
 }
 
 static gboolean
@@ -478,7 +480,6 @@ resolve_peer_and_validate (EvdWebsocketClient *self, EvdHttpConnection *conn)
   else
     g_object_ref (conn_data->peer);
 
-  g_object_ref (conn);
   g_object_set_data_full (G_OBJECT (conn_data->peer),
                           PEER_DATA_KEY,
                           conn,
