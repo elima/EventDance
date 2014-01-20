@@ -156,18 +156,14 @@ evd_io_stream_group_get_property (GObject    *obj,
 static gboolean
 evd_io_stream_group_add_internal (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
-  evd_io_stream_set_group (EVD_IO_STREAM (io_stream), self);
-
-  return TRUE;
+  return evd_io_stream_set_group (EVD_IO_STREAM (io_stream), self);
 }
 
 static gboolean
 evd_io_stream_group_remove_internal (EvdIoStreamGroup *self,
                                      GIOStream        *io_stream)
 {
-  evd_io_stream_set_group (EVD_IO_STREAM (io_stream), NULL);
-
-  return TRUE;
+  return evd_io_stream_set_group (EVD_IO_STREAM (io_stream), NULL);
 }
 
 /* public methods */
