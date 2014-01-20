@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -772,11 +772,17 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
   EvdHttpConnection *self = EVD_HTTP_CONNECTION (user_data);
   GSimpleAsyncResult *_res;
 
-  g_assert (self->priv->async_result != NULL);
+  g_io_stream_clear_pending (G_IO_STREAM (self));
+
+  if (self->priv->async_result == NULL)
+    {
+      /* this happens if the connection was closed while asynchronously
+         writing request headers */
+      goto out;
+    }
 
   _res = self->priv->async_result;
   self->priv->async_result = NULL;
-  g_io_stream_clear_pending (G_IO_STREAM (self));
 
   size = g_output_stream_write_finish (G_OUTPUT_STREAM (obj),
                                            res,
@@ -790,6 +796,9 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
 
   g_simple_async_result_complete (_res);
   g_object_unref (_res);
+
+ out:
+  g_object_unref (self);
 }
 
 static gboolean
@@ -1524,6 +1533,7 @@ evd_http_connection_write_request_headers (EvdHttpConnection   *self,
   st = evd_http_request_to_string (request, &size);
 
   stream = g_io_stream_get_output_stream (G_IO_STREAM (self));
+  g_object_ref (self);
   g_output_stream_write_async (stream,
                                st,
                                size,
