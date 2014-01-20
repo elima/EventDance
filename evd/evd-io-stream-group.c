@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2012, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -191,27 +191,23 @@ gboolean
 evd_io_stream_group_add (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
   EvdIoStreamGroupClass *class;
+  gboolean result = TRUE;
 
   g_return_val_if_fail (EVD_IS_IO_STREAM_GROUP (self), FALSE);
   g_return_val_if_fail (EVD_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_IO_STREAM_GROUP_GET_CLASS (self);
+  if (class->add == NULL)
+    return FALSE;
 
-  if (class->add != NULL)
+  if (! self->priv->recursed)
     {
-      gboolean result = TRUE;
-
-      if (! self->priv->recursed)
-        {
-          self->priv->recursed = TRUE;
-          result = class->add (self, io_stream);
-          self->priv->recursed = FALSE;
-        }
-
-      return result;
+      self->priv->recursed = TRUE;
+      result = class->add (self, io_stream);
+      self->priv->recursed = FALSE;
     }
 
-  return FALSE;
+  return result;
 }
 
 /**
@@ -222,25 +218,21 @@ gboolean
 evd_io_stream_group_remove (EvdIoStreamGroup *self, GIOStream *io_stream)
 {
   EvdIoStreamGroupClass *class;
+  gboolean result = TRUE;
 
   g_return_val_if_fail (EVD_IS_IO_STREAM_GROUP (self), FALSE);
   g_return_val_if_fail (EVD_IS_IO_STREAM (io_stream), FALSE);
 
   class = EVD_IO_STREAM_GROUP_GET_CLASS (self);
+  if (class->remove == NULL)
+    return FALSE;
 
-  if (class->remove != NULL)
+  if (! self->priv->recursed)
     {
-      gboolean result = TRUE;
-
-      if (! self->priv->recursed)
-        {
-          self->priv->recursed = TRUE;
-          result = class->remove (self, io_stream);
-          self->priv->recursed = FALSE;
-        }
-
-      return result;
+      self->priv->recursed = TRUE;
+      result = class->remove (self, io_stream);
+      self->priv->recursed = FALSE;
     }
 
-  return FALSE;
+  return result;
 }
