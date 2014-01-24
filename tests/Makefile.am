@@ -48,7 +48,8 @@ noinst_PROGRAMS = \
 	test-tls-cipher \
 	test-pki \
 	test-websocket-transport \
-	test-io-stream-group
+	test-io-stream-group \
+	test-promise
 
 TESTS = \
 	test-json-filter \
@@ -57,7 +58,8 @@ TESTS = \
 	test-tls-cipher \
 	test-pki \
 	test-websocket-transport \
-	test-io-stream-group
+	test-io-stream-group \
+	test-promise
 
 # test-all
 test_all_CFLAGS = $(AM_CFLAGS) -DHAVE_JS
@@ -98,6 +100,11 @@ test_websocket_transport_SOURCES = test-websocket-transport.c
 test_io_stream_group_CFLAGS = $(AM_CFLAGS)
 test_io_stream_group_LDADD = $(AM_LIBS)
 test_io_stream_group_SOURCES = test-io-stream-group.c
+
+# test-promise
+test_promise_CFLAGS = $(AM_CFLAGS)
+test_promise_LDADD = $(AM_LIBS)
+test_promise_SOURCES = test-promise.c
 
 if HAVE_JS
 noinst_PROGRAMS += test-all-js
