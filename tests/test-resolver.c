@@ -1,26 +1,12 @@
 /*
  * test-resolver.c
  *
- * EventDance project - An event distribution framework (http://eventdance.org)
+ * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * version 3 as published by the Free Software Foundation.
- *
- * This library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
  */
 
 #include <glib.h>
@@ -29,7 +15,7 @@
 #include <gio/gunixsocketaddress.h>
 #endif
 
-#include <evd-resolver.h>
+#include "evd-resolver.h"
 
 #define UNIX_ADDR              "/this-is-any-unix-addr"
 #define IPV4_1                 "192.168.0.1:1234"
@@ -429,7 +415,5 @@ main (gint argc, gchar **argv)
                 resolve_error,
                 fixture_teardown);
 
-  g_test_run ();
-
-  return 0;
+  return g_test_run ();
 }
