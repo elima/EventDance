@@ -110,6 +110,11 @@ G_DEFINE_TYPE_WITH_CODE (EvdPromise, evd_promise, G_TYPE_OBJECT,
                          G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_RESULT,
                                                 async_result_iface_init));
 
+G_DEFINE_BOXED_TYPE (EvdDeferred,
+                     evd_deferred,
+                     evd_deferred_ref,
+                     evd_deferred_unref)
+
 static void
 evd_promise_class_init (EvdPromiseClass *class)
 {

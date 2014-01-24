@@ -54,7 +54,6 @@ struct _EvdPromiseClass
 #define EVD_IS_PROMISE_CLASS(obj)  (G_TYPE_CHECK_CLASS_TYPE ((obj), EVD_TYPE_PROMISE))
 #define EVD_PROMISE_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), EVD_TYPE_PROMISE, EvdPromiseClass))
 
-
 GType            evd_promise_get_type             (void) G_GNUC_CONST;
 
 void             evd_promise_then                 (EvdPromise          *self,
@@ -70,6 +69,10 @@ gboolean         evd_promise_propagate_error      (EvdPromise  *self,
 GCancellable *   evd_promise_get_cancellable      (EvdPromise *self);
 void             evd_promise_cancel               (EvdPromise *self);
 
+
+#define EVD_TYPE_DEFERRED (evd_deferred_get_type ())
+
+GType            evd_deferred_get_type            (void);
 
 EvdDeferred *    evd_deferred_new                 (GObject      *source_object,
                                                    GCancellable *cancellable,
