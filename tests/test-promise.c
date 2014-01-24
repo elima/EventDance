@@ -201,8 +201,15 @@ promise_on_resolved (GObject      *obj,
   Fixture *f = user_data;
 
   g_assert (G_IS_OBJECT (obj));
+  g_assert (obj == f->some_object);
   g_assert (EVD_IS_PROMISE (result));
   g_assert (f != NULL);
+
+  g_assert (g_async_result_get_source_object (result) == obj);
+  /* g_async_result_get_source_object() increases reference count */
+  g_object_unref (obj);
+
+  g_assert (g_async_result_get_user_data (result) == f);
 
   promise = EVD_PROMISE (result);
 
@@ -248,6 +255,11 @@ test_many_listeners (Fixture       *f,
 
   promise = evd_deferred_get_promise (f->deferred);
 
+  g_object_ref (f->some_object);
+  evd_deferred_set_result_pointer (f->deferred, f->some_object, g_object_unref);
+
+  evd_deferred_complete_in_idle (f->deferred);
+
   for (i = 0; i < 10; i++)
     {
       f->num_listeners++;
@@ -255,11 +267,6 @@ test_many_listeners (Fixture       *f,
                         promise_on_resolved,
                         f);
     }
-
-  g_object_ref (f->some_object);
-  evd_deferred_set_result_pointer (f->deferred, f->some_object, g_object_unref);
-
-  evd_deferred_complete_in_idle (f->deferred);
 
   g_main_loop_run (f->main_loop);
 }
