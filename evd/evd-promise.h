@@ -37,14 +37,14 @@ typedef struct _EvdDeferred EvdDeferred;
 
 struct _EvdPromise
 {
-  GOutputStream parent;
+  GObject parent;
 
   EvdPromisePrivate *priv;
 };
 
 struct _EvdPromiseClass
 {
-  GOutputStreamClass parent_class;
+  GObjectClass parent_class;
 };
 
 #define EVD_TYPE_PROMISE           (evd_promise_get_type ())
