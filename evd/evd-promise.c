@@ -19,6 +19,76 @@
  * for more details.
  */
 
+/**
+ * SECTION:evd-promise
+ * @short_description: Promises asynchronous pattern
+ * @stability: Unstable
+ *
+ * The deferred/promise asynchronous pattern is similar to, and compatible with,
+ * GIO's #GAsyncResult model. However, it allows for new functionality that is
+ * currently not easy to implement with GIO's model.
+ *
+ * Specifically, promises allow for several callbacks to observe the completion
+ * of an asynchronous operation. It also simplifies the code for cases when
+ * an application action depends on the completion of several asynchronous
+ * operations.
+ *
+ * It works as follows:
+ *
+ * First, the object that performs the asynchronous operation creates a deferred
+ * object with evd_deferred_new(). Every deferred object has an #EvdPromise
+ * object associated that can be retrieved with evd_deferred_get_promise().
+ *
+ * An #EvdPromise object represents the future completion of the deferred
+ * operation, and is immediately returned to the application. The promise
+ * cannot resolve the operation by itself, only the deferred object can.
+ * The application can then register one or more callbacks (or none) using
+ * evd_promise_then(), to get notified when the operation completes. Callbacks
+ * can be attached even after the operation completed, in which case they are
+ * called immediately on the next even loop cycle. The result value held by a
+ * resolved promise remains immutable until the object is destroyed.
+ *
+ * The #EvdDeferred object is kept private during the implementation of the
+ * asynchronous operation (e.g, as with #GSimpleAsyncResult).
+ *
+ * When the operation completes, a set of convenient methods are provided
+ * by #EvdDeferred to set the result of the operation:
+ * evd_deferred_set_result_pointer(), evd_deferred_set_result_size(),
+ * evd_deferred_set_result_boolean() and evd_deferred_take_result_error(). These
+ * methods work similarly to the g_simple_async_result_set_op_res_*() and
+ * g_simple_async_result_*_error() family.
+ *
+ * After the result has been set, evd_deferred_complete() or
+ * evd_deferred_complete_in_idle() must be called to notify the application
+ * that the promise has been resolved and the operation completed.
+ *
+ * If callbacks were attached to the promise, these will be called in order upon
+ * completion of the operation. To retrieve the result, a set of methods are
+ * provided by #EvdPromise: evd_promise_get_result_pointer(),
+ * evd_promise_get_result_size(), evd_promise_get_result_boolean() and
+ * evd_promise_propagate_error(). Calling these methods before the operation
+ * completes returns an undefined value.
+ *
+ * If a cancellable object was provided by the application when launching
+ * the asynchronous operation, then it can be cancelled using
+ * evd_promise_cancel(). Alternatively, it can be retrieved from the promise
+ * with evd_promise_get_cancellable() (e.g, to give it to another asynchronous
+ * operation).
+ **/
+
+/**
+ * EvdPromiseClass:
+ * @parent_class: The parent class
+ *
+ * The class for #EvdPromise objects.
+ **/
+
+/**
+ * EvdDeferred:
+ *
+ * An opaque structure that represents a deferred object.
+ **/
+
 #include "evd-promise.h"
 
 #define WARN_IF_NOT_COMPLETED(promise) if (!promise->priv->completed)  \
@@ -367,6 +437,18 @@ deferred_free (EvdDeferred *self)
 
 /* public methods */
 
+/**
+ * evd_promise_then:
+ * @self: An #EvdPromise object
+ * @callback: (scope async): Function to call when the promise is resolved
+ * @user_data: (allow-none): Application data to pass in @callback
+ *
+ * Adds a new listener function to the asynchronous operation represented by the
+ * promise. If the operation has not yet completed, @callback will be called
+ * together with all the other listeners as soon as it completes, in the
+ * same order as the listeners were added. If the operation already completed,
+ * @callback will be called immediately on the next turn of the event loop.
+ **/
 void
 evd_promise_then (EvdPromise          *self,
                   GAsyncReadyCallback  callback,
@@ -391,6 +473,16 @@ evd_promise_then (EvdPromise          *self,
     self->priv->listeners = g_list_append (self->priv->listeners, closure);
 }
 
+/**
+ * evd_promise_get_result_pointer:
+ * @self: An #EvdPromise object
+ *
+ * Retrieves the result of the asynchronous operation represented by the
+ * promise if it is held as a gpointer, otherwise returns %NULL. It is an
+ * error to call this method before the promise has been resolved.
+ *
+ * Returns: (transfer none): The result of the operation as a gpointer, or %NULL
+ **/
 gpointer
 evd_promise_get_result_pointer (EvdPromise *self)
 {
@@ -401,6 +493,16 @@ evd_promise_get_result_pointer (EvdPromise *self)
   return self->priv->res_pointer;
 }
 
+/**
+ * evd_promise_get_result_size:
+ * @self: An #EvdPromise object
+ *
+ * Retrieves the result of the asynchronous operation represented by the
+ * promise if it is held as gssize, otherwise returns zero. It is an
+ * error to call this method before the promise has been resolved.
+ *
+ * Returns: (transfer none): The result of the operation as a gssize, or zero
+ **/
 gssize
 evd_promise_get_result_size (EvdPromise *self)
 {
@@ -411,6 +513,17 @@ evd_promise_get_result_size (EvdPromise *self)
   return self->priv->res_size;
 }
 
+/**
+ * evd_promise_get_result_boolean:
+ * @self: An #EvdPromise object
+ *
+ * Retrieves the result of the asynchronous operation represented by the
+ * promise if it is held as gboolean, otherwise returns %FALSE. It is an
+ * error to call this method before the promise has been resolved.
+ *
+ * Returns: (transfer none): The result of the operation as a gboolean,
+ *   or %FALSE
+ **/
 gboolean
 evd_promise_get_result_boolean (EvdPromise *self)
 {
@@ -421,6 +534,18 @@ evd_promise_get_result_boolean (EvdPromise *self)
   return self->priv->res_boolean;
 }
 
+/**
+ * evd_promise_propagate_error:
+ * @self: An #EvdPromise object
+ * @error: (allow-none): A pointer to a #GError to retrieve the error, or %NULL
+ *
+ * Tells whether an asynchronous operation failed, in which case %TRUE is
+ * returned and the resulting error copied into @error. Otherwise returns %FALSE.
+ *
+ * It is an error to call this method before the promise has been resolved.
+ *
+ * Returns: %TRUE if an error was propagated, %FALSE otherwise
+ **/
 gboolean
 evd_promise_propagate_error (EvdPromise *self, GError **error)
 {
@@ -436,6 +561,14 @@ evd_promise_propagate_error (EvdPromise *self, GError **error)
   return TRUE;
 }
 
+/**
+ * evd_promise_cancel:
+ * @self: An #EvdPromise object
+ *
+ * Cancels the asynchronous operation represented by the promise by calling
+ * g_cancellable_cancel() on the #GCancellable associated with the promise,
+ * if it is not %NULL.
+ **/
 void
 evd_promise_cancel (EvdPromise *self)
 {
@@ -449,8 +582,13 @@ evd_promise_cancel (EvdPromise *self)
 
 /**
  * evd_promise_get_cancellable:
+ * @self: An #EvdPromise object
  *
- * Returns: (transfer none):
+ * Obtains the #GCancellable object associated with the promise, which can
+ * be %NULL. Normally, the cancellable is passed to the function that triggered
+ * the asynchronous operation represented by the promise.
+ *
+ * Returns: (transfer none): The #GCancellable, or %NULL
  **/
 GCancellable *
 evd_promise_get_cancellable (EvdPromise *self)
@@ -462,8 +600,30 @@ evd_promise_get_cancellable (EvdPromise *self)
 
 /**
  * evd_deferred_new:
+ * @source_object: (allow-none): The #GObject performing the async operation,
+ *   or %NULL
+ * @cancellable: (allow-none): A #GCancellable object, or %NULL
+ * @tag: (allow-none): An arbitrary pointer identifying the async operation,
+ *   or %NULL
  *
- * Returns: (transfer full):
+ * Creates a new deferred object to track the execution of an
+ * asynchronous operation. It works like #GSimpleAsyncResult, but with some
+ * important differences.
+ *
+ * #EvdDeferred does not represent itself the result of the asynchronous
+ * operation. Instead, it delegates on #EvdPromise, which is a
+ * #GAsyncResult, all the functionality except the ability to set the result
+ * and complete the operation. This way, the #EvdPromise can be made public
+ * to the application, while only the #EvdDeferred object is kept private in
+ * the implementation as with #GSimpleAsyncResult.
+ *
+ * An #EvdDeferred and its associated #EvdPromise are bound together so that
+ * only a deferred object can resolve or reject its associated
+ * promise. The promise of a deferred object can be obtained with
+ * evd_deferred_get_promise().
+ *
+ * Returns: (transfer full): A new #EvdDeferred, to be freed with
+ *   evd_deferred_unref()
  **/
 EvdDeferred *
 evd_deferred_new (GObject      *source_object,
@@ -491,8 +651,11 @@ evd_deferred_new (GObject      *source_object,
 
 /**
  * evd_deferred_ref:
+ * @self: An #EvdDeferred object
  *
- * Returns: (transfer full):
+ * Increases the reference count of the deferred object.
+ *
+ * Returns: (transfer full): The same #EvdDeferred object
  **/
 EvdDeferred *
 evd_deferred_ref (EvdDeferred *self)
@@ -505,6 +668,13 @@ evd_deferred_ref (EvdDeferred *self)
   return self;
 }
 
+/**
+ * evd_deferred_unref:
+ * @self: An #EvdDeferred object
+ *
+ * Decreases the reference count of the deferred. If it reaches
+ * zero, the object is destroyed and all its memory released.
+ **/
 void
 evd_deferred_unref (EvdDeferred *self)
 {
@@ -522,8 +692,11 @@ evd_deferred_unref (EvdDeferred *self)
 
 /**
  * evd_deferred_get_promise:
+ * @self: An #EvdDeferred object
  *
- * Returns: (transfer none):
+ * Retrieves the promise object associated with the deferred.
+ *
+ * Returns: (transfer none): The #EvdPromise, owned by the deferred object
  **/
 EvdPromise *
 evd_deferred_get_promise (EvdDeferred *self)
@@ -533,6 +706,20 @@ evd_deferred_get_promise (EvdDeferred *self)
   return self->promise;
 }
 
+/**
+ * evd_deferred_set_result_pointer:
+ * @self: An #EvdDeferred object
+ * @data: (allow-none): The result of the async operation as a gpointer
+ * @data_free_func: (allow-none): #GDestroyNotify callback to free @data,
+ *   or %NULL
+ *
+ * Sets the result of the asynchronous operation as an arbitrary pointer of
+ * data. @data_free_func, if provided, will be called when @data is no longer
+ * used.
+ *
+ * This method does not completes the operation. evd_deferred_complete() or
+ * evd_deferred_complete_in_idle() should be called after for that purpose.
+ **/
 void
 evd_deferred_set_result_pointer (EvdDeferred    *self,
                                  gpointer        data,
@@ -543,6 +730,17 @@ evd_deferred_set_result_pointer (EvdDeferred    *self,
   self->resolve_funcs->resolve_pointer (self->promise, data, data_free_func);
 }
 
+/**
+ * evd_deferred_set_result_size:
+ * @self: An #EvdDeferred object
+ * @size: The result of the async operation as a gssize
+ *
+ * Sets the result of the asynchronous operation as a long signed integer,
+ * useful for size results.
+ *
+ * This method does not completes the operation. evd_deferred_complete() or
+ * evd_deferred_complete_in_idle() should be called after for that purpose.
+ **/
 void
 evd_deferred_set_result_size (EvdDeferred *self, gssize size)
 {
@@ -551,6 +749,16 @@ evd_deferred_set_result_size (EvdDeferred *self, gssize size)
   self->resolve_funcs->resolve_size (self->promise, size);
 }
 
+/**
+ * evd_deferred_set_result_boolean:
+ * @self: An #EvdDeferred object
+ * @bool: (allow-none): The result of the async operation as a gboolean
+ *
+ * Sets the result of the asynchronous operation as a boolean value.
+ *
+ * This method does not completes the operation. evd_deferred_complete() or
+ * evd_deferred_complete_in_idle() should be called after for that purpose.
+ **/
 void
 evd_deferred_set_result_boolean (EvdDeferred *self, gboolean bool)
 {
@@ -559,6 +767,17 @@ evd_deferred_set_result_boolean (EvdDeferred *self, gboolean bool)
   self->resolve_funcs->resolve_boolean (self->promise, bool);
 }
 
+/**
+ * evd_deferred_take_result_error:
+ * @self: An #EvdDeferred object
+ * @error: The result of the async operation as a #GError
+ *
+ * Sets the result of the asynchronous operation as an error, indicating that
+ * the operation failed. The deferred object takes ownership of @error.
+ *
+ * This method does not completes the operation. evd_deferred_complete() or
+ * evd_deferred_complete_in_idle() should be called after for that purpose.
+ **/
 void
 evd_deferred_take_result_error (EvdDeferred *self, GError *error)
 {
@@ -567,6 +786,18 @@ evd_deferred_take_result_error (EvdDeferred *self, GError *error)
   self->resolve_funcs->reject (self->promise, error);
 }
 
+/**
+ * evd_deferred_complete:
+ * @self: An #EvdDeferred object
+ *
+ * Completes the asynchronous operation represented by the deferred object,
+ * immediately calling all the listener callbacks added to the associated
+ * #EvdPromise object.
+ *
+ * This method must not be used if the operation is completed on the same
+ * event loop cycle. For those cases, evd_deferred_complete_in_idle()
+ * is provided.
+ **/
 void
 evd_deferred_complete (EvdDeferred *self)
 {
@@ -580,6 +811,13 @@ evd_deferred_complete (EvdDeferred *self)
   evd_promise_notify_completion (self->promise);
 }
 
+/**
+ * evd_deferred_complete_in_idle:
+ * @self: An #EvdDeferred object
+ *
+ * Works as evd_deferred_complete(), but defers the actual completion
+ * to the next event loop cycle.
+ **/
 void
 evd_deferred_complete_in_idle (EvdDeferred *self)
 {
