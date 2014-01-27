@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -24,7 +24,7 @@
 
 #include "evd-http-message.h"
 
-#include "evd-http-connection.h"
+#include "evd-connection.h"
 
 #define EVD_HTTP_MESSAGE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                            EVD_TYPE_HTTP_MESSAGE, \
@@ -37,6 +37,7 @@ struct _EvdHttpMessagePrivate
 {
   SoupHTTPVersion version;
   SoupMessageHeaders *headers;
+  EvdConnection *conn;
 };
 
 /* properties */
@@ -44,7 +45,8 @@ enum
 {
   PROP_0,
   PROP_VERSION,
-  PROP_HEADERS
+  PROP_HEADERS,
+  PROP_CONNECTION
 };
 
 static void     evd_http_message_class_init           (EvdHttpMessageClass *class);
@@ -91,6 +93,15 @@ evd_http_message_class_init (EvdHttpMessageClass *class)
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (obj_class,
+                                   PROP_CONNECTION,
+                                   g_param_spec_object ("connection",
+                                                        "Connection",
+                                                        "The TCP connection used by the HTTP message",
+                                                        EVD_TYPE_CONNECTION,
+                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_STRINGS));
+
   g_type_class_add_private (obj_class, sizeof (EvdHttpMessagePrivate));
 }
 
@@ -106,6 +117,14 @@ evd_http_message_init (EvdHttpMessage *self)
 static void
 evd_http_message_dispose (GObject *obj)
 {
+  EvdHttpMessage *self = EVD_HTTP_MESSAGE (obj);
+
+  if (self->priv->conn != NULL)
+    {
+      g_object_unref (self->priv->conn);
+      self->priv->conn = NULL;
+    }
+
   G_OBJECT_CLASS (evd_http_message_parent_class)->dispose (obj);
 }
 
@@ -142,6 +161,10 @@ evd_http_message_set_property (GObject      *obj,
       self->priv->headers = g_value_get_boxed (value);
       break;
 
+    case PROP_CONNECTION:
+      self->priv->conn = g_value_get_object (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -168,6 +191,10 @@ evd_http_message_get_property (GObject    *obj,
       g_value_set_boxed (value, evd_http_message_get_headers (self));
       break;
 
+    case PROP_CONNECTION:
+      g_value_set_object (value, self->priv->conn);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -175,16 +202,6 @@ evd_http_message_get_property (GObject    *obj,
 }
 
 /* public methods */
-
-EvdHttpMessage *
-evd_http_message_new ()
-{
-  EvdHttpMessage *self;
-
-  self = g_object_new (EVD_TYPE_HTTP_MESSAGE, NULL);
-
-  return self;
-}
 
 SoupHTTPVersion
 evd_http_message_get_version (EvdHttpMessage *self)
@@ -255,4 +272,17 @@ evd_http_message_headers_to_string (EvdHttpMessage *self, gsize *size)
   g_string_free (buf, FALSE);
 
   return result;
+}
+
+/**
+ * evd_http_message_get_connection:
+ *
+ * Returns: (transfer none):
+ **/
+EvdConnection *
+evd_http_message_get_connection (EvdHttpMessage *self)
+{
+  g_return_val_if_fail (EVD_IS_HTTP_MESSAGE (self), NULL);
+
+  return self->priv->conn;
 }

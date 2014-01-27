@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,9 +23,15 @@
 #ifndef __EVD_HTTP_MESSAGE_H__
 #define __EVD_HTTP_MESSAGE_H__
 
+#if !defined (__EVD_H_INSIDE__) && !defined (EVD_COMPILATION)
+#error "Only <evd.h> can be included directly."
+#endif
+
 #include <glib-object.h>
 #include <libsoup/soup-headers.h>
 #include <libsoup/soup-enum-types.h>
+
+#include "evd-connection.h"
 
 G_BEGIN_DECLS
 
@@ -57,15 +63,14 @@ struct _EvdHttpMessageClass
 
 GType                    evd_http_message_get_type          (void) G_GNUC_CONST;
 
-EvdHttpMessage          *evd_http_message_new               (void);
-
-
 SoupHTTPVersion          evd_http_message_get_version       (EvdHttpMessage *self);
 
-SoupMessageHeaders      *evd_http_message_get_headers       (EvdHttpMessage *self);
+SoupMessageHeaders *     evd_http_message_get_headers       (EvdHttpMessage *self);
 
-gchar                   *evd_http_message_headers_to_string (EvdHttpMessage *self,
+gchar *                  evd_http_message_headers_to_string (EvdHttpMessage *self,
                                                              gsize          *size);
+
+EvdConnection *          evd_http_message_get_connection    (EvdHttpMessage *self);
 
 G_END_DECLS
 
