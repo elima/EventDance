@@ -101,7 +101,8 @@ source_c = \
 	evd-http-chunked-decoder.c \
 	evd-jsonrpc-http-client.c \
 	evd-jsonrpc-http-server.c \
-	evd-promise.c
+	evd-promise.c \
+	evd-output-stream.c
 
 source_h = \
 	evd.h \
@@ -149,7 +150,8 @@ source_h = \
 	evd-jsonrpc-http-client.h \
 	evd-jsonrpc-http-server.h \
 	evd-tls-common.h \
-	evd-promise.h
+	evd-promise.h \
+	evd-output-stream.h
 
 source_h_priv = \
 	evd-poll.h \

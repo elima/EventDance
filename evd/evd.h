@@ -63,6 +63,7 @@
 #include "evd-jsonrpc-http-client.h"
 #include "evd-jsonrpc-http-server.h"
 #include "evd-promise.h"
+#include "evd-output-stream.h"
 
 #undef __EVD_H_INSIDE__
 
