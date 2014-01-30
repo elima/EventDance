@@ -56,6 +56,7 @@ static void     evd_http_response_init                 (EvdHttpResponse *self);
 
 static void     evd_http_response_finalize             (GObject *obj);
 static void     evd_http_response_dispose              (GObject *obj);
+static void     evd_http_response_constructed          (GObject *obj);
 
 static void     evd_http_response_set_property         (GObject      *obj,
                                                         guint         prop_id,
@@ -87,6 +88,7 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
   obj_class->finalize = evd_http_response_finalize;
   obj_class->get_property = evd_http_response_get_property;
   obj_class->set_property = evd_http_response_set_property;
+  obj_class->constructed = evd_http_response_constructed;
 
   http_message_class->type = SOUP_MESSAGE_HEADERS_RESPONSE;
 
@@ -161,10 +163,23 @@ evd_http_response_finalize (GObject *obj)
 
   g_free (self->priv->reason_phrase);
 
-  if (self->priv->headers != NULL)
-    soup_message_headers_free (self->priv->headers);
-
   G_OBJECT_CLASS (evd_http_response_parent_class)->finalize (obj);
+}
+
+static void
+evd_http_response_constructed (GObject *obj)
+{
+  EvdHttpResponse *self = EVD_HTTP_RESPONSE (obj);
+  SoupMessageHeaders *headers;
+  SoupEncoding encoding;
+
+  headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (self));
+  encoding = soup_message_headers_get_encoding (headers);
+
+  if (encoding == SOUP_ENCODING_EOF)
+    soup_message_headers_set_encoding (headers, SOUP_ENCODING_CHUNKED);
+
+  G_OBJECT_CLASS (evd_http_response_parent_class)->constructed (obj);
 }
 
 static void
