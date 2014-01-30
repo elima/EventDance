@@ -72,6 +72,8 @@ gboolean                 evd_http_response_write_headers     (EvdHttpResponse  *
                                                               const gchar      *reason_phrase,
                                                               GError          **error);
 
+void                     evd_http_response_done              (EvdHttpResponse *self);
+
 G_END_DECLS
 
 #endif /* __EVD_HTTP_RESPONSE_H__ */

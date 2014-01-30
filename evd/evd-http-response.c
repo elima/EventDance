@@ -42,6 +42,7 @@ struct _EvdHttpResponsePrivate
   SoupEncoding encoding;
 
   gboolean headers_sent;
+  gboolean done;
 };
 
 /* properties */
@@ -145,6 +146,7 @@ evd_http_response_init (EvdHttpResponse *self)
   priv->encoding = SOUP_ENCODING_UNRECOGNIZED;
 
   priv->headers_sent = FALSE;
+  priv->done = FALSE;
 }
 
 static void
@@ -463,19 +465,34 @@ evd_http_response_write_headers (EvdHttpResponse  *self,
         }
 
       self->priv->encoding =
-        soup_message_headers_get_encoding (self->priv->headers);
+        soup_message_headers_get_encoding (headers);
     }
   else
     {
-      self->priv->encoding = SOUP_ENCODING_EOF;
+      self->priv->encoding = SOUP_ENCODING_CHUNKED;
     }
 
   g_string_append_len (buf, "\r\n", 2);
 
-  if (write_to_connection (self, buf->str, buf->len, NULL, error) < 0)
+  self->priv->headers_sent = TRUE;
+
+  if (write_to_connection (self, buf->str, buf->len, error) < 0)
     result = FALSE;
 
   g_string_free (buf, TRUE);
 
   return result;
+}
+
+void
+evd_http_response_done (EvdHttpResponse *self)
+{
+  g_return_if_fail (EVD_IS_HTTP_RESPONSE (self));
+
+  self->priv->done = TRUE;
+
+  evd_output_stream_flush (EVD_OUTPUT_STREAM (self),
+                           NULL,
+                           on_done_and_flushed,
+                           NULL);
 }
