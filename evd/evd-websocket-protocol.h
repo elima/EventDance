@@ -71,10 +71,11 @@ gboolean          evd_websocket_protocol_handle_handshake_request  (EvdHttpConne
                                                                     EvdHttpRequest     *request,
                                                                     GError            **error);
 
-EvdHttpRequest *  evd_websocket_protocol_create_handshake_request  (const gchar  *url,
-                                                                    const gchar  *sub_protocol,
-                                                                    const gchar  *origin,
-                                                                    gchar       **key_base64);
+EvdHttpRequest *  evd_websocket_protocol_create_handshake_request  (EvdConnection  *conn,
+                                                                    const gchar    *url,
+                                                                    const gchar    *sub_protocol,
+                                                                    const gchar    *origin,
+                                                                    gchar         **key_base64);
 
 gboolean          evd_websocket_protocol_handle_handshake_response (EvdHttpConnection   *conn,
                                                                     SoupHTTPVersion      http_version,

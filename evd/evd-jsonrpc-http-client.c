@@ -24,8 +24,8 @@
 
 #include "evd-jsonrpc-http-client.h"
 
-#include <evd-jsonrpc.h>
-#include <evd-http-connection.h>
+#include "evd-jsonrpc.h"
+#include "evd-http-connection.h"
 
 G_DEFINE_TYPE (EvdJsonrpcHttpClient,
                evd_jsonrpc_http_client,
@@ -41,7 +41,6 @@ struct _EvdJsonrpcHttpClientPrivate
   gchar *url;
 
   EvdJsonrpc *rpc;
-  EvdHttpRequest *http_request;
 };
 
 typedef struct
@@ -59,14 +58,12 @@ typedef struct
 enum
 {
   PROP_0,
-  PROP_URL,
-  PROP_HTTP_REQUEST
+  PROP_URL
 };
 
 static void     evd_jsonrpc_http_client_class_init         (EvdJsonrpcHttpClientClass *class);
 static void     evd_jsonrpc_http_client_init               (EvdJsonrpcHttpClient *self);
 
-static void     evd_jsonrpc_http_client_constructed        (GObject *obj);
 static void     evd_jsonrpc_http_client_finalize           (GObject *obj);
 
 static void     evd_jsonrpc_http_client_set_property       (GObject      *obj,
@@ -92,7 +89,6 @@ evd_jsonrpc_http_client_class_init (EvdJsonrpcHttpClientClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdConnectionPoolClass *conn_pool_class = EVD_CONNECTION_POOL_CLASS (class);
 
-  obj_class->constructed = evd_jsonrpc_http_client_constructed;
   obj_class->finalize = evd_jsonrpc_http_client_finalize;
   obj_class->get_property = evd_jsonrpc_http_client_get_property;
   obj_class->set_property = evd_jsonrpc_http_client_set_property;
@@ -106,14 +102,6 @@ evd_jsonrpc_http_client_class_init (EvdJsonrpcHttpClientClass *class)
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (obj_class, PROP_HTTP_REQUEST,
-                                   g_param_spec_object ("http-request",
-                                                        "HTTP request",
-                                                        "The object's internal HTTP request object",
-                                                        EVD_TYPE_HTTP_REQUEST,
-                                                        G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
   g_type_class_add_private (obj_class, sizeof (EvdJsonrpcHttpClientPrivate));
@@ -133,30 +121,6 @@ evd_jsonrpc_http_client_init (EvdJsonrpcHttpClient *self)
                                            self,
                                            (GDestroyNotify) g_object_unref);
   g_object_ref (self);
-
-  priv->http_request = NULL;
-}
-
-static void
-evd_jsonrpc_http_client_constructed (GObject *obj)
-{
-  EvdJsonrpcHttpClient *self = EVD_JSONRPC_HTTP_CLIENT (obj);
-
-  SoupURI *uri;
-  gchar *sock_addr;
-
-  self->priv->http_request = evd_http_request_new (SOUP_METHOD_POST,
-                                                   self->priv->url);
-
-  uri = evd_http_request_get_uri (self->priv->http_request);
-  sock_addr = g_strdup_printf ("%s:%u", uri->host, uri->port);
-
-  g_object_set (self,
-                "address", sock_addr,
-                NULL);
-  g_free (sock_addr);
-
-  G_OBJECT_CLASS (evd_jsonrpc_http_client_parent_class)->constructed (obj);
 }
 
 static void
@@ -167,7 +131,6 @@ evd_jsonrpc_http_client_finalize (GObject *obj)
   g_free (self->priv->url);
 
   g_object_unref (self->priv->rpc);
-  g_object_unref (self->priv->http_request);
 
   G_OBJECT_CLASS (evd_jsonrpc_http_client_parent_class)->finalize (obj);
 }
@@ -210,10 +173,6 @@ evd_jsonrpc_http_client_get_property (GObject    *obj,
     {
     case PROP_URL:
       g_value_set_string (value, self->priv->url);
-      break;
-
-    case PROP_HTTP_REQUEST:
-      g_value_set_object (value, self->priv->http_request);
       break;
 
     default:
@@ -411,19 +370,35 @@ do_request (EvdHttpConnection *conn, gpointer user_data)
   GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
   CallData *data;
 
+  EvdHttpRequest *request;
+  SoupURI *uri;
+  gchar *sock_addr;
+
   data = g_simple_async_result_get_op_res_gpointer (res);
 
+  request = evd_http_request_new (EVD_CONNECTION (conn),
+                                  SOUP_METHOD_POST,
+                                  data->self->priv->url);
+
+  uri = evd_http_request_get_uri (request);
+  sock_addr = g_strdup_printf ("%s:%u", uri->host, uri->port);
+
+  g_object_set (data->self,
+                "address", sock_addr,
+                NULL);
+  g_free (sock_addr);
+
   headers =
-    evd_http_message_get_headers (EVD_HTTP_MESSAGE
-                                    (data->self->priv->http_request));
+    evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
   soup_message_headers_set_content_length (headers, strlen (data->buf));
 
   evd_connection_lock_close (EVD_CONNECTION (conn));
   evd_http_connection_write_request_headers (conn,
-                                             data->self->priv->http_request,
+                                             request,
                                              NULL,
                                              on_request_sent,
                                              res);
+  g_object_unref (request);
 }
 
 static void
@@ -522,19 +497,6 @@ evd_jsonrpc_http_client_new (const gchar *url)
                        NULL);
 
   return self;
-}
-
-/**
- * evd_jsonrpc_http_client_get_http_request:
- *
- * Returns: (transfer none):
- **/
-EvdHttpRequest *
-evd_jsonrpc_http_client_get_http_request (EvdJsonrpcHttpClient *self)
-{
-  g_return_val_if_fail (EVD_IS_JSONRPC_HTTP_CLIENT (self), NULL);
-
-  return self->priv->http_request;
 }
 
 /**

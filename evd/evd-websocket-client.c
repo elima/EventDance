@@ -617,7 +617,8 @@ start_opening_handshake (EvdWebsocketClient *self, EvdHttpConnection *conn)
   g_assert (data != NULL);
 
   request =
-    evd_websocket_protocol_create_handshake_request (data->address,
+    evd_websocket_protocol_create_handshake_request (EVD_CONNECTION (conn),
+                                                     data->address,
                                                      NULL,
                                                      NULL,
                                                      &data->handshake_key);

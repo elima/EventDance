@@ -840,10 +840,11 @@ evd_websocket_protocol_handle_handshake_request (EvdHttpConnection  *conn,
  * Returns: (transfer full):
  **/
 EvdHttpRequest *
-evd_websocket_protocol_create_handshake_request (const gchar  *url,
-                                                 const gchar  *sub_protocol,
-                                                 const gchar  *origin,
-                                                 gchar       **key_base64)
+evd_websocket_protocol_create_handshake_request (EvdConnection  *conn,
+                                                 const gchar    *url,
+                                                 const gchar    *sub_protocol,
+                                                 const gchar    *origin,
+                                                 gchar         **key_base64)
 {
   EvdHttpRequest *request;
   SoupMessageHeaders *headers;
@@ -852,7 +853,7 @@ evd_websocket_protocol_create_handshake_request (const gchar  *url,
   gchar *key_b64;
   gint i;
 
-  request = evd_http_request_new (SOUP_METHOD_GET, url);
+  request = evd_http_request_new (conn, SOUP_METHOD_GET, url);
 
   headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
   soup_message_headers_replace (headers, "Upgrade", "websocket");

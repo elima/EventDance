@@ -73,8 +73,6 @@ GType                  evd_jsonrpc_http_client_get_type                (void) G_
 
 EvdJsonrpcHttpClient * evd_jsonrpc_http_client_new                     (const gchar *url);
 
-EvdHttpRequest *       evd_jsonrpc_http_client_get_http_request        (EvdJsonrpcHttpClient *self);
-
 void                   evd_jsonrpc_http_client_call_method             (EvdJsonrpcHttpClient *self,
                                                                         const gchar          *method,
                                                                         JsonNode             *params,
