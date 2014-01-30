@@ -40,6 +40,8 @@ struct _EvdHttpResponsePrivate
   SoupHTTPVersion http_version;
 
   SoupEncoding encoding;
+
+  gboolean headers_sent;
 };
 
 /* properties */
@@ -141,6 +143,8 @@ evd_http_response_init (EvdHttpResponse *self)
   priv->reason_phrase = NULL;
 
   priv->encoding = SOUP_ENCODING_UNRECOGNIZED;
+
+  priv->headers_sent = FALSE;
 }
 
 static void
@@ -406,12 +410,22 @@ evd_http_response_write_headers (EvdHttpResponse  *self,
 
   g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), FALSE);
 
-  /* @TODO: check that headers have not been already sent */
-
-  buf = g_string_new ("");
+  if (self->priv->headers_sent)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_EXISTS,
+                   "Reponse headers already sent");
+      return FALSE;
+    }
 
   if (reason_phrase == NULL)
     reason_phrase = soup_status_get_phrase (status_code);
+
+  self->priv->status_code = status_code;
+  self->priv->reason_phrase = g_strdup (reason_phrase);
+
+  buf = g_string_new ("");
 
   /* send status line */
   st = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
