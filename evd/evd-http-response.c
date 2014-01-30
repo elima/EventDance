@@ -98,7 +98,7 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
                                                       "The status code of the HTTP response",
                                                       SOUP_STATUS_NONE,
                                                       G_MAXUINT,
-                                                      SOUP_STATUS_OK,
+                                                      SOUP_STATUS_NONE,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
 
@@ -126,6 +126,7 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
 static void
 output_stream_iface_init (EvdOutputStreamInterface *iface)
 {
+  iface->write_fn = output_stream_write;
 }
 
 static void
@@ -239,54 +240,115 @@ evd_http_response_get_property (GObject    *obj,
 static gssize
 write_to_connection (EvdHttpResponse  *self,
                      const void       *buffer,
-                     gsize             count,
-                     GCancellable     *cancellable,
+                     gsize             size,
                      GError          **error)
 {
+  EvdConnection *conn;
   GOutputStream *conn_stream;
 
-  conn_stream = g_io_stream_get_output_stream (G_IO_STREAM (self->priv->conn));
+  conn = evd_http_message_get_connection (EVD_HTTP_MESSAGE (self));
+  conn_stream = g_io_stream_get_output_stream (G_IO_STREAM (conn));
 
   return g_output_stream_write (conn_stream,
                                 buffer,
-                                count,
-                                cancellable,
+                                size,
+                                NULL,
                                 error);
 }
 
 static gssize
-write_fn (GOutputStream  *stream,
-          const void     *buffer,
-          gsize           count,
-          GCancellable   *cancellable,
-          GError        **error)
+write_chunk (EvdHttpResponse   *self,
+             const void        *buffer,
+             gsize              size,
+             GError          **error)
 {
-  /* @TODO: check that headers have been sent.
-     Raise warning if writing beyond content boundaries. */
+  gchar *chunk_hdr;
+  GError *_error = NULL;
+  gboolean result = TRUE;
 
-  return write_to_connection (EVD_HTTP_RESPONSE (stream),
-                              buffer,
-                              count,
-                              cancellable,
-                              error);
+  chunk_hdr = g_strdup_printf ("%x\r\n", (guint) size);
+  result = write_to_connection (self,
+                                (const void *) chunk_hdr,
+                                strlen (chunk_hdr),
+                                &_error);
+
+  if (result > 0 && size > 0)
+    result = write_to_connection (self,
+                                  buffer,
+                                  size,
+                                  _error == NULL ? &_error : NULL);
+
+  if (result)
+    result = write_to_connection (self,
+                                  "\r\n",
+                                  2,
+                                  _error == NULL ? &_error : NULL);
+
+  g_free (chunk_hdr);
+  if (_error != NULL)
+    g_propagate_error (error, _error);
+
+  return size;
 }
 
-/* public methods */
-
-EvdHttpResponse *
-evd_http_response_new (EvdConnection *conn, EvdHttpRequest *request)
+static gssize
+output_stream_write (EvdOutputStream  *stream,
+                     const void       *buffer,
+                     gsize             size,
+                     GError          **error)
 {
-  EvdHttpResponse *self;
+  EvdHttpResponse *self = EVD_HTTP_RESPONSE (stream);
 
-  g_return_val_if_fail (EVD_IS_CONNECTION (conn), NULL);
-  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (conn), NULL);
+  if (! self->priv->headers_sent)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_INVALID_DATA,
+                   "Cannot write data, HTTP headers not yet sent");
+      return -1;
+    }
 
-  self = g_object_new (EVD_TYPE_HTTP_RESPONSE,
-                       "connection", conn,
-                       "request", request,
-                       NULL);
+  if (self->priv->encoding == SOUP_ENCODING_CHUNKED)
+    {
+      return write_chunk (self, buffer, size, error);
+    }
+  else if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH ||
+           self->priv->encoding == SOUP_ENCODING_EOF)
+    {
+      /* @TODO: Raise warning if writing beyond content boundaries */
 
-  return self;
+      return write_to_connection (self, buffer, size, error);
+    }
+  else
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_SUPPORTED,
+                   "Unsupported transfer encoding in HTTP response");
+      return -1;
+    }
+}
+
+static void
+on_done_and_flushed (GObject      *obj,
+                     GAsyncResult *res,
+                     gpointer      user_data)
+{
+  // EvdHttpResponse *self = EVD_HTTP_RESPONSE (obj);
+  GError *error = NULL;
+
+  if (! evd_output_stream_flush_finish (EVD_OUTPUT_STREAM (obj),
+                                        res,
+                                        &error))
+    {
+      g_print ("Error flushing connection after HTTP response was sent: %s\n", error->message);
+      g_error_free (error);
+
+      /* @TODO: mark the response as erroneous or uncompleted so that the
+         underlying connection is not kept alive by any Web service */
+    }
+
+  /* @TODO: fire a 'finished' or 'done' signal */
 }
 
 /**
