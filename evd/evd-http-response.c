@@ -355,17 +355,28 @@ on_done_and_flushed (GObject      *obj,
   /* @TODO: fire a 'finished' or 'done' signal */
 }
 
-/**
- * evd_http_response_get_connection:
- *
- * Returns: (transfer none):
- **/
-EvdConnection *
-evd_http_response_get_connection (EvdHttpResponse *self)
-{
-  g_return_val_if_fail (EVD_IS_HTTP_RESPONSE (self), NULL);
+/* public methods */
 
-  return self->priv->conn;
+/**
+ * evd_http_response_new:
+ *
+ * Returns: (transfer full): A new #EvdHttpResponse
+ **/
+EvdHttpResponse *
+evd_http_response_new (EvdHttpRequest *request)
+{
+  EvdHttpResponse *self;
+  EvdConnection *conn;
+
+  g_return_val_if_fail (EVD_IS_HTTP_REQUEST (request), NULL);
+
+  conn = evd_http_message_get_connection (EVD_HTTP_MESSAGE (request));
+
+  self = g_object_new (EVD_TYPE_HTTP_RESPONSE,
+                       "connection", conn,
+                       "request", request,
+                       NULL);
+  return self;
 }
 
 const gchar *

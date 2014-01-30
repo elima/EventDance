@@ -59,9 +59,7 @@ struct _EvdHttpResponseClass
 
 GType                    evd_http_response_get_type          (void) G_GNUC_CONST;
 
-EvdHttpResponse *        evd_http_response_new               (EvdConnection  *conn,
-                                                              EvdHttpRequest *request);
-
+EvdHttpResponse *        evd_http_response_new               (EvdHttpRequest *request);
 
 const gchar *            evd_http_response_get_reason_phrase (EvdHttpResponse *self);
 
