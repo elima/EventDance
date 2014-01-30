@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2013, Igalia S.L.
+ * Copyright (C) 2013-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -24,11 +24,11 @@
 
 #include "evd-http-response.h"
 
+#include "evd-output-stream.h"
+
 #define EVD_HTTP_RESPONSE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                             EVD_TYPE_HTTP_RESPONSE, \
                                             EvdHttpResponsePrivate))
-
-G_DEFINE_TYPE (EvdHttpResponse, evd_http_response, G_TYPE_OUTPUT_STREAM)
 
 /* private data */
 struct _EvdHttpResponsePrivate
@@ -68,17 +68,23 @@ static void     evd_http_response_get_property         (GObject    *obj,
                                                         guint       prop_id,
                                                         GValue     *value,
                                                         GParamSpec *pspec);
-static gssize   write_fn                               (GOutputStream  *stream,
-                                                        const void     *buffer,
-                                                        gsize           count,
-                                                        GCancellable   *cancellable,
-                                                        GError        **error);
+
+static void     output_stream_iface_init               (EvdOutputStreamInterface *iface);
+
+static gssize   output_stream_write                    (EvdOutputStream  *stream,
+                                                        const void       *buffer,
+                                                        gsize             size,
+                                                        GError          **error);
+
+G_DEFINE_TYPE_WITH_CODE (EvdHttpResponse, evd_http_response, EVD_TYPE_HTTP_MESSAGE,
+                         G_IMPLEMENT_INTERFACE (EVD_TYPE_OUTPUT_STREAM,
+                                                output_stream_iface_init));
 
 static void
 evd_http_response_class_init (EvdHttpResponseClass *class)
 {
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
-  GOutputStreamClass *stream_class = G_OUTPUT_STREAM_CLASS (class);
+  EvdHttpMessageClass *http_message_class = EVD_HTTP_MESSAGE_CLASS (class);
 
   obj_class->dispose = evd_http_response_dispose;
   obj_class->finalize = evd_http_response_finalize;
@@ -95,6 +101,7 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
                                                         EVD_TYPE_CONNECTION,
                                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
+  http_message_class->type = SOUP_MESSAGE_HEADERS_RESPONSE;
 
   g_object_class_install_property (obj_class, PROP_STATUS_CODE,
                                    g_param_spec_uint ("status-code",
@@ -134,6 +141,11 @@ evd_http_response_class_init (EvdHttpResponseClass *class)
                                                         G_PARAM_STATIC_STRINGS));
 
   g_type_class_add_private (obj_class, sizeof (EvdHttpResponsePrivate));
+}
+
+static void
+output_stream_iface_init (EvdOutputStreamInterface *iface)
+{
 }
 
 static void

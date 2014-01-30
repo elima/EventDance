@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2013, Igalia S.L.
+ * Copyright (C) 2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -39,14 +39,14 @@ typedef struct _EvdHttpResponsePrivate EvdHttpResponsePrivate;
 
 struct _EvdHttpResponse
 {
-  GOutputStream parent;
+  EvdHttpMessage parent;
 
   EvdHttpResponsePrivate *priv;
 };
 
 struct _EvdHttpResponseClass
 {
-  GOutputStreamClass parent_class;
+  EvdHttpMessageClass parent_class;
 };
 
 #define EVD_TYPE_HTTP_RESPONSE           (evd_http_response_get_type ())
