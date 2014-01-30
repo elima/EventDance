@@ -37,6 +37,7 @@ struct _EvdHttpResponsePrivate
   gchar *reason_phrase;
 
   EvdHttpRequest *request;
+  SoupHTTPVersion http_version;
 
   SoupEncoding encoding;
 };
@@ -180,6 +181,8 @@ evd_http_response_set_property (GObject      *obj,
     {
     case PROP_REQUEST:
       self->priv->request = g_value_get_object (value);
+      self->priv->http_version =
+        evd_http_message_get_version (EVD_HTTP_MESSAGE (self->priv->request));
       break;
 
     default:
@@ -321,7 +324,6 @@ evd_http_response_write_headers (EvdHttpResponse  *self,
 {
   GString *buf;
   gchar *st;
-  SoupHTTPVersion version;
   gboolean result = TRUE;
   SoupMessageHeaders *headers;
 
@@ -334,12 +336,9 @@ evd_http_response_write_headers (EvdHttpResponse  *self,
   if (reason_phrase == NULL)
     reason_phrase = soup_status_get_phrase (status_code);
 
-  version =
-    evd_http_message_get_version (EVD_HTTP_MESSAGE (self->priv->request));
-
   /* send status line */
   st = g_strdup_printf ("HTTP/1.%d %d %s\r\n",
-                        version,
+                        self->priv->http_version,
                         status_code,
                         reason_phrase);
   g_string_append_len (buf, st, strlen (st));
