@@ -162,7 +162,7 @@ evd_http_message_set_property (GObject      *obj,
       break;
 
     case PROP_CONNECTION:
-      self->priv->conn = g_value_get_object (value);
+      self->priv->conn = g_value_dup_object (value);
       break;
 
     default:
