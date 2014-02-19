@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -70,10 +70,6 @@ struct _EvdWebTransportServerClass
 GType                   evd_web_transport_server_get_type                    (void) G_GNUC_CONST;
 
 EvdWebTransportServer * evd_web_transport_server_new                         (const gchar *base_path);
-
-void                    evd_web_transport_server_set_selector                (EvdWebTransportServer *self,
-                                                                              EvdWebSelector        *selector) G_GNUC_DEPRECATED_FOR (evd_web_transport_server_use_selector);
-EvdWebSelector *        evd_web_transport_server_get_selector                (EvdWebTransportServer *self) G_GNUC_DEPRECATED;
 
 void                    evd_web_transport_server_use_selector                (EvdWebTransportServer *self,
                                                                               EvdWebSelector        *selector);

@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2014, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -71,8 +71,6 @@ struct _EvdWebTransportServerPrivate
   gchar *base_path;
   gchar *hs_base_path;
 
-  EvdWebSelector *selector;
-
   EvdLongpollingServer *lp;
   gchar *lp_base_path;
 
@@ -89,7 +87,6 @@ enum
 {
   PROP_0,
   PROP_BASE_PATH,
-  PROP_SELECTOR,
   PROP_LP_SERVICE,
   PROP_WEBSOCKET_SERVICE
 };
@@ -163,14 +160,6 @@ evd_web_transport_server_class_init (EvdWebTransportServerClass *class)
                                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (obj_class, PROP_SELECTOR,
-                                   g_param_spec_object ("selector",
-                                                        "Transport's Web selector",
-                                                        "Web selector object used by this transport to route its requests",
-                                                        EVD_TYPE_WEB_SELECTOR,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (obj_class, PROP_LP_SERVICE,
                                    g_param_spec_object ("lp-service",
                                                         "Long-Polling service",
@@ -208,8 +197,6 @@ evd_web_transport_server_init (EvdWebTransportServer *self)
 
   priv = EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE (self);
   self->priv = priv;
-
-  priv->selector = NULL;
 
   priv->lp = evd_longpolling_server_new ();
   priv->ws = evd_websocket_server_new ();
@@ -264,10 +251,6 @@ evd_web_transport_server_set_property (GObject      *obj,
       evd_web_transport_server_set_base_path (self, g_value_get_string (value));
       break;
 
-    case PROP_SELECTOR:
-      self->priv->selector = g_value_get_object (value);
-      break;
-
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (obj, prop_id, pspec);
       break;
@@ -288,10 +271,6 @@ evd_web_transport_server_get_property (GObject    *obj,
     {
     case PROP_BASE_PATH:
       g_value_set_string (value, evd_web_transport_server_get_base_path (self));
-      break;
-
-    case PROP_SELECTOR:
-      g_value_set_object (value, self->priv->selector);
       break;
 
     case PROP_LP_SERVICE:
@@ -926,31 +905,6 @@ evd_web_transport_server_new (const gchar *base_path)
   return g_object_new (EVD_TYPE_WEB_TRANSPORT_SERVER,
                        "base-path", base_path,
                        NULL);
-}
-
-void
-evd_web_transport_server_set_selector (EvdWebTransportServer *self,
-                                       EvdWebSelector        *selector)
-{
-  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
-  g_return_if_fail (EVD_IS_WEB_SELECTOR (selector));
-
-  self->priv->selector = selector;
-
-  evd_web_transport_server_use_selector (self, selector);
-}
-
-/**
- * evd_web_transport_server_get_selector:
- *
- * Returns: (transfer none):
- **/
-EvdWebSelector *
-evd_web_transport_server_get_selector (EvdWebTransportServer *self)
-{
-  g_return_val_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self), NULL);
-
-  return self->priv->selector;
 }
 
 void
