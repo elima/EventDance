@@ -154,12 +154,20 @@ evd_web_service_invoke_request_handler (EvdWebService     *self,
                                         EvdHttpRequest    *request)
 {
   EvdWebServiceClass *class;
+  EvdHttpResponse *response;
+
+  response = evd_http_response_new (request);
+
+  /* @TODO: prepare response headers */
 
   class = EVD_WEB_SERVICE_GET_CLASS (self);
   if (class->request_handler != NULL)
     {
       (* class->request_handler) (self, conn, request);
     }
+
+  if (class->request != NULL && class->request (self, request, response))
+    return;
 
   g_signal_emit (self,
                  evd_web_service_signals[SIGNAL_REQUEST_HEADERS],

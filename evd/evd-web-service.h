@@ -28,6 +28,7 @@
 #include "evd-service.h"
 #include "evd-http-connection.h"
 #include "evd-http-request.h"
+#include "evd-http-response.h"
 #include "evd-utils.h"
 
 G_BEGIN_DECLS
@@ -51,6 +52,10 @@ struct _EvdWebServiceClass
   void     (* request_handler)             (EvdWebService     *self,
                                             EvdHttpConnection *conn,
                                             EvdHttpRequest    *request);
+
+  gboolean (* request)                     (EvdWebService   *self,
+                                            EvdHttpRequest  *request,
+                                            EvdHttpResponse *response);
 
   void     (* return_connection)           (EvdWebService     *self,
                                             EvdHttpConnection *conn);

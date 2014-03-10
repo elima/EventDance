@@ -119,8 +119,7 @@ evd_jsonrpc_http_client_init (EvdJsonrpcHttpClient *self)
   evd_jsonrpc_transport_set_send_callback (priv->rpc,
                                            jsonrpc_on_send,
                                            self,
-                                           (GDestroyNotify) g_object_unref);
-  g_object_ref (self);
+                                           NULL);
 }
 
 static void
