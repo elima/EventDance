@@ -157,7 +157,10 @@ evd_poll_session_unref (EvdPollSession *session)
   else
     {
       if (session->src_id != 0)
-        g_source_remove (session->src_id);
+        {
+          g_source_remove (session->src_id);
+          session->src_id = 0;
+        }
 
       g_main_context_unref (session->main_context);
 
@@ -602,7 +605,7 @@ evd_poll_del (EvdPoll         *self,
   if (session->src_id != 0)
     {
       g_source_remove (session->src_id);
-      session->src_id = -1;
+      session->src_id = 0;
       evd_poll_session_unref (session);
     }
   session->callback = NULL;
