@@ -218,7 +218,7 @@ evd_pki_pubkey_get_key_type (EvdPkiPubkey *self)
 
 /**
  * evd_pki_pubkey_import_native:
- * @pubkey_st: (type guintptr):
+ * @pubkey: (type guintptr):
  *
  **/
 gboolean

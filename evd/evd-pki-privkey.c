@@ -263,7 +263,7 @@ evd_pki_privkey_get_key_type (EvdPkiPrivkey *self)
 
 /**
  * evd_pki_privkey_import_native:
- * @privkey_st: (type guintptr):
+ * @privkey: (type guintptr):
  *
  **/
 gboolean
