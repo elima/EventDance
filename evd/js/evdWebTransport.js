@@ -366,7 +366,8 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
     },
 
     open: function (address, callback) {
-        this._addr = address;
+        this._addr = (location.protocol == "https:" ? "wss://" : "ws://")
+            + location.host + address + "ws";
         this._opened = true;
         this._error = false;
 
@@ -381,6 +382,10 @@ Evd.Object.extend (Evd.WebSocket.prototype, {
             this._ws.onmessage = null;
             this._ws.onerror = null;
             this._onclose = null;
+        }
+
+        if (location.protocol == "https:" && this._addr.indexOf ("ws://") == 0) {
+            this._addr = "wss" + this._addr.substr (2);
         }
 
         this._ws = new WebSocket (this._addr + "?" + this._peerId);
@@ -540,7 +545,7 @@ Evd.Object.extend (Evd.WebTransport.prototype, {
                 self._onDisconnect (fatal);
             });
 
-        this._transport.open (mechUrl);
+        this._transport.open (this._addr);
     },
 
     _handshake: function () {
