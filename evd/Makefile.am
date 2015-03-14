@@ -164,8 +164,7 @@ lib@EVD_API_NAME@_la_LIBADD = \
 	$(UUID_LIBS) \
 	$(SOUP_LIBS) \
 	$(TLS_LIBS) \
-	$(JSON_LIBS) \
-	-lgcrypt
+	$(JSON_LIBS)
 
 lib@EVD_API_NAME@_la_CFLAGS  = \
 	$(AM_CFLAGS) \
@@ -218,7 +217,7 @@ introspection_sources = $(evd_HEADERS) $(source_c)
 @EVD_GIR_API_NAME@.gir: lib@EVD_API_NAME@.la Makefile
 @EVD_GIR_TARGET_NAME@_INCLUDES = GObject-2.0 Gio-2.0 Soup-2.4 Json-1.0
 @EVD_GIR_TARGET_NAME@_CFLAGS = $(INCLUDES) $(JSON_CFLAGS)
-@EVD_GIR_TARGET_NAME@_LIBS = @EVD_API_NAME@ uuid gcrypt
+@EVD_GIR_TARGET_NAME@_LIBS = @EVD_API_NAME@ uuid
 @EVD_GIR_TARGET_NAME@_FILES = $(addprefix $(srcdir)/,$(introspection_sources))
 @EVD_GIR_TARGET_NAME@_SCANNERFLAGS = \
 	--warn-all \

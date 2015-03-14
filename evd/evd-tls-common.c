@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2015, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -23,7 +23,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <gcrypt.h>
 #include <pthread.h>
 #include <errno.h>
 
@@ -35,8 +34,6 @@ G_LOCK_DEFINE_STATIC (evd_tls_init);
 static gboolean evd_tls_initialized = FALSE;
 
 static EvdTlsDhGenerator *evd_tls_dh_gen;
-
-GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 gboolean
 evd_tls_init (GError **error)
@@ -56,9 +53,6 @@ evd_tls_init (GError **error)
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
       g_thread_init (NULL);
 #endif
-
-      gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
-      gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
 
       err_code = gnutls_global_init ();
       if (! evd_error_propagate_gnutls (err_code, error))

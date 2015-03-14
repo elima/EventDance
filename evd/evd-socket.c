@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2015, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -41,6 +41,7 @@
 #include "evd-poll.h"
 #include "evd-resolver.h"
 #include "evd-connection.h"
+#include <string.h>
 
 G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_OBJECT)
 

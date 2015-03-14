@@ -25,6 +25,7 @@
 #include "evd-dbus-daemon.h"
 
 #include "evd-error.h"
+#include <string.h>
 
 #define EVD_DBUS_DAEMON_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
                                           EVD_TYPE_DBUS_DAEMON, \

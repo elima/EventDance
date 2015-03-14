@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2014, Igalia S.L.
+ * Copyright (C) 2009-2015, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -21,6 +21,7 @@
  */
 
 #include <json-glib/json-glib.h>
+#include <string.h>
 
 #include "evd-web-transport-server.h"
 #include "evd-transport.h"

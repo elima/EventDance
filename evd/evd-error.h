@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2009-2013, Igalia S.L.
+ * Copyright (C) 2009-2015, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -29,19 +29,13 @@
 
 #include <glib.h>
 #include <gnutls/gnutls.h>
-#include <gcrypt.h>
+#include <errno.h>
 
 #define EVD_GNUTLS_ERROR_DOMAIN_STR "org.eventdance.lib.Gnutls.ErrorDomain"
 #define EVD_GNUTLS_ERROR            g_quark_from_string (EVD_GNUTLS_ERROR_DOMAIN_STR)
 
-#define EVD_GCRYPT_ERROR_DOMAIN_STR "org.eventdance.lib.Gcry.ErrorDomain"
-#define EVD_GCRYPT_ERROR            g_quark_from_string (EVD_GCRYPT_ERROR_DOMAIN_STR)
-
 #define EVD_ERRNO_ERROR_DOMAIN_STR "org.eventdance.lib.Errno.ErrorDomain"
 #define EVD_ERRNO_ERROR            g_quark_from_string (EVD_ERRNO_ERROR_DOMAIN_STR)
-
-gboolean     evd_error_propagate_gcrypt     (guint    gcrypt_error_code,
-                                             GError **error);
 
 gboolean     evd_error_propagate_gnutls     (gint     gnutls_error_code,
                                              GError **error);

@@ -3,7 +3,7 @@
  *
  * EventDance, Peer-to-peer IPC library <http://eventdance.org>
  *
- * Copyright (C) 2011-2013, Igalia S.L.
+ * Copyright (C) 2011-2015, Igalia S.L.
  *
  * Authors:
  *   Eduardo Lima Mitev <elima@igalia.com>
@@ -40,28 +40,6 @@ evd_error_propagate_gnutls (gint gnutls_error_code, GError **error)
                            EVD_GNUTLS_ERROR,
                            gnutls_error_code,
                            gnutls_strerror (gnutls_error_code));
-      return TRUE;
-    }
-}
-
-/**
- * evd_error_propagate_gcrypt:
- *
- * Since: 0.2.0
- **/
-gboolean
-evd_error_propagate_gcrypt (guint gcrypt_error_code, GError **error)
-{
-  if (gcrypt_error_code == GPG_ERR_NO_ERROR)
-    {
-      return FALSE;
-    }
-  else
-    {
-      g_set_error_literal (error,
-                           EVD_GCRYPT_ERROR,
-                           gcry_err_code (gcrypt_error_code),
-                           gcry_strerror (gcrypt_error_code));
       return TRUE;
     }
 }
