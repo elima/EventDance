@@ -55,7 +55,6 @@
 #include "evd-dbus-bridge.h"
 #include "evd-dbus-daemon.h"
 #include "evd-jsonrpc.h"
-#include "evd-pki.h"
 #include "evd-pki-privkey.h"
 #include "evd-pki-pubkey.h"
 #include "evd-daemon.h"
