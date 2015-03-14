@@ -45,7 +45,6 @@ noinst_PROGRAMS = \
 	test-json-filter \
 	test-resolver \
 	test-dbus-bridge \
-	test-tls-cipher \
 	test-pki \
 	test-websocket-transport \
 	test-io-stream-group \
@@ -55,7 +54,6 @@ TESTS = \
 	test-json-filter \
 	test-resolver \
 	test-dbus-bridge \
-	test-tls-cipher \
 	test-pki \
 	test-websocket-transport \
 	test-io-stream-group \
@@ -80,11 +78,6 @@ test_json_filter_SOURCES = test-json-filter.c
 test_dbus_bridge_CFLAGS = $(AM_CFLAGS)
 test_dbus_bridge_LDADD = $(AM_LIBS)
 test_dbus_bridge_SOURCES = test-dbus-bridge.c
-
-# test-tls-cipher
-test_tls_cipher_CFLAGS = $(AM_CFLAGS)
-test_tls_cipher_LDADD = $(AM_LIBS)
-test_tls_cipher_SOURCES = test-tls-cipher.c
 
 # test-pki
 test_pki_CFLAGS = $(AM_CFLAGS)
