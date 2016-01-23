@@ -85,6 +85,8 @@ void                    evd_web_transport_server_get_validate_peer_arguments (Ev
                                                                               EvdPeer                *peer,
                                                                               EvdHttpConnection     **conn,
                                                                               EvdHttpRequest        **request);
+void                    evd_web_transport_server_set_external_base_url       (EvdWebTransportServer *self,
+                                                                              const gchar           *base_url);
 
 G_END_DECLS
 

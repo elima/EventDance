@@ -81,6 +81,8 @@ struct _EvdWebTransportServerPrivate
   gboolean enable_ws;
 
   HandshakeData *current_handshake_data;
+
+  gchar *external_url;
 };
 
 /* properties */
@@ -211,6 +213,8 @@ evd_web_transport_server_init (EvdWebTransportServer *self)
   priv->enable_ws = TRUE;
 
   priv->current_handshake_data = NULL;
+
+  priv->external_url = NULL;
 }
 
 static void
@@ -232,6 +236,8 @@ evd_web_transport_server_finalize (GObject *obj)
 
   g_free (self->priv->hs_base_path);
   g_free (self->priv->base_path);
+
+  g_free (self->priv->external_url);
 
   G_OBJECT_CLASS (evd_web_transport_server_parent_class)->finalize (obj);
 }
@@ -438,13 +444,26 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
       has_mechanism (request_mechs, WEB_SOCKET_MECHANISM_NAME))
     {
       SoupURI *ws_uri;
+      gboolean tls = FALSE;
 
-      ws_uri = soup_uri_copy (uri);
-      if (evd_connection_get_tls_active (EVD_CONNECTION (data->conn)))
+      if (self->priv->external_url != NULL)
+        {
+          ws_uri = soup_uri_new (self->priv->external_url);
+          if (g_strcmp0 (ws_uri->scheme, "https") == 0)
+            tls = TRUE;
+        }
+      else
+        {
+          ws_uri = soup_uri_copy (uri);
+          if (evd_connection_get_tls_active (EVD_CONNECTION (data->conn)))
+            tls = TRUE;
+        }
+
+      if (tls)
         soup_uri_set_scheme (ws_uri, "wss");
       else
         soup_uri_set_scheme (ws_uri, "ws");
-      soup_uri_set_port (ws_uri, uri->port);
+
       soup_uri_set_path (ws_uri, self->priv->ws_base_path);
       mechanism_url = soup_uri_to_string (ws_uri, FALSE);
       soup_uri_free (ws_uri);
@@ -460,7 +479,10 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
     {
       SoupURI *lp_uri;
 
-      lp_uri = soup_uri_copy (uri);
+      if (self->priv->external_url != NULL)
+        lp_uri = soup_uri_new (self->priv->external_url);
+      else
+        lp_uri = soup_uri_copy (uri);
       soup_uri_set_path (lp_uri, self->priv->lp_base_path);
       soup_uri_set_query (lp_uri, NULL);
       mechanism_url = soup_uri_to_string (lp_uri, FALSE);
@@ -974,4 +996,21 @@ evd_web_transport_server_get_validate_peer_arguments (EvdWebTransportServer  *se
 
   if (request != NULL)
     *request = self->priv->current_handshake_data->request;
+}
+
+/**
+ * evd_web_transport_server_set_external_base_url:
+ * @base_url: (allow-none):
+ **/
+void
+evd_web_transport_server_set_external_base_url (EvdWebTransportServer *self,
+                                                const gchar           *base_url)
+{
+  g_return_if_fail (EVD_IS_WEB_TRANSPORT_SERVER (self));
+
+  g_free (self->priv->external_url);
+  self->priv->external_url = NULL;
+
+  if (base_url != NULL)
+    self->priv->external_url = g_strdup (base_url);
 }
