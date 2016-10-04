@@ -445,6 +445,7 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
     {
       SoupURI *ws_uri;
       gboolean tls = FALSE;
+      guint32 port = 0;
 
       if (self->priv->external_url != NULL)
         {
@@ -459,10 +460,12 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
             tls = TRUE;
         }
 
+      port = ws_uri->port;
       if (tls)
         soup_uri_set_scheme (ws_uri, "wss");
       else
         soup_uri_set_scheme (ws_uri, "ws");
+      ws_uri->port = port;
 
       soup_uri_set_path (ws_uri, self->priv->ws_base_path);
       mechanism_url = soup_uri_to_string (ws_uri, FALSE);
