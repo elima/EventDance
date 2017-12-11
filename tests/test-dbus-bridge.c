@@ -101,7 +101,7 @@ static const TestCase test_cases[] =
         "[3,1,0,0,'[\"invalid:address=error\",true]']",
       },
       {
-        "[1,1,0,0,\"[5,\\\"Unknown or unsupported transport 'invalid' for address 'invalid:address=error'\\\"]\"]"
+        "[1,1,0,0,\"[5,\\\"Unknown or unsupported transport \342\200\234invalid\342\200\235 for address \342\200\234invalid:address=error\342\200\235\\\"]\"]"
       }
     },
 
