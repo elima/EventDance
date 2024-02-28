@@ -10,6 +10,7 @@
  */
 
 #include <evd.h>
+#include "evd-dbus-agent.h"
 
 #define LISTEN_PORT 8080
 #define DBUS_ADDR "alias:abstract=/org/eventdance/lib/examples/dbus-bridge"
