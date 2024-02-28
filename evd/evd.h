@@ -52,6 +52,7 @@
 #include "evd-web-transport-server.h"
 #include "evd-web-dir.h"
 #include "evd-ipc-mechanism.h"
+#include "evd-dbus-agent.h"
 #include "evd-dbus-bridge.h"
 #include "evd-dbus-daemon.h"
 #include "evd-jsonrpc.h"
