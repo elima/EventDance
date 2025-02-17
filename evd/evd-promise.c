@@ -104,7 +104,7 @@ typedef void (* ResolvePointer) (EvdPromise     *self,
 typedef void (* ResolveSize)    (EvdPromise     *self,
                                  gssize          size);
 typedef void (* ResolveBoolean) (EvdPromise     *self,
-                                 gboolean        bool);
+                                 gboolean        boolean);
 typedef void (* Reject)         (EvdPromise     *self,
                                  GError         *error);
 
@@ -170,7 +170,7 @@ static void      resolve_pointer_real             (EvdPromise     *self,
 static void      resolve_size_real                (EvdPromise *self,
                                                    gssize      size);
 static void      resolve_boolean_real             (EvdPromise *self,
-                                                   gboolean    bool);
+                                                   gboolean    boolean);
 static void      reject_real                      (EvdPromise  *self,
                                                    GError      *error);
 
@@ -369,11 +369,11 @@ resolve_size_real (EvdPromise *self, gssize size)
 }
 
 static void
-resolve_boolean_real (EvdPromise *self, gboolean bool)
+resolve_boolean_real (EvdPromise *self, gboolean boolean)
 {
   g_return_if_fail (! self->priv->completed);
 
-  self->priv->res_boolean = bool;
+  self->priv->res_boolean = boolean;
 }
 
 static void
@@ -752,7 +752,7 @@ evd_deferred_set_result_size (EvdDeferred *self, gssize size)
 /**
  * evd_deferred_set_result_boolean:
  * @self: An #EvdDeferred object
- * @bool: (allow-none): The result of the async operation as a gboolean
+ * @boolean: (allow-none): The result of the async operation as a gboolean
  *
  * Sets the result of the asynchronous operation as a boolean value.
  *
@@ -760,11 +760,11 @@ evd_deferred_set_result_size (EvdDeferred *self, gssize size)
  * evd_deferred_complete_in_idle() should be called after for that purpose.
  **/
 void
-evd_deferred_set_result_boolean (EvdDeferred *self, gboolean bool)
+evd_deferred_set_result_boolean (EvdDeferred *self, gboolean boolean)
 {
   g_return_if_fail (self != NULL);
 
-  self->resolve_funcs->resolve_boolean (self->promise, bool);
+  self->resolve_funcs->resolve_boolean (self->promise, boolean);
 }
 
 /**

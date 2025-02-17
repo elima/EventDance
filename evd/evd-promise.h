@@ -88,7 +88,7 @@ void             evd_deferred_set_result_pointer  (EvdDeferred    *self,
 void             evd_deferred_set_result_size     (EvdDeferred *self,
                                                    gssize       size);
 void             evd_deferred_set_result_boolean  (EvdDeferred *self,
-                                                   gboolean     bool);
+                                                   gboolean     boolean);
 void             evd_deferred_take_result_error   (EvdDeferred *self,
                                                    GError      *error);
 
