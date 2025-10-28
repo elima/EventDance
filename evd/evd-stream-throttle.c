@@ -31,11 +31,11 @@ struct _EvdStreamThrottlePrivate
   gsize  bandwidth;
   gulong latency;
 
-  GTimeVal current_time;
-  gsize    bytes;
-  gsize    actual_bandwidth;
-  guint64  total;
-  GTimeVal last;
+  gint64  current_time_us;
+  gsize   bytes;
+  gsize   actual_bandwidth;
+  guint64 total;
+  gint64  last_time_us;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (EvdStreamThrottle,
@@ -117,12 +117,13 @@ evd_stream_throttle_init (EvdStreamThrottle *self)
   priv->bandwidth = 0;
   priv->latency = 0;
 
-  priv->current_time.tv_sec = 0;
-  priv->current_time.tv_usec = 0;
+  priv->current_time_us = 0;
 
   priv->bytes = 0;
   priv->total = 0;
   priv->actual_bandwidth = 0;
+
+  priv->last_time_us = 0;
 }
 
 static void
@@ -188,11 +189,11 @@ evd_stream_throttle_get_property (GObject    *obj,
 static void
 evd_stream_throttle_update_current_time (EvdStreamThrottle *self)
 {
-  GTimeVal time_val;
+  gint64 now_us;
 
-  g_get_current_time (&time_val);
+  now_us = g_get_real_time ();
 
-  if (time_val.tv_sec != self->priv->current_time.tv_sec)
+  if ((self->priv->current_time_us / G_USEC_PER_SEC) != (now_us / G_USEC_PER_SEC))
     {
       G_LOCK (counters);
 
@@ -202,18 +203,7 @@ evd_stream_throttle_update_current_time (EvdStreamThrottle *self)
       G_UNLOCK (counters);
     }
 
-  memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
-}
-
-static gulong
-g_timeval_get_diff_micro (GTimeVal *time1, GTimeVal *time2)
-{
-  gulong result;
-
-  result = ABS (time2->tv_sec - time1->tv_sec) * G_USEC_PER_SEC;
-  result += ABS (time2->tv_usec - time1->tv_usec);
-
-  return result;
+  self->priv->current_time_us = now_us;
 }
 
 static gsize
@@ -221,7 +211,7 @@ evd_stream_throttle_request_internal (EvdStreamThrottle *self,
                                       gsize              bandwidth,
                                       gulong             latency,
                                       gsize              bytes,
-                                      GTimeVal          *last,
+                                      gint64            *last_time_us,
                                       gsize              size,
                                       guint             *wait)
 {
@@ -237,8 +227,15 @@ evd_stream_throttle_request_internal (EvdStreamThrottle *self,
     {
       gulong elapsed;
 
-      elapsed = g_timeval_get_diff_micro (&self->priv->current_time,
-                                          last);
+      if (*last_time_us == 0)
+        elapsed = G_MAXULONG;
+      else
+        {
+          gint64 diff = self->priv->current_time_us - *last_time_us;
+          if (diff < 0)
+            diff = -diff;
+          elapsed = (gulong) diff;
+        }
 
       if (elapsed < latency)
         {
@@ -258,8 +255,12 @@ evd_stream_throttle_request_internal (EvdStreamThrottle *self,
 
       if (wait != NULL)
         if (actual_size < size)
-          *wait = MAX ((guint) (((1000001 - self->priv->current_time.tv_usec) / 1000)) + 1,
-                       *wait);
+          {
+            gint64 micro_part = self->priv->current_time_us % G_USEC_PER_SEC;
+            guint remaining_ms =
+              (guint) (((G_USEC_PER_SEC + 1) - micro_part) / 1000);
+            *wait = MAX (remaining_ms + 1, *wait);
+          }
     }
 
   G_UNLOCK (counters);
@@ -292,7 +293,7 @@ evd_stream_throttle_request  (EvdStreamThrottle *self,
                                                self->priv->bandwidth,
                                                self->priv->latency,
                                                self->priv->bytes,
-                                               &self->priv->last,
+                                               &self->priv->last_time_us,
                                                size,
                                                wait);
 }
@@ -309,9 +310,7 @@ evd_stream_throttle_report (EvdStreamThrottle *self, gsize size)
   self->priv->bytes += size;
   self->priv->total += size;
 
-  memmove (&self->priv->last,
-           &self->priv->current_time,
-           sizeof (GTimeVal));
+  self->priv->last_time_us = self->priv->current_time_us;
 
   G_UNLOCK (counters);
 }
