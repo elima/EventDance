@@ -31,10 +31,6 @@
 #include "evd-http-connection.h"
 #include "evd-peer-manager.h"
 
-#define EVD_LONGPOLLING_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                 EVD_TYPE_LONGPOLLING_SERVER, \
-                                                 EvdLongpollingServerPrivate))
-
 #define PEER_DATA_KEY       "org.eventdance.lib.LongpollingServer.PEER_DATA"
 #define CONN_PEER_KEY_GET   PEER_DATA_KEY ".GET"
 #define CONN_PEER_KEY_POST  PEER_DATA_KEY ".POST"
@@ -92,6 +88,7 @@ static void     evd_longpolling_server_peer_closed          (EvdTransport *trans
                                                              gboolean      gracefully);
 
 G_DEFINE_TYPE_WITH_CODE (EvdLongpollingServer, evd_longpolling_server, EVD_TYPE_WEB_SERVICE,
+                         G_ADD_PRIVATE (EvdLongpollingServer)
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_longpolling_server_transport_iface_init));
 
@@ -110,7 +107,6 @@ evd_longpolling_server_class_init (EvdLongpollingServerClass *class)
 
   web_service_class->request_handler = evd_longpolling_server_request_handler;
 
-  g_type_class_add_private (obj_class, sizeof (EvdLongpollingServerPrivate));
 }
 
 static void
@@ -126,7 +122,7 @@ evd_longpolling_server_init (EvdLongpollingServer *self)
 {
   EvdLongpollingServerPrivate *priv;
 
-  priv = EVD_LONGPOLLING_SERVER_GET_PRIVATE (self);
+  priv = evd_longpolling_server_get_instance_private (self);
   self->priv = priv;
 
   priv->current_peer_id = NULL;

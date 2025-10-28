@@ -25,12 +25,6 @@
 #include "evd-stream-throttle.h"
 #include "evd-io-stream.h"
 
-G_DEFINE_TYPE (EvdIoStreamGroup, evd_io_stream_group, G_TYPE_OBJECT)
-
-#define EVD_IO_STREAM_GROUP_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_IO_STREAM_GROUP, \
-                                              EvdIoStreamGroupPrivate))
-
 /* private data */
 struct _EvdIoStreamGroupPrivate
 {
@@ -39,6 +33,10 @@ struct _EvdIoStreamGroupPrivate
 
   gboolean recursed;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdIoStreamGroup,
+                            evd_io_stream_group,
+                            G_TYPE_OBJECT)
 
 /* properties */
 enum
@@ -89,8 +87,6 @@ evd_io_stream_group_class_init (EvdIoStreamGroupClass *class)
                                                         EVD_TYPE_STREAM_THROTTLE,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdIoStreamGroupPrivate));
 }
 
 static void
@@ -98,7 +94,7 @@ evd_io_stream_group_init (EvdIoStreamGroup *self)
 {
   EvdIoStreamGroupPrivate *priv;
 
-  priv = EVD_IO_STREAM_GROUP_GET_PRIVATE (self);
+  priv = evd_io_stream_group_get_instance_private (self);
   self->priv = priv;
 
   priv->input_throttle = evd_stream_throttle_new ();

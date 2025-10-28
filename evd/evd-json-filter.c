@@ -27,13 +27,29 @@
 #include "evd-json-filter.h"
 #include "evd-marshal.h"
 
-G_DEFINE_TYPE (EvdJsonFilter, evd_json_filter, G_TYPE_OBJECT)
+/* private data */
+struct _EvdJsonFilterPrivate
+{
+  gint depth;
+  gint top;
+  gint state;
+  gint content_start;
 
-#define EVD_JSON_FILTER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_JSON_FILTER, \
-                                          EvdJsonFilterPrivate))
+  gint *stack;
+  GString *cache;
+
+  EvdJsonFilterOnPacketHandler packet_cb;
+  gpointer user_data;
+  GDestroyNotify user_data_free_func;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdJsonFilter,
+                            evd_json_filter,
+                            G_TYPE_OBJECT)
 
 #define MAX_DEPTH 128
+
+static void     evd_json_filter_finalize (GObject *obj);
 
 /*
  *  Code pieces taken from http://www.json.org/JSON_checker/.
@@ -198,27 +214,6 @@ enum modes {
     MODE_OBJECT,
 };
 
-/* private data */
-struct _EvdJsonFilterPrivate
-{
-  gint  state;
-  gint  depth;
-  gint  top;
-  gint* stack;
-
-  gint     content_start;
-  GString *cache;
-
-  EvdJsonFilterOnPacketHandler packet_cb;
-  gpointer user_data;
-  GDestroyNotify user_data_free_func;
-};
-
-static void     evd_json_filter_class_init         (EvdJsonFilterClass *class);
-static void     evd_json_filter_init               (EvdJsonFilter *self);
-
-static void     evd_json_filter_finalize           (GObject *obj);
-
 static void
 evd_json_filter_class_init (EvdJsonFilterClass *class)
 {
@@ -227,9 +222,6 @@ evd_json_filter_class_init (EvdJsonFilterClass *class)
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_json_filter_finalize;
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdJsonFilterPrivate));
 }
 
 static void
@@ -237,7 +229,7 @@ evd_json_filter_init (EvdJsonFilter *self)
 {
   EvdJsonFilterPrivate *priv;
 
-  priv = EVD_JSON_FILTER_GET_PRIVATE (self);
+  priv = evd_json_filter_get_instance_private (self);
   self->priv = priv;
 
   /* initialize private members */

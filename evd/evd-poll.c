@@ -32,12 +32,6 @@
 
 #define DEFAULT_MAX_FDS 1000 /* maximum number of file descriptors to poll */
 
-G_DEFINE_TYPE (EvdPoll, evd_poll, G_TYPE_OBJECT)
-
-#define EVD_POLL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                   EVD_TYPE_POLL, \
-                                   EvdPollPrivate))
-
 /* private data */
 struct _EvdPollPrivate
 {
@@ -53,6 +47,10 @@ struct _EvdPollPrivate
 
   gint interrupt_fds[2];
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdPoll,
+                            evd_poll,
+                            G_TYPE_OBJECT)
 
 struct _EvdPollSession
 {
@@ -95,8 +93,6 @@ evd_poll_class_init (EvdPollClass *class)
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_poll_finalize;
-
-  g_type_class_add_private (obj_class, sizeof (EvdPollPrivate));
 }
 
 static void
@@ -104,7 +100,7 @@ evd_poll_init (EvdPoll *self)
 {
   EvdPollPrivate *priv;
 
-  priv = EVD_POLL_GET_PRIVATE (self);
+  priv = evd_poll_get_instance_private (self);
   self->priv = priv;
 
   priv->started = FALSE;

@@ -27,14 +27,6 @@
 #include "evd-transport.h"
 #include "evd-utils.h"
 
-G_DEFINE_TYPE (EvdPeer, evd_peer, G_TYPE_OBJECT)
-
-#define EVD_PEER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                   EVD_TYPE_PEER, \
-                                   EvdPeerPrivate))
-
-#define DEFAULT_TIMEOUT_INTERVAL 15
-
 /* private data */
 struct _EvdPeerPrivate
 {
@@ -49,6 +41,12 @@ struct _EvdPeerPrivate
 
   EvdTransport *transport;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdPeer,
+                            evd_peer,
+                            G_TYPE_OBJECT)
+
+#define DEFAULT_TIMEOUT_INTERVAL 15
 
 typedef struct
 {
@@ -108,10 +106,6 @@ evd_peer_class_init (EvdPeerClass *class)
                                                         G_TYPE_OBJECT,
                                                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_STRINGS));
-
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdPeerPrivate));
 }
 
 static void
@@ -119,7 +113,7 @@ evd_peer_init (EvdPeer *self)
 {
   EvdPeerPrivate *priv;
 
-  priv = EVD_PEER_GET_PRIVATE (self);
+  priv = evd_peer_get_instance_private (self);
   self->priv = priv;
 
   self->priv->closed = FALSE;

@@ -28,12 +28,6 @@
 #include "evd-tls-common.h"
 #include "evd-tls-certificate.h"
 
-G_DEFINE_TYPE (EvdTlsCertificate, evd_tls_certificate, G_TYPE_OBJECT)
-
-#define EVD_TLS_CERTIFICATE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_TLS_CERTIFICATE, \
-                                              EvdTlsCertificatePrivate))
-
 /* private data */
 struct _EvdTlsCertificatePrivate
 {
@@ -44,6 +38,10 @@ struct _EvdTlsCertificatePrivate
 
   gboolean native_stolen;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsCertificate,
+                            evd_tls_certificate,
+                            G_TYPE_OBJECT)
 
 
 /* properties */
@@ -87,9 +85,6 @@ evd_tls_certificate_class_init (EvdTlsCertificateClass *class)
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdTlsCertificatePrivate));
 }
 
 static void
@@ -97,7 +92,7 @@ evd_tls_certificate_init (EvdTlsCertificate *self)
 {
   EvdTlsCertificatePrivate *priv;
 
-  priv = EVD_TLS_CERTIFICATE_GET_PRIVATE (self);
+  priv = evd_tls_certificate_get_instance_private (self);
   self->priv = priv;
 
   priv->x509_cert    = NULL;

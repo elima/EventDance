@@ -27,12 +27,6 @@
 #include "evd-utils.h"
 #include "evd-dbus-agent.h"
 
-G_DEFINE_TYPE (EvdDBusBridge, evd_dbus_bridge, EVD_TYPE_IPC_MECHANISM)
-
-#define EVD_DBUS_BRIDGE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_DBUS_BRIDGE, \
-                                          EvdDBusBridgePrivate))
-
 enum EvdDBusBridgeCmd
 {
   EVD_DBUS_BRIDGE_CMD_NONE,
@@ -93,6 +87,8 @@ struct _EvdDBusBridgePrivate
   gpointer send_msg_user_data;
 #endif
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdDBusBridge, evd_dbus_bridge, EVD_TYPE_IPC_MECHANISM)
 
 typedef struct
 {
@@ -179,7 +175,6 @@ evd_dbus_bridge_class_init (EvdDBusBridgeClass *class)
   ipc_mechanism_class->transport_receive = transport_on_receive;
   ipc_mechanism_class->transport_new_peer = transport_on_new_peer;
 
-  g_type_class_add_private (obj_class, sizeof (EvdDBusBridgePrivate));
 }
 
 static void
@@ -187,7 +182,7 @@ evd_dbus_bridge_init (EvdDBusBridge *self)
 {
   EvdDBusBridgePrivate *priv;
 
-  priv = EVD_DBUS_BRIDGE_GET_PRIVATE (self);
+  priv = evd_dbus_bridge_get_instance_private (self);
   self->priv = priv;
 
   priv->agent_vtable.proxy_signal = evd_dbus_bridge_on_proxy_signal;

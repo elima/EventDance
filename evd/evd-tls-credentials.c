@@ -27,12 +27,6 @@
 
 #include "evd-error.h"
 
-G_DEFINE_TYPE (EvdTlsCredentials, evd_tls_credentials, G_TYPE_OBJECT)
-
-#define EVD_TLS_CREDENTIALS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_TLS_CREDENTIALS, \
-                                              EvdTlsCredentialsPrivate))
-
 #define MAX_DYNAMIC_CERTS 8
 
 /* private data */
@@ -59,6 +53,10 @@ struct _EvdTlsCredentialsPrivate
   GList *x509_privkeys;
   GList *openpgp_privkeys;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsCredentials,
+                            evd_tls_credentials,
+                            G_TYPE_OBJECT)
 
 struct CertData
 {
@@ -131,9 +129,6 @@ evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
                                                       0,
                                                       G_PARAM_READWRITE |
                                                       G_PARAM_STATIC_STRINGS));
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdTlsCredentialsPrivate));
 }
 
 static void
@@ -141,7 +136,7 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
 {
   EvdTlsCredentialsPrivate *priv;
 
-  priv = EVD_TLS_CREDENTIALS_GET_PRIVATE (self);
+  priv = evd_tls_credentials_get_instance_private (self);
   self->priv = priv;
 
   priv->cred = NULL;

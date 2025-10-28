@@ -94,10 +94,6 @@
 #define WARN_IF_NOT_COMPLETED(promise) if (!promise->priv->completed)  \
                                          g_warning ("Getting the result from an unresolved promise")
 
-#define EVD_PROMISE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                      EVD_TYPE_PROMISE, \
-                                      EvdPromisePrivate))
-
 typedef void (* ResolvePointer) (EvdPromise     *self,
                                  gpointer        data,
                                  GDestroyNotify  data_free_func);
@@ -177,6 +173,7 @@ static void      reject_real                      (EvdPromise  *self,
 static void      free_promise_closure             (PromiseClosure *closure);
 
 G_DEFINE_TYPE_WITH_CODE (EvdPromise, evd_promise, G_TYPE_OBJECT,
+                         G_ADD_PRIVATE (EvdPromise)
                          G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_RESULT,
                                                 async_result_iface_init));
 
@@ -192,8 +189,6 @@ evd_promise_class_init (EvdPromiseClass *class)
 
   obj_class->dispose = evd_promise_dispose;
   obj_class->finalize = evd_promise_finalize;
-
-  g_type_class_add_private (obj_class, sizeof (EvdPromisePrivate));
 }
 
 static void
@@ -209,7 +204,7 @@ evd_promise_init (EvdPromise *self)
 {
   EvdPromisePrivate *priv;
 
-  priv = EVD_PROMISE_GET_PRIVATE (self);
+  priv = evd_promise_get_instance_private (self);
   self->priv = priv;
 
   priv->completed = FALSE;

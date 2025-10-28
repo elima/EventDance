@@ -32,12 +32,6 @@
 
 #define EVD_TLS_SESSION_DEFAULT_PRIORITY "NORMAL"
 
-G_DEFINE_TYPE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
-
-#define EVD_TLS_SESSION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_TLS_SESSION, \
-                                          EvdTlsSessionPrivate))
-
 /* private data */
 struct _EvdTlsSessionPrivate
 {
@@ -65,6 +59,8 @@ struct _EvdTlsSessionPrivate
 
   gchar *server_name;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsSession, evd_tls_session, G_TYPE_OBJECT)
 
 
 /* properties */
@@ -137,8 +133,6 @@ evd_tls_session_class_init (EvdTlsSessionClass *class)
                                                          FALSE,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdTlsSessionPrivate));
 }
 
 static void
@@ -146,7 +140,7 @@ evd_tls_session_init (EvdTlsSession *self)
 {
   EvdTlsSessionPrivate *priv;
 
-  priv = EVD_TLS_SESSION_GET_PRIVATE (self);
+  priv = evd_tls_session_get_instance_private (self);
   self->priv = priv;
 
   priv->session = NULL;

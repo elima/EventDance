@@ -24,12 +24,6 @@
 
 #include "evd-marshal.h"
 
-G_DEFINE_ABSTRACT_TYPE (EvdIoStream, evd_io_stream, G_TYPE_IO_STREAM)
-
-#define EVD_IO_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                        EVD_TYPE_IO_STREAM, \
-                                        EvdIoStreamPrivate))
-
 /* private data */
 struct _EvdIoStreamPrivate
 {
@@ -38,6 +32,10 @@ struct _EvdIoStreamPrivate
 
   EvdIoStreamGroup *group;
 };
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (EvdIoStream,
+                                     evd_io_stream,
+                                     G_TYPE_IO_STREAM)
 
 /* signals */
 enum
@@ -134,8 +132,6 @@ evd_io_stream_class_init (EvdIoStreamClass *class)
                                                         EVD_TYPE_IO_STREAM_GROUP,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdIoStreamPrivate));
 }
 
 static void
@@ -143,7 +139,7 @@ evd_io_stream_init (EvdIoStream *self)
 {
   EvdIoStreamPrivate *priv;
 
-  priv = EVD_IO_STREAM_GET_PRIVATE (self);
+  priv = evd_io_stream_get_instance_private (self);
   self->priv = priv;
 
   priv->input_throttle = evd_stream_throttle_new ();

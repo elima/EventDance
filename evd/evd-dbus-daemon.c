@@ -27,10 +27,6 @@
 #include "evd-error.h"
 #include <string.h>
 
-#define EVD_DBUS_DAEMON_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_DBUS_DAEMON, \
-                                          EvdDBusDaemonPrivate))
-
 /* private data */
 struct _EvdDBusDaemonPrivate
 {
@@ -67,6 +63,7 @@ static gboolean evd_dbus_daemon_initable_init       (GInitable     *initable,
                                                      GError       **error);
 
 G_DEFINE_TYPE_WITH_CODE (EvdDBusDaemon, evd_dbus_daemon, G_TYPE_OBJECT,
+                         G_ADD_PRIVATE (EvdDBusDaemon)
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
                                                 evd_dbus_daemon_initable_iface_init));
 
@@ -101,7 +98,6 @@ evd_dbus_daemon_class_init (EvdDBusDaemonClass *class)
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
 
-  g_type_class_add_private (obj_class, sizeof (EvdDBusDaemonPrivate));
 }
 
 static void
@@ -109,7 +105,7 @@ evd_dbus_daemon_init (EvdDBusDaemon *self)
 {
   EvdDBusDaemonPrivate *priv;
 
-  priv = EVD_DBUS_DAEMON_GET_PRIVATE (self);
+  priv = evd_dbus_daemon_get_instance_private (self);
   self->priv = priv;
 
   priv->config_file = NULL;

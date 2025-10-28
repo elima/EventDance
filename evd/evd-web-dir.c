@@ -26,12 +26,6 @@
 
 #include "evd-web-dir.h"
 
-#define EVD_WEB_DIR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                      EVD_TYPE_WEB_DIR, \
-                                      EvdWebDirPrivate))
-
-G_DEFINE_TYPE (EvdWebDir, evd_web_dir, EVD_TYPE_WEB_SERVICE)
-
 #define DEFAULT_ROOT_PATH "."
 
 #define DEFAULT_ALLOW_PUT FALSE
@@ -48,6 +42,10 @@ struct _EvdWebDirPrivate
   gboolean allow_put;
   gchar *dir_index;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdWebDir,
+                            evd_web_dir,
+                            EVD_TYPE_WEB_SERVICE)
 
 typedef struct
 {
@@ -138,8 +136,6 @@ evd_web_dir_class_init (EvdWebDirClass *class)
                                                          DEFAULT_ALLOW_PUT,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdWebDirPrivate));
 }
 
 static void
@@ -147,7 +143,7 @@ evd_web_dir_init (EvdWebDir *self)
 {
   EvdWebDirPrivate *priv;
 
-  priv = EVD_WEB_DIR_GET_PRIVATE (self);
+  priv = evd_web_dir_get_instance_private (self);
   self->priv = priv;
 
   priv->allow_put = DEFAULT_ALLOW_PUT;

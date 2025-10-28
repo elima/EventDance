@@ -26,14 +26,6 @@
 #include "evd-utils.h"
 #include "evd-buffered-output-stream.h"
 
-G_DEFINE_TYPE (EvdBufferedOutputStream,
-               evd_buffered_output_stream,
-               G_TYPE_FILTER_OUTPUT_STREAM)
-
-#define EVD_BUFFERED_OUTPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                     EVD_TYPE_BUFFERED_OUTPUT_STREAM, \
-                                                     EvdBufferedOutputStreamPrivate))
-
 #define DEFAULT_BUFFER_SIZE 8192
 
 /* private data */
@@ -51,6 +43,10 @@ struct _EvdBufferedOutputStreamPrivate
   GSimpleAsyncResult *async_result;
   gssize actual_size;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdBufferedOutputStream,
+                            evd_buffered_output_stream,
+                            G_TYPE_FILTER_OUTPUT_STREAM)
 
 /* properties */
 enum
@@ -132,8 +128,6 @@ evd_buffered_output_stream_class_init (EvdBufferedOutputStreamClass *class)
                                                          TRUE,
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdBufferedOutputStreamPrivate));
 }
 
 static void
@@ -141,7 +135,7 @@ evd_buffered_output_stream_init (EvdBufferedOutputStream *self)
 {
   EvdBufferedOutputStreamPrivate *priv;
 
-  priv = EVD_BUFFERED_OUTPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_buffered_output_stream_get_instance_private (self);
   self->priv = priv;
 
   priv->buffer = g_string_new ("");

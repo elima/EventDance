@@ -26,10 +26,6 @@
 
 #include "evd-http-chunked-decoder.h"
 
-#define EVD_HTTP_CHUNKED_DECODER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                   EVD_TYPE_HTTP_CHUNKED_DECODER, \
-                                                   EvdHttpChunkedDecoderPrivate))
-
 /* private data */
 struct _EvdHttpChunkedDecoderPrivate
 {
@@ -68,15 +64,14 @@ static GConverterResult convert                             (GConverter       *c
 static void             reset                               (GConverter *converter);
 
 G_DEFINE_TYPE_WITH_CODE (EvdHttpChunkedDecoder, evd_http_chunked_decoder, G_TYPE_OBJECT,
+                         G_ADD_PRIVATE (EvdHttpChunkedDecoder)
                          G_IMPLEMENT_INTERFACE (G_TYPE_CONVERTER,
                                                 converter_iface_init))
 
 static void
 evd_http_chunked_decoder_class_init (EvdHttpChunkedDecoderClass *class)
 {
-  GObjectClass *obj_class = G_OBJECT_CLASS (class);
-
-  g_type_class_add_private (obj_class, sizeof (EvdHttpChunkedDecoderPrivate));
+  (void) class;
 }
 
 static void
@@ -91,7 +86,7 @@ evd_http_chunked_decoder_init (EvdHttpChunkedDecoder *self)
 {
   EvdHttpChunkedDecoderPrivate *priv;
 
-  priv = EVD_HTTP_CHUNKED_DECODER_GET_PRIVATE (self);
+  priv = evd_http_chunked_decoder_get_instance_private (self);
   self->priv = priv;
 
   reset (G_CONVERTER (self));

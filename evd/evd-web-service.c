@@ -25,12 +25,6 @@
 #include "evd-error.h"
 #include "evd-marshal.h"
 
-G_DEFINE_TYPE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
-
-#define EVD_WEB_SERVICE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_WEB_SERVICE, \
-                                          EvdWebServicePrivate))
-
 #define RETURN_DATA_KEY "org.eventdance.lib.WebService.RETURN_TO"
 
 #define DEFAULT_ORIGIN_POLICY EVD_POLICY_DENY
@@ -44,6 +38,8 @@ struct _EvdWebServicePrivate
   GHashTable *origins;
   EvdPolicy origin_policy;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdWebService, evd_web_service, EVD_TYPE_SERVICE)
 
 /* signals */
 enum
@@ -119,14 +115,12 @@ evd_web_service_class_init (EvdWebServiceClass *class)
                   g_cclosure_marshal_VOID__STRING,
                   G_TYPE_NONE, 1,
                   G_TYPE_STRING);
-
-  g_type_class_add_private (obj_class, sizeof (EvdWebServicePrivate));
 }
 
 static void
 evd_web_service_init (EvdWebService *self)
 {
-  EvdWebServicePrivate *priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  EvdWebServicePrivate *priv = evd_web_service_get_instance_private (self);
 
   evd_service_set_io_stream_type (EVD_SERVICE (self), EVD_TYPE_HTTP_CONNECTION);
 
@@ -141,7 +135,7 @@ static void
 evd_web_service_finalize (GObject *obj)
 {
   EvdWebService *self = EVD_WEB_SERVICE (obj);
-  EvdWebServicePrivate *priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  EvdWebServicePrivate *priv = evd_web_service_get_instance_private (self);
 
   g_hash_table_unref (priv->origins);
 
@@ -728,7 +722,7 @@ evd_web_service_set_origin_policy (EvdWebService *self, EvdPolicy policy)
 
   g_return_if_fail (EVD_IS_WEB_SERVICE (self));
 
-  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  priv = evd_web_service_get_instance_private (self);
 
   priv->origin_policy = policy;
 }
@@ -740,7 +734,7 @@ evd_web_service_get_origin_policy (EvdWebService *self)
 
   g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), 0);
 
-  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  priv = evd_web_service_get_instance_private (self);
 
   return priv->origin_policy;
 }
@@ -754,7 +748,7 @@ evd_web_service_allow_origin (EvdWebService *self, const gchar *origin)
   g_return_if_fail (EVD_IS_WEB_SERVICE (self));
   g_return_if_fail (origin != NULL);
 
-  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  priv = evd_web_service_get_instance_private (self);
 
   allowed = g_new (gboolean, 1);
   *allowed = TRUE;
@@ -771,7 +765,7 @@ evd_web_service_deny_origin (EvdWebService *self, const gchar *origin)
   g_return_if_fail (EVD_IS_WEB_SERVICE (self));
   g_return_if_fail (origin != NULL);
 
-  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  priv = evd_web_service_get_instance_private (self);
 
   allowed = g_new (gboolean, 1);
   *allowed = FALSE;
@@ -788,7 +782,7 @@ evd_web_service_origin_allowed (EvdWebService *self, const gchar *origin)
   g_return_val_if_fail (EVD_IS_WEB_SERVICE (self), FALSE);
   g_return_val_if_fail (origin != NULL, FALSE);
 
-  priv = EVD_WEB_SERVICE_GET_PRIVATE (self);
+  priv = evd_web_service_get_instance_private (self);
 
   allowed = g_hash_table_lookup (priv->origins, origin);
   if (allowed == NULL)

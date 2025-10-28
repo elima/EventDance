@@ -25,17 +25,15 @@
 #include "evd-error.h"
 #include "evd-tls-session.h"
 
-G_DEFINE_TYPE (EvdTlsInputStream, evd_tls_input_stream, G_TYPE_FILTER_INPUT_STREAM)
-
-#define EVD_TLS_INPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                               EVD_TYPE_TLS_INPUT_STREAM, \
-                                               EvdTlsInputStreamPrivate))
-
 /* private data */
 struct _EvdTlsInputStreamPrivate
 {
   EvdTlsSession *session;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsInputStream,
+                            evd_tls_input_stream,
+                            G_TYPE_FILTER_INPUT_STREAM)
 
 /* properties */
 enum
@@ -79,15 +77,12 @@ evd_tls_input_stream_class_init (EvdTlsInputStreamClass *class)
   input_stream_class->read_fn = evd_tls_input_stream_read;
 
   g_object_class_install_property (obj_class, PROP_SESSION,
-				   g_param_spec_object ("session",
-							"The TLS session",
-							"The TLS session associated with this stream",
-							EVD_TYPE_TLS_SESSION,
+                                   g_param_spec_object ("session",
+                                                        "The TLS session",
+                                                        "The TLS session associated with this stream",
+                                                        EVD_TYPE_TLS_SESSION,
                                                         G_PARAM_CONSTRUCT_ONLY |
-							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-
-  g_type_class_add_private (obj_class, sizeof (EvdTlsInputStreamPrivate));
+                                                        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -95,7 +90,7 @@ evd_tls_input_stream_init (EvdTlsInputStream *self)
 {
   EvdTlsInputStreamPrivate *priv;
 
-  priv = EVD_TLS_INPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_tls_input_stream_get_instance_private (self);
   self->priv = priv;
 }
 

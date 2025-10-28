@@ -26,14 +26,6 @@
 #include "evd-utils.h"
 #include "evd-buffered-input-stream.h"
 
-G_DEFINE_TYPE (EvdBufferedInputStream,
-               evd_buffered_input_stream,
-               G_TYPE_BUFFERED_INPUT_STREAM)
-
-#define EVD_BUFFERED_INPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                    EVD_TYPE_BUFFERED_INPUT_STREAM, \
-                                                    EvdBufferedInputStreamPrivate))
-
 /* private data */
 struct _EvdBufferedInputStreamPrivate
 {
@@ -48,6 +40,10 @@ struct _EvdBufferedInputStreamPrivate
 
   gboolean frozen;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdBufferedInputStream,
+                            evd_buffered_input_stream,
+                            G_TYPE_BUFFERED_INPUT_STREAM)
 
 static void     evd_buffered_input_stream_class_init         (EvdBufferedInputStreamClass *class);
 static void     evd_buffered_input_stream_init               (EvdBufferedInputStream *self);
@@ -88,8 +84,6 @@ evd_buffered_input_stream_class_init (EvdBufferedInputStreamClass *class)
   input_stream_class->read_async = evd_buffered_input_stream_read_async;
   input_stream_class->read_finish = evd_buffered_input_stream_read_finish;
   input_stream_class->close_fn = evd_buffered_input_stream_close;
-
-  g_type_class_add_private (obj_class, sizeof (EvdBufferedInputStreamPrivate));
 }
 
 static void
@@ -97,7 +91,7 @@ evd_buffered_input_stream_init (EvdBufferedInputStream *self)
 {
   EvdBufferedInputStreamPrivate *priv;
 
-  priv = EVD_BUFFERED_INPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_buffered_input_stream_get_instance_private (self);
   self->priv = priv;
 
   priv->buffer = g_string_new ("");

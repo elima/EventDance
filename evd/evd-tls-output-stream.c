@@ -22,17 +22,15 @@
 
 #include "evd-tls-output-stream.h"
 
-G_DEFINE_TYPE (EvdTlsOutputStream, evd_tls_output_stream, EVD_TYPE_BUFFERED_OUTPUT_STREAM)
-
-#define EVD_TLS_OUTPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                EVD_TYPE_TLS_OUTPUT_STREAM, \
-                                                EvdTlsOutputStreamPrivate))
-
 /* private data */
 struct _EvdTlsOutputStreamPrivate
 {
   EvdTlsSession *session;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsOutputStream,
+                            evd_tls_output_stream,
+                            EVD_TYPE_BUFFERED_OUTPUT_STREAM)
 
 /* properties */
 enum
@@ -76,15 +74,12 @@ evd_tls_output_stream_class_init (EvdTlsOutputStreamClass *class)
   output_stream_class->write_fn = evd_tls_output_stream_write;
 
    g_object_class_install_property (obj_class, PROP_SESSION,
-				   g_param_spec_object ("session",
-							"The TLS session",
-							"The TLS session associated with this stream",
-							EVD_TYPE_TLS_SESSION,
-                                                        G_PARAM_CONSTRUCT_ONLY |
-							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-
-  g_type_class_add_private (obj_class, sizeof (EvdTlsOutputStreamPrivate));
+                                    g_param_spec_object ("session",
+                                                         "The TLS session",
+                                                         "The TLS session associated with this stream",
+                                                         EVD_TYPE_TLS_SESSION,
+                                                         G_PARAM_CONSTRUCT_ONLY |
+                                                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -92,7 +87,7 @@ evd_tls_output_stream_init (EvdTlsOutputStream *self)
 {
   EvdTlsOutputStreamPrivate *priv;
 
-  priv = EVD_TLS_OUTPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_tls_output_stream_get_instance_private (self);
   self->priv = priv;
 }
 

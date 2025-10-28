@@ -24,12 +24,6 @@
 #include "evd-tls-dh-generator.h"
 #include "evd-tls-common.h"
 
-G_DEFINE_TYPE (EvdTlsDhGenerator, evd_tls_dh_generator, G_TYPE_OBJECT)
-
-#define EVD_TLS_DH_GENERATOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                               EVD_TYPE_TLS_DH_GENERATOR, \
-                                               EvdTlsDhGeneratorPrivate))
-
 struct _EvdTlsDhGeneratorPrivate
 {
   GHashTable *cache;
@@ -39,6 +33,10 @@ struct _EvdTlsDhGeneratorPrivate
   GMutex      cache_mutex;
 #endif
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsDhGenerator,
+                            evd_tls_dh_generator,
+                            G_TYPE_OBJECT)
 
 typedef struct _EvdTlsDhParamsSource EvdTlsDhParamsSource;
 
@@ -71,8 +69,6 @@ evd_tls_dh_generator_class_init (EvdTlsDhGeneratorClass *class)
   obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_tls_dh_generator_finalize;
-
-  g_type_class_add_private (obj_class, sizeof (EvdTlsDhGeneratorPrivate));
 }
 
 static void
@@ -80,7 +76,7 @@ evd_tls_dh_generator_init (EvdTlsDhGenerator *self)
 {
   EvdTlsDhGeneratorPrivate *priv;
 
-  priv = EVD_TLS_DH_GENERATOR_GET_PRIVATE (self);
+  priv = evd_tls_dh_generator_get_instance_private (self);
   self->priv = priv;
 
   priv->cache = g_hash_table_new (g_int_hash, g_int_equal);

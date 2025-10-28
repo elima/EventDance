@@ -25,12 +25,6 @@
 
 #include "evd-stream-throttle.h"
 
-G_DEFINE_TYPE (EvdStreamThrottle, evd_stream_throttle, G_TYPE_OBJECT)
-
-#define EVD_STREAM_THROTTLE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_STREAM_THROTTLE, \
-                                              EvdStreamThrottlePrivate))
-
 /* private data */
 struct _EvdStreamThrottlePrivate
 {
@@ -43,6 +37,10 @@ struct _EvdStreamThrottlePrivate
   guint64  total;
   GTimeVal last;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdStreamThrottle,
+                            evd_stream_throttle,
+                            G_TYPE_OBJECT)
 
 /* properties */
 enum
@@ -106,8 +104,6 @@ evd_stream_throttle_class_init (EvdStreamThrottleClass *class)
                                                         0,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdStreamThrottlePrivate));
 }
 
 static void
@@ -115,7 +111,7 @@ evd_stream_throttle_init (EvdStreamThrottle *self)
 {
   EvdStreamThrottlePrivate *priv;
 
-  priv = EVD_STREAM_THROTTLE_GET_PRIVATE (self);
+  priv = evd_stream_throttle_get_instance_private (self);
   self->priv = priv;
 
   priv->bandwidth = 0;

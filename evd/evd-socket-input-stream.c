@@ -23,12 +23,6 @@
 #include "evd-error.h"
 #include "evd-socket-input-stream.h"
 
-G_DEFINE_TYPE (EvdSocketInputStream, evd_socket_input_stream, G_TYPE_INPUT_STREAM)
-
-#define EVD_SOCKET_INPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                  EVD_TYPE_SOCKET_INPUT_STREAM, \
-                                                  EvdSocketInputStreamPrivate))
-
 /* private data */
 struct _EvdSocketInputStreamPrivate
 {
@@ -37,6 +31,10 @@ struct _EvdSocketInputStreamPrivate
   gchar bag;
   gboolean has_bag;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdSocketInputStream,
+                            evd_socket_input_stream,
+                            G_TYPE_INPUT_STREAM)
 
 /* signals */
 enum
@@ -98,14 +96,11 @@ evd_socket_input_stream_class_init (EvdSocketInputStreamClass *class)
                   G_TYPE_NONE, 0);
 
   g_object_class_install_property (obj_class, PROP_SOCKET,
-				   g_param_spec_object ("socket",
-							"The socket",
-							"The socket object wrapped by this stream",
-							EVD_TYPE_SOCKET,
-							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-
-  g_type_class_add_private (obj_class, sizeof (EvdSocketInputStreamPrivate));
+                                   g_param_spec_object ("socket",
+                                                        "The socket",
+                                                        "The socket object wrapped by this stream",
+                                                        EVD_TYPE_SOCKET,
+                                                        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -113,7 +108,7 @@ evd_socket_input_stream_init (EvdSocketInputStream *self)
 {
   EvdSocketInputStreamPrivate *priv;
 
-  priv = EVD_SOCKET_INPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_socket_input_stream_get_instance_private (self);
   self->priv = priv;
 
   priv->bag = 0;

@@ -22,17 +22,15 @@
 
 #include "evd-throttled-input-stream.h"
 
-G_DEFINE_TYPE (EvdThrottledInputStream, evd_throttled_input_stream, G_TYPE_FILTER_INPUT_STREAM)
-
-#define EVD_THROTTLED_INPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                     EVD_TYPE_THROTTLED_INPUT_STREAM, \
-                                                     EvdThrottledInputStreamPrivate))
-
 /* private data */
 struct _EvdThrottledInputStreamPrivate
 {
   GList *stream_throttles;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdThrottledInputStream,
+                            evd_throttled_input_stream,
+                            G_TYPE_FILTER_INPUT_STREAM)
 
 /* signals */
 enum
@@ -75,8 +73,6 @@ evd_throttled_input_stream_class_init (EvdThrottledInputStreamClass *class)
                   g_cclosure_marshal_VOID__UINT,
                   G_TYPE_NONE,
                   1, G_TYPE_UINT);
-
-  g_type_class_add_private (obj_class, sizeof (EvdThrottledInputStreamPrivate));
 }
 
 static void
@@ -84,7 +80,7 @@ evd_throttled_input_stream_init (EvdThrottledInputStream *self)
 {
   EvdThrottledInputStreamPrivate *priv;
 
-  priv = EVD_THROTTLED_INPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_throttled_input_stream_get_instance_private (self);
   self->priv = priv;
 
   priv->stream_throttles = NULL;

@@ -26,14 +26,7 @@
 
 #include "evd-json-filter.h"
 
-G_DEFINE_TYPE (EvdJsonrpc, evd_jsonrpc, EVD_TYPE_IPC_MECHANISM)
-
-#define EVD_JSONRPC_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                      EVD_TYPE_JSONRPC, \
-                                      EvdJsonrpcPrivate))
-
-#define DEFAULT_TIMEOUT_INTERVAL 15
-
+/* private data */
 struct _EvdJsonrpcPrivate
 {
   guint invocation_counter;
@@ -53,6 +46,12 @@ struct _EvdJsonrpcPrivate
   gpointer cb_user_data;
   GDestroyNotify cb_user_data_free_func;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdJsonrpc,
+                            evd_jsonrpc,
+                            EVD_TYPE_IPC_MECHANISM)
+
+#define DEFAULT_TIMEOUT_INTERVAL 15
 
 typedef struct
 {
@@ -94,8 +93,6 @@ evd_jsonrpc_class_init (EvdJsonrpcClass *class)
   obj_class->finalize = evd_jsonrpc_finalize;
 
   ipc_mechanism_class->transport_receive = transport_on_receive;
-
-  g_type_class_add_private (obj_class, sizeof (EvdJsonrpcPrivate));
 }
 
 static void
@@ -103,7 +100,7 @@ evd_jsonrpc_init (EvdJsonrpc *self)
 {
   EvdJsonrpcPrivate *priv;
 
-  priv = EVD_JSONRPC_GET_PRIVATE (self);
+  priv = evd_jsonrpc_get_instance_private (self);
   self->priv = priv;
 
   priv->invocation_counter = 0;

@@ -26,18 +26,16 @@
 
 #include "evd-http-connection.h"
 
-#define EVD_HTTP_MESSAGE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                           EVD_TYPE_HTTP_MESSAGE, \
-                                           EvdHttpMessagePrivate))
-
-G_DEFINE_ABSTRACT_TYPE (EvdHttpMessage, evd_http_message, G_TYPE_OBJECT)
-
 /* private data */
 struct _EvdHttpMessagePrivate
 {
   SoupHTTPVersion version;
   SoupMessageHeaders *headers;
 };
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (EvdHttpMessage,
+                                     evd_http_message,
+                                     G_TYPE_OBJECT)
 
 /* properties */
 enum
@@ -88,8 +86,6 @@ evd_http_message_class_init (EvdHttpMessageClass *class)
                                                        SOUP_TYPE_MESSAGE_HEADERS,
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdHttpMessagePrivate));
 }
 
 static void
@@ -97,7 +93,7 @@ evd_http_message_init (EvdHttpMessage *self)
 {
   EvdHttpMessagePrivate *priv;
 
-  priv = EVD_HTTP_MESSAGE_GET_PRIVATE (self);
+  priv = evd_http_message_get_instance_private (self);
   self->priv = priv;
 }
 

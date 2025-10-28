@@ -22,12 +22,6 @@
 
 #include "evd-web-selector.h"
 
-G_DEFINE_TYPE (EvdWebSelector, evd_web_selector, EVD_TYPE_WEB_SERVICE)
-
-#define EVD_WEB_SELECTOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                           EVD_TYPE_WEB_SELECTOR, \
-                                           EvdWebSelectorPrivate))
-
 /* private data */
 struct _EvdWebSelectorPrivate
 {
@@ -35,6 +29,10 @@ struct _EvdWebSelectorPrivate
 
   EvdService *default_service;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdWebSelector,
+                            evd_web_selector,
+                            EVD_TYPE_WEB_SERVICE)
 
 typedef struct
 {
@@ -65,9 +63,6 @@ evd_web_selector_class_init (EvdWebSelectorClass *class)
   obj_class->dispose = evd_web_selector_dispose;
 
   web_service_class->request_handler = evd_web_selector_request_handler;
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdWebSelectorPrivate));
 }
 
 static void
@@ -75,7 +70,7 @@ evd_web_selector_init (EvdWebSelector *self)
 {
   EvdWebSelectorPrivate *priv;
 
-  priv = EVD_WEB_SELECTOR_GET_PRIVATE (self);
+  priv = evd_web_selector_get_instance_private (self);
   self->priv = priv;
 
   priv->candidates = NULL;

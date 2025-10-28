@@ -27,17 +27,10 @@
 #include "evd-marshal.h"
 #include "evd-utils.h"
 
-G_DEFINE_TYPE (EvdPeerManager, evd_peer_manager, G_TYPE_OBJECT)
-
-#define EVD_PEER_MANAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                           EVD_TYPE_PEER_MANAGER, \
-                                           EvdPeerManagerPrivate))
-
 #define DEFAULT_PEER_CLEANUP_INTERVAL 5 /* seconds */
 
 #define PEER_DATA_KEY "org.eventdance.lib.PeerManager.PEER_DATA"
 
-/* private data */
 struct _EvdPeerManagerPrivate
 {
   GHashTable *peers;
@@ -48,6 +41,10 @@ struct _EvdPeerManagerPrivate
 
   GQueue *removal_list;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdPeerManager,
+                            evd_peer_manager,
+                            G_TYPE_OBJECT)
 
 /* signals */
 enum
@@ -99,8 +96,6 @@ evd_peer_manager_class_init (EvdPeerManagerClass *class)
                   G_TYPE_NONE,
                   2, EVD_TYPE_PEER,
                   G_TYPE_BOOLEAN);
-
-  g_type_class_add_private (obj_class, sizeof (EvdPeerManagerPrivate));
 }
 
 static void
@@ -108,7 +103,7 @@ evd_peer_manager_init (EvdPeerManager *self)
 {
   EvdPeerManagerPrivate *priv;
 
-  priv = EVD_PEER_MANAGER_GET_PRIVATE (self);
+  priv = evd_peer_manager_get_instance_private (self);
   self->priv = priv;
 
   priv->peers = g_hash_table_new_full (g_str_hash,

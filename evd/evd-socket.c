@@ -43,16 +43,6 @@
 #include "evd-connection.h"
 #include <string.h>
 
-G_DEFINE_TYPE (EvdSocket, evd_socket, G_TYPE_OBJECT)
-
-#define EVD_SOCKET_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                     EVD_TYPE_SOCKET, \
-                                     EvdSocketPrivate))
-
-#define SOCKET_ACTIVE(socket)       (socket->priv->status == EVD_SOCKET_STATE_CONNECTED || \
-                                     (socket->priv->status == EVD_SOCKET_STATE_BOUND && \
-                                      socket->priv->protocol == G_SOCKET_PROTOCOL_UDP))
-
 /* private data */
 struct _EvdSocketPrivate
 {
@@ -82,7 +72,34 @@ struct _EvdSocketPrivate
 
   EvdPoll *poll;
   EvdPollSession *poll_session;
+
+  EvdResolver *resolver;
+  EvdResolver *resolver_ret;
+
+  gchar *address;
+  guint16 port;
+  GSocketAddress *socket_address;
+
+  GSocketConnectable *connectable;
+  GList *connectable_nodes;
+  GList *current_connectable_node;
+
+  GSocketAddressEnumerator *enumerator;
+  GSocketAddress *selected_socket_address;
+
+  GCancellable *pending_cancellable;
+
+  gboolean connecting;
+  gboolean closing;
+
+  gchar *remote_addr_st;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdSocket, evd_socket, G_TYPE_OBJECT)
+
+#define SOCKET_ACTIVE(socket)       (socket->priv->status == EVD_SOCKET_STATE_CONNECTED || \
+                                     (socket->priv->status == EVD_SOCKET_STATE_BOUND && \
+                                      socket->priv->protocol == G_SOCKET_PROTOCOL_UDP))
 
 /* signals */
 enum
@@ -277,7 +294,6 @@ evd_socket_class_init (EvdSocketClass *class)
                                                        G_PARAM_STATIC_STRINGS));
 
   /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdSocketPrivate));
 }
 
 static void
@@ -285,7 +301,7 @@ evd_socket_init (EvdSocket *self)
 {
   EvdSocketPrivate *priv;
 
-  priv = EVD_SOCKET_GET_PRIVATE (self);
+  priv = evd_socket_get_instance_private (self);
   self->priv = priv;
 
   priv->socket   = NULL;

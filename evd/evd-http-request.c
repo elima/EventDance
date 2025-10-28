@@ -27,18 +27,16 @@
 
 #include "evd-http-request.h"
 
-#define EVD_HTTP_REQUEST_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                           EVD_TYPE_HTTP_REQUEST, \
-                                           EvdHttpRequestPrivate))
-
-G_DEFINE_TYPE (EvdHttpRequest, evd_http_request, EVD_TYPE_HTTP_MESSAGE)
-
 /* private data */
 struct _EvdHttpRequestPrivate
 {
   gchar *method;
   GUri *uri;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdHttpRequest,
+                            evd_http_request,
+                            EVD_TYPE_HTTP_MESSAGE)
 
 /* properties */
 enum
@@ -97,8 +95,6 @@ evd_http_request_class_init (EvdHttpRequestClass *class)
                                                        G_TYPE_URI,
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdHttpRequestPrivate));
 }
 
 static void
@@ -106,7 +102,7 @@ evd_http_request_init (EvdHttpRequest *self)
 {
   EvdHttpRequestPrivate *priv;
 
-  priv = EVD_HTTP_REQUEST_GET_PRIVATE (self);
+  priv = evd_http_request_get_instance_private (self);
   self->priv = priv;
 }
 

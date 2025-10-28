@@ -26,12 +26,6 @@
 #include "evd-buffered-input-stream.h"
 #include "evd-connection.h"
 
-G_DEFINE_TYPE (EvdReproxy, evd_reproxy, EVD_TYPE_SERVICE)
-
-#define EVD_REPROXY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                      EVD_TYPE_REPROXY, \
-                                      EvdReproxyPrivate))
-
 #define DEFAULT_BACKEND_MIN_CONNS   1
 #define DEFAULT_BACKEND_MAX_CONNS   2
 
@@ -52,6 +46,10 @@ struct _EvdReproxyPrivate
 
   GQueue *conns;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdReproxy,
+                            evd_reproxy,
+                            EVD_TYPE_SERVICE)
 
 typedef struct
 {
@@ -83,9 +81,6 @@ evd_reproxy_class_init (EvdReproxyClass *class)
 
   service_class = EVD_SERVICE_CLASS (class);
   service_class->connection_accepted = evd_reproxy_connection_accepted;
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdReproxyPrivate));
 }
 
 static void
@@ -93,7 +88,7 @@ evd_reproxy_init (EvdReproxy *self)
 {
   EvdReproxyPrivate *priv;
 
-  priv = EVD_REPROXY_GET_PRIVATE (self);
+  priv = evd_reproxy_get_instance_private (self);
   self->priv = priv;
 
   /* initialize private members */

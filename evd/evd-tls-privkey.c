@@ -28,12 +28,6 @@
 #include "evd-error.h"
 #include "evd-tls-common.h"
 
-G_DEFINE_TYPE (EvdTlsPrivkey, evd_tls_privkey, G_TYPE_OBJECT)
-
-#define EVD_TLS_PRIVKEY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_TLS_PRIVKEY, \
-                                          EvdTlsPrivkeyPrivate))
-
 /* private data */
 struct _EvdTlsPrivkeyPrivate
 {
@@ -44,6 +38,10 @@ struct _EvdTlsPrivkeyPrivate
 
   gboolean native_stolen;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsPrivkey,
+                            evd_tls_privkey,
+                            G_TYPE_OBJECT)
 
 
 /* properties */
@@ -87,9 +85,6 @@ evd_tls_privkey_class_init (EvdTlsPrivkeyClass *class)
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdTlsPrivkeyPrivate));
 }
 
 static void
@@ -97,7 +92,7 @@ evd_tls_privkey_init (EvdTlsPrivkey *self)
 {
   EvdTlsPrivkeyPrivate *priv;
 
-  priv = EVD_TLS_PRIVKEY_GET_PRIVATE (self);
+  priv = evd_tls_privkey_get_instance_private (self);
   self->priv = priv;
 
   priv->x509_privkey = NULL;

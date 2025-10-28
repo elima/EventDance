@@ -26,12 +26,6 @@
 
 #include "evd-error.h"
 
-G_DEFINE_TYPE (EvdPkiPrivkey, evd_pki_privkey, G_TYPE_OBJECT)
-
-#define EVD_PKI_PRIVKEY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                          EVD_TYPE_PKI_PRIVKEY, \
-                                          EvdPkiPrivkeyPrivate))
-
 /* private data */
 struct _EvdPkiPrivkeyPrivate
 {
@@ -39,6 +33,10 @@ struct _EvdPkiPrivkeyPrivate
 
   EvdPkiKeyType type;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdPkiPrivkey,
+                            evd_pki_privkey,
+                            G_TYPE_OBJECT)
 
 typedef struct
 {
@@ -83,8 +81,6 @@ evd_pki_privkey_class_init (EvdPkiPrivkeyClass *class)
                                                       EVD_PKI_KEY_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdPkiPrivkeyPrivate));
 }
 
 static void
@@ -92,7 +88,7 @@ evd_pki_privkey_init (EvdPkiPrivkey *self)
 {
   EvdPkiPrivkeyPrivate *priv;
 
-  priv = EVD_PKI_PRIVKEY_GET_PRIVATE (self);
+  priv = evd_pki_privkey_get_instance_private (self);
   self->priv = priv;
 
   priv->key = NULL;

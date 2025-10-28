@@ -28,12 +28,6 @@
 #include "evd-socket.h"
 #include "evd-tls-session.h"
 
-G_DEFINE_TYPE (EvdService, evd_service, EVD_TYPE_IO_STREAM_GROUP)
-
-#define EVD_SERVICE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                      EVD_TYPE_SERVICE, \
-                                      EvdServicePrivate))
-
 #define VALIDATION_HINT_KEY "org.eventdance.lib.Service.VALIDATION_HINT"
 
 /* private data */
@@ -46,6 +40,10 @@ struct _EvdServicePrivate
   gboolean tls_autostart;
   EvdTlsCredentials *tls_cred;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdService,
+                            evd_service,
+                            EVD_TYPE_IO_STREAM_GROUP)
 
 /* signals */
 enum
@@ -156,9 +154,6 @@ evd_service_class_init (EvdServiceClass *class)
                                                         EVD_TYPE_TLS_CREDENTIALS,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
-
-  /* add private structure */
-  g_type_class_add_private (obj_class, sizeof (EvdServicePrivate));
 }
 
 static void
@@ -166,7 +161,7 @@ evd_service_init (EvdService *self)
 {
   EvdServicePrivate *priv;
 
-  priv = EVD_SERVICE_GET_PRIVATE (self);
+  priv = evd_service_get_instance_private (self);
   self->priv = priv;
 
   priv->listeners = g_hash_table_new_full (g_direct_hash,

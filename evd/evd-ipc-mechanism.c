@@ -22,16 +22,14 @@
 
 #include "evd-ipc-mechanism.h"
 
-G_DEFINE_ABSTRACT_TYPE (EvdIpcMechanism, evd_ipc_mechanism, G_TYPE_OBJECT)
-
-#define EVD_IPC_MECHANISM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                            EVD_TYPE_IPC_MECHANISM, \
-                                            EvdIpcMechanismPrivate))
-
 struct _EvdIpcMechanismPrivate
 {
   GList *transports;
 };
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (EvdIpcMechanism,
+                                     evd_ipc_mechanism,
+                                     G_TYPE_OBJECT)
 
 static void     evd_ipc_mechanism_class_init      (EvdIpcMechanismClass *class);
 static void     evd_ipc_mechanism_init            (EvdIpcMechanism *self);
@@ -54,8 +52,6 @@ evd_ipc_mechanism_class_init (EvdIpcMechanismClass *class)
   GObjectClass *obj_class = G_OBJECT_CLASS (class);
 
   obj_class->finalize = evd_ipc_mechanism_finalize;
-
-  g_type_class_add_private (obj_class, sizeof (EvdIpcMechanismPrivate));
 }
 
 static void
@@ -63,7 +59,7 @@ evd_ipc_mechanism_init (EvdIpcMechanism *self)
 {
   EvdIpcMechanismPrivate *priv;
 
-  priv = EVD_IPC_MECHANISM_GET_PRIVATE (self);
+  priv = evd_ipc_mechanism_get_instance_private (self);
   self->priv = priv;
 
   priv->transports = NULL;

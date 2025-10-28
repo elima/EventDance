@@ -37,12 +37,6 @@
 #include "evd-utils.h"
 #include "evd-error.h"
 
-G_DEFINE_TYPE (EvdDaemon, evd_daemon, G_TYPE_OBJECT)
-
-#define EVD_DAEMON_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                     EVD_TYPE_DAEMON, \
-                                     EvdDaemonPrivate))
-
 /* private data */
 struct _EvdDaemonPrivate
 {
@@ -55,6 +49,8 @@ struct _EvdDaemonPrivate
 
   gchar *pid_file;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdDaemon, evd_daemon, G_TYPE_OBJECT)
 
 static EvdDaemon *evd_daemon_default = NULL;
 
@@ -70,7 +66,6 @@ evd_daemon_class_init (EvdDaemonClass *class)
 
   obj_class->finalize = evd_daemon_finalize;
 
-  g_type_class_add_private (obj_class, sizeof (EvdDaemonPrivate));
 }
 
 static void
@@ -78,7 +73,7 @@ evd_daemon_init (EvdDaemon *self)
 {
   EvdDaemonPrivate *priv;
 
-  priv = EVD_DAEMON_GET_PRIVATE (self);
+  priv = evd_daemon_get_instance_private (self);
   self->priv = priv;
 
   priv->main_loop = g_main_loop_new (g_main_context_get_thread_default (),

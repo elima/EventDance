@@ -29,10 +29,6 @@
 #include "evd-connection-pool.h"
 #include "evd-websocket-protocol.h"
 
-#define EVD_WEBSOCKET_CLIENT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                               EVD_TYPE_WEBSOCKET_CLIENT, \
-                                               EvdWebsocketClientPrivate))
-
 #define PEER_DATA_KEY "org.eventdance.lib.WebsocketClient.PEER_DATA"
 #define CONN_DATA_KEY "org.eventdance.lib.WebsocketClient.CONN_DATA"
 
@@ -104,6 +100,7 @@ static void     transport_open                            (EvdTransport       *s
 static void     retry_connection                          (ConnectionData *data);
 
 G_DEFINE_TYPE_WITH_CODE (EvdWebsocketClient, evd_websocket_client, EVD_TYPE_IO_STREAM_GROUP,
+                         G_ADD_PRIVATE (EvdWebsocketClient)
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_websocket_client_transport_iface_init));
 
@@ -117,7 +114,6 @@ evd_websocket_client_class_init (EvdWebsocketClientClass *class)
   io_stream_group_class->add = io_stream_group_add;
   io_stream_group_class->remove = io_stream_group_remove;
 
-  g_type_class_add_private (obj_class, sizeof (EvdWebsocketClientPrivate));
 }
 
 static void
@@ -136,7 +132,7 @@ evd_websocket_client_init (EvdWebsocketClient *self)
 {
   EvdWebsocketClientPrivate *priv;
 
-  priv = EVD_WEBSOCKET_CLIENT_GET_PRIVATE (self);
+  priv = evd_websocket_client_get_instance_private (self);
   self->priv = priv;
 
   priv->standalone = DEFAULT_STANDALONE;

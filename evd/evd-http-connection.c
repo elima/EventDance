@@ -29,12 +29,6 @@
 #include "evd-buffered-input-stream.h"
 #include "evd-http-chunked-decoder.h"
 
-G_DEFINE_TYPE (EvdHttpConnection, evd_http_connection, EVD_TYPE_CONNECTION)
-
-#define EVD_HTTP_CONNECTION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_HTTP_CONNECTION, \
-                                              EvdHttpConnectionPrivate))
-
 #define HEADER_BLOCK_SIZE       256
 #define MAX_HEADERS_SIZE  16 * 1024
 #define CONTENT_BLOCK_SIZE     4096
@@ -63,6 +57,10 @@ struct _EvdHttpConnectionPrivate
 
   GConverter *chunked_decoder;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdHttpConnection,
+                            evd_http_connection,
+                            EVD_TYPE_CONNECTION)
 
 /* properties */
 enum
@@ -113,8 +111,6 @@ evd_http_connection_class_init (EvdHttpConnectionClass *class)
 
   io_stream_class = G_IO_STREAM_CLASS (class);
   io_stream_class->close_fn = evd_http_connection_close;
-
-  g_type_class_add_private (obj_class, sizeof (EvdHttpConnectionPrivate));
 }
 
 static void
@@ -122,7 +118,7 @@ evd_http_connection_init (EvdHttpConnection *self)
 {
   EvdHttpConnectionPrivate *priv;
 
-  priv = EVD_HTTP_CONNECTION_GET_PRIVATE (self);
+  priv = evd_http_connection_get_instance_private (self);
   self->priv = priv;
 
   priv->async_result = NULL;

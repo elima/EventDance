@@ -23,17 +23,15 @@
 #include "evd-error.h"
 #include "evd-socket-output-stream.h"
 
-G_DEFINE_TYPE (EvdSocketOutputStream, evd_socket_output_stream, G_TYPE_OUTPUT_STREAM)
-
-#define EVD_SOCKET_OUTPUT_STREAM_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                   EVD_TYPE_SOCKET_OUTPUT_STREAM, \
-                                                   EvdSocketOutputStreamPrivate))
-
 /* private data */
 struct _EvdSocketOutputStreamPrivate
 {
   EvdSocket *socket;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdSocketOutputStream,
+                            evd_socket_output_stream,
+                            G_TYPE_OUTPUT_STREAM)
 
 /* signals */
 enum
@@ -95,14 +93,11 @@ evd_socket_output_stream_class_init (EvdSocketOutputStreamClass *class)
                   G_TYPE_NONE, 0);
 
   g_object_class_install_property (obj_class, PROP_SOCKET,
-				   g_param_spec_object ("socket",
-							"socket",
-							"The socket that this stream wraps",
-							EVD_TYPE_SOCKET,
-							G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
-
-  g_type_class_add_private (obj_class, sizeof (EvdSocketOutputStreamPrivate));
+                                   g_param_spec_object ("socket",
+                                                        "socket",
+                                                        "The socket that this stream wraps",
+                                                        EVD_TYPE_SOCKET,
+                                                        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -110,7 +105,7 @@ evd_socket_output_stream_init (EvdSocketOutputStream *self)
 {
   EvdSocketOutputStreamPrivate *priv;
 
-  priv = EVD_SOCKET_OUTPUT_STREAM_GET_PRIVATE (self);
+  priv = evd_socket_output_stream_get_instance_private (self);
   self->priv = priv;
 }
 

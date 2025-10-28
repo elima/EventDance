@@ -28,14 +28,6 @@
 #include <evd-jsonrpc.h>
 #include <evd-http-connection.h>
 
-G_DEFINE_TYPE (EvdJsonrpcHttpServer,
-               evd_jsonrpc_http_server,
-               EVD_TYPE_WEB_SERVICE)
-
-#define EVD_JSONRPC_HTTP_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                  EVD_TYPE_JSONRPC_HTTP_SERVER, \
-                                                  EvdJsonrpcHttpServerPrivate))
-
 /* private data */
 struct _EvdJsonrpcHttpServerPrivate
 {
@@ -47,6 +39,10 @@ struct _EvdJsonrpcHttpServerPrivate
 
   SoupMessageHeaders *headers;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdJsonrpcHttpServer,
+                            evd_jsonrpc_http_server,
+                            EVD_TYPE_WEB_SERVICE)
 
 typedef struct
 {
@@ -115,8 +111,6 @@ evd_jsonrpc_http_server_class_init (EvdJsonrpcHttpServerClass *class)
                                                        SOUP_TYPE_MESSAGE_HEADERS,
                                                        G_PARAM_READABLE |
                                                        G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdJsonrpcHttpServerPrivate));
 }
 
 static void
@@ -124,7 +118,7 @@ evd_jsonrpc_http_server_init (EvdJsonrpcHttpServer *self)
 {
   EvdJsonrpcHttpServerPrivate *priv;
 
-  priv = EVD_JSONRPC_HTTP_SERVER_GET_PRIVATE (self);
+  priv = evd_jsonrpc_http_server_get_instance_private (self);
   self->priv = priv;
 
   priv->rpc = evd_jsonrpc_new ();

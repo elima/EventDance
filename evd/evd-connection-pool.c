@@ -26,12 +26,6 @@
 #include "evd-error.h"
 #include "evd-socket.h"
 
-G_DEFINE_TYPE (EvdConnectionPool, evd_connection_pool, EVD_TYPE_IO_STREAM_GROUP)
-
-#define EVD_CONNECTION_POOL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                              EVD_TYPE_CONNECTION_POOL, \
-                                              EvdConnectionPoolPrivate))
-
 #define DEFAULT_MIN_CONNS 1
 #define DEFAULT_MAX_CONNS 5
 
@@ -62,6 +56,10 @@ struct _EvdConnectionPoolPrivate
 
   guint retry_src_id;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdConnectionPool,
+                            evd_connection_pool,
+                            EVD_TYPE_IO_STREAM_GROUP)
 
 /* properties */
 enum
@@ -130,7 +128,6 @@ evd_connection_pool_class_init (EvdConnectionPoolClass *class)
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
 
-  g_type_class_add_private (obj_class, sizeof (EvdConnectionPoolPrivate));
 }
 
 static void
@@ -138,7 +135,7 @@ evd_connection_pool_init (EvdConnectionPool *self)
 {
   EvdConnectionPoolPrivate *priv;
 
-  priv = EVD_CONNECTION_POOL_GET_PRIVATE (self);
+  priv = evd_connection_pool_get_instance_private (self);
   self->priv = priv;
 
   priv->min_conns = DEFAULT_MIN_CONNS;

@@ -39,11 +39,6 @@
 #include "evd-tls-input-stream.h"
 #include "evd-tls-output-stream.h"
 
-G_DEFINE_TYPE (EvdConnection, evd_connection, EVD_TYPE_IO_STREAM)
-
-#define EVD_CONNECTION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                         EVD_TYPE_CONNECTION, \
-                                         EvdConnectionPrivate))
 #define CLOSED(conn)       (g_io_stream_is_closed (G_IO_STREAM (conn)))
 #define READ_PENDING(conn) (conn->priv->buf_input_stream != NULL && \
                             g_input_stream_has_pending (G_INPUT_STREAM (conn->priv->buf_input_stream)))
@@ -82,6 +77,8 @@ struct _EvdConnectionPrivate
 
   gchar *remote_addr_st;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (EvdConnection, evd_connection, EVD_TYPE_IO_STREAM)
 
 /* signals */
 enum
@@ -202,7 +199,6 @@ evd_connection_class_init (EvdConnectionClass *class)
                                                          G_PARAM_READABLE |
                                                          G_PARAM_STATIC_STRINGS));
 
-  g_type_class_add_private (obj_class, sizeof (EvdConnectionPrivate));
 }
 
 static void
@@ -210,7 +206,7 @@ evd_connection_init (EvdConnection *self)
 {
   EvdConnectionPrivate *priv;
 
-  priv = EVD_CONNECTION_GET_PRIVATE (self);
+  priv = evd_connection_get_instance_private (self);
   self->priv = priv;
 
   priv->tls_handshaking = FALSE;

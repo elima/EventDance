@@ -36,10 +36,6 @@
 #include "evd-longpolling-server.h"
 #include "evd-websocket-server.h"
 
-#define EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                                   EVD_TYPE_WEB_TRANSPORT_SERVER, \
-                                                   EvdWebTransportServerPrivate))
-
 #define DEFAULT_BASE_PATH "/transport"
 
 #define MECHANISM_HEADER_NAME "X-Org-EventDance-WebTransport-Mechanism"
@@ -140,6 +136,7 @@ static gboolean evd_web_transport_server_reject_peer          (EvdTransport *tra
                                                                EvdPeer      *peer);
 
 G_DEFINE_TYPE_WITH_CODE (EvdWebTransportServer, evd_web_transport_server, EVD_TYPE_WEB_DIR,
+                         G_ADD_PRIVATE (EvdWebTransportServer)
                          G_IMPLEMENT_INTERFACE (EVD_TYPE_TRANSPORT,
                                                 evd_web_transport_server_transport_iface_init));
 
@@ -179,8 +176,6 @@ evd_web_transport_server_class_init (EvdWebTransportServerClass *class)
                                                         EVD_TYPE_WEBSOCKET_SERVER,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_STATIC_STRINGS));
-
-  g_type_class_add_private (obj_class, sizeof (EvdWebTransportServerPrivate));
 }
 
 static void
@@ -199,7 +194,7 @@ evd_web_transport_server_init (EvdWebTransportServer *self)
   EvdWebTransportServerPrivate *priv;
   const gchar *js_path;
 
-  priv = EVD_WEB_TRANSPORT_SERVER_GET_PRIVATE (self);
+  priv = evd_web_transport_server_get_instance_private (self);
   self->priv = priv;
 
   priv->lp = evd_longpolling_server_new ();
