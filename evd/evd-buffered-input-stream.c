@@ -31,7 +31,7 @@ struct _EvdBufferedInputStreamPrivate
 {
   GString *buffer;
 
-  GSimpleAsyncResult *async_result;
+  GTask *pending_task;
   void *async_buffer;
   gsize requested_size;
   gssize actual_size;
@@ -96,7 +96,7 @@ evd_buffered_input_stream_init (EvdBufferedInputStream *self)
 
   priv->buffer = g_string_new ("");
 
-  priv->async_result = NULL;
+  priv->pending_task = NULL;
   priv->async_buffer = NULL;
   priv->requested_size = 0;
   priv->actual_size = 0;
@@ -116,8 +116,7 @@ evd_buffered_input_stream_finalize (GObject *obj)
 
   g_string_free (self->priv->buffer, TRUE);
 
-  if (self->priv->async_result != NULL)
-    g_object_unref (self->priv->async_result);
+  g_clear_object (&self->priv->pending_task);
 
   G_OBJECT_CLASS (evd_buffered_input_stream_parent_class)->finalize (obj);
 }
@@ -200,7 +199,7 @@ do_read (gpointer user_data)
 
   self->priv->read_src_id = 0;
 
-  if (self->priv->async_result == NULL)
+  if (self->priv->pending_task == NULL)
     return FALSE;
 
   size =
@@ -218,25 +217,24 @@ do_read (gpointer user_data)
 
   if (size != 0)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
       if (size < 0)
         {
-          g_simple_async_result_set_from_error (res, error);
-          g_error_free (error);
+          g_task_return_error (task, error);
         }
       else
         {
           self->priv->actual_size += size;
+          g_task_return_boolean (task, TRUE);
         }
 
       g_input_stream_clear_pending (G_INPUT_STREAM (self));
 
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      g_object_unref (task);
     }
 
   return FALSE;
@@ -252,16 +250,17 @@ evd_buffered_input_stream_read_async (GInputStream        *stream,
                                       gpointer             user_data)
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (stream);
+  GTask *task;
 
-  self->priv->async_result =
-    g_simple_async_result_new (G_OBJECT (stream),
-                               callback,
-                               user_data,
-                               evd_buffered_input_stream_read_async);
+  task = g_task_new (stream, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_buffered_input_stream_read_async);
 
   self->priv->async_buffer = buffer;
   self->priv->requested_size = size;
   self->priv->actual_size = 0;
+
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   if (! self->priv->frozen)
     self->priv->read_src_id =
@@ -278,8 +277,15 @@ evd_buffered_input_stream_read_finish (GInputStream  *stream,
                                        GError       **error)
 {
   EvdBufferedInputStream *self = EVD_BUFFERED_INPUT_STREAM (stream);
+  GTask *task;
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result), error))
+  g_return_val_if_fail (g_task_is_valid (result, stream), -1);
+
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) ==
+                        evd_buffered_input_stream_read_async, -1);
+
+  if (g_task_propagate_boolean (task, error))
     return self->priv->actual_size;
   else
     return -1;
@@ -298,20 +304,18 @@ evd_buffered_input_stream_close (GInputStream  *stream,
       self->priv->read_src_id = 0;
     }
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "Buffered input stream closed during async operation");
-
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "Buffered input stream closed during async operation");
+      g_object_unref (task);
     }
 
   return TRUE;
@@ -512,7 +516,7 @@ evd_buffered_input_stream_thaw (EvdBufferedInputStream *self,
 
   self->priv->frozen = FALSE;
 
-  if (self->priv->async_result != NULL && self->priv->read_src_id == 0)
+  if (self->priv->pending_task != NULL && self->priv->read_src_id == 0)
     self->priv->read_src_id =
       evd_timeout_add (g_main_context_get_thread_default (),
                        0,
