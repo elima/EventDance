@@ -120,7 +120,7 @@ evd_tls_dh_generator_finalize (GObject *obj)
 static void
 evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
 {
-  GSimpleAsyncResult *item;
+  GTask *item;
 
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_lock (source->mutex);
@@ -130,9 +130,7 @@ evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
 
   if (source->queue != NULL)
     {
-      while ( (item =
-               G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (source->queue)))
-              != NULL)
+      while ( (item = g_queue_pop_head (source->queue)) != NULL)
         {
           g_object_unref (item);
         }
@@ -156,17 +154,18 @@ evd_tls_dh_generator_free_source (EvdTlsDhParamsSource *source)
 }
 
 static void
-evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
-                                    GObject            *object,
-                                    GCancellable       *cancellable)
+evd_tls_dh_generator_generate_func (GTask        *task,
+                                    gpointer      source_object,
+                                    gpointer      task_data,
+                                    GCancellable *cancellable)
 {
   EvdTlsDhParamsSource *source;
   gnutls_dh_params_t dh_params;
   gint err_code;
-  GSimpleAsyncResult *item;
+  GTask *item;
   GError *error = NULL;
 
-  source = (EvdTlsDhParamsSource *) g_simple_async_result_get_source_tag (res);
+  source = task_data;
 
   /* @TODO: handle cancellation */
 
@@ -183,23 +182,19 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
   if (! evd_error_propagate_gnutls (err_code, &error))
     source->dh_params = dh_params;
 
-  while ( (item =
-           G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (source->queue)))
-          != NULL)
+  while ( (item = g_queue_pop_head (source->queue)) != NULL)
     {
       if (error != NULL)
         {
-          g_simple_async_result_set_from_error (item, error);
+          g_task_return_error (item, g_error_copy (error));
         }
       else
         {
-          g_simple_async_result_set_op_res_gpointer (item,
-                                                   (gpointer) source->dh_params,
-                                                   NULL);
+          g_task_return_pointer (item,
+                                 (gpointer) source->dh_params,
+                                 NULL);
         }
 
-      if (item != res)
-        g_simple_async_result_complete_in_idle (item);
       g_object_unref (item);
     }
 
@@ -208,11 +203,7 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
 
   if (error != NULL)
     {
-      g_error_free (error);
-
       g_hash_table_remove (source->parent->priv->cache, &source->dh_bits);
-
-      evd_tls_dh_generator_free_source (source);
     }
 
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
@@ -220,6 +211,12 @@ evd_tls_dh_generator_generate_func (GSimpleAsyncResult *res,
 #else
   g_mutex_unlock (&source->mutex);
 #endif
+
+  if (error != NULL)
+    {
+      evd_tls_dh_generator_free_source (source);
+      g_clear_error (&error);
+    }
 }
 
 /* public methods */
@@ -243,7 +240,7 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
                                gpointer             user_data)
 {
   EvdTlsDhParamsSource *source;
-  GSimpleAsyncResult *result;
+  GTask *task;
 
   g_return_if_fail (bit_length > 0);
   g_return_if_fail (callback != NULL);
@@ -276,26 +273,24 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
 
       params_ready = (source->dh_params != NULL);
 
-      result = g_simple_async_result_new (NULL,
-                                          callback,
-                                          user_data,
-                                          NULL);
+      task = g_task_new (self, cancellable, callback, user_data);
+      g_task_set_source_tag (task, evd_tls_dh_generator_generate);
+      g_task_set_task_data (task, source, NULL);
 
       if (params_ready)
         {
           if (! regenerate)
             {
-              g_simple_async_result_set_op_res_gpointer (result,
-                                                   (gpointer) source->dh_params,
-                                                   NULL);
-              g_simple_async_result_complete_in_idle (result);
-              g_object_unref (result);
+              g_task_return_pointer (task,
+                                     (gpointer) source->dh_params,
+                                     NULL);
+              g_object_unref (task);
 
               done = TRUE;
             }
           else
             {
-              g_object_unref (result);
+              g_object_unref (task);
 
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
               g_mutex_lock (self->priv->cache_mutex);
@@ -323,8 +318,7 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
         }
       else
         {
-          g_queue_push_tail (source->queue,
-                             (gpointer) result);
+          g_queue_push_tail (source->queue, task);
 
           done = TRUE;
         }
@@ -371,10 +365,9 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
   g_mutex_unlock (&self->priv->cache_mutex);
 #endif
 
-  result = g_simple_async_result_new (NULL,
-                                      callback,
-                                      user_data,
-                                      (gpointer) source);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_tls_dh_generator_generate);
+  g_task_set_task_data (task, source, NULL);
 
   /* append the result to the source queue, only to allow
      destroying it in case of premature freeing of the generator */
@@ -384,7 +377,7 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
   g_mutex_lock (&source->mutex);
 #endif
 
-  g_queue_push_tail (source->queue, result);
+  g_queue_push_tail (source->queue, task);
 
 #if (! GLIB_CHECK_VERSION(2, 31, 0))
   g_mutex_unlock (source->mutex);
@@ -392,10 +385,8 @@ evd_tls_dh_generator_generate (EvdTlsDhGenerator   *self,
   g_mutex_unlock (&source->mutex);
 #endif
 
-  g_simple_async_result_run_in_thread (result,
-                                       evd_tls_dh_generator_generate_func,
-                                       G_PRIORITY_DEFAULT,
-                                       cancellable);
+  g_task_run_in_thread (task,
+                        evd_tls_dh_generator_generate_func);
 }
 
 /**
@@ -408,21 +399,18 @@ evd_tls_dh_generator_generate_finish (EvdTlsDhGenerator  *self,
                                       GAsyncResult       *result,
                                       GError            **error)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
+  gpointer params;
 
   g_return_val_if_fail (EVD_IS_TLS_DH_GENERATOR (self), NULL);
-  g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
 
-  res = G_SIMPLE_ASYNC_RESULT (result);
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) ==
+                        evd_tls_dh_generator_generate,
+                        NULL);
 
-  if (g_simple_async_result_get_op_res_gpointer (res) == NULL)
-    {
-      g_simple_async_result_propagate_error (res, error);
+  params = g_task_propagate_pointer (task, error);
 
-      return NULL;
-    }
-  else
-    {
-      return g_simple_async_result_get_op_res_gpointer (res);
-    }
+  return params;
 }
