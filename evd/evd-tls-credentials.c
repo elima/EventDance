@@ -64,6 +64,8 @@ struct CertData
   gchar *key_file;
 };
 
+static void cert_data_free (struct CertData *data);
+
 /* signals */
 enum
 {
@@ -370,16 +372,17 @@ evd_tls_credentials_dh_params_ready (GObject      *source_obj,
 }
 
 static void
-add_certificate_from_file_thread (GSimpleAsyncResult *res,
-                                  GObject            *object,
-                                  GCancellable       *cancellable)
+add_certificate_from_file_thread (GTask        *task,
+                                  gpointer      source_object,
+                                  gpointer      task_data,
+                                  GCancellable *cancellable)
 {
-  EvdTlsCredentials *self = EVD_TLS_CREDENTIALS (object);
+  EvdTlsCredentials *self = EVD_TLS_CREDENTIALS (source_object);
   GError *error = NULL;
   struct CertData *data;
   gint err_code;
 
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  data = task_data;
 
   if (self->priv->cred == NULL)
     gnutls_certificate_allocate_credentials (&self->priv->cred);
@@ -392,15 +395,11 @@ add_certificate_from_file_thread (GSimpleAsyncResult *res,
                                                    GNUTLS_X509_FMT_PEM);
   if (evd_error_propagate_gnutls (err_code, &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+      return;
     }
 
-  g_free (data->cert_file);
-  g_free (data->key_file);
-  g_slice_free (struct CertData, data);
-
-  g_object_unref (res);
+  g_task_return_boolean (task, TRUE);
 }
 
 /* public methods */
@@ -629,29 +628,24 @@ evd_tls_credentials_add_certificate_from_file (EvdTlsCredentials   *self,
                                                GAsyncReadyCallback  callback,
                                                gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   struct CertData *data;
 
   g_return_if_fail (EVD_IS_TLS_CREDENTIALS (self));
   g_return_if_fail (cert_file != NULL);
   g_return_if_fail (key_file != NULL);
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_tls_credentials_add_certificate_from_file);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_tls_credentials_add_certificate_from_file);
 
   data = g_slice_new0 (struct CertData);
-
-  g_simple_async_result_set_op_res_gpointer (res, data, NULL);
-
   data->cert_file = g_strdup (cert_file);
   data->key_file = g_strdup (key_file);
 
-  g_simple_async_result_run_in_thread (res,
-                                       add_certificate_from_file_thread,
-                                       G_PRIORITY_DEFAULT,
-                                       cancellable);
+  g_task_set_task_data (task, data, (GDestroyNotify) cert_data_free);
+
+  g_task_run_in_thread (task, add_certificate_from_file_thread);
+  g_object_unref (task);
 }
 
 gboolean
@@ -659,13 +653,24 @@ evd_tls_credentials_add_certificate_from_file_finish (EvdTlsCredentials  *self,
                                                       GAsyncResult       *result,
                                                       GError            **error)
 {
+  GTask *task = G_TASK (result);
+
   g_return_val_if_fail (EVD_IS_TLS_CREDENTIALS (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                 G_OBJECT (self),
-                                 evd_tls_credentials_add_certificate_from_file),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (task) ==
+                        evd_tls_credentials_add_certificate_from_file,
                         FALSE);
 
-  return
-    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                             error);
+  return g_task_propagate_boolean (task, error);
+}
+
+static void
+cert_data_free (struct CertData *data)
+{
+  if (data == NULL)
+    return;
+
+  g_free (data->cert_file);
+  g_free (data->key_file);
+  g_slice_free (struct CertData, data);
 }
