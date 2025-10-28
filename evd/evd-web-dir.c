@@ -22,6 +22,7 @@
 
 #include <string.h>
 #include <libsoup/soup.h>
+#include <libsoup/soup-date-utils.h>
 
 #include "evd-web-dir.h"
 
@@ -265,7 +266,7 @@ evd_web_dir_finish_request (EvdWebDirBinding *binding)
     g_slice_free1 (BLOCK_SIZE, binding->buffer);
 
   if (binding->response_headers != NULL)
-    soup_message_headers_free (binding->response_headers);
+    soup_message_headers_unref (binding->response_headers);
 
   g_free (binding->filename);
 
@@ -292,7 +293,7 @@ evd_web_dir_handle_content_error (EvdWebDirBinding *binding,
       break;
 
     default:
-      binding->response_status_code = SOUP_STATUS_IO_ERROR;
+      binding->response_status_code = G_IO_ERROR_FAILED;
       break;
     }
 
@@ -433,7 +434,7 @@ evd_web_dir_check_not_modified (EvdWebDir          *self,
   gboolean result = FALSE;
   SoupMessageHeaders *req_headers;
   const gchar *modified_date_st;
-  SoupDate *modified_date;
+  GDateTime *modified_date;
 
   req_headers = evd_http_message_get_headers (EVD_HTTP_MESSAGE (request));
 
@@ -442,12 +443,12 @@ evd_web_dir_check_not_modified (EvdWebDir          *self,
   if (modified_date_st == NULL)
     return FALSE;
 
-  modified_date = soup_date_new_from_string (modified_date_st);
+  modified_date = soup_date_time_new_from_http_string (modified_date_st);
   if (modified_date != NULL)
     {
       guint64 modified_date_int;
 
-      modified_date_int = soup_date_to_time_t (modified_date);
+      modified_date_int = g_date_time_to_unix (modified_date);
 
       if (modified_date_int >= file_last_modified_time)
         {
@@ -470,7 +471,7 @@ evd_web_dir_check_not_modified (EvdWebDir          *self,
         }
     }
 
-  soup_date_free (modified_date);
+  g_date_time_unref (modified_date);
 
   return result;
 }
@@ -492,7 +493,7 @@ evd_web_dir_file_on_info (GObject      *object,
   SoupMessageHeaders *headers = NULL;
 
   guint64 file_modified_date_int;
-  SoupDate *sdate;
+  GDateTime *gdate;
   gchar *date;
 
   request = binding->request;
@@ -569,11 +570,11 @@ evd_web_dir_file_on_info (GObject      *object,
     }
 
   /* set 'last-modified' header in response */
-  sdate = soup_date_new_from_time_t (file_modified_date_int);
-  date = soup_date_to_string (sdate, SOUP_DATE_HTTP);
+  gdate = g_date_time_new_from_unix_utc (file_modified_date_int);
+  date = soup_date_time_to_string (gdate, SOUP_DATE_HTTP);
   soup_message_headers_replace (headers, "Last-Modified", date);
   g_free (date);
-  soup_date_free (sdate);
+  g_date_time_unref (gdate);
 
   /* check cross origin */
   if (evd_http_request_is_cross_origin (request))
@@ -609,7 +610,7 @@ evd_web_dir_file_on_info (GObject      *object,
 
  out:
   if (headers != NULL)
-    soup_message_headers_free (headers);
+    soup_message_headers_unref (headers);
   g_object_unref (info);
 }
 
@@ -664,7 +665,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
   EvdWebDir *self = EVD_WEB_DIR (web_service);
   gchar *filename = NULL;
   EvdWebDirBinding *binding;
-  SoupURI *uri;
+  GUri *uri;
   const gchar *path_without_alias = "";
 
   if (! evd_web_dir_method_allowed (self,
@@ -693,9 +694,9 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
 
   if (self->priv->alias != NULL)
     {
-      if (g_strstr_len (uri->path, -1, self->priv->alias) == uri->path)
+      if (g_strstr_len (g_uri_get_path (uri), -1, self->priv->alias) == g_uri_get_path (uri))
         {
-          path_without_alias = uri->path + strlen (self->priv->alias);
+          path_without_alias = g_uri_get_path (uri) + strlen (self->priv->alias);
         }
       else
         {
@@ -720,7 +721,7 @@ evd_web_dir_request_handler (EvdWebService     *web_service,
     }
   else
     {
-      path_without_alias = uri->path;
+      path_without_alias = g_uri_get_path (uri);
     }
 
   filename = g_strconcat (self->priv->root,

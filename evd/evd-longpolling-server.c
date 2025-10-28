@@ -256,14 +256,14 @@ static gchar *
 evd_longpolling_server_resolve_action (EvdLongpollingServer *self,
                                        EvdHttpRequest       *request)
 {
-  SoupURI *uri;
+  GUri *uri;
   const gchar *path;
   gchar **tokens;
   gint i;
   gchar *action = NULL;
 
   uri = evd_http_request_get_uri (request);
-  path = uri->path;
+  path = g_uri_get_path (uri);
 
   tokens = g_strsplit (path, "/", 32);
 
@@ -295,15 +295,15 @@ evd_longpolling_server_request_handler (EvdWebService     *web_service,
   EvdLongpollingServer *self = EVD_LONGPOLLING_SERVER (web_service);
   gchar *action;
   EvdPeer *peer;
-  SoupURI *uri;
+  GUri *uri;
 
   uri = evd_http_request_get_uri (request);
 
-  self->priv->current_peer_id = uri->query;
+  self->priv->current_peer_id = g_uri_get_query (uri);
 
-  if (uri->query == NULL ||
+  if (g_uri_get_query (uri) == NULL ||
       (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
-                                         uri->query)) == NULL)
+                                         g_uri_get_query (uri))) == NULL)
     {
       EVD_WEB_SERVICE_GET_CLASS (self)->respond (EVD_WEB_SERVICE (self),
                                                  conn,
@@ -534,7 +534,7 @@ evd_longpolling_server_actual_send (EvdLongpollingServer  *self,
         flush_and_return_connection (EVD_WEB_SERVICE (self), conn);
     }
 
-  soup_message_headers_free (headers);
+  soup_message_headers_unref (headers);
 
   return result;
 }

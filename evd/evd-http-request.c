@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <libsoup/soup-method.h>
+#include <libsoup/soup-uri-utils.h>
 
 #include "evd-http-request.h"
 
@@ -36,7 +37,7 @@ G_DEFINE_TYPE (EvdHttpRequest, evd_http_request, EVD_TYPE_HTTP_MESSAGE)
 struct _EvdHttpRequestPrivate
 {
   gchar *method;
-  SoupURI *uri;
+  GUri *uri;
 };
 
 /* properties */
@@ -93,7 +94,7 @@ evd_http_request_class_init (EvdHttpRequestClass *class)
                                    g_param_spec_boxed ("uri",
                                                        "Request URI",
                                                        "The URI of the requested resource",
-                                                       SOUP_TYPE_URI,
+                                                       G_TYPE_URI,
                                                        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
                                                        G_PARAM_STATIC_STRINGS));
 
@@ -123,7 +124,7 @@ evd_http_request_finalize (GObject *obj)
   g_free (self->priv->method);
 
   if (self->priv->uri != NULL)
-    soup_uri_free (self->priv->uri);
+    g_uri_unref (self->priv->uri);
 
   G_OBJECT_CLASS (evd_http_request_parent_class)->finalize (obj);
 }
@@ -190,15 +191,15 @@ EvdHttpRequest *
 evd_http_request_new (const gchar *method, const gchar *url)
 {
   EvdHttpRequest *self;
-  SoupURI *uri;
+  GUri *uri;
 
-  uri = soup_uri_new (url);
+  uri = g_uri_parse (url, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
 
   self = g_object_new (EVD_TYPE_HTTP_REQUEST,
                        "method", method,
                        "uri", uri,
                        NULL);
-  soup_uri_free (uri);
+  g_uri_unref (uri);
 
   return self;
 }
@@ -216,7 +217,8 @@ evd_http_request_get_path (EvdHttpRequest *self)
 {
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
 
-  return soup_uri_to_string (self->priv->uri, TRUE);
+  return g_strconcat (g_uri_get_path (self->priv->uri),
+                      g_uri_get_query (self->priv->uri), NULL);
 }
 
 /**
@@ -224,7 +226,7 @@ evd_http_request_get_path (EvdHttpRequest *self)
  *
  * Returns: (transfer none):
  **/
-SoupURI *
+GUri *
 evd_http_request_get_uri (EvdHttpRequest *self)
 {
   g_return_val_if_fail (EVD_IS_HTTP_REQUEST (self), NULL);
@@ -275,12 +277,12 @@ evd_http_request_to_string (EvdHttpRequest *self,
   /* determine 'Host' header */
   if (soup_message_headers_get_one (headers, "Host") == NULL)
     {
-      if (self->priv->uri->port == 80)
-        st = g_strdup_printf ("%s", self->priv->uri->host);
+      if (g_uri_get_port (self->priv->uri) == 80)
+        st = g_strdup_printf ("%s", g_uri_get_host (self->priv->uri));
       else
         st = g_strdup_printf ("%s:%d",
-                              self->priv->uri->host,
-                              self->priv->uri->port);
+                              g_uri_get_host (self->priv->uri),
+                              g_uri_get_port (self->priv->uri));
       soup_message_headers_replace (headers, "Host", st);
       g_free (st);
     }
@@ -458,9 +460,9 @@ evd_http_request_is_cross_origin (EvdHttpRequest *self)
     return FALSE;
 
   host = g_strdup_printf ("%s://%s:%d",
-                          self->priv->uri->scheme,
-                          self->priv->uri->host,
-                          self->priv->uri->port);
+                          g_uri_get_scheme (self->priv->uri),
+                          g_uri_get_host (self->priv->uri),
+                          g_uri_get_port (self->priv->uri));
 
   result = (g_strstr_len (host, -1, origin) != host);
 

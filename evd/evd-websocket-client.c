@@ -21,6 +21,7 @@
  */
 
 #include <libsoup/soup-headers.h>
+#include <libsoup/soup-uri-utils.h>
 
 #include "evd-websocket-client.h"
 
@@ -460,7 +461,7 @@ free_connection_data (ConnectionData *data)
   g_free (data->handshake_key);
 
   if (data->res_headers != NULL)
-    soup_message_headers_free (data->res_headers);
+    soup_message_headers_unref (data->res_headers);
 
   g_slice_free (ConnectionData, data);
 }
@@ -679,12 +680,12 @@ transport_open (EvdTransport       *transport,
                 GSimpleAsyncResult *async_result,
                 GCancellable       *cancellable)
 {
-  SoupURI *uri;
+  GUri *uri;
   EvdWebsocketClient *self = EVD_WEBSOCKET_CLIENT (transport);
   gchar *addr;
   ConnectionData *data;
 
-  uri = soup_uri_new (address);
+  uri = g_uri_parse (address, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
   if (uri == NULL)
     {
       g_simple_async_result_set_error (async_result,
@@ -698,7 +699,7 @@ transport_open (EvdTransport       *transport,
     }
 
   /* validate URI scheme */
-  if (g_strcmp0 (uri->scheme, "ws") != 0 && g_strcmp0 (uri->scheme, "wss") != 0)
+  if (g_strcmp0 (g_uri_get_scheme (uri), "ws") != 0 && g_strcmp0 (g_uri_get_scheme (uri), "wss") != 0)
     {
       g_simple_async_result_set_error (async_result,
                                        G_IO_ERROR,
@@ -720,13 +721,13 @@ transport_open (EvdTransport       *transport,
 
   /* connection pool */
   addr = g_strdup_printf ("%s:%d",
-                          soup_uri_get_host (uri),
-                          soup_uri_get_port (uri));
+                          g_uri_get_host (uri),
+                          g_uri_get_port (uri));
 
   data->pool = evd_connection_pool_new (addr, EVD_TYPE_HTTP_CONNECTION);
 
   /* if scheme is WSS (secure WebSocket), set connection pool to auto start TLS */
-  if (g_strcmp0 (uri->scheme, "wss") == 0)
+  if (g_strcmp0 (g_uri_get_scheme (uri), "wss") == 0)
     evd_connection_pool_set_tls_autostart (data->pool, TRUE);
 
   g_free (addr);
@@ -735,7 +736,7 @@ transport_open (EvdTransport       *transport,
   get_connection (data->pool, cancellable, data);
 
  out:
-  soup_uri_free (uri);
+  g_uri_unref (uri);
 }
 
 /* public methods */

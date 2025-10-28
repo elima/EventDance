@@ -306,7 +306,7 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
 {
   EvdWebsocketServer *self = EVD_WEBSOCKET_SERVER (web_service);
   EvdPeer *peer = NULL;
-  SoupURI *uri;
+  GUri *uri;
   guint validate_result;
   EvdTransportInterface *iface;
   GError *error = NULL;
@@ -315,7 +315,7 @@ evd_websocket_server_request_handler (EvdWebService     *web_service,
   uri = evd_http_request_get_uri (request);
 
   /* resolve peer */
-  peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), uri->query);
+  peer = evd_transport_lookup_peer (EVD_TRANSPORT (self), g_uri_get_query (uri));
   if (peer == NULL)
     {
       if (! self->priv->standalone)

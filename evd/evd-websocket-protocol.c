@@ -829,7 +829,7 @@ evd_websocket_protocol_handle_handshake_request (EvdHttpConnection  *conn,
  finish:
 
   if (res_headers != NULL)
-    soup_message_headers_free (res_headers);
+    soup_message_headers_unref (res_headers);
 
   return result;
 }

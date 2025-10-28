@@ -113,7 +113,7 @@ evd_http_message_finalize (GObject *obj)
   EvdHttpMessage *self = EVD_HTTP_MESSAGE (obj);
 
   if (self->priv->headers != NULL)
-    soup_message_headers_free (self->priv->headers);
+    soup_message_headers_unref (self->priv->headers);
 
   G_OBJECT_CLASS (evd_http_message_parent_class)->finalize (obj);
 }
@@ -136,7 +136,7 @@ evd_http_message_set_property (GObject      *obj,
 
     case PROP_HEADERS:
       if (self->priv->headers != NULL)
-        soup_message_headers_free (self->priv->headers);
+        soup_message_headers_unref (self->priv->headers);
       self->priv->headers = g_value_get_boxed (value);
       break;
 

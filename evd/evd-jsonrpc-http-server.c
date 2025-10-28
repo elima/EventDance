@@ -21,7 +21,7 @@
  */
 
 #include <string.h>
-#include <libsoup/soup-date.h>
+#include <libsoup/soup-date-utils.h>
 
 #include "evd-jsonrpc-http-server.h"
 
@@ -157,7 +157,7 @@ evd_jsonrpc_http_server_finalize (GObject *obj)
   evd_jsonrpc_transport_set_send_callback (self->priv->rpc, NULL, NULL, NULL);
   g_object_unref (self->priv->rpc);
 
-  soup_message_headers_free (self->priv->headers);
+  soup_message_headers_unref (self->priv->headers);
 
   if (self->priv->method_call_user_data != NULL &&
       self->priv->method_call_user_data_free_func)
@@ -221,20 +221,20 @@ jsonrpc_on_send (EvdJsonrpc  *rpc,
   EvdJsonrpcHttpServer *self = EVD_JSONRPC_HTTP_SERVER (user_data);
   EvdHttpConnection *conn = EVD_HTTP_CONNECTION (context);
   GError *error = NULL;
-  SoupDate *date;
+  GDateTime *gdate;
   gchar *date_str;
 
   /* update 'Expire' header in response headers */
-  date = soup_date_new_from_now (- 60 * 60 * 24); /* 24h in the past */
-  date_str = soup_date_to_string (date, SOUP_DATE_HTTP);
-  soup_date_free (date);
+  gdate = g_date_time_add_seconds (g_date_time_new_now_utc (), - 60 * 60 * 24); /* 24h in the past */
+  date_str = soup_date_time_to_string (gdate, SOUP_DATE_HTTP);
+  g_date_time_unref (gdate);
   soup_message_headers_replace (self->priv->headers, "Expires", date_str);
   g_free (date_str);
 
   /* update 'Date' header in response headers */
-  date = soup_date_new_from_now (0);
-  date_str = soup_date_to_string (date, SOUP_DATE_HTTP);
-  soup_date_free (date);
+  gdate = g_date_time_new_now_utc ();
+  date_str = soup_date_time_to_string (gdate, SOUP_DATE_HTTP);
+  g_date_time_unref (gdate);
   soup_message_headers_replace (self->priv->headers, "Date", date_str);
   g_free (date_str);
 

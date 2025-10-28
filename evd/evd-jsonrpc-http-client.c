@@ -142,14 +142,14 @@ evd_jsonrpc_http_client_constructed (GObject *obj)
 {
   EvdJsonrpcHttpClient *self = EVD_JSONRPC_HTTP_CLIENT (obj);
 
-  SoupURI *uri;
+  GUri *uri;
   gchar *sock_addr;
 
   self->priv->http_request = evd_http_request_new (SOUP_METHOD_POST,
                                                    self->priv->url);
 
   uri = evd_http_request_get_uri (self->priv->http_request);
-  sock_addr = g_strdup_printf ("%s:%u", uri->host, uri->port);
+  sock_addr = g_strdup_printf ("%s:%u", g_uri_get_host (uri), g_uri_get_port (uri));
 
   g_object_set (self,
                 "address", sock_addr,
@@ -350,7 +350,7 @@ on_response_headers (GObject      *obj,
           g_error_free (error);
         }
 
-      soup_message_headers_free (headers);
+      soup_message_headers_unref (headers);
       g_free (reason);
     }
 

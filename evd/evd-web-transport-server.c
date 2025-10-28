@@ -22,6 +22,7 @@
 
 #include <json-glib/json-glib.h>
 #include <string.h>
+#include <libsoup/soup-uri-utils.h>
 
 #include "evd-web-transport-server.h"
 #include "evd-transport.h"
@@ -392,7 +393,7 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
   EvdWebTransportServer *self;
   gchar *mechanism_url;
   GError *error = NULL;
-  SoupURI *uri = NULL;
+  GUri *uri = NULL;
 
   JsonObject *request_obj;
   JsonObject *response_obj;
@@ -431,45 +432,49 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
       const gchar *uri_str;
 
       uri_str = json_object_get_string_member (request_obj, "url");
-      uri = soup_uri_new (uri_str);
+      uri = g_uri_parse (uri_str, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
 
       /* @TODO: validate that uri is not null and fail the handshake if so */
     }
 
   if (uri == NULL)
-    uri = soup_uri_copy (evd_http_request_get_uri (data->request));
+    uri = g_uri_ref (evd_http_request_get_uri (data->request));
 
   /* websocket? */
   if (self->priv->enable_ws &&
       has_mechanism (request_mechs, WEB_SOCKET_MECHANISM_NAME))
     {
-      SoupURI *ws_uri;
+      GUri *ws_uri;
+      GUri *temp_uri;
       gboolean tls = FALSE;
-      guint32 port = 0;
+      const gchar *scheme;
 
       if (self->priv->external_url != NULL)
         {
-          ws_uri = soup_uri_new (self->priv->external_url);
-          if (g_strcmp0 (ws_uri->scheme, "https") == 0)
+          temp_uri = g_uri_parse (self->priv->external_url, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
+          if (g_strcmp0 (g_uri_get_scheme (temp_uri), "https") == 0)
             tls = TRUE;
         }
       else
         {
-          ws_uri = soup_uri_copy (uri);
+          temp_uri = g_uri_ref (uri);
           if (evd_connection_get_tls_active (EVD_CONNECTION (data->conn)))
             tls = TRUE;
         }
 
-      port = ws_uri->port;
-      if (tls)
-        soup_uri_set_scheme (ws_uri, "wss");
-      else
-        soup_uri_set_scheme (ws_uri, "ws");
-      ws_uri->port = port;
+      scheme = tls ? "wss" : "ws";
+      ws_uri = g_uri_build (g_uri_get_flags (temp_uri),
+                            scheme,
+                            NULL,
+                            g_uri_get_host (temp_uri),
+                            g_uri_get_port (temp_uri),
+                            self->priv->ws_base_path,
+                            NULL,
+                            NULL);
+      g_uri_unref (temp_uri);
 
-      soup_uri_set_path (ws_uri, self->priv->ws_base_path);
-      mechanism_url = soup_uri_to_string (ws_uri, FALSE);
-      soup_uri_free (ws_uri);
+      mechanism_url = g_uri_to_string_partial (ws_uri, G_URI_HIDE_PASSWORD);
+      g_uri_unref (ws_uri);
 
       add_mechanism_to_response_list (response_mechs,
                                       WEB_SOCKET_MECHANISM_NAME,
@@ -480,16 +485,26 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
   /* long-polling? */
   if (has_mechanism (request_mechs, LONG_POLLING_MECHANISM_NAME))
     {
-      SoupURI *lp_uri;
+      GUri *lp_uri;
+      GUri *temp_uri;
 
       if (self->priv->external_url != NULL)
-        lp_uri = soup_uri_new (self->priv->external_url);
+        temp_uri = g_uri_parse (self->priv->external_url, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
       else
-        lp_uri = soup_uri_copy (uri);
-      soup_uri_set_path (lp_uri, self->priv->lp_base_path);
-      soup_uri_set_query (lp_uri, NULL);
-      mechanism_url = soup_uri_to_string (lp_uri, FALSE);
-      soup_uri_free (lp_uri);
+        temp_uri = g_uri_ref (uri);
+
+      lp_uri = g_uri_build (g_uri_get_flags (temp_uri),
+                            g_uri_get_scheme (temp_uri),
+                            NULL,
+                            g_uri_get_host (temp_uri),
+                            g_uri_get_port (temp_uri),
+                            self->priv->lp_base_path,
+                            NULL,
+                            NULL);
+      g_uri_unref (temp_uri);
+
+      mechanism_url = g_uri_to_string_partial (lp_uri, G_URI_HIDE_PASSWORD);
+      g_uri_unref (lp_uri);
 
       add_mechanism_to_response_list (response_mechs,
                                       LONG_POLLING_MECHANISM_NAME,
@@ -527,9 +542,9 @@ evd_web_transport_server_respond_handshake (HandshakeData *data,
       g_error_free (error);
     }
 
-  soup_message_headers_free (headers);
+  soup_message_headers_unref (headers);
 
-  soup_uri_free (uri);
+  g_uri_unref (uri);
   g_free (content);
 }
 
@@ -756,26 +771,26 @@ evd_web_transport_server_on_request (EvdWebService     *web_service,
                                      EvdHttpRequest    *request)
 {
   EvdWebTransportServer *self = EVD_WEB_TRANSPORT_SERVER (web_service);
-  SoupURI *uri;
+  GUri *uri;
   EvdWebService *actual_service;
 
   uri = evd_http_request_get_uri (request);
 
   /* handshake? */
-  if (g_strcmp0 (uri->path, self->priv->hs_base_path) == 0)
+  if (g_strcmp0 (g_uri_get_path (uri), self->priv->hs_base_path) == 0)
     {
       evd_web_transport_server_read_handshake_data (self, conn, request);
     }
   /* longpolling or websocket? */
   else if ((actual_service =
-            get_actual_transport_from_path (self, uri->path)) != NULL)
+            get_actual_transport_from_path (self, g_uri_get_path (uri))) != NULL)
     {
       EvdPeer *peer;
       EvdTransport *current_transport;
 
-      if (uri->query != NULL &&
+      if (g_uri_get_query (uri) != NULL &&
           (peer = evd_transport_lookup_peer (EVD_TRANSPORT (self),
-                                             uri->query)) != NULL)
+                                             g_uri_get_query (uri))) != NULL)
         {
           evd_peer_touch (peer);
 

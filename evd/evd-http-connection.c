@@ -21,6 +21,7 @@
  */
 
 #include <string.h>
+#include <libsoup/soup-uri-utils.h>
 
 #include "evd-http-connection.h"
 
@@ -221,13 +222,13 @@ evd_http_connection_response_headers_destroy (gpointer data)
   response = (struct EvdHttpConnectionResponseHeaders *) data;
 
   if (response->headers != NULL)
-    soup_message_headers_free (response->headers);
+    soup_message_headers_unref (response->headers);
   g_free (response->reason_phrase);
 
   g_free (response);
 }
 
-static SoupURI *
+static GUri *
 evd_http_connection_build_uri (EvdHttpConnection  *self,
                                const gchar        *path,
                                SoupMessageHeaders *headers)
@@ -235,7 +236,7 @@ evd_http_connection_build_uri (EvdHttpConnection  *self,
   gchar *scheme;
   const gchar *host;
   gchar *uri_str;
-  SoupURI *uri;
+  GUri *uri;
 
   if (evd_connection_get_tls_active (EVD_CONNECTION (self)))
     scheme = g_strdup ("https");
@@ -246,7 +247,8 @@ evd_http_connection_build_uri (EvdHttpConnection  *self,
 
   uri_str = g_strconcat (scheme, "://", host, path, NULL);
 
-  uri = soup_uri_new (uri_str);
+  uri = g_uri_parse (uri_str, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED,
+                     NULL);
 
   g_free (uri_str);
   g_free (scheme);
@@ -289,7 +291,7 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
           && version <= SOUP_HTTP_1_1)
         {
           EvdHttpRequest *request;
-          SoupURI *uri;
+          GUri *uri;
           const gchar *conn_header;
 
           uri = evd_http_connection_build_uri (self, path, headers);
@@ -301,7 +303,7 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
                                   "uri", uri,
                                   NULL);
 
-          soup_uri_free (uri);
+          g_uri_unref (uri);
 
           evd_http_connection_set_current_request (self, request);
 
@@ -323,7 +325,7 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
         }
       else
         {
-          soup_message_headers_free (headers);
+          soup_message_headers_unref (headers);
 
           g_simple_async_result_set_error (res,
                                            G_IO_ERROR,
@@ -1370,7 +1372,7 @@ evd_http_connection_respond (EvdHttpConnection   *self,
     }
 
   if (headers == NULL)
-    soup_message_headers_free (_headers);
+    soup_message_headers_unref (_headers);
 
   return result;
 }
@@ -1460,7 +1462,7 @@ evd_http_connection_redirect (EvdHttpConnection  *self,
                                         TRUE,
                                         error);
 
-  soup_message_headers_free (headers);
+  soup_message_headers_unref (headers);
 
   return result;
 }

@@ -215,7 +215,7 @@ evd_web_service_respond_cors_preflight (EvdWebService     *self,
                   0,
                   NULL);
 
-  soup_message_headers_free (res_headers);
+  soup_message_headers_unref (res_headers);
 }
 
 static gboolean
@@ -514,7 +514,7 @@ evd_web_service_respond_internal (EvdWebService       *self,
     }
 
   if (headers == NULL)
-    soup_message_headers_free (_headers);
+    soup_message_headers_unref (_headers);
 
   return result;
 }
@@ -818,7 +818,7 @@ evd_web_service_respond_headers (EvdWebService       *self,
                                                        error);
 
   if (headers == NULL)
-    soup_message_headers_free (headers);
+    soup_message_headers_unref (headers);
 
   return result;
 }
