@@ -343,7 +343,8 @@ pubkey_on_verify (GObject      *obj,
   gboolean verification;
 
   g_assert (EVD_IS_PKI_PUBKEY (obj));
-  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result));
+  g_assert (G_IS_ASYNC_RESULT (result));
+  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result) || G_IS_TASK (result));
 
   key = EVD_PKI_PUBKEY (obj);
 
@@ -378,7 +379,8 @@ privkey_on_sign (GObject      *obj,
   Fixture *f = user_data;
 
   g_assert (EVD_IS_PKI_PRIVKEY (obj));
-  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result));
+  g_assert (G_IS_ASYNC_RESULT (result));
+  g_assert (G_IS_SIMPLE_ASYNC_RESULT (result) || G_IS_TASK (result));
 
   key = EVD_PKI_PRIVKEY (obj);
 
