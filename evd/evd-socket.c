@@ -68,7 +68,7 @@ struct _EvdSocketPrivate
   GIOStream *io_stream;
 
   gboolean has_pending;
-  GSimpleAsyncResult *async_result;
+  GTask *pending_task;
 
   EvdPoll *poll;
   EvdPollSession *poll_session;
@@ -152,12 +152,13 @@ static void       evd_socket_set_status                 (EvdSocket      *self,
 static void       evd_socket_copy_properties            (EvdSocket *self,
                                                          EvdSocket *target);
 
-static void       evd_socket_deliver_async_result_error (EvdSocket           *self,
-                                                         GSimpleAsyncResult  *res,
-                                                         GError              *error,
-                                                         GAsyncReadyCallback  callback,
-                                                         gpointer             user_data,
-                                                         gboolean             in_idle);
+static void       evd_socket_complete_task_with_error (EvdSocket           *self,
+                                                       GTask               *task,
+                                                       gpointer             source_tag,
+                                                       GError              *error,
+                                                       GAsyncReadyCallback  callback,
+                                                       gpointer             user_data,
+                                                       gboolean             in_idle);
 
 static gboolean   evd_socket_check_availability         (EvdSocket  *self,
                                                          GError    **error);
@@ -323,7 +324,7 @@ evd_socket_init (EvdSocket *self)
   priv->io_stream_type = EVD_TYPE_CONNECTION;
 
   priv->has_pending = FALSE;
-  priv->async_result = NULL;
+  priv->pending_task = NULL;
 
   priv->poll = evd_poll_get_default ();
   priv->poll_session = NULL;
@@ -599,31 +600,32 @@ evd_socket_cleanup (EvdSocket *self, GError **error)
 }
 
 static void
-evd_socket_deliver_async_result_error (EvdSocket           *self,
-                                       GSimpleAsyncResult  *res,
-                                       GError              *error,
-                                       GAsyncReadyCallback  callback,
-                                       gpointer             user_data,
-                                       gboolean             in_idle)
+evd_socket_complete_task_with_error (EvdSocket           *self,
+                                     GTask               *task,
+                                     gpointer             source_tag,
+                                     GError              *error,
+                                     GAsyncReadyCallback  callback,
+                                     gpointer             user_data,
+                                     gboolean             in_idle)
 {
-  if (res == NULL)
+  GError *task_error;
+
+  g_return_if_fail (EVD_IS_SOCKET (self));
+  g_return_if_fail (error != NULL);
+
+  if (task == NULL)
     {
-      res = g_simple_async_result_new_from_error (G_OBJECT (self),
-                                                  callback,
-                                                  user_data,
-                                                  error);
-    }
-  else
-    {
-      g_simple_async_result_set_from_error (res, error);
+      task = g_task_new (self, NULL, callback, user_data);
+      if (source_tag != NULL)
+        g_task_set_source_tag (task, source_tag);
     }
 
-  if (in_idle)
-    g_simple_async_result_complete_in_idle (res);
-  else
-    g_simple_async_result_complete (res);
+  /* Maintain original error for callers; tasks receive a copy. */
+  task_error = g_error_copy (error);
+  g_task_return_error (task, task_error);
+  g_object_unref (task);
 
-  g_object_unref (res);
+  (void) in_idle;
 }
 
 static gboolean
@@ -800,13 +802,16 @@ evd_socket_on_address_resolved (GObject      *obj,
               {
                 if (evd_socket_listen_addr_internal (self, socket_address, &error))
                   {
-                    if (self->priv->async_result != NULL)
+                    if (self->priv->pending_task != NULL)
                       {
+                        GTask *task;
+
+                        task = self->priv->pending_task;
+                        self->priv->pending_task = NULL;
                         self->priv->has_pending = FALSE;
 
-                        g_simple_async_result_complete_in_idle (self->priv->async_result);
-                        g_object_unref (self->priv->async_result);
-                        self->priv->async_result = NULL;
+                        g_task_return_boolean (task, TRUE);
+                        g_object_unref (task);
                       }
                   }
                 break;
@@ -818,13 +823,16 @@ evd_socket_on_address_resolved (GObject      *obj,
                                                    self->priv->bind_allow_reuse,
                                                    &error))
                   {
-                    if (self->priv->async_result != NULL)
+                    if (self->priv->pending_task != NULL)
                       {
+                        GTask *task;
+
+                        task = self->priv->pending_task;
+                        self->priv->pending_task = NULL;
                         self->priv->has_pending = FALSE;
 
-                        g_simple_async_result_complete_in_idle (self->priv->async_result);
-                        g_object_unref (self->priv->async_result);
-                        self->priv->async_result = NULL;
+                        g_task_return_boolean (task, TRUE);
+                        g_object_unref (task);
                       }
                   }
                 break;
@@ -851,15 +859,17 @@ evd_socket_on_address_resolved (GObject      *obj,
 
   if (error != NULL)
     {
-      if (self->priv->async_result != NULL)
+      if (self->priv->pending_task != NULL)
         {
-          evd_socket_deliver_async_result_error (self,
-                                                 self->priv->async_result,
-                                                 error,
-                                                 NULL,
-                                                 NULL,
-                                                 TRUE);
-          self->priv->async_result = NULL;
+          evd_socket_complete_task_with_error (self,
+                                               self->priv->pending_task,
+                                               NULL,
+                                               error,
+                                               NULL,
+                                               NULL,
+                                               TRUE);
+          self->priv->pending_task = NULL;
+          self->priv->has_pending = FALSE;
         }
 
       evd_socket_throw_error (self, error);
@@ -1022,13 +1032,15 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
               error = g_error_new (G_IO_ERROR,
                                    G_IO_ERROR_CONNECTION_REFUSED,
                                    "Connection refused");
-              evd_socket_deliver_async_result_error (self,
-                                                     self->priv->async_result,
-                                                     error,
-                                                     NULL,
-                                                     NULL,
-                                                     TRUE);
-              self->priv->async_result = NULL;
+              evd_socket_complete_task_with_error (self,
+                                                   self->priv->pending_task,
+                                                   NULL,
+                                                   error,
+                                                   NULL,
+                                                   NULL,
+                                                   TRUE);
+              self->priv->pending_task = NULL;
+              self->priv->has_pending = FALSE;
             }
           else
             {
@@ -1055,15 +1067,15 @@ evd_socket_handle_condition (EvdSocket *self, GIOCondition condition)
 
                   evd_socket_set_status (self, EVD_SOCKET_STATE_CONNECTED);
 
-                  if (self->priv->async_result != NULL)
+                  if (self->priv->pending_task != NULL)
                     {
-                      GSimpleAsyncResult *res;
+                      GTask *task;
 
-                      res = self->priv->async_result;
-                      self->priv->async_result = NULL;
+                      task = self->priv->pending_task;
+                      self->priv->pending_task = NULL;
 
-                      g_simple_async_result_complete_in_idle (res);
-                      g_object_unref (res);
+                      g_task_return_boolean (task, TRUE);
+                      g_object_unref (task);
                     }
                 }
             }
@@ -1201,19 +1213,19 @@ evd_socket_close (EvdSocket *self, GError **error)
 
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "Socket has been closed");
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "Socket has been closed");
+      g_object_unref (task);
+      self->priv->has_pending = FALSE;
     }
 
   if (self->priv->status != EVD_SOCKET_STATE_CLOSED &&
@@ -1354,28 +1366,24 @@ evd_socket_connect_to (EvdSocket           *self,
                        gpointer             user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
   g_return_if_fail (address != NULL);
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_socket_connect_addr);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_socket_connect_addr);
 
   if (! evd_socket_check_availability (self, &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   self->priv->has_pending = TRUE;
 
@@ -1402,27 +1410,30 @@ evd_socket_connect_addr (EvdSocket           *self,
                          gpointer             user_data)
 {
   GError *error = NULL;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
 
   if (! evd_socket_check_availability (self, &error) ||
       ! evd_socket_connect_addr_internal (self, address, &error))
     {
-      evd_socket_deliver_async_result_error (self,
-                                             NULL,
-                                             error,
-                                             callback,
-                                             user_data,
-                                             TRUE);
+      evd_socket_complete_task_with_error (self,
+                                           NULL,
+                                           evd_socket_connect_addr,
+                                           error,
+                                           callback,
+                                           user_data,
+                                           TRUE);
+      g_clear_error (&error);
       return;
     }
   else
     {
       self->priv->has_pending = TRUE;
-      self->priv->async_result = g_simple_async_result_new (G_OBJECT (self),
-                                                            callback,
-                                                            user_data,
-                                                            evd_socket_connect_addr);
+      task = g_task_new (self, cancellable, callback, user_data);
+      g_task_set_source_tag (task, evd_socket_connect_addr);
+      g_clear_object (&self->priv->pending_task);
+      self->priv->pending_task = task;
     }
 
   return;
@@ -1439,17 +1450,22 @@ evd_socket_connect_finish (EvdSocket     *self,
                            GAsyncResult  *result,
                            GError       **error)
 {
+  GTask *task;
+  gboolean ok;
+
   g_return_val_if_fail (EVD_IS_SOCKET (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_socket_connect_addr),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_socket_connect_addr,
                         NULL);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    return g_object_new (self->priv->io_stream_type, "socket", self, NULL);
-  else
+  ok = g_task_propagate_boolean (task, error);
+
+  if (!ok)
     return NULL;
+
+  return g_object_new (self->priv->io_stream_type, "socket", self, NULL);
 }
 
 gboolean
@@ -1487,27 +1503,23 @@ evd_socket_listen (EvdSocket           *self,
                    gpointer             user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_socket_listen);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_socket_listen);
 
   if (! evd_socket_check_availability (self, &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   self->priv->has_pending = TRUE;
 
@@ -1524,17 +1536,16 @@ evd_socket_listen_finish (EvdSocket     *self,
                           GAsyncResult  *result,
                           GError       **error)
 {
+  GTask *task;
+
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_socket_listen),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_socket_listen,
                         FALSE);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    return TRUE;
-  else
-    return FALSE;
+  return g_task_propagate_boolean (task, error);
 }
 
 gboolean
@@ -1574,27 +1585,23 @@ evd_socket_bind (EvdSocket           *self,
                  gpointer             user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_SOCKET (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_socket_bind);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_socket_bind);
 
   if (! evd_socket_check_availability (self, &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   self->priv->has_pending = TRUE;
 
@@ -1611,17 +1618,16 @@ evd_socket_bind_finish (EvdSocket     *self,
                         GAsyncResult  *result,
                         GError       **error)
 {
+  GTask *task;
+
   g_return_val_if_fail (EVD_IS_SOCKET (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_socket_bind),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_socket_bind,
                         FALSE);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    return TRUE;
-  else
-    return FALSE;
+  return g_task_propagate_boolean (task, error);
 }
 
 gchar *
