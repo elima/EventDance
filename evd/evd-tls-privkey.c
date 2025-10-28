@@ -210,28 +210,34 @@ evd_tls_privkey_import_x509 (EvdTlsPrivkey      *self,
 }
 
 static void
-evd_tls_privkey_import_from_file_thread (GSimpleAsyncResult *res,
-                                         GObject            *object,
-                                         GCancellable       *cancellable)
+evd_tls_privkey_import_from_file_thread (GTask        *task,
+                                         gpointer      source_object,
+                                         gpointer      task_data,
+                                         GCancellable *cancellable)
 {
-  EvdTlsPrivkey *self = EVD_TLS_PRIVKEY (object);
+  EvdTlsPrivkey *self = EVD_TLS_PRIVKEY (source_object);
   gchar *filename;
-  gchar *content;
+  gchar *content = NULL;
   gsize size;
   GError *error = NULL;
 
-  filename = g_simple_async_result_get_op_res_gpointer (res);
+  filename = task_data;
 
-  if (! g_file_get_contents (filename, &content, &size, &error) ||
-      ! evd_tls_privkey_import (self, content, size, &error))
+  if (! g_file_get_contents (filename, &content, &size, &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+      return;
+    }
+
+  if (! evd_tls_privkey_import (self, content, size, &error))
+    {
+      g_free (content);
+      g_task_return_error (task, error);
+      return;
     }
 
   g_free (content);
-  g_free (filename);
-  g_object_unref (res);
+  g_task_return_boolean (task, TRUE);
 }
 
 /* public methods */
@@ -341,22 +347,19 @@ evd_tls_privkey_import_from_file (EvdTlsPrivkey       *self,
                                   GAsyncReadyCallback  callback,
                                   gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_TLS_PRIVKEY (self));
   g_return_if_fail (filename != NULL);
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_tls_privkey_import_from_file);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_tls_privkey_import_from_file);
 
-  g_simple_async_result_set_op_res_gpointer (res, g_strdup (filename), NULL);
+  g_task_set_task_data (task, g_strdup (filename), g_free);
 
-  g_simple_async_result_run_in_thread (res,
-                                       evd_tls_privkey_import_from_file_thread,
-                                       G_PRIORITY_DEFAULT,
-                                       cancellable);
+  g_task_run_in_thread (task,
+                        evd_tls_privkey_import_from_file_thread);
+  g_object_unref (task);
 }
 
 gboolean
@@ -364,14 +367,14 @@ evd_tls_privkey_import_from_file_finish (EvdTlsPrivkey  *self,
                                          GAsyncResult   *result,
                                          GError        **error)
 {
+  GTask *task = G_TASK (result);
+
   g_return_val_if_fail (EVD_IS_TLS_PRIVKEY (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                           G_OBJECT (self),
-                                           evd_tls_privkey_import_from_file),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_tls_privkey_import_from_file,
                         FALSE);
 
-  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                                  error);
+  return g_task_propagate_boolean (task, error);
 }
 
 /**
