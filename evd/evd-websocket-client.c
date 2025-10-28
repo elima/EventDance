@@ -107,7 +107,6 @@ G_DEFINE_TYPE_WITH_CODE (EvdWebsocketClient, evd_websocket_client, EVD_TYPE_IO_S
 static void
 evd_websocket_client_class_init (EvdWebsocketClientClass *class)
 {
-  GObjectClass *obj_class = G_OBJECT_CLASS (class);
   EvdIoStreamGroupClass *io_stream_group_class
     = EVD_IO_STREAM_GROUP_CLASS (class);
 
