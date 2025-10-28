@@ -206,7 +206,7 @@ evd_stream_throttle_update_current_time (EvdStreamThrottle *self)
       G_UNLOCK (counters);
     }
 
-  g_memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
+  memmove (&self->priv->current_time, &time_val, sizeof (GTimeVal));
 }
 
 static gulong
@@ -313,9 +313,9 @@ evd_stream_throttle_report (EvdStreamThrottle *self, gsize size)
   self->priv->bytes += size;
   self->priv->total += size;
 
-  g_memmove (&self->priv->last,
-             &self->priv->current_time,
-             sizeof (GTimeVal));
+  memmove (&self->priv->last,
+           &self->priv->current_time,
+           sizeof (GTimeVal));
 
   G_UNLOCK (counters);
 }

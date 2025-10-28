@@ -412,7 +412,7 @@ evd_longpolling_server_write_frame_delivery (EvdLongpollingServer  *self,
       hdr_len = 5;
 
       len_st = g_strdup_printf ("%04x", (uint) size);
-      g_memmove (hdr + 1, len_st, 4);
+      memmove (hdr + 1, len_st, 4);
       g_free (len_st);
     }
   else
@@ -421,7 +421,7 @@ evd_longpolling_server_write_frame_delivery (EvdLongpollingServer  *self,
       hdr_len = 17;
 
       len_st = g_strdup_printf ("%16x", (uint) size);
-      g_memmove (hdr + 1, len_st, 16);
+      memmove (hdr + 1, len_st, 16);
       g_free (len_st);
     }
 

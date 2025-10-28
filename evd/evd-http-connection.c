@@ -1277,11 +1277,10 @@ evd_http_connection_read_all_content_finish (EvdHttpConnection  *self,
     {
       gchar *str = NULL;
 
-      str = self->priv->buf->str;
       if (size != NULL)
         *size = self->priv->content_read;
 
-      g_string_free (self->priv->buf, FALSE);
+      str = g_string_free_and_steal (self->priv->buf);
       self->priv->buf = g_string_new ("");
 
       return str;

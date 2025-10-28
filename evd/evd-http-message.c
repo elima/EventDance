@@ -247,8 +247,7 @@ evd_http_message_headers_to_string (EvdHttpMessage *self, gsize *size)
   if (size != NULL)
     *size = buf->len;
 
-  result = buf->str;
-  g_string_free (buf, FALSE);
+  result = g_string_free_and_steal (buf);
 
   return result;
 }

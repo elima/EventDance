@@ -153,7 +153,7 @@ evd_buffered_input_stream_read (GInputStream  *stream,
   if (self->priv->buffer->len > 0)
     {
       read_from_buf = MIN (self->priv->buffer->len, size);
-      g_memmove (buffer, self->priv->buffer->str, read_from_buf);
+      memmove (buffer, self->priv->buffer->str, read_from_buf);
       size -= read_from_buf;
 
       buf = buffer + read_from_buf;
@@ -425,7 +425,7 @@ evd_buffered_input_stream_read_str_sync (EvdBufferedInputStream *self,
       if (actual_size > 0)
         {
           data = g_new (gchar, actual_size + 1);
-          g_memmove (data, buf, actual_size);
+          memmove (data, buf, actual_size);
           data[actual_size] = '\0';
         }
 

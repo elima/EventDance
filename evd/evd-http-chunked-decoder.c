@@ -223,7 +223,7 @@ convert (GConverter       *converter,
                              inbuf_size - pos);
             move_size = MIN (move_size, outbuf_size - bw);
 
-            g_memmove (outbuf + bw, inbuf + pos, move_size);
+            memmove (outbuf + bw, inbuf + pos, move_size);
 
             pos += move_size;
             bw += move_size;

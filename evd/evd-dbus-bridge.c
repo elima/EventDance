@@ -1194,8 +1194,7 @@ evd_dbus_bridge_get_method_signature_from_reg_object (GObject *obj,
 
   g_string_append (sig_str, ")");
 
-  signature = sig_str->str;
-  g_string_free (sig_str, FALSE);
+  signature = g_string_free_and_steal (sig_str);
 
   return signature;
 }

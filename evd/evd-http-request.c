@@ -302,8 +302,7 @@ evd_http_request_to_string (EvdHttpRequest *self,
   if (size != NULL)
     *size = buf->len;
 
-  result = buf->str;
-  g_string_free (buf, FALSE);
+  result = g_string_free_and_steal (buf);
 
   return result;
 }
