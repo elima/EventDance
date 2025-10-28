@@ -280,11 +280,11 @@ send_data_frame (EvdWebsocketData  *data,
                    frame + bytes_sent,
                    frag_len);
 
-      if (! g_output_stream_write (stream,
-                                   frag->str,
-                                   frag->len,
-                                   NULL,
-                                   error) < 0)
+      if (g_output_stream_write (stream,
+                                 frag->str,
+                                 frag->len,
+                                 NULL,
+                                 error) < 0)
         {
           result = FALSE;
           break;
