@@ -130,17 +130,18 @@ evd_pki_pubkey_get_property (GObject    *obj,
 }
 
 static void
-encrypt_in_thread (GSimpleAsyncResult *res,
-                   GObject            *object,
-                   GCancellable       *cancellable)
+encrypt_in_thread (GTask        *task,
+                   gpointer      source_object,
+                   gpointer      task_data,
+                   GCancellable *cancellable)
 {
-  EvdPkiPubkey *self = EVD_PKI_PUBKEY (object);;
+  EvdPkiPubkey *self = EVD_PKI_PUBKEY (source_object);
   gnutls_datum_t *clear_data;
   gnutls_datum_t *enc_data;
   gint err_code;
   GError *error = NULL;
 
-  clear_data = g_simple_async_result_get_op_res_gpointer (res);
+  clear_data = task_data;
   enc_data = g_new (gnutls_datum_t, 1);
 
   /* encrypt */
@@ -150,30 +151,29 @@ encrypt_in_thread (GSimpleAsyncResult *res,
                                          enc_data);
   if (evd_error_propagate_gnutls (err_code, &error))
     {
-      g_simple_async_result_take_error (res, error);
+      g_task_return_error (task, error);
       g_free (enc_data);
     }
   else
     {
-      g_simple_async_result_set_op_res_gpointer (res, enc_data, g_free);
+      g_task_return_pointer (task, enc_data, g_free);
     }
-
-  g_object_unref (res);
 }
 
 static void
-verify_in_thread (GSimpleAsyncResult *res,
-                  GObject            *object,
-                  GCancellable       *cancellable)
+verify_in_thread (GTask        *task,
+                  gpointer      source_object,
+                  gpointer      task_data,
+                  GCancellable *cancellable)
 {
-  EvdPkiPubkey *self = EVD_PKI_PUBKEY (object);;
+  EvdPkiPubkey *self = EVD_PKI_PUBKEY (source_object);
   VerifyData *verify_data;
   gint err_code;
   GError *error = NULL;
 
   gnutls_sign_algorithm_t sign_algo;
 
-  verify_data = g_simple_async_result_get_op_res_gpointer (res);
+  verify_data = task_data;
 
   /* verify */
   switch (self->priv->type)
@@ -191,9 +191,12 @@ verify_in_thread (GSimpleAsyncResult *res,
                                          &verify_data->signature);
 
   if (err_code < 0 && evd_error_propagate_gnutls (err_code, &error))
-    g_simple_async_result_take_error (res, error);
+    {
+      g_task_return_error (task, error);
+      return;
+    }
 
-  g_object_unref (res);
+  g_task_return_boolean (task, TRUE);
 }
 
 /* public methods */
@@ -252,38 +255,33 @@ evd_pki_pubkey_encrypt (EvdPkiPubkey        *self,
                         GAsyncReadyCallback  callback,
                         gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
-  gnutls_datum_t *enc_data;
+  GTask *task;
+  gnutls_datum_t *clear_data;
 
   g_return_if_fail (EVD_IS_PKI_PUBKEY (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_pki_pubkey_encrypt);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_pki_pubkey_encrypt);
 
   if (self->priv->key == NULL)
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_NOT_INITIALIZED,
-                                       "Public key not initialized");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_NOT_INITIALIZED,
+                               "Public key not initialized");
+      g_object_unref (task);
       return;
     }
 
-  enc_data = g_new (gnutls_datum_t, 1);
-  enc_data->data = (guchar *) data;
-  enc_data->size = size;
+  clear_data = g_new (gnutls_datum_t, 1);
+  clear_data->data = (guchar *) data;
+  clear_data->size = size;
 
-  g_simple_async_result_set_op_res_gpointer (res, enc_data, g_free);
+  g_task_set_task_data (task, clear_data, g_free);
 
   /* @TODO: use a thread pool to avoid overhead */
-  g_simple_async_result_run_in_thread (res,
-                                       encrypt_in_thread,
-                                       G_PRIORITY_DEFAULT,
-                                       cancellable);
+  g_task_run_in_thread (task, encrypt_in_thread);
+  g_object_unref (task);
 }
 
 gchar *
@@ -292,27 +290,26 @@ evd_pki_pubkey_encrypt_finish (EvdPkiPubkey  *self,
                                gsize         *size,
                                GError       **error)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
+  GTask *task = G_TASK (result);
+  gnutls_datum_t *data;
+  gchar *ret;
 
   g_return_val_if_fail (EVD_IS_PKI_PUBKEY (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_pki_pubkey_encrypt),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_pki_pubkey_encrypt,
                         NULL);
 
-  if (! g_simple_async_result_propagate_error (res, error))
-    {
-      gnutls_datum_t *data;
-
-      data = g_simple_async_result_get_op_res_gpointer (res);
-
-      if (size != NULL)
-        *size = data->size;
-
-      return (gchar *) data->data;
-    }
-  else
+  data = g_task_propagate_pointer (task, error);
+  if (data == NULL)
     return NULL;
+
+  if (size != NULL)
+    *size = data->size;
+
+  ret = (gchar *) data->data;
+  g_free (data);
+
+  return ret;
 }
 
 /**
@@ -330,24 +327,21 @@ evd_pki_pubkey_verify_data (EvdPkiPubkey        *self,
                             GAsyncReadyCallback  callback,
                             gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   VerifyData *verify_data;
 
   g_return_if_fail (EVD_IS_PKI_PUBKEY (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_pki_pubkey_verify_data);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_pki_pubkey_verify_data);
 
   if (self->priv->key == NULL)
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_NOT_INITIALIZED,
-                                       "Public key not initialized");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_NOT_INITIALIZED,
+                               "Public key not initialized");
+      g_object_unref (task);
       return;
     }
 
@@ -359,13 +353,11 @@ evd_pki_pubkey_verify_data (EvdPkiPubkey        *self,
   verify_data->signature.data = (guchar *) signature;
   verify_data->signature.size = signature_size;
 
-  g_simple_async_result_set_op_res_gpointer (res, verify_data, g_free);
+  g_task_set_task_data (task, verify_data, g_free);
 
   /* @TODO: use a thread pool to avoid overhead */
-  g_simple_async_result_run_in_thread (res,
-                                       verify_in_thread,
-                                       G_PRIORITY_DEFAULT,
-                                       cancellable);
+  g_task_run_in_thread (task, verify_in_thread);
+  g_object_unref (task);
 }
 
 /**
@@ -378,13 +370,12 @@ evd_pki_pubkey_verify_data_finish (EvdPkiPubkey  *self,
                                    GAsyncResult  *result,
                                    GError       **error)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
+  GTask *task = G_TASK (result);
 
   g_return_val_if_fail (EVD_IS_PKI_PUBKEY (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                    G_OBJECT (self),
-                                                    evd_pki_pubkey_verify_data),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (task) == evd_pki_pubkey_verify_data,
                         FALSE);
 
-  return ! g_simple_async_result_propagate_error (res, error);
+  return g_task_propagate_boolean (task, error);
 }
