@@ -210,27 +210,24 @@ base_stream_on_flush (GObject      *obj,
                       GAsyncResult *result,
                       gpointer      user_data)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
+  GTask *task = G_TASK (user_data);
   GError *error = NULL;
+  gboolean ok;
   GOutputStream *stream;
 
-  stream =
-    G_OUTPUT_STREAM (g_async_result_get_source_object (G_ASYNC_RESULT (res)));
+  stream = G_OUTPUT_STREAM (g_task_get_source_object (task));
   g_output_stream_clear_pending (stream);
 
-  if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
-                                      result,
-                                      &error))
-    {
-      g_simple_async_result_take_error (res, error);
-    }
+  ok = g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
+                                     result,
+                                     &error);
 
-  g_simple_async_result_complete (res);
-  g_object_unref (res);
+  if (ok)
+    g_task_return_boolean (task, TRUE);
+  else
+    g_task_return_error (task, error);
 
-  /* this is because g_async_result_get_source_object() increases reference
-     count */
-  g_object_unref (stream);
+  g_object_unref (task);
 }
 
 static void
@@ -240,13 +237,11 @@ flush_async (GOutputStream       *stream,
              GAsyncReadyCallback  callback,
              gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   GOutputStream *base_stream;
 
-  res = g_simple_async_result_new (G_OBJECT (stream),
-                                   callback,
-                                   user_data,
-                                   flush_async);
+  task = g_task_new (stream, cancellable, callback, user_data);
+  g_task_set_source_tag (task, flush_async);
 
   base_stream =
     g_filter_output_stream_get_base_stream (G_FILTER_OUTPUT_STREAM (stream));
@@ -254,7 +249,7 @@ flush_async (GOutputStream       *stream,
                                io_priority,
                                cancellable,
                                base_stream_on_flush,
-                               res);
+                               task);
 }
 
 static gboolean
@@ -262,13 +257,11 @@ flush_finish (GOutputStream  *stream,
               GAsyncResult   *res,
               GError        **error)
 {
-  g_return_val_if_fail (g_simple_async_result_is_valid (res,
-                                                        G_OBJECT (stream),
-                                                        flush_async),
+  g_return_val_if_fail (g_task_is_valid (res, stream), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (res)) == flush_async,
                         FALSE);
 
-  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (res),
-                                                  error);
+  return g_task_propagate_boolean (G_TASK (res), error);
 }
 
 /* public methods */
