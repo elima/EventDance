@@ -70,7 +70,7 @@ struct _EvdConnectionPrivate
   gboolean tls_handshaking;
   gboolean tls_active;
   EvdTlsSession *tls_session;
-  GSimpleAsyncResult *async_result;
+  GTask *pending_task;
 
   gboolean connected;
   gboolean closing;
@@ -218,7 +218,7 @@ evd_connection_init (EvdConnection *self)
   priv->write_src_id = 0;
   priv->close_src_id = 0;
 
-  priv->async_result = NULL;
+  priv->pending_task = NULL;
   priv->tls_session = NULL;
   priv->tls_active = FALSE;
 
@@ -240,8 +240,7 @@ evd_connection_finalize (GObject *obj)
   if (self->priv->tls_session != NULL)
     g_object_unref (self->priv->tls_session);
 
-  if (self->priv->async_result != NULL)
-    g_object_unref (self->priv->async_result);
+  g_clear_object (&self->priv->pending_task);
 
   g_free (self->priv->remote_addr_st);
 
@@ -395,20 +394,25 @@ evd_connection_close_internal (GIOStream     *stream,
       g_object_unref (self);
     }
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
+      const gchar *message;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
       if (self->priv->tls_handshaking)
-        g_simple_async_result_set_error (res,
-                                         G_IO_ERROR,
-                                         G_IO_ERROR_CLOSED,
-                                         "Connection closed during TLS handshake");
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+        message = "Connection closed during TLS handshake";
+      else
+        message = "Connection closed";
+
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "%s",
+                               message);
+      g_object_unref (task);
     }
 
   self->priv->tls_handshaking = FALSE;
@@ -549,7 +553,7 @@ evd_connection_tls_handshake (EvdConnection *self)
   GError *error = NULL;
   GIOCondition direction;
   gint result;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   direction = evd_tls_session_get_direction (TLS_SESSION (self));
   if ( (direction == G_IO_IN && self->priv->read_src_id != 0) ||
@@ -563,17 +567,24 @@ evd_connection_tls_handshake (EvdConnection *self)
 
   self->priv->tls_handshaking = FALSE;
 
-  res = self->priv->async_result;
-  self->priv->async_result = NULL;
+  task = self->priv->pending_task;
+  self->priv->pending_task = NULL;
 
   if (result < 0)
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      if (task != NULL)
+        g_task_return_error (task, error);
+      else
+        g_error_free (error);
+    }
+  else
+    {
+      if (task != NULL)
+        g_task_return_boolean (task, TRUE);
     }
 
-  g_simple_async_result_complete_in_idle (res);
-  g_object_unref (res);
+  if (task != NULL)
+    g_object_unref (task);
 
   if (result > 0)
     {
@@ -1068,43 +1079,40 @@ evd_connection_starttls (EvdConnection       *self,
                          gpointer             user_data)
 {
   EvdTlsSession *session;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_CONNECTION (self));
   g_return_if_fail (mode == EVD_TLS_MODE_CLIENT || mode == EVD_TLS_MODE_SERVER);
 
   /* @TODO: use cancellable object for something */
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_connection_starttls);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_connection_starttls);
 
   if (! self->priv->connected)
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "The connection has been closed");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "The connection has been closed");
+      g_object_unref (task);
 
       return;
     }
 
   if (self->priv->tls_active)
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_BUSY,
-                                       "SSL/TLS was already started");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_BUSY,
+                               "SSL/TLS was already started");
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   self->priv->tls_active = TRUE;
 
@@ -1153,19 +1161,13 @@ evd_connection_starttls_finish (EvdConnection  *self,
                                 GAsyncResult   *result,
                                 GError        **error)
 {
-  gboolean res;
-
   g_return_val_if_fail (EVD_IS_CONNECTION (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                 G_OBJECT (self),
-                                                 evd_connection_starttls),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_connection_starttls,
                         FALSE);
 
-  res =
-    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                             error);
-
-  return res;
+  return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 gboolean
