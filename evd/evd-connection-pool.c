@@ -89,7 +89,7 @@ static gboolean group_add_stream                          (EvdIoStreamGroup *gro
 static gboolean group_remove_stream                       (EvdIoStreamGroup *group,
                                                            GIOStream        *io_stream);
 
-static void     evd_connection_pool_unref_request         (GSimpleAsyncResult *result);
+static void     evd_connection_pool_cancel_task           (GTask *task);
 
 static void     evd_connection_pool_create_new_socket     (EvdConnectionPool *self);
 
@@ -176,7 +176,7 @@ evd_connection_pool_dispose (GObject *obj)
   if (self->priv->requests != NULL)
     {
       g_queue_free_full (self->priv->requests,
-                         (GDestroyNotify) evd_connection_pool_unref_request);
+                         (GDestroyNotify) evd_connection_pool_cancel_task);
       self->priv->requests = NULL;
     }
 
@@ -290,12 +290,11 @@ free_connection_in_queue (gpointer user_data)
 static void
 evd_connection_pool_finish_request (EvdConnectionPool  *self,
                                     EvdConnection      *conn,
-                                    GSimpleAsyncResult *res)
+                                    GTask             *task)
 {
   g_object_ref (conn);
-  g_simple_async_result_set_op_res_gpointer (res, conn, g_object_unref);
-  g_simple_async_result_complete_in_idle (res);
-  g_object_unref (res);
+  g_task_return_pointer (task, conn, g_object_unref);
+  g_object_unref (task);
 
   evd_io_stream_group_remove (EVD_IO_STREAM_GROUP (self), G_IO_STREAM (conn));
 }
@@ -305,11 +304,11 @@ connection_available (EvdConnectionPool *self, EvdConnection *conn)
 {
   if (HAS_REQUESTS (self))
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = G_SIMPLE_ASYNC_RESULT (g_queue_pop_head (self->priv->requests));
+      task = G_TASK (g_queue_pop_head (self->priv->requests));
 
-      evd_connection_pool_finish_request (self, conn, res);
+      evd_connection_pool_finish_request (self, conn, task);
 
       evd_connection_pool_create_min_conns (self);
     }
@@ -409,14 +408,13 @@ group_remove_stream (EvdIoStreamGroup *group, GIOStream *io_stream)
 }
 
 static void
-evd_connection_pool_unref_request (GSimpleAsyncResult *result)
+evd_connection_pool_cancel_task (GTask *task)
 {
-  g_simple_async_result_set_error (result,
-                                   G_IO_ERROR,
-                                   G_IO_ERROR_CLOSED,
-                                   "Connection pool destroyed");
-  g_simple_async_result_complete (result);
-  g_object_unref (result);
+  g_task_return_new_error (task,
+                           G_IO_ERROR,
+                           G_IO_ERROR_CLOSED,
+                           "Connection pool destroyed");
+  g_object_unref (task);
 }
 
 static gboolean
@@ -546,31 +544,34 @@ evd_connection_pool_get_connection (EvdConnectionPool   *self,
                                     GAsyncReadyCallback  callback,
                                     gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_CONNECTION_POOL (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_connection_pool_get_connection);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_connection_pool_get_connection);
 
   if (g_queue_get_length (self->priv->conns) > 0)
     {
       EvdConnection *conn;
 
       conn = EVD_CONNECTION (g_queue_pop_head (self->priv->conns));
-      evd_connection_pool_finish_request (self, conn, res);
+      evd_connection_pool_finish_request (self, conn, task);
+      task = NULL;
       g_object_unref (conn);
 
       evd_connection_pool_create_min_conns (self);
     }
   else
     {
-      g_queue_push_tail (self->priv->requests, res);
+
+      g_queue_push_tail (self->priv->requests, g_object_ref (task));
 
       evd_connection_pool_create_min_conns (self);
     }
+
+  if (task != NULL)
+    g_object_unref (task);
 }
 
 /**
@@ -584,26 +585,12 @@ evd_connection_pool_get_connection_finish (EvdConnectionPool  *self,
                                            GError            **error)
 {
   g_return_val_if_fail (EVD_IS_CONNECTION_POOL (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                               G_OBJECT (self),
-                               evd_connection_pool_get_connection),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_connection_pool_get_connection,
                         NULL);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    {
-      EvdConnection *conn;
-
-      conn =
-        g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
-      g_object_ref (conn);
-
-      return conn;
-    }
-  else
-    {
-      return NULL;
-    }
+  return g_task_propagate_pointer (G_TASK (result), error);
 }
 
 gboolean
