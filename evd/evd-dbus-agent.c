@@ -61,7 +61,6 @@ typedef struct
   guint32 conn_id;
   guint32 proxy_id;
   GDBusProxy *proxy;
-  GSimpleAsyncResult *async_res;
 } ProxyData;
 
 typedef struct
@@ -402,30 +401,30 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
 {
   GDBusConnection *dbus_conn;
   GError *error = NULL;
-  GSimpleAsyncResult *result;
   ObjectData *obj_data;
   ConnData *conn_data;
   ObjConnData *obj_conn_data;
+  GTask *task;
 
-  result = G_SIMPLE_ASYNC_RESULT (user_data);
-
-  obj_conn_data =
-    (ObjConnData *) g_simple_async_result_get_op_res_gpointer (result);
+  task = G_TASK (user_data);
+  obj_conn_data = g_task_get_task_data (task);
   obj_data = obj_conn_data->obj_data;
   conn_data = obj_conn_data->conn_data;
 
-  if ( (dbus_conn = g_dbus_connection_new_for_address_finish (res,
-                                                              &error)) == NULL)
+  dbus_conn = g_dbus_connection_new_for_address_finish (res, &error);
+  if (dbus_conn == NULL)
     {
+      g_task_set_task_data (task, NULL, NULL);
+
       evd_dbus_agent_conn_data_unref (conn_data);
       g_slice_free (ObjConnData, obj_conn_data);
 
-      g_simple_async_result_set_from_error (result, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
     }
   else
     {
       guint *conn_id;
+      guint conn_value;
 
       conn_data->conn = dbus_conn;
 
@@ -434,11 +433,13 @@ evd_dbus_agent_on_new_dbus_connection (GObject      *obj,
       if (conn_data->reuse)
         evd_dbus_agent_cache_conn_in_global_cache (conn_data);
 
-      g_simple_async_result_set_op_res_gpointer (result, conn_id, NULL);
+      conn_value = *conn_id;
+
+      g_task_set_task_data (task, NULL, NULL);
+      g_task_return_pointer (task, GUINT_TO_POINTER (conn_value), NULL);
     }
 
-  g_simple_async_result_complete (result);
-  g_object_unref (result);
+  g_object_unref (task);
 }
 
 static void
@@ -446,20 +447,18 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
                                   GAsyncResult *res,
                                   gpointer      user_data)
 {
-  GSimpleAsyncResult *result;
   GDBusProxy *proxy;
   GError *error = NULL;
   ProxyData *proxy_data;
+  GTask *task;
 
-  proxy_data = (ProxyData *) user_data;
-
-  result = proxy_data->async_res;
+  task = G_TASK (user_data);
+  proxy_data = g_task_get_task_data (task);
 
   if ( (proxy = g_dbus_proxy_new_finish (res, &error)) != NULL)
     {
       ObjectData *obj_data;
       GDBusProxyFlags flags;
-      guint *proxy_id;
 
       obj_data = proxy_data->obj_data;
 
@@ -471,12 +470,6 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
       g_hash_table_insert (obj_data->proxies,
                            &proxy_data->proxy_id,
                            proxy_data);
-
-      proxy_id = g_new (guint, 1);
-      *proxy_id = obj_data->proxy_counter;
-      g_simple_async_result_set_op_res_gpointer (result,
-                                                 proxy_id,
-                                                 g_free);
 
       flags = g_dbus_proxy_get_flags (proxy);
       if ( (flags & G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS) == 0)
@@ -491,18 +484,21 @@ evd_dbus_agent_on_new_dbus_proxy (GObject      *obj,
           g_signal_connect (proxy,
                         "g-properties-changed",
                         G_CALLBACK (evd_dbus_agent_on_proxy_properties_changed),
-                        proxy_data);
+                           proxy_data);
         }
     }
   else
     {
-      g_simple_async_result_set_from_error (proxy_data->async_res, error);
-      g_error_free (error);
+      g_task_set_task_data (task, NULL, NULL);
+      g_task_return_error (task, error);
       evd_dbus_agent_free_proxy_data (proxy_data);
+      g_object_unref (task);
+      return;
     }
 
-  g_simple_async_result_complete (result);
-  g_object_unref (result);
+  g_task_set_task_data (task, NULL, NULL);
+  g_task_return_pointer (task, GUINT_TO_POINTER (proxy_data->proxy_id), NULL);
+  g_object_unref (task);
 }
 
 static ProxyData *
@@ -731,7 +727,7 @@ evd_dbus_agent_new_connection (GObject             *object,
                                GAsyncReadyCallback  callback,
                                gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   ObjectData *data;
   gchar *addr;
   ObjConnData *obj_conn_data;
@@ -744,13 +740,11 @@ evd_dbus_agent_new_connection (GObject             *object,
   if (data == NULL)
     data = evd_dbus_agent_setup_object_data (object);
 
+  task = g_task_new (object, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_dbus_agent_new_connection);
+
   obj_conn_data = g_slice_new (ObjConnData);
   obj_conn_data->obj_data = data;
-
-  res = g_simple_async_result_new (object,
-                                   callback,
-                                   user_data,
-                                   evd_dbus_agent_new_connection);
 
   /* if 'address' is an alias, dereference it */
   if ( (addr = g_hash_table_lookup (data->addr_aliases, address)) == NULL)
@@ -770,12 +764,11 @@ evd_dbus_agent_new_connection (GObject             *object,
           conn_id = evd_dbus_agent_bind_connection_to_object (data,
                                                               obj_conn_data);
 
-          g_simple_async_result_set_op_res_gpointer (res,
-                                                     conn_id,
-                                                     NULL);
-          g_simple_async_result_complete_in_idle (res);
-          g_object_unref (res);
-
+          g_task_return_pointer (task,
+                                 GUINT_TO_POINTER (*conn_id),
+                                 NULL);
+          g_object_unref (task);
+          g_free (addr);
           return;
         }
     }
@@ -783,7 +776,7 @@ evd_dbus_agent_new_connection (GObject             *object,
   conn_data = evd_dbus_agent_conn_data_new (addr, reuse);
   obj_conn_data->conn_data = conn_data;
 
-  g_simple_async_result_set_op_res_gpointer (res, obj_conn_data, NULL);
+  g_task_set_task_data (task, obj_conn_data, NULL);
 
   g_dbus_connection_new_for_address (addr,
                                 G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION |
@@ -791,9 +784,10 @@ evd_dbus_agent_new_connection (GObject             *object,
                                 NULL,
                                 cancellable,
                                 evd_dbus_agent_on_new_dbus_connection,
-                                res);
+                                g_object_ref (task));
 
   g_free (addr);
+  g_object_unref (task);
 }
 
 guint
@@ -802,26 +796,17 @@ evd_dbus_agent_new_connection_finish (GObject       *object,
                                       GError       **error)
 {
   g_return_val_if_fail (G_IS_OBJECT (object), 0);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                object,
-                                                evd_dbus_agent_new_connection),
+  g_return_val_if_fail (g_task_is_valid (result, object), 0);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_dbus_agent_new_connection,
                         0);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    {
-      guint *conn_id;
+  gpointer conn_ptr = g_task_propagate_pointer (G_TASK (result), error);
 
-      conn_id =
-        g_simple_async_result_get_op_res_gpointer
-        (G_SIMPLE_ASYNC_RESULT (result));
+  if (conn_ptr == NULL)
+    return 0;
 
-      return *conn_id;
-    }
-  else
-    {
-      return 0;
-    }
+  return GPOINTER_TO_UINT (conn_ptr);
 }
 
 gboolean
@@ -900,17 +885,15 @@ evd_dbus_agent_new_proxy (GObject             *object,
                           gpointer             user_data)
 {
   GDBusConnection *conn;
-  GSimpleAsyncResult *res;
+  GTask *task;
   GError *error = NULL;
   ProxyData *proxy_data;
 
   g_return_if_fail (G_IS_OBJECT (object));
   g_return_if_fail (connection_id > 0);
 
-  res = g_simple_async_result_new (object,
-                                   callback,
-                                   user_data,
-                                   evd_dbus_agent_new_proxy);
+  task = g_task_new (object, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_dbus_agent_new_proxy);
 
   if ( (conn = evd_dbus_agent_get_connection (object,
                                               connection_id,
@@ -920,13 +903,12 @@ evd_dbus_agent_new_proxy (GObject             *object,
 
       data = evd_dbus_agent_get_object_data (object);
 
-      g_simple_async_result_set_op_res_gpointer (res, data, NULL);
-
       proxy_data = g_slice_new (ProxyData);
       proxy_data->obj_data = data;
       proxy_data->conn_id = connection_id;
-      proxy_data->async_res = res;
       proxy_data->proxy = NULL;
+
+      g_task_set_task_data (task, proxy_data, NULL);
 
       g_dbus_proxy_new (conn,
                         flags,
@@ -936,15 +918,14 @@ evd_dbus_agent_new_proxy (GObject             *object,
                         iface_name,
                         cancellable,
                         evd_dbus_agent_on_new_dbus_proxy,
-                        proxy_data);
+                        g_object_ref (task));
+
+      g_object_unref (task);
     }
   else
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
     }
 }
 
@@ -954,26 +935,17 @@ evd_dbus_agent_new_proxy_finish (GObject       *object,
                                  GError       **error)
 {
   g_return_val_if_fail (G_IS_OBJECT (object), 0);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                object,
-                                                evd_dbus_agent_new_proxy),
+  g_return_val_if_fail (g_task_is_valid (result, object), 0);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_dbus_agent_new_proxy,
                         0);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    {
-      guint *proxy_id;
+  gpointer proxy_ptr = g_task_propagate_pointer (G_TASK (result), error);
 
-      proxy_id =
-        g_simple_async_result_get_op_res_gpointer
-        (G_SIMPLE_ASYNC_RESULT (result));
+  if (proxy_ptr == NULL)
+    return 0;
 
-      return *proxy_id;
-    }
-  else
-    {
-      return 0;
-    }
+  return GPOINTER_TO_UINT (proxy_ptr);
 }
 
 gboolean
