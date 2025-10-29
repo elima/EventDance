@@ -105,15 +105,12 @@ evd_resolver_on_resolver_result (GResolver    *resolver,
 {
   GList *result = NULL;
   GError *error = NULL;
-  GSimpleAsyncResult *res;
-  EvdResolverData *data;
-
-  res = G_SIMPLE_ASYNC_RESULT (user_data);
-  data = (EvdResolverData *) g_simple_async_result_get_op_res_gpointer (res);
+  GTask *task = G_TASK (user_data);
+  EvdResolverData *data = g_task_get_task_data (task);
 
   if ((result = g_resolver_lookup_by_name_finish (resolver,
-						  async_result,
-						  &error)) != NULL)
+				  async_result,
+				  &error)) != NULL)
     {
       GList *node = result;
       GInetAddress *inet_addr;
@@ -133,12 +130,14 @@ evd_resolver_on_resolver_result (GResolver    *resolver,
     }
   else
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+      g_object_unref (task);
+      return;
     }
 
-  g_simple_async_result_complete (res);
-  g_object_unref (res);
+  g_task_return_pointer (task, data->addresses, (GDestroyNotify) evd_resolver_free_addresses);
+  data->addresses = NULL;
+  g_object_unref (task);
 }
 
 /* public methods */
@@ -160,21 +159,17 @@ evd_resolver_resolve (EvdResolver         *self,
                       GAsyncReadyCallback  callback,
                       gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   EvdResolverData *data;
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_resolver_resolve);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_resolver_resolve);
 
   data = g_slice_new0 (EvdResolverData);
   data->resolver = self;
   g_object_ref (self);
 
-  g_simple_async_result_set_op_res_gpointer (res,
-                                             data,
-                                             evd_resolver_free_data);
+  g_task_set_task_data (task, data, (GDestroyNotify) evd_resolver_free_data);
 
   if (address[0] == '/')
     {
@@ -186,10 +181,12 @@ evd_resolver_resolve (EvdResolver         *self,
       addr = (GSocketAddress *) g_unix_socket_address_new (address);
       data->addresses = g_list_append (data->addresses, addr);
 #else
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_NOT_SUPPORTED,
-                                       "Unix socket addresses are not supported");
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_NOT_SUPPORTED,
+                               "Unix socket addresses are not supported");
+      g_object_unref (task);
+      return;
 #endif
     }
   else
@@ -202,8 +199,9 @@ evd_resolver_resolve (EvdResolver         *self,
 
       if ( (connectable = g_network_address_parse (address, 0, &error)) == NULL)
         {
-          g_simple_async_result_set_from_error (res, error);
-          g_error_free (error);
+          g_task_return_error (task, error);
+          g_object_unref (task);
+          return;
         }
       else
         {
@@ -237,17 +235,19 @@ evd_resolver_resolve (EvdResolver         *self,
                           domain,
                           cancellable,
                           (GAsyncReadyCallback) evd_resolver_on_resolver_result,
-                          (gpointer) res);
+                          g_object_ref (task));
 
               g_free (domain);
 
+              g_object_unref (task);
               return;
             }
         }
     }
 
-  g_simple_async_result_complete_in_idle (res);
-  g_object_unref (res);
+  g_task_return_pointer (task, data->addresses, (GDestroyNotify) evd_resolver_free_addresses);
+  data->addresses = NULL;
+  g_object_unref (task);
 }
 
 /**
@@ -260,31 +260,13 @@ evd_resolver_resolve_finish (EvdResolver   *self,
                              GAsyncResult  *result,
                              GError       **error)
 {
-  GSimpleAsyncResult *res;
-
   g_return_val_if_fail (EVD_IS_RESOLVER (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                      G_OBJECT (self),
-                                                      evd_resolver_resolve),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_resolver_resolve,
                         NULL);
 
-  res = G_SIMPLE_ASYNC_RESULT (result);
-  if (! g_simple_async_result_propagate_error (res, error))
-    {
-      EvdResolverData *data;
-      GList *addresses;
-
-      data = g_simple_async_result_get_op_res_gpointer (res);
-
-      addresses = data->addresses;
-      data->addresses = NULL;
-
-      return addresses;
-    }
-  else
-    {
-      return NULL;
-    }
+  return g_task_propagate_pointer (G_TASK (result), error);
 }
 
 /**
