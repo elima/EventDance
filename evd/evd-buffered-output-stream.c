@@ -40,7 +40,7 @@ struct _EvdBufferedOutputStreamPrivate
 
   gint priority;
 
-  GSimpleAsyncResult *async_result;
+  GTask *pending_task;
   gssize actual_size;
 };
 
@@ -147,7 +147,7 @@ evd_buffered_output_stream_init (EvdBufferedOutputStream *self)
 
   priv->priority = G_PRIORITY_DEFAULT;
 
-  priv->async_result = NULL;
+  priv->pending_task = NULL;
   priv->actual_size = 0;
 }
 
@@ -158,8 +158,7 @@ evd_buffered_output_stream_finalize (GObject *obj)
 
   g_string_free (self->priv->buffer, TRUE);
 
-  if (self->priv->async_result != NULL)
-    g_object_unref (self->priv->async_result);
+  g_clear_object (&self->priv->pending_task);
 
   G_OBJECT_CLASS (evd_buffered_output_stream_parent_class)->finalize (obj);
 }
@@ -312,12 +311,10 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
   GError *error = NULL;
   gssize actual_size;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_buffered_output_stream_write_async);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_buffered_output_stream_write_async);
 
   actual_size = evd_buffered_output_stream_write (stream,
                                                   buffer,
@@ -327,23 +324,20 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
 
   if (actual_size < 0)
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
+      g_task_return_error (task, error);
       g_output_stream_clear_pending (stream);
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_object_unref (task);
 
       return;
     }
 
+  self->priv->actual_size = actual_size;
+
   if (actual_size == size)
     {
-      g_simple_async_result_set_op_res_gssize (res, actual_size);
-
+      g_task_return_boolean (task, TRUE);
       g_output_stream_clear_pending (stream);
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_object_unref (task);
     }
   else
     {
@@ -351,7 +345,8 @@ evd_buffered_output_stream_write_async (GOutputStream       *stream,
 
       /* @TODO: cache what was left unbuffered and add it after buffer is flushed */
 
-      self->priv->async_result = res;
+      g_clear_object (&self->priv->pending_task);
+      self->priv->pending_task = task;
     }
 }
 
@@ -360,16 +355,20 @@ evd_buffered_output_stream_write_finish (GOutputStream  *stream,
                                          GAsyncResult   *result,
                                          GError        **error)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
+  EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
+  GTask *task;
 
-  if (! g_simple_async_result_propagate_error (res, error))
-    {
-      return g_simple_async_result_get_op_res_gssize (res);
-    }
+  g_return_val_if_fail (g_task_is_valid (result, self), -1);
+
+  task = G_TASK (result);
+  g_return_val_if_fail (g_task_get_source_tag (task) ==
+                        evd_buffered_output_stream_write_async,
+                        -1);
+
+  if (g_task_propagate_boolean (task, error))
+    return self->priv->actual_size;
   else
-    {
-      return -1;
-    }
+    return -1;
 }
 
 static void
@@ -379,28 +378,31 @@ evd_buffered_output_stream_on_base_stream_flushed (GObject      *obj,
 {
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (user_data);
   GError *error = NULL;
+  gboolean success;
 
   g_assert (! g_output_stream_has_pending (G_OUTPUT_STREAM (obj)));
 
-  if (! g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
-                                      result,
-                                      &error))
+  success = g_output_stream_flush_finish (G_OUTPUT_STREAM (obj),
+                                          result,
+                                          &error);
+
+  if (self->priv->pending_task != NULL)
     {
-      if (self->priv->async_result != NULL)
-        g_simple_async_result_take_error (self->priv->async_result, error);
+      GTask *task;
+
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
+
+      if (success)
+        g_task_return_boolean (task, TRUE);
       else
-        g_error_free (error);
+        g_task_return_error (task, error);
+
+      g_object_unref (task);
     }
-
-  if (self->priv->async_result != NULL)
+  else if (!success)
     {
-      GSimpleAsyncResult *res;
-
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_error_free (error);
     }
 
   g_output_stream_clear_pending (G_OUTPUT_STREAM (self));
@@ -448,18 +450,16 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
 
   if (actual_size < 0)
     {
-      if (self->priv->async_result != NULL)
+      if (self->priv->pending_task != NULL)
         {
-          GSimpleAsyncResult *res;
+          GTask *task;
 
-          res = self->priv->async_result;
-          self->priv->async_result = NULL;
+          task = self->priv->pending_task;
+          self->priv->pending_task = NULL;
 
-          g_simple_async_result_set_from_error (res, _error);
-
+          g_task_return_error (task, g_error_copy (_error));
           g_output_stream_clear_pending (stream);
-          g_simple_async_result_complete_in_idle (res);
-          g_object_unref (res);
+          g_object_unref (task);
         }
 
       g_propagate_error (error, _error);
@@ -471,12 +471,12 @@ evd_buffered_output_stream_flush (GOutputStream  *stream,
       g_string_erase (self->priv->buffer, 0, actual_size);
       self->priv->actual_size += actual_size;
 
-      if (self->priv->async_result != NULL)
+      if (self->priv->pending_task != NULL)
         {
           gpointer source_tag;
 
           source_tag =
-            g_simple_async_result_get_source_tag (self->priv->async_result);
+            g_task_get_source_tag (self->priv->pending_task);
 
           if (source_tag == evd_buffered_output_stream_write_async)
             {
@@ -504,28 +504,21 @@ evd_buffered_output_stream_flush_async (GOutputStream       *stream,
 {
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
   GError *error = NULL;
+  GTask *task;
+
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_buffered_output_stream_flush_async);
 
   if (! evd_buffered_output_stream_flush (stream, cancellable, &error))
     {
-      GSimpleAsyncResult *res;
-
-      res = g_simple_async_result_new_from_error (G_OBJECT (self),
-                                                  callback,
-                                                  user_data,
-                                                  error);
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
-
-      g_error_free (error);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result =
-    g_simple_async_result_new (G_OBJECT (self),
-                               callback,
-                               user_data,
-                               evd_buffered_output_stream_flush_async);
+  g_clear_object (&self->priv->pending_task);
+  self->priv->pending_task = task;
 
   if (self->priv->buffer->len > 0)
     self->priv->flushing = TRUE;
@@ -538,13 +531,16 @@ evd_buffered_output_stream_flush_finish (GOutputStream  *stream,
                                          GAsyncResult   *res,
                                          GError        **error)
 {
-  g_return_val_if_fail (g_simple_async_result_is_valid (res,
-                                        G_OBJECT (stream),
-                                        evd_buffered_output_stream_flush_async),
+  GTask *task;
+
+  g_return_val_if_fail (g_task_is_valid (res, stream), FALSE);
+
+  task = G_TASK (res);
+  g_return_val_if_fail (g_task_get_source_tag (task) ==
+                        evd_buffered_output_stream_flush_async,
                         FALSE);
 
-  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (res),
-                                                  error);
+  return g_task_propagate_boolean (task, error);
 }
 
 static gboolean
@@ -554,20 +550,18 @@ evd_buffered_output_stream_close (GOutputStream  *stream,
 {
   EvdBufferedOutputStream *self = EVD_BUFFERED_OUTPUT_STREAM (stream);
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "Buffered output stream is closed");
-
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "Buffered output stream is closed");
+      g_object_unref (task);
     }
 
   return TRUE;
