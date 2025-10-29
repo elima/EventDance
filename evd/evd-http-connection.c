@@ -36,7 +36,7 @@
 /* private data */
 struct _EvdHttpConnectionPrivate
 {
-  GSimpleAsyncResult *async_result;
+  GTask *pending_task;
 
   GString *buf;
   gchar *last_buf_block;
@@ -82,6 +82,17 @@ struct ContentReadData
   gboolean more;
 };
 
+static GTask *
+evd_http_connection_steal_pending_task (EvdHttpConnection *self)
+{
+  GTask *task;
+
+  task = self->priv->pending_task;
+  self->priv->pending_task = NULL;
+
+  return task;
+}
+
 static void     evd_http_connection_class_init         (EvdHttpConnectionClass *class);
 static void     evd_http_connection_init               (EvdHttpConnection *self);
 
@@ -121,7 +132,7 @@ evd_http_connection_init (EvdHttpConnection *self)
   priv = evd_http_connection_get_instance_private (self);
   self->priv = priv;
 
-  priv->async_result = NULL;
+  priv->pending_task = NULL;
 
   priv->buf = g_string_new ("");
 
@@ -150,15 +161,18 @@ evd_http_connection_dispose (GObject *obj)
       self->priv->current_request = NULL;
     }
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      g_simple_async_result_set_error (self->priv->async_result,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_FAILED,
-                                       "HTTP connection destroyed while an operation was pending");
-      g_simple_async_result_complete (self->priv->async_result);
-      g_object_unref (self->priv->async_result);
-      self->priv->async_result = NULL;
+      GTask *task;
+
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
+
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_FAILED,
+                               "HTTP connection destroyed while an operation was pending");
+      g_object_unref (task);
     }
 
   G_OBJECT_CLASS (evd_http_connection_parent_class)->dispose (obj);
@@ -192,19 +206,18 @@ evd_http_connection_close (GIOStream     *stream,
                                                                     cancellable,
                                                                     error);
 
-  if (self->priv->async_result != NULL)
+  if (self->priv->pending_task != NULL)
     {
-      GSimpleAsyncResult *res;
+      GTask *task;
 
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = self->priv->pending_task;
+      self->priv->pending_task = NULL;
 
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "Connection closed during async operation");
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "Connection closed during async operation");
+      g_object_unref (task);
     }
 
   return result;
@@ -256,17 +269,16 @@ static void
 evd_http_connection_on_read_headers (EvdHttpConnection *self,
                                      GString           *buf)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   gpointer source_tag;
 
-  if (self->priv->async_result == NULL)
+  if (self->priv->pending_task == NULL)
     return;
 
   g_io_stream_clear_pending (G_IO_STREAM (self));
 
-  res = self->priv->async_result;
-  self->priv->async_result = NULL;
-  source_tag = g_simple_async_result_get_source_tag (res);
+  task = evd_http_connection_steal_pending_task (self);
+  source_tag = g_task_get_source_tag (task);
 
   if (source_tag == evd_http_connection_read_request_headers)
     {
@@ -303,8 +315,6 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
 
           evd_http_connection_set_current_request (self, request);
 
-          g_simple_async_result_set_op_res_gpointer (res, request, g_object_unref);
-
           self->priv->encoding =
             soup_message_headers_get_encoding (headers);
           self->priv->content_len =
@@ -318,16 +328,20 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
              g_strstr_len (conn_header, -1, "keep-alive") != NULL) ||
             (version == SOUP_HTTP_1_1 && conn_header != NULL &&
              g_strstr_len (conn_header, -1, "close") == NULL);
+
+          g_task_return_pointer (task, request, g_object_unref);
         }
       else
         {
           soup_message_headers_unref (headers);
 
-          g_simple_async_result_set_error (res,
-                                           G_IO_ERROR,
-                                           G_IO_ERROR_INVALID_DATA,
-                                           "Failed to parse HTTP request headers");
+          g_task_return_new_error (task,
+                                   G_IO_ERROR,
+                                   G_IO_ERROR_INVALID_DATA,
+                                   "Failed to parse HTTP request headers");
         }
+
+      g_object_unref (task);
 
       g_free (method);
       g_free (path);
@@ -335,38 +349,50 @@ evd_http_connection_on_read_headers (EvdHttpConnection *self,
   else if (source_tag == evd_http_connection_read_response_headers)
     {
       struct EvdHttpConnectionResponseHeaders *response;
+      gboolean parsed;
 
       response = g_new0 (struct EvdHttpConnectionResponseHeaders, 1);
       response->headers =
         soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
 
-      if (soup_headers_parse_response (buf->str,
-                                       buf->len - 2,
-                                       response->headers,
-                                       &response->version,
-                                       &response->status_code,
-                                       &response->reason_phrase))
-        {
-          g_simple_async_result_set_op_res_gpointer (res,
-                                  response,
-                                  evd_http_connection_response_headers_destroy);
+      parsed =
+        soup_headers_parse_response (buf->str,
+                                     buf->len - 2,
+                                     response->headers,
+                                     &response->version,
+                                     &response->status_code,
+                                     &response->reason_phrase);
 
+      if (parsed)
+        {
           self->priv->encoding =
             soup_message_headers_get_encoding (response->headers);
           self->priv->content_len =
             soup_message_headers_get_content_length (response->headers);
+
+          g_task_return_pointer (task,
+                                 response,
+                                 evd_http_connection_response_headers_destroy);
         }
       else
         {
-          g_simple_async_result_set_error (res,
-                                           G_IO_ERROR,
-                                           G_IO_ERROR_INVALID_DATA,
-                                           "Failed to parse HTTP response headers");
-        }
-    }
+          evd_http_connection_response_headers_destroy (response);
 
-  g_simple_async_result_complete_in_idle (res);
-  g_object_unref (res);
+          g_task_return_new_error (task,
+                                   G_IO_ERROR,
+                                   G_IO_ERROR_INVALID_DATA,
+                                   "Failed to parse HTTP response headers");
+        }
+      g_object_unref (task);
+    }
+  else
+    {
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_FAILED,
+                               "HTTP connection internal async dispatch error");
+      g_object_unref (task);
+    }
 }
 
 static gint
@@ -467,18 +493,19 @@ evd_http_connection_on_read_headers_block (GObject      *obj,
 
   if (error != NULL)
     {
-      if (self->priv->async_result != NULL)
+      if (self->priv->pending_task != NULL)
         {
-          GSimpleAsyncResult *res;
+          GTask *task;
 
-          res = self->priv->async_result;
-          self->priv->async_result = NULL;
-          g_simple_async_result_set_from_error (res, error);
-          g_simple_async_result_complete_in_idle (res);
-          g_object_unref (res);
+          task = evd_http_connection_steal_pending_task (self);
+          g_task_return_error (task, error);
+          g_object_unref (task);
+          error = NULL;
         }
-
-      g_error_free (error);
+      else
+        {
+          g_error_free (error);
+        }
     }
 
   g_object_unref (self);
@@ -526,29 +553,25 @@ evd_http_connection_read_headers_async (EvdHttpConnection   *self,
                                         gpointer             source_tag)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   source_tag);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, source_tag);
 
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
   self->priv->keepalive = FALSE;
 
-  self->priv->async_result = res;
+  g_assert (self->priv->pending_task == NULL);
+  self->priv->pending_task = task;
 
   g_string_set_size (self->priv->buf, 0);
 
@@ -670,19 +693,32 @@ evd_http_connection_on_read_content_block (GObject      *obj,
   GError *error = NULL;
   gssize size;
   gboolean done = FALSE;
-  gpointer source_tag;
+  gpointer source_tag = NULL;
+  GTask *task;
+  GError *task_error = NULL;
+  gboolean have_pending;
 
-  if ( (size = g_input_stream_read_finish (G_INPUT_STREAM (obj),
-                                           res,
-                                           &error)) > 0)
+  size = g_input_stream_read_finish (G_INPUT_STREAM (obj),
+                                     res,
+                                     &error);
+
+  task = self->priv->pending_task;
+  have_pending = (task != NULL);
+
+  if (!have_pending)
+    goto out;
+
+  source_tag = g_task_get_source_tag (task);
+
+  if (size > 0)
     {
       if (! evd_http_connection_process_read_content (self,
                                                       size,
                                                       &done,
                                                       &error))
         {
-          g_simple_async_result_set_from_error (self->priv->async_result, error);
-          g_error_free (error);
+          task_error = error;
+          error = NULL;
         }
     }
   else if (size == 0)
@@ -691,16 +727,12 @@ evd_http_connection_on_read_content_block (GObject      *obj,
     }
   else
     {
-      g_simple_async_result_set_from_error (self->priv->async_result, error);
-      g_error_free (error);
-
+      task_error = error;
+      error = NULL;
       done = TRUE;
     }
 
-  source_tag =
-    g_simple_async_result_get_source_tag (self->priv->async_result);
-
-  if (source_tag == evd_http_connection_read_all_content)
+  if (task_error == NULL && source_tag == evd_http_connection_read_all_content)
     {
       if (done)
         g_string_set_size (self->priv->buf, self->priv->content_read);
@@ -709,7 +741,7 @@ evd_http_connection_on_read_content_block (GObject      *obj,
     }
   else if (source_tag == evd_http_connection_read_content)
     {
-      if (size >= 0)
+      if (size >= 0 && task_error == NULL)
         {
           struct ContentReadData *data;
 
@@ -717,9 +749,7 @@ evd_http_connection_on_read_content_block (GObject      *obj,
           data->size = size;
           data->more = ! done;
 
-          g_simple_async_result_set_op_res_gpointer (self->priv->async_result,
-                                                     data,
-                                                     g_free);
+          g_task_set_task_data (task, data, g_free);
         }
 
       done = TRUE;
@@ -727,17 +757,38 @@ evd_http_connection_on_read_content_block (GObject      *obj,
 
   if (done)
     {
-      GSimpleAsyncResult *res;
-
-      res = self->priv->async_result;
-      self->priv->async_result = NULL;
+      task = evd_http_connection_steal_pending_task (self);
 
       g_io_stream_clear_pending (G_IO_STREAM (self));
 
-      g_simple_async_result_complete (res);
-      g_object_unref (res);
+      if (task_error != NULL)
+        {
+          g_task_return_error (task, task_error);
+          task_error = NULL;
+        }
+      else if (source_tag == evd_http_connection_read_all_content ||
+               source_tag == evd_http_connection_read_content)
+        {
+          g_task_return_boolean (task, TRUE);
+        }
+      else
+        {
+          g_task_return_new_error (task,
+                                   G_IO_ERROR,
+                                   G_IO_ERROR_FAILED,
+                                   "Unknown HTTP connection read task");
+        }
+
+      g_object_unref (task);
+    }
+  else if (task_error != NULL)
+    {
+      g_error_free (task_error);
     }
 
+ out:
+  if (error != NULL)
+    g_error_free (error);
   g_object_unref (self);
 }
 
@@ -768,19 +819,20 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
   gssize size;
   GError *error = NULL;
   EvdHttpConnection *self = EVD_HTTP_CONNECTION (user_data);
-  GSimpleAsyncResult *_res;
+  GTask *task;
 
   g_io_stream_clear_pending (G_IO_STREAM (self));
 
-  if (self->priv->async_result == NULL)
+  task = self->priv->pending_task;
+
+  if (task == NULL)
     {
       /* this happens if the connection was closed while asynchronously
          writing request headers */
       goto out;
     }
 
-  _res = self->priv->async_result;
-  self->priv->async_result = NULL;
+  task = evd_http_connection_steal_pending_task (self);
 
   size = g_output_stream_write_finish (G_OUTPUT_STREAM (obj),
                                            res,
@@ -788,12 +840,14 @@ evd_http_connection_on_write_request_headers (GObject      *obj,
 
   if (size < 0)
     {
-      g_simple_async_result_set_from_error (_res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+    }
+  else
+    {
+      g_task_return_boolean (task, TRUE);
     }
 
-  g_simple_async_result_complete (_res);
-  g_object_unref (_res);
+  g_object_unref (task);
 
  out:
   g_object_unref (self);
@@ -893,41 +947,36 @@ evd_http_connection_read_response_headers_finish (EvdHttpConnection   *self,
                                                   GError             **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                               G_OBJECT (self),
-                               evd_http_connection_read_response_headers),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_http_connection_read_response_headers,
                         FALSE);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
+  struct EvdHttpConnectionResponseHeaders *response;
+  SoupMessageHeaders *headers = NULL;
+
+  response = g_task_propagate_pointer (G_TASK (result), error);
+  if (response == NULL)
+    return NULL;
+
+  headers = response->headers;
+  response->headers = NULL;
+
+  if (version != NULL)
+    *version = response->version;
+
+  if (status_code != NULL)
+    *status_code = response->status_code;
+
+  if (reason_phrase != NULL)
     {
-      struct EvdHttpConnectionResponseHeaders *response;
-      SoupMessageHeaders *headers = NULL;
-
-      response =
-        g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
-
-      headers = response->headers;
-      response->headers = NULL;
-
-      if (version != NULL)
-        *version = response->version;
-
-      if (status_code != NULL)
-        *status_code = response->status_code;
-
-      if (reason_phrase != NULL)
-        {
-          *reason_phrase = response->reason_phrase;
-          response->reason_phrase = NULL;
-        }
-
-      return headers;
+      *reason_phrase = response->reason_phrase;
+      response->reason_phrase = NULL;
     }
-  else
-    {
-      return NULL;
-    }
+
+  evd_http_connection_response_headers_destroy (response);
+
+  return headers;
 }
 
 /**
@@ -963,20 +1012,12 @@ evd_http_connection_read_request_headers_finish (EvdHttpConnection  *self,
                                                  GError            **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                               G_OBJECT (self),
-                               evd_http_connection_read_request_headers),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_http_connection_read_request_headers,
                         NULL);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
-    {
-      return g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
-    }
-  else
-    {
-      return NULL;
-    }
+  return g_task_propagate_pointer (G_TASK (result), error);
 }
 
 /**
@@ -1119,22 +1160,17 @@ evd_http_connection_read_content (EvdHttpConnection   *self,
                                   gpointer             user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_http_connection_read_content);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_http_connection_read_content);
 
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
@@ -1142,15 +1178,14 @@ evd_http_connection_read_content (EvdHttpConnection   *self,
   if (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
       self->priv->content_len == 0)
     {
-      g_simple_async_result_set_op_res_gssize (res, 0);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_boolean (task, TRUE);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_assert (self->priv->pending_task == NULL);
+  self->priv->pending_task = task;
   evd_http_connection_read_content_block (self, buffer, size);
 }
 
@@ -1167,20 +1202,18 @@ evd_http_connection_read_content_finish (EvdHttpConnection  *self,
                                          GError            **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), -1);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                        G_OBJECT (self),
-                                        evd_http_connection_read_content),
+  g_return_val_if_fail (g_task_is_valid (result, self), -1);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_http_connection_read_content,
                         -1);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
+  if (g_task_propagate_boolean (G_TASK (result), error))
     {
       struct ContentReadData *data;
       gssize size = 0;
       gboolean _more = FALSE;
 
-      data =
-        g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
+      data = g_task_get_task_data (G_TASK (result));
 
       if (data != NULL)
         {
@@ -1213,22 +1246,17 @@ evd_http_connection_read_all_content (EvdHttpConnection   *self,
                                       gpointer             user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_http_connection_read_all_content);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_http_connection_read_all_content);
 
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
@@ -1237,8 +1265,8 @@ evd_http_connection_read_all_content (EvdHttpConnection   *self,
       (self->priv->encoding == SOUP_ENCODING_CONTENT_LENGTH &&
        self->priv->content_len == 0) )
     {
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_boolean (task, TRUE);
+      g_object_unref (task);
 
       return;
     }
@@ -1246,7 +1274,8 @@ evd_http_connection_read_all_content (EvdHttpConnection   *self,
   self->priv->content_read = 0;
   g_string_set_size (self->priv->buf, 0);
 
-  self->priv->async_result = res;
+  g_assert (self->priv->pending_task == NULL);
+  self->priv->pending_task = task;
   evd_http_connection_read_next_content_block (self);
 }
 
@@ -1263,13 +1292,12 @@ evd_http_connection_read_all_content_finish (EvdHttpConnection  *self,
                                              GError            **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), NULL);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                               G_OBJECT (self),
-                               evd_http_connection_read_all_content),
+  g_return_val_if_fail (g_task_is_valid (result, self), NULL);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_http_connection_read_all_content,
                         NULL);
 
-  if (! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                               error))
+  if (g_task_propagate_boolean (G_TASK (result), error))
     {
       gchar *str = NULL;
 
@@ -1500,7 +1528,7 @@ evd_http_connection_write_request_headers (EvdHttpConnection   *self,
                                            GAsyncReadyCallback  callback,
                                            gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   GOutputStream *stream;
   gchar *st;
   gsize size;
@@ -1509,23 +1537,19 @@ evd_http_connection_write_request_headers (EvdHttpConnection   *self,
   g_return_if_fail (EVD_IS_HTTP_CONNECTION (self));
   g_return_if_fail (EVD_IS_HTTP_REQUEST (request));
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_http_connection_write_request_headers);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_http_connection_write_request_headers);
 
   if (! g_io_stream_set_pending (G_IO_STREAM (self), &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
-
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_error (task, error);
+      g_object_unref (task);
 
       return;
     }
 
-  self->priv->async_result = res;
+  g_assert (self->priv->pending_task == NULL);
+  self->priv->pending_task = task;
 
   st = evd_http_request_to_string (request, &size);
 
@@ -1548,12 +1572,10 @@ evd_http_connection_write_request_headers_finish (EvdHttpConnection  *self,
                                                   GError            **error)
 {
   g_return_val_if_fail (EVD_IS_HTTP_CONNECTION (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                     G_OBJECT (self),
-                                     evd_http_connection_write_request_headers),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_http_connection_write_request_headers,
                         FALSE);
 
-  return
-    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                             error);
+  return g_task_propagate_boolean (G_TASK (result), error);
 }
