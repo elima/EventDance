@@ -487,26 +487,26 @@ evd_service_socket_on_listen (GObject      *obj,
                               GAsyncResult *result,
                               gpointer      user_data)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
+  GTask *task = G_TASK (user_data);
   EvdService *self;
   GError *error = NULL;
 
-  self = EVD_SERVICE (g_async_result_get_source_object (G_ASYNC_RESULT (res)));
+  self = EVD_SERVICE (g_async_result_get_source_object (G_ASYNC_RESULT (task)));
 
   if (! evd_socket_listen_finish (EVD_SOCKET (obj),
                                   result,
                                   &error))
     {
-      g_simple_async_result_take_error (res, error);
+      g_task_return_error (task, error);
     }
   else
     {
       evd_service_add_listener (self, EVD_SOCKET (obj));
       g_object_unref (obj);
+      g_task_return_boolean (task, TRUE);
     }
 
-  g_simple_async_result_complete (res);
-  g_object_unref (res);
+  g_object_unref (task);
 
   /* this is because g_async_result_get_source_object() increases reference
      count */
@@ -643,23 +643,21 @@ evd_service_listen (EvdService          *self,
                     gpointer             user_data)
 {
   EvdSocket *socket;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_SERVICE (self));
   g_return_if_fail (address != NULL);
 
   socket = evd_socket_new ();
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_service_listen);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_service_listen);
 
   evd_socket_listen (socket,
                      address,
                      cancellable,
                      evd_service_socket_on_listen,
-                     res);
+                     task);
 }
 
 gboolean
@@ -668,14 +666,13 @@ evd_service_listen_finish (EvdService    *self,
                            GError       **error)
 {
   g_return_val_if_fail (EVD_IS_SERVICE (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_service_listen),
+  g_return_val_if_fail (g_task_is_valid (result, self),
+                        FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_service_listen,
                         FALSE);
 
-  return
-    ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                             error);
+  return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 void
