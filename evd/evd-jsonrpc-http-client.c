@@ -44,7 +44,6 @@ typedef struct
 {
   EvdJsonrpcHttpClient *self;
   gchar *buf;
-  gpointer context;
   guint invocation_id;
   GCancellable *cancellable;
   JsonNode *json_result;
@@ -231,6 +230,9 @@ free_call_data (gpointer _data)
 
   g_free (data->buf);
 
+  if (data->cancellable != NULL)
+    g_object_unref (data->cancellable);
+
   if (data->json_result != NULL)
     json_node_free (data->json_result);
 
@@ -245,14 +247,14 @@ on_content_read (GObject      *obj,
                  GAsyncResult *result,
                  gpointer      user_data)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
+  GTask *task = G_TASK (user_data);
   EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
   GError *error = NULL;
   gchar *content;
   gssize size;
   CallData *data;
 
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  data = g_task_get_task_data (task);
 
   content = evd_http_connection_read_all_content_finish (conn,
                                                          result,
@@ -276,7 +278,7 @@ on_content_read (GObject      *obj,
     {
       if (! evd_jsonrpc_transport_receive (data->self->priv->rpc,
                                            content,
-                                           res,
+                                           task,
                                            data->invocation_id,
                                            NULL))
         {
@@ -286,6 +288,8 @@ on_content_read (GObject      *obj,
 
       g_free (content);
     }
+
+  g_object_unref (task);
 }
 
 static void
@@ -298,11 +302,11 @@ on_response_headers (GObject      *obj,
   guint status_code;
   gchar *reason;
   SoupMessageHeaders *headers;
-
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
   CallData *data;
 
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  GTask *task = G_TASK (user_data);
+
+  data = g_task_get_task_data (task);
 
   headers = evd_http_connection_read_response_headers_finish (conn,
                                                               result,
@@ -326,7 +330,7 @@ on_response_headers (GObject      *obj,
           evd_http_connection_read_all_content (conn,
                                                 NULL,
                                                 on_content_read,
-                                                user_data);
+                                                g_object_ref (task));
         }
       else
         {
@@ -349,6 +353,8 @@ on_response_headers (GObject      *obj,
     }
 
   evd_connection_unlock_close (EVD_CONNECTION (conn));
+
+  g_object_unref (task);
 }
 
 static void
@@ -358,10 +364,10 @@ on_request_sent (GObject      *obj,
 {
   EvdHttpConnection *conn = EVD_HTTP_CONNECTION (obj);
   GError *error = NULL;
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
   CallData *data;
+  GTask *task = G_TASK (user_data);
 
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  data = g_task_get_task_data (task);
 
   if (! evd_http_connection_write_request_headers_finish (conn,
                                                           result,
@@ -372,6 +378,8 @@ on_request_sent (GObject      *obj,
                                    data->invocation_id,
                                    error);
       g_error_free (error);
+
+      g_object_unref (task);
 
       return;
     }
@@ -394,18 +402,20 @@ on_request_sent (GObject      *obj,
       evd_http_connection_read_response_headers (conn,
                                                  data->cancellable,
                                                  on_response_headers,
-                                                 res);
+                                                 g_object_ref (task));
     }
+
+  g_object_unref (task);
 }
 
 static void
 do_request (EvdHttpConnection *conn, gpointer user_data)
 {
   SoupMessageHeaders *headers;
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
   CallData *data;
+  GTask *task = G_TASK (user_data);
 
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  data = g_task_get_task_data (task);
 
   headers =
     evd_http_message_get_headers (EVD_HTTP_MESSAGE
@@ -417,7 +427,9 @@ do_request (EvdHttpConnection *conn, gpointer user_data)
                                              data->self->priv->http_request,
                                              NULL,
                                              on_request_sent,
-                                             res);
+                                             g_object_ref (task));
+
+  g_object_unref (task);
 }
 
 static void
@@ -427,6 +439,8 @@ on_connection (GObject      *obj,
 {
   EvdHttpConnection *conn;
   GError *error = NULL;
+  GTask *task = G_TASK (user_data);
+  CallData *data = g_task_get_task_data (task);
 
   conn = EVD_HTTP_CONNECTION
     (evd_connection_pool_get_connection_finish (EVD_CONNECTION_POOL (obj),
@@ -434,22 +448,20 @@ on_connection (GObject      *obj,
                                                 &error));
   if (conn == NULL)
     {
-      GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
-      CallData *data;
-
-      data = g_simple_async_result_get_op_res_gpointer (res);
-
       /* notify JSON-RPC of transport error */
       evd_jsonrpc_transport_error (data->self->priv->rpc,
                                    data->invocation_id,
                                    error);
       g_error_free (error);
+
+      g_object_unref (task);
     }
   else
     {
-      do_request (conn, user_data);
+      do_request (conn, g_object_ref (task));
 
       g_object_unref (conn);
+      g_object_unref (task);
     }
 }
 
@@ -460,10 +472,8 @@ jsonrpc_on_send (EvdJsonrpc  *rpc,
                  guint        invocation_id,
                  gpointer     user_data)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_context);
-  CallData *data;
-
-  data = g_simple_async_result_get_op_res_gpointer (res);
+  GTask *task = G_TASK (user_context);
+  CallData *data = g_task_get_task_data (task);
 
   data->buf = g_strdup (buffer);
   data->invocation_id = invocation_id;
@@ -471,7 +481,7 @@ jsonrpc_on_send (EvdJsonrpc  *rpc,
   evd_connection_pool_get_connection (EVD_CONNECTION_POOL (data->self),
                                       data->cancellable,
                                       on_connection,
-                                      user_context);
+                                      g_object_ref (task));
 }
 
 static void
@@ -479,11 +489,9 @@ jsonrpc_on_method_call_result (GObject      *obj,
                                GAsyncResult *result,
                                gpointer      user_data)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (user_data);
-  CallData *data;
+  GTask *task = G_TASK (user_data);
+  CallData *data = g_task_get_task_data (task);
   GError *error = NULL;
-
-  data = g_simple_async_result_get_op_res_gpointer (res);
 
   if (! evd_jsonrpc_call_method_finish (EVD_JSONRPC (obj),
                                         result,
@@ -491,12 +499,14 @@ jsonrpc_on_method_call_result (GObject      *obj,
                                         &data->json_error,
                                         &error))
     {
-      g_simple_async_result_set_from_error (res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+    }
+  else
+    {
+      g_task_return_boolean (task, TRUE);
     }
 
-  g_simple_async_result_complete (res);
-  g_object_unref (res);
+  g_object_unref (task);
 }
 
 /* public methods */
@@ -548,32 +558,29 @@ evd_jsonrpc_http_client_call_method (EvdJsonrpcHttpClient *self,
                                      gpointer              user_data)
 {
   CallData *data;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_JSONRPC_HTTP_CLIENT (self));
   g_return_if_fail (method != NULL);
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_jsonrpc_http_client_call_method);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_jsonrpc_http_client_call_method);
 
   data = g_slice_new0 (CallData);
-  data->cancellable = cancellable;
+  if (cancellable != NULL)
+    data->cancellable = g_object_ref (cancellable);
   data->self = self;
   g_object_ref (self);
 
-  g_simple_async_result_set_op_res_gpointer (res,
-                                             data,
-                                             free_call_data);
+  g_task_set_task_data (task, data, free_call_data);
 
   evd_jsonrpc_call_method (self->priv->rpc,
                            method,
                            params,
-                           res,
+                           task,
                            cancellable,
                            jsonrpc_on_method_call_result,
-                           res);
+                           g_object_ref (task));
 }
 
 /**
@@ -589,36 +596,38 @@ evd_jsonrpc_http_client_call_method_finish (EvdJsonrpcHttpClient  *self,
                                             JsonNode             **json_error,
                                             GError               **error)
 {
-  GSimpleAsyncResult *res = G_SIMPLE_ASYNC_RESULT (result);
-
   g_return_val_if_fail (EVD_IS_JSONRPC_HTTP_CLIENT (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                           G_OBJECT (self),
-                                           evd_jsonrpc_http_client_call_method),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_jsonrpc_http_client_call_method,
                         FALSE);
 
-  if (! g_simple_async_result_propagate_error (res, error))
+  if (! g_task_propagate_boolean (G_TASK (result), error))
+    return FALSE;
+
+  CallData *data = g_task_get_task_data (G_TASK (result));
+
+  if (json_result != NULL)
     {
-      CallData *data;
-
-      data = g_simple_async_result_get_op_res_gpointer (res);
-
-      if (json_result != NULL)
-        {
-          *json_result = data->json_result;
-          data->json_result = NULL;
-        }
-
-      if (json_error != NULL)
-        {
-          *json_error = data->json_error;
-          data->json_error = NULL;
-        }
-
-      return TRUE;
+      *json_result = data->json_result;
+      data->json_result = NULL;
     }
-  else
+  else if (data->json_result != NULL)
     {
-      return FALSE;
+      json_node_free (data->json_result);
+      data->json_result = NULL;
     }
+
+  if (json_error != NULL)
+    {
+      *json_error = data->json_error;
+      data->json_error = NULL;
+    }
+  else if (data->json_error != NULL)
+    {
+      json_node_free (data->json_error);
+      data->json_error = NULL;
+    }
+
+  return TRUE;
 }

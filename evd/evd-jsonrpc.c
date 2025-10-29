@@ -61,7 +61,7 @@ typedef struct
 
 typedef struct
 {
-  GSimpleAsyncResult *result;
+  GTask *task;
   JsonNode *remote_id;
   gpointer context;
 } InvocationData;
@@ -308,7 +308,7 @@ evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
   JsonNode *error_node;
   MethodResponse *data;
   InvocationData *inv_data;
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   id_node = json_object_get_member (msg, "id");
   id = json_node_get_string (id_node);
@@ -322,8 +322,8 @@ evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
       return;
     }
 
-  res = inv_data->result;
-  g_object_ref (res);
+  task = inv_data->task;
+  g_object_ref (task);
   g_hash_table_remove (self->priv->invocations, id);
 
   result_node = json_object_get_member (msg, "result");
@@ -332,26 +332,24 @@ evd_jsonrpc_on_method_result (EvdJsonrpc  *self,
   if (! (json_node_is_null (result_node) || json_node_is_null (error_node)))
     {
       /* protocol error, one of 'result' or 'error' should be null */
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_INVALID_DATA,
-                                       "Protocol error, invalid JSON-RPC response message: one or 'result' or 'error' must be null");
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_INVALID_DATA,
+                               "Protocol error, invalid JSON-RPC response message: one or 'result' or 'error' must be null");
     }
   else
     {
       data = g_slice_new0 (MethodResponse);
-      g_simple_async_result_set_op_res_gpointer (res,
-                                                 data,
-                                                 free_method_response_data);
 
       if (! json_node_is_null (result_node))
         data->result = json_node_copy (result_node);
       else
         data->error = json_node_copy (error_node);
+
+      g_task_return_pointer (task, data, (GDestroyNotify) free_method_response_data);
     }
 
-  g_simple_async_result_complete (res);
-  g_object_unref (res);
+  g_object_unref (task);
 }
 
 static void
@@ -575,8 +573,8 @@ evd_jsonrpc_respond_full (EvdJsonrpc  *self,
 static void
 free_invocation_data (InvocationData *data)
 {
-  if (data->result != NULL)
-    g_object_unref (data->result);
+  if (data->task != NULL)
+    g_object_unref (data->task);
 
   if (data->remote_id != NULL)
     json_node_free (data->remote_id);
@@ -635,13 +633,11 @@ evd_jsonrpc_transport_error (EvdJsonrpc *self,
       return;
     }
 
-  if (inv_data->result != NULL)
+  if (inv_data->task != NULL)
     {
-      GSimpleAsyncResult *res = inv_data->result;
-
-      g_simple_async_result_set_from_error (res, error);
-
-      g_simple_async_result_complete_in_idle (res);
+      g_task_return_error (inv_data->task, g_error_copy (error));
+      g_object_unref (inv_data->task);
+      inv_data->task = NULL;
     }
   else
     {
@@ -667,7 +663,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
                          GAsyncReadyCallback  callback,
                          gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
   gchar *msg;
   guint id;
   gchar *id_st;
@@ -677,20 +673,17 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
   g_return_if_fail (EVD_IS_JSONRPC (self));
   g_return_if_fail (method_name != NULL);
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_jsonrpc_call_method);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_jsonrpc_call_method);
 
   if ((context == NULL || ! EVD_IS_PEER (context)) &&
       self->priv->send_cb == NULL)
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_CLOSED,
-                                       "Failed to call method, no transport associated");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_CLOSED,
+                               "Failed to call method, no transport associated");
+      g_object_unref (task);
       return;
     }
 
@@ -699,7 +692,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
   id_st = g_strdup_printf ("%u", id);
 
   inv_data = g_slice_new0 (InvocationData);
-  inv_data->result = res;
+  inv_data->task = g_object_ref (task);
   inv_data->context = context;
 
   g_hash_table_insert (self->priv->invocations, id_st, inv_data);
@@ -722,6 +715,7 @@ evd_jsonrpc_call_method (EvdJsonrpc          *self,
                                id);
 
   g_free (msg);
+  g_object_unref (task);
 }
 
 /**
@@ -738,34 +732,33 @@ evd_jsonrpc_call_method_finish (EvdJsonrpc    *self,
                                 JsonNode     **error_json,
                                 GError       **error)
 {
-  GSimpleAsyncResult *res;
-
   g_return_val_if_fail (EVD_IS_JSONRPC (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_jsonrpc_call_method),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_jsonrpc_call_method,
                         FALSE);
 
-  res = G_SIMPLE_ASYNC_RESULT (result);
+  MethodResponse *data;
 
-  if (! g_simple_async_result_propagate_error (res, error))
-    {
-      MethodResponse *data;
+  data = g_task_propagate_pointer (G_TASK (result), error);
+  if (data == NULL)
+    return FALSE;
 
-      data = g_simple_async_result_get_op_res_gpointer (res);
+  if (result_json != NULL)
+    *result_json = data->result;
+  else if (data->result != NULL)
+    json_node_free (data->result);
+  data->result = NULL;
 
-      if (result_json != NULL)
-        *result_json = data->result;
-      data->result = NULL;
+  if (error_json != NULL)
+    *error_json = data->error;
+  else if (data->error != NULL)
+    json_node_free (data->error);
+  data->error = NULL;
 
-      if (error_json != NULL)
-        *error_json = data->error;
-      data->error = NULL;
+  free_method_response_data (data);
 
-      return TRUE;
-    }
-  else
-      return FALSE;
+  return TRUE;
 }
 
 gboolean
