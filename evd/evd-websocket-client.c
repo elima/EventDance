@@ -48,7 +48,7 @@ typedef struct
   gchar *address;
   EvdConnectionPool *pool;
   EvdPeer *peer;
-  GSimpleAsyncResult *async_result;
+  GTask *open_task;
   GCancellable *cancellable;
   gchar *handshake_key;
   SoupMessageHeaders *res_headers;
@@ -94,7 +94,7 @@ static gboolean transport_reject_peer                     (EvdTransport *transpo
 
 static void     transport_open                            (EvdTransport       *self,
                                                            const gchar        *address,
-                                                           GSimpleAsyncResult *async_result,
+                                                           GTask              *task,
                                                            GCancellable       *cancellable);
 
 static void     retry_connection                          (ConnectionData *data);
@@ -458,6 +458,15 @@ free_connection_data (ConnectionData *data)
   if (data->res_headers != NULL)
     soup_message_headers_unref (data->res_headers);
 
+  if (data->open_task != NULL)
+    {
+      g_task_return_new_error (data->open_task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_FAILED,
+                               "Websocket client connection aborted");
+      g_object_unref (data->open_task);
+    }
+
   g_slice_free (ConnectionData, data);
 }
 
@@ -554,14 +563,19 @@ on_handshake_response (GObject      *obj,
   resolve_peer_and_validate (conn_data->self, conn);
 
  out:
-  if (conn_data->async_result != NULL)
+  if (conn_data->open_task != NULL)
     {
       if (error != NULL)
-        g_simple_async_result_take_error (conn_data->async_result, error);
+        g_task_return_error (conn_data->open_task, error);
+      else
+        g_task_return_boolean (conn_data->open_task, TRUE);
 
-      g_simple_async_result_complete (conn_data->async_result);
-      g_object_unref (conn_data->async_result);
-      conn_data->async_result = NULL;
+      g_object_unref (conn_data->open_task);
+      conn_data->open_task = NULL;
+    }
+  else if (error != NULL)
+    {
+      g_error_free (error);
     }
 
   g_free (conn_data->handshake_key);
@@ -672,7 +686,7 @@ get_connection (EvdConnectionPool *pool,
 static void
 transport_open (EvdTransport       *transport,
                 const gchar        *address,
-                GSimpleAsyncResult *async_result,
+                GTask              *task,
                 GCancellable       *cancellable)
 {
   GUri *uri;
@@ -683,12 +697,11 @@ transport_open (EvdTransport       *transport,
   uri = g_uri_parse (address, SOUP_HTTP_URI_FLAGS | G_URI_FLAGS_PARSE_RELAXED, NULL);
   if (uri == NULL)
     {
-      g_simple_async_result_set_error (async_result,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_INVALID_ARGUMENT,
-                                       "Websocket URI is invalid");
-      g_simple_async_result_complete_in_idle (async_result);
-      g_object_unref (async_result);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_INVALID_ARGUMENT,
+                               "Websocket URI is invalid");
+      g_object_unref (task);
 
       return;
     }
@@ -696,12 +709,11 @@ transport_open (EvdTransport       *transport,
   /* validate URI scheme */
   if (g_strcmp0 (g_uri_get_scheme (uri), "ws") != 0 && g_strcmp0 (g_uri_get_scheme (uri), "wss") != 0)
     {
-      g_simple_async_result_set_error (async_result,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_INVALID_ARGUMENT,
-                                       "Websocket URI scheme is invalid");
-      g_simple_async_result_complete_in_idle (async_result);
-      g_object_unref (async_result);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_INVALID_ARGUMENT,
+                               "Websocket URI scheme is invalid");
+      g_object_unref (task);
 
       goto out;
     }
@@ -710,8 +722,8 @@ transport_open (EvdTransport       *transport,
 
   data->self = g_object_ref (self);
   data->address = g_strdup (address);
-  data->async_result = async_result;
-  if (data->cancellable)
+  data->open_task = task;
+  if (cancellable != NULL)
     data->cancellable = g_object_ref (cancellable);
 
   /* connection pool */

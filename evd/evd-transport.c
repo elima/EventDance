@@ -607,31 +607,28 @@ evd_transport_open (EvdTransport        *self,
                     GAsyncReadyCallback  callback,
                     gpointer             user_data)
 {
-  GSimpleAsyncResult *res;
+  GTask *task;
 
   g_return_if_fail (EVD_IS_TRANSPORT (self));
   g_return_if_fail (address != NULL && address[0] != '\0');
 
-  res = g_simple_async_result_new (G_OBJECT (self),
-                                   callback,
-                                   user_data,
-                                   evd_transport_open);
+  task = g_task_new (self, cancellable, callback, user_data);
+  g_task_set_source_tag (task, evd_transport_open);
 
   if (EVD_TRANSPORT_GET_INTERFACE (self)->open != NULL)
     {
       EVD_TRANSPORT_GET_INTERFACE (self)->open (self,
                                                 address,
-                                                res,
+                                                task,
                                                 cancellable);
     }
   else
     {
-      g_simple_async_result_set_error (res,
-                                       G_IO_ERROR,
-                                       G_IO_ERROR_NOT_SUPPORTED,
-                                       "Method open() not implemented in transport");
-      g_simple_async_result_complete_in_idle (res);
-      g_object_unref (res);
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_NOT_SUPPORTED,
+                               "Method open() not implemented in transport");
+      g_object_unref (task);
     }
 }
 
@@ -641,11 +638,10 @@ evd_transport_open_finish (EvdTransport  *self,
                            GError       **error)
 {
   g_return_val_if_fail (EVD_IS_TRANSPORT (self), FALSE);
-  g_return_val_if_fail (g_simple_async_result_is_valid (result,
-                                                        G_OBJECT (self),
-                                                        evd_transport_open),
+  g_return_val_if_fail (g_task_is_valid (result, self), FALSE);
+  g_return_val_if_fail (g_task_get_source_tag (G_TASK (result)) ==
+                        evd_transport_open,
                         FALSE);
 
-  return ! g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (result),
-                                                  error);
+  return g_task_propagate_boolean (G_TASK (result), error);
 }

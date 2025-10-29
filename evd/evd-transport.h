@@ -76,7 +76,7 @@ struct _EvdTransportInterface
 
   void      (* open)                 (EvdTransport       *self,
                                       const gchar        *address,
-                                      GSimpleAsyncResult *async_result,
+                                      GTask              *task,
                                       GCancellable       *cancellable);
 
   /* signals */

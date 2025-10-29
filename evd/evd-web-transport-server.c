@@ -110,7 +110,7 @@ static void     evd_web_transport_server_get_property         (GObject    *obj,
 
 static void     evd_web_transport_server_open                 (EvdTransport       *transport,
                                                                const gchar        *address,
-                                                               GSimpleAsyncResult *async_result,
+                                                               GTask              *task,
                                                                GCancellable       *cancellable);
 
 static gboolean evd_web_transport_server_send                 (EvdTransport    *transport,
@@ -905,29 +905,30 @@ evd_web_transport_server_on_open (GObject      *obj,
                                   gpointer      user_data)
 {
   GError *error = NULL;
-  GSimpleAsyncResult *orig_res = G_SIMPLE_ASYNC_RESULT (user_data);
+  GTask *task = G_TASK (user_data);
 
   if (! evd_service_listen_finish (EVD_SERVICE (obj), res, &error))
     {
-      g_simple_async_result_set_from_error (orig_res, error);
-      g_error_free (error);
+      g_task_return_error (task, error);
+      g_object_unref (task);
+      return;
     }
 
-  g_simple_async_result_complete (orig_res);
-  g_object_unref (orig_res);
+  g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 static void
 evd_web_transport_server_open (EvdTransport       *transport,
                                const gchar        *address,
-                               GSimpleAsyncResult *async_result,
+                               GTask              *task,
                                GCancellable       *cancellable)
 {
   evd_service_listen (EVD_SERVICE (transport),
                       address,
                       cancellable,
                       evd_web_transport_server_on_open,
-                      async_result);
+                      task);
 }
 
 /* public methods */
