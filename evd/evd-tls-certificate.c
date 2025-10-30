@@ -21,7 +21,6 @@
  */
 
 #include <gnutls/x509.h>
-#include <gnutls/openpgp.h>
 #include <gnutls/abstract.h>
 
 #include "evd-error.h"
@@ -32,7 +31,6 @@
 struct _EvdTlsCertificatePrivate
 {
   gnutls_x509_crt_t    x509_cert;
-  gnutls_openpgp_crt_t openpgp_cert;
 
   EvdTlsCertificateType type;
 
@@ -79,9 +77,9 @@ evd_tls_certificate_class_init (EvdTlsCertificateClass *class)
   g_object_class_install_property (obj_class, PROP_TYPE,
                                    g_param_spec_uint ("type",
                                                       "Certificate type",
-                                                      "The type of certificate (X.509 or OPENPGP)",
+                                                      "The type of certificate",
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
-                                                      EVD_TLS_CERTIFICATE_TYPE_OPENPGP,
+                                                      EVD_TLS_CERTIFICATE_TYPE_X509,
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
@@ -95,8 +93,7 @@ evd_tls_certificate_init (EvdTlsCertificate *self)
   priv = evd_tls_certificate_get_instance_private (self);
   self->priv = priv;
 
-  priv->x509_cert    = NULL;
-  priv->openpgp_cert = NULL;
+  priv->x509_cert = NULL;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 
@@ -151,13 +148,6 @@ evd_tls_certificate_cleanup (EvdTlsCertificate *self)
       self->priv->x509_cert = NULL;
     }
 
-  if (self->priv->openpgp_cert != NULL)
-    {
-      if (! self->priv->native_stolen)
-        gnutls_openpgp_crt_deinit (self->priv->openpgp_cert);
-      self->priv->openpgp_cert = NULL;
-    }
-
   self->priv->native_stolen = FALSE;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
@@ -168,8 +158,6 @@ evd_tls_certificate_detect_type (const gchar *raw_data)
 {
   if (g_strstr_len (raw_data, 22, "BEGIN CERTIFICATE") != NULL)
     return EVD_TLS_CERTIFICATE_TYPE_X509;
-  else if (g_strstr_len (raw_data, 22, "BEGIN PGP ") != NULL)
-    return EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
   else
     return EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
@@ -280,36 +268,6 @@ evd_tls_certificate_import (EvdTlsCertificate  *self,
         break;
       }
 
-    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
-      {
-        gint err_code;
-        gnutls_openpgp_crt_t cert;
-
-        err_code = gnutls_openpgp_crt_init (&cert);
-
-        if (err_code == GNUTLS_E_SUCCESS)
-          {
-            gnutls_datum_t datum = { NULL, 0 };
-
-            datum.data = (void *) raw_data;
-            datum.size = size;
-
-            err_code = gnutls_openpgp_crt_import (cert, &datum, GNUTLS_OPENPGP_FMT_BASE64);
-          }
-
-        if (! evd_error_propagate_gnutls (err_code, error))
-          {
-            evd_tls_certificate_cleanup (self);
-
-            self->priv->openpgp_cert = cert;
-            self->priv->type = EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
-
-            return TRUE;
-          }
-
-        break;
-      }
-
     default:
       {
         /* probe DER format */
@@ -385,8 +343,6 @@ evd_tls_certificate_get_native (EvdTlsCertificate *self)
 
   if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
     return self->priv->x509_cert;
-  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
-    return self->priv->openpgp_cert;
   else
     return NULL;
 }
@@ -442,30 +398,6 @@ evd_tls_certificate_get_dn (EvdTlsCertificate *self, GError **error)
         break;
       }
 
-    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
-      {
-        gchar *buf = NULL;
-        gsize size = 1;
-
-        buf = g_new (gchar, 1);
-
-        ret = gnutls_openpgp_crt_get_name (self->priv->openpgp_cert, 0, buf, &size);
-        if (ret == GNUTLS_E_SHORT_MEMORY_BUFFER)
-          {
-            g_free (buf);
-            buf = g_new (gchar, size);
-            ret = gnutls_openpgp_crt_get_name (self->priv->openpgp_cert, 0, buf, &size);
-            if (ret == GNUTLS_E_SUCCESS)
-              dn = buf;
-          }
-        else
-          {
-            evd_error_propagate_gnutls (ret, error);
-          }
-
-        break;
-      }
-
     default:
       if (error != NULL)
         *error = g_error_new (G_IO_ERROR,
@@ -499,17 +431,6 @@ evd_tls_certificate_get_expiration_time (EvdTlsCertificate  *self,
         break;
       }
 
-    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
-      {
-        time = gnutls_openpgp_crt_get_expiration_time (self->priv->openpgp_cert);
-        if (time == -1 && error != NULL)
-          *error = g_error_new (G_IO_ERROR,
-                                G_IO_ERROR_INVALID_DATA,
-                                "Failed to obtain expiration time from OpenPGP certificate");
-
-        break;
-      }
-
     default:
       if (error != NULL)
         *error = g_error_new (G_IO_ERROR,
@@ -539,17 +460,6 @@ evd_tls_certificate_get_activation_time (EvdTlsCertificate  *self,
           *error = g_error_new (G_IO_ERROR,
                                 G_IO_ERROR_INVALID_DATA,
                                 "Failed to obtain activation time from X.509 certificate");
-
-        break;
-      }
-
-    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
-      {
-        time = gnutls_openpgp_crt_get_creation_time (self->priv->openpgp_cert);
-        if (time == -1 && error != NULL)
-          *error = g_error_new (G_IO_ERROR,
-                                G_IO_ERROR_INVALID_DATA,
-                                "Failed to obtain activation time from OpenPGP certificate");
 
         break;
       }
@@ -621,10 +531,15 @@ evd_tls_certificate_get_pki_key (EvdTlsCertificate *self, GError **error)
 
   if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
     err_code = gnutls_pubkey_import_x509 (pubkey, self->priv->x509_cert, 0);
-  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
-    err_code = gnutls_pubkey_import_openpgp (pubkey,
-                                             self->priv->openpgp_cert,
-                                             0);
+  else
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
+                           "Unsupported certificate type");
+      gnutls_pubkey_deinit (pubkey);
+      return NULL;
+    }
 
   if (evd_error_propagate_gnutls (err_code, error))
     {

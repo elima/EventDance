@@ -59,12 +59,8 @@ function testX509Import (Assert) {
     Assert.equal (cert.verify_validity (), Evd.TlsVerifyState.OK);
 
     let [result, rawPem] = Glib.file_get_contents ("certs/openpgp-server.asc");
-    Assert.ok (cert.import (rawPem, rawPem.length));
-    Assert.equal (cert.type, Evd.TlsCertificateType.OPENPGP);
-    Assert.equal (cert.get_dn (), "EventDance (Evd) <test@eventdance.org>");
-    Assert.equal (cert.get_expiration_time () * 1000, new Date ("Tue May 12 2015 16:13:11 GMT+0200 (CET)").valueOf ());
-    Assert.equal (cert.get_activation_time () * 1000, new Date ("Thu May 13 2010 16:13:11 GMT+0200 (CET)").valueOf ());
-    Assert.equal (cert.verify_validity (), Evd.TlsVerifyState.OK);
+    Assert.ok (!cert.import (rawPem, rawPem.length));
+    Assert.equal (cert.type, Evd.TlsCertificateType.X509);
 }
 
 Evd.tls_init ();

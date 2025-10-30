@@ -1,0 +1,5 @@
+EventDance 0.3.0 (UNRELEASED)
+================================
+
+- Drop OpenPGP certificate/key support from the TLS stack. EventDance now
+  accepts only X.509 assets when importing certificates and private keys.

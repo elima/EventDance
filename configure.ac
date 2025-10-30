@@ -30,7 +30,7 @@ m4_define([prj_home],       [http://eventdance.org])
 # odd micro numbers indicate in-progress development
 # even micro numbers indicate released versions
 m4_define([prj_version_major], [0])
-m4_define([prj_version_minor], [2])
+m4_define([prj_version_minor], [3])
 m4_define([prj_version_micro], [0])
 
 m4_define([prj_version],
@@ -135,7 +135,7 @@ AM_CONDITIONAL(ENABLE_DEBUG, test x"${enable_debug}" = x"yes")
 AC_OUTPUT([
 	Makefile
 	evd/Makefile
-	evd/evd-0.2.pc
+	evd/evd-0.3.pc
 	tests/Makefile
         doc/Makefile
         doc/reference/Makefile

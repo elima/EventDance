@@ -21,8 +21,6 @@
  */
 
 #include <gnutls/x509.h>
-#include <gnutls/openpgp.h>
-
 #include "evd-tls-privkey.h"
 
 #include "evd-error.h"
@@ -32,7 +30,6 @@
 struct _EvdTlsPrivkeyPrivate
 {
   gnutls_x509_privkey_t x509_privkey;
-  gnutls_openpgp_privkey_t openpgp_privkey;
 
   EvdTlsCertificateType type;
 
@@ -79,9 +76,9 @@ evd_tls_privkey_class_init (EvdTlsPrivkeyClass *class)
   g_object_class_install_property (obj_class, PROP_TYPE,
                                    g_param_spec_uint ("type",
                                                       "Privkey type",
-                                                      "The type of privkey (X.509 or OPENPGP)",
+                                                      "The type of privkey",
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
-                                                      EVD_TLS_CERTIFICATE_TYPE_OPENPGP,
+                                                      EVD_TLS_CERTIFICATE_TYPE_X509,
                                                       EVD_TLS_CERTIFICATE_TYPE_UNKNOWN,
                                                       G_PARAM_READABLE |
                                                       G_PARAM_STATIC_STRINGS));
@@ -96,7 +93,6 @@ evd_tls_privkey_init (EvdTlsPrivkey *self)
   self->priv = priv;
 
   priv->x509_privkey = NULL;
-  priv->openpgp_privkey = NULL;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 
@@ -151,13 +147,6 @@ evd_tls_privkey_cleanup (EvdTlsPrivkey *self)
       self->priv->x509_privkey = NULL;
     }
 
-  if (self->priv->openpgp_privkey != NULL)
-    {
-      if (! self->priv->native_stolen)
-        gnutls_openpgp_privkey_deinit (self->priv->openpgp_privkey);
-      self->priv->openpgp_privkey = NULL;
-    }
-
   self->priv->native_stolen = FALSE;
 
   self->priv->type = EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
@@ -168,8 +157,6 @@ evd_tls_privkey_detect_type (const gchar *raw_data)
 {
   if (g_strstr_len (raw_data, 26, "BEGIN RSA PRIVATE KEY") != NULL)
     return EVD_TLS_CERTIFICATE_TYPE_X509;
-  else if (g_strstr_len (raw_data, 32, "BEGIN PGP PRIVATE KEY BLOCK") != NULL)
-    return EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
   else
     return EVD_TLS_CERTIFICATE_TYPE_UNKNOWN;
 }
@@ -280,40 +267,6 @@ evd_tls_privkey_import (EvdTlsPrivkey  *self,
         break;
       }
 
-    case EVD_TLS_CERTIFICATE_TYPE_OPENPGP:
-      {
-        gint err_code;
-        gnutls_openpgp_privkey_t privkey;
-
-        err_code = gnutls_openpgp_privkey_init (&privkey);
-
-        if (err_code == GNUTLS_E_SUCCESS)
-          {
-            gnutls_datum_t datum = { NULL, 0 };
-
-            datum.data = (void *) raw_data;
-            datum.size = size;
-
-            err_code = gnutls_openpgp_privkey_import (privkey,
-                                                      &datum,
-                                                      GNUTLS_OPENPGP_FMT_BASE64,
-                                                      NULL,
-                                                      0);
-          }
-
-        if (! evd_error_propagate_gnutls (err_code, error))
-          {
-            evd_tls_privkey_cleanup (self);
-
-            self->priv->openpgp_privkey = privkey;
-            self->priv->type = EVD_TLS_CERTIFICATE_TYPE_OPENPGP;
-
-            return TRUE;
-          }
-
-        break;
-      }
-
     default:
       {
         /* probe DER format */
@@ -389,8 +342,6 @@ evd_tls_privkey_get_native (EvdTlsPrivkey *self)
 
   if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_X509)
     return self->priv->x509_privkey;
-  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
-    return self->priv->openpgp_privkey;
   else
     return NULL;
 }
@@ -446,10 +397,15 @@ evd_tls_privkey_get_pki_key (EvdTlsPrivkey *self, GError **error)
     err_code = gnutls_privkey_import_x509 (privkey,
                                            self->priv->x509_privkey,
                                            GNUTLS_PRIVKEY_IMPORT_COPY);
-  else if (self->priv->type == EVD_TLS_CERTIFICATE_TYPE_OPENPGP)
-    err_code = gnutls_privkey_import_openpgp (privkey,
-                                              self->priv->openpgp_privkey,
-                                              GNUTLS_PRIVKEY_IMPORT_COPY);
+  else
+    {
+      g_set_error_literal (error,
+                           G_IO_ERROR,
+                           G_IO_ERROR_INVALID_DATA,
+                           "Unsupported private key type");
+      gnutls_privkey_deinit (privkey);
+      return NULL;
+    }
 
   if (evd_error_propagate_gnutls (err_code, error))
     {

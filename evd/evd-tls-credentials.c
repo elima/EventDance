@@ -20,7 +20,6 @@
  * for more details.
  */
 
-#include <gnutls/openpgp.h>
 #include <gnutls/x509.h>
 
 #include "evd-tls-credentials.h"
@@ -51,7 +50,6 @@ struct _EvdTlsCredentialsPrivate
   guint async_ops_count;
 
   GList *x509_privkeys;
-  GList *openpgp_privkeys;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (EvdTlsCredentials,
@@ -98,7 +96,6 @@ static void     evd_tls_credentials_get_property       (GObject    *obj,
                                                         GParamSpec *pspec);
 
 static void     evd_tls_credentials_free_x509_key      (gpointer data);
-static void     evd_tls_credentials_free_openpgp_key   (gpointer data);
 
 static void
 evd_tls_credentials_class_init (EvdTlsCredentialsClass *class)
@@ -156,7 +153,6 @@ evd_tls_credentials_init (EvdTlsCredentials *self)
   priv->async_ops_count = 0;
 
   priv->x509_privkeys = NULL;
-  priv->openpgp_privkeys = NULL;
 }
 
 static void
@@ -187,8 +183,6 @@ evd_tls_credentials_finalize (GObject *obj)
 
   g_list_free_full (self->priv->x509_privkeys,
                     evd_tls_credentials_free_x509_key);
-  g_list_free_full (self->priv->openpgp_privkeys,
-                    evd_tls_credentials_free_openpgp_key);
 
   G_OBJECT_CLASS (evd_tls_credentials_parent_class)->finalize (obj);
 }
@@ -252,12 +246,6 @@ static void
 evd_tls_credentials_free_x509_key (gpointer data)
 {
   gnutls_x509_privkey_deinit (data);
-}
-
-static void
-evd_tls_credentials_free_openpgp_key (gpointer data)
-{
-  gnutls_openpgp_privkey_deinit (data);
 }
 
 static gint
@@ -533,15 +521,20 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       return FALSE;
     }
 
+  if (cert_type != EVD_TLS_CERTIFICATE_TYPE_X509)
+    {
+      g_set_error (error,
+                   G_IO_ERROR,
+                   G_IO_ERROR_NOT_SUPPORTED,
+                   "Only X.509 certificates are supported");
+      return FALSE;
+    }
+
   _cert = evd_tls_certificate_get_native (cert);
   _privkey = evd_tls_privkey_steal_native (privkey);
 
-  if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
-    self->priv->x509_privkeys = g_list_append (self->priv->x509_privkeys,
-                                               _privkey);
-  else
-    self->priv->openpgp_privkeys = g_list_append (self->priv->openpgp_privkeys,
-                                                  _privkey);
+  self->priv->x509_privkeys = g_list_append (self->priv->x509_privkeys,
+                                             _privkey);
 
   if (_cert == NULL || _privkey == NULL)
     {
@@ -571,18 +564,9 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
           self->priv->cert_cb_certs[ret_st->ncerts] = _cert;
           ret_st->ncerts++;
 
-          if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
-            {
-              ret_st->cert_type = GNUTLS_CRT_X509;
-              ret_st->cert.x509 = (gnutls_x509_crt_t *) self->priv->cert_cb_certs;
-              ret_st->key.x509 = (gnutls_x509_privkey_t) _privkey;
-            }
-          else
-            {
-              ret_st->cert_type = GNUTLS_CRT_OPENPGP;
-              ret_st->cert.pgp = (gnutls_openpgp_crt_t) _cert;
-              ret_st->key.pgp = (gnutls_openpgp_privkey_t) _privkey;
-            }
+          ret_st->cert_type = GNUTLS_CRT_X509;
+          ret_st->cert.x509 = (gnutls_x509_crt_t *) self->priv->cert_cb_certs;
+          ret_st->key.x509 = (gnutls_x509_privkey_t) _privkey;
         }
     }
   else
@@ -592,19 +576,10 @@ evd_tls_credentials_add_certificate (EvdTlsCredentials  *self,
       if (self->priv->cred == NULL)
         gnutls_certificate_allocate_credentials (&self->priv->cred);
 
-      if (cert_type == EVD_TLS_CERTIFICATE_TYPE_X509)
-        {
-          err_code = gnutls_certificate_set_x509_key (self->priv->cred,
-                                                      (gnutls_x509_crt_t *) &_cert,
-                                                      1,
-                                                      (gnutls_x509_privkey_t) _privkey);
-        }
-      else
-        {
-          err_code = gnutls_certificate_set_openpgp_key (self->priv->cred,
-                                                         (gnutls_openpgp_crt_t) _cert,
-                                                         (gnutls_openpgp_privkey_t) _privkey);
-        }
+      err_code = gnutls_certificate_set_x509_key (self->priv->cred,
+                                                  (gnutls_x509_crt_t *) &_cert,
+                                                  1,
+                                                  (gnutls_x509_privkey_t) _privkey);
 
       if (evd_error_propagate_gnutls (err_code, error))
         return FALSE;
